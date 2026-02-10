@@ -1,0 +1,4 @@
+[
+  { "_id": { "$oid": "65c8f4d5f1a2f1a2f1a2f1d1" }, "userId": { "$oid": "65c8f1a2f1a2f1a2f1a2f1a1" }, "category": "groceries", "limit": 300.00, "currency": "EUR", "month": "2024-02" },
+  { "_id": { "$oid": "65c8f4d5f1a2f1a2f1a2f1d2" }, "userId": { "$oid": "65c8f1a2f1a2f1a2f1a2f1a2" }, "category": "transport", "limit": 120.00, "currency": "EUR", "month": "2024-02" }
+]
