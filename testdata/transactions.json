@@ -1,5 +1,0 @@
-[
-  { "_id": { "$oid": "65c8f3c4f1a2f1a2f1a2f1c1" }, "accountId": { "$oid": "65c8f2b3f1a2f1a2f1a2f1b1" }, "type": "expense", "category": "groceries", "amount": 45.20, "currency": "EUR", "date": { "$date": "2024-02-01T08:10:00Z" }, "note": "Supermarket" },
-  { "_id": { "$oid": "65c8f3c4f1a2f1a2f1a2f1c2" }, "accountId": { "$oid": "65c8f2b3f1a2f1a2f1a2f1b1" }, "type": "income", "category": "salary", "amount": 2200.00, "currency": "EUR", "date": { "$date": "2024-02-01T12:00:00Z" }, "note": "Monthly salary" },
-  { "_id": { "$oid": "65c8f3c4f1a2f1a2f1a2f1c3" }, "accountId": { "$oid": "65c8f2b3f1a2f1a2f1a2f1b3" }, "type": "expense", "category": "transport", "amount": 18.90, "currency": "EUR", "date": { "$date": "2024-02-03T18:45:00Z" }, "note": "Train ticket" }
-]

@@ -1,5 +1,0 @@
-[
-  { "_id": { "$oid": "65c8f2b3f1a2f1a2f1a2f1b1" }, "userId": { "$oid": "65c8f1a2f1a2f1a2f1a2f1a1" }, "name": "Checking", "balance": 1250.50, "currency": "EUR" },
-  { "_id": { "$oid": "65c8f2b3f1a2f1a2f1a2f1b2" }, "userId": { "$oid": "65c8f1a2f1a2f1a2f1a2f1a1" }, "name": "Savings", "balance": 5400.00, "currency": "EUR" },
-  { "_id": { "$oid": "65c8f2b3f1a2f1a2f1a2f1b3" }, "userId": { "$oid": "65c8f1a2f1a2f1a2f1a2f1a2" }, "name": "Checking", "balance": 320.75, "currency": "EUR" }
-]

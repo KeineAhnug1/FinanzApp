@@ -33,7 +33,20 @@ For individuals:
 
 ## Current Status
 This repository contains a MongoDB schema setup script for the FinanzApp architecture.  
-Running `index.js` creates (or updates) all required collections, validators, and indexes in your Atlas database.
+Running `database/schema-setup.js` creates (or updates) all required collections, validators, and indexes in your Atlas database.
+
+## Project Structure
+```text
+FinanzApp/
+  database/
+    schema-setup.js   # creates/updates collections, validators, indexes
+    seed-reset.mjs    # deletes current data and inserts upgraded test data
+  README.md
+  package.json
+  package-lock.json
+  .env
+  .gitignore
+```
 
 ## Current Data Structure (MongoDB)
 All IDs are MongoDB `ObjectId`.  
