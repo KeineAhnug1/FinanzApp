@@ -25,13 +25,35 @@ const ids = {
     neckarstadt: new ObjectId("65f200000000000000000002"),
     barcelonaTrip: new ObjectId("65f200000000000000000003")
   },
+  bank_accounts: {
+    anna: new ObjectId("65f210000000000000000001"),
+    ben: new ObjectId("65f210000000000000000002"),
+    clara: new ObjectId("65f210000000000000000003"),
+    emre: new ObjectId("65f210000000000000000004"),
+    farah: new ObjectId("65f210000000000000000005")
+  },
   expenses: {
     rentJan: new ObjectId("65f300000000000000000001"),
     internetJan: new ObjectId("65f300000000000000000002"),
     groceriesWeek2: new ObjectId("65f300000000000000000003"),
     electricityJan: new ObjectId("65f300000000000000000004"),
-    kitchenRepair: new ObjectId("65f300000000000000000005"),
-    flights: new ObjectId("65f300000000000000000006")
+    flights: new ObjectId("65f300000000000000000005")
+  },
+  expense_shares: {
+    rentAnna: new ObjectId("65f310000000000000000001"),
+    rentBen: new ObjectId("65f310000000000000000002"),
+    rentClara: new ObjectId("65f310000000000000000003"),
+    internetAnna: new ObjectId("65f310000000000000000004"),
+    internetBen: new ObjectId("65f310000000000000000005"),
+    internetClara: new ObjectId("65f310000000000000000006"),
+    electricityEmre: new ObjectId("65f310000000000000000007"),
+    electricityFarah: new ObjectId("65f310000000000000000008")
+  },
+  requests: {
+    annaToClara: new ObjectId("65f320000000000000000001"),
+    farahToBen: new ObjectId("65f320000000000000000002"),
+    emreToAnna: new ObjectId("65f320000000000000000003"),
+    claraToBen: new ObjectId("65f320000000000000000004")
   }
 };
 
@@ -39,103 +61,160 @@ const createdAt = new Date("2026-01-01T09:00:00.000Z");
 
 const data = {
   users: [
-    { _id: ids.users.anna, username: "anna", created_at: createdAt },
-    { _id: ids.users.ben, username: "ben", created_at: createdAt },
-    { _id: ids.users.clara, username: "clara", created_at: createdAt },
-    { _id: ids.users.emre, username: "emre", created_at: createdAt },
-    { _id: ids.users.farah, username: "farah", created_at: createdAt }
+    {
+      _id: ids.users.anna,
+      username: "anna",
+      email: "anna@example.com",
+      password: "anna_pw_hash",
+      firstname: "Anna",
+      lastname: "Schmidt",
+      age: new Int32(24),
+      created_at: createdAt
+    },
+    {
+      _id: ids.users.ben,
+      username: "ben",
+      email: "ben@example.com",
+      password: "ben_pw_hash",
+      firstname: "Ben",
+      lastname: "Keller",
+      age: new Int32(26),
+      created_at: createdAt
+    },
+    {
+      _id: ids.users.clara,
+      username: "clara",
+      email: "clara@example.com",
+      password: "clara_pw_hash",
+      firstname: "Clara",
+      lastname: "Weber",
+      age: new Int32(23),
+      created_at: createdAt
+    },
+    {
+      _id: ids.users.emre,
+      username: "emre",
+      email: "emre@example.com",
+      password: "emre_pw_hash",
+      firstname: "Emre",
+      lastname: "Yilmaz",
+      age: new Int32(27),
+      created_at: createdAt
+    },
+    {
+      _id: ids.users.farah,
+      username: "farah",
+      email: "farah@example.com",
+      password: "farah_pw_hash",
+      firstname: "Farah",
+      lastname: "Ali",
+      age: new Int32(25),
+      created_at: createdAt
+    }
   ],
   wgs: [
-    { _id: ids.wgs.sonnenallee, name: "WG Sonnenallee Berlin", created_at: createdAt },
-    { _id: ids.wgs.neckarstadt, name: "WG Neckarstadt Mannheim", created_at: createdAt },
-    { _id: ids.wgs.barcelonaTrip, name: "Urlaubs-WG Barcelona", created_at: createdAt }
+    {
+      _id: ids.wgs.sonnenallee,
+      name: "WG Sonnenallee Berlin",
+      adress: "Sonnenallee 110, Berlin",
+      created_at: createdAt
+    },
+    {
+      _id: ids.wgs.neckarstadt,
+      name: "WG Neckarstadt Mannheim",
+      adress: "Mittelstrasse 8, Mannheim",
+      created_at: createdAt
+    },
+    {
+      _id: ids.wgs.barcelonaTrip,
+      name: "Urlaubs-WG Barcelona",
+      adress: "Carrer de Mallorca 220, Barcelona",
+      created_at: createdAt
+    }
   ],
   wg_members: [
-    { wg_id: ids.wgs.sonnenallee, user_id: ids.users.anna, role: "admin", joined_at: new Date("2026-01-01T10:00:00.000Z") },
-    { wg_id: ids.wgs.sonnenallee, user_id: ids.users.ben, role: "member", joined_at: new Date("2026-01-01T10:05:00.000Z") },
-    { wg_id: ids.wgs.sonnenallee, user_id: ids.users.clara, role: "member", joined_at: new Date("2026-01-01T10:10:00.000Z") },
-    { wg_id: ids.wgs.neckarstadt, user_id: ids.users.emre, role: "admin", joined_at: new Date("2026-01-03T09:00:00.000Z") },
-    { wg_id: ids.wgs.neckarstadt, user_id: ids.users.farah, role: "member", joined_at: new Date("2026-01-03T09:05:00.000Z") },
-    { wg_id: ids.wgs.neckarstadt, user_id: ids.users.anna, role: "member", joined_at: new Date("2026-01-03T09:10:00.000Z") },
-    { wg_id: ids.wgs.barcelonaTrip, user_id: ids.users.ben, role: "organizer", joined_at: new Date("2026-01-15T12:00:00.000Z") },
-    { wg_id: ids.wgs.barcelonaTrip, user_id: ids.users.clara, role: "member", joined_at: new Date("2026-01-15T12:10:00.000Z") },
-    { wg_id: ids.wgs.barcelonaTrip, user_id: ids.users.farah, role: "member", joined_at: new Date("2026-01-15T12:20:00.000Z") }
+    {
+      wg_id: ids.wgs.sonnenallee,
+      user_id: ids.users.anna,
+      role: "admin",
+      joined_at: new Date("2026-01-01T10:00:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.sonnenallee,
+      user_id: ids.users.ben,
+      role: "member",
+      joined_at: new Date("2026-01-01T10:05:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.sonnenallee,
+      user_id: ids.users.clara,
+      role: "member",
+      joined_at: new Date("2026-01-01T10:10:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.neckarstadt,
+      user_id: ids.users.emre,
+      role: "admin",
+      joined_at: new Date("2026-01-03T09:00:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.neckarstadt,
+      user_id: ids.users.farah,
+      role: "member",
+      joined_at: new Date("2026-01-03T09:05:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.barcelonaTrip,
+      user_id: ids.users.ben,
+      role: "organizer",
+      joined_at: new Date("2026-01-15T12:00:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.barcelonaTrip,
+      user_id: ids.users.clara,
+      role: "member",
+      joined_at: new Date("2026-01-15T12:10:00.000Z")
+    },
+    {
+      wg_id: ids.wgs.barcelonaTrip,
+      user_id: ids.users.farah,
+      role: "member",
+      joined_at: new Date("2026-01-15T12:20:00.000Z")
+    }
   ],
   bank_accounts: [
     {
+      _id: ids.bank_accounts.anna,
       user_id: ids.users.anna,
-      wg_id: null,
       balance: money(245000),
       currency: "EUR",
       created_at: createdAt
     },
     {
+      _id: ids.bank_accounts.ben,
       user_id: ids.users.ben,
-      wg_id: null,
       balance: money(176000),
       currency: "EUR",
       created_at: createdAt
     },
     {
+      _id: ids.bank_accounts.clara,
       user_id: ids.users.clara,
-      wg_id: null,
       balance: money(134000),
       currency: "EUR",
       created_at: createdAt
     },
     {
+      _id: ids.bank_accounts.emre,
       user_id: ids.users.emre,
-      wg_id: null,
       balance: money(212000),
       currency: "EUR",
       created_at: createdAt
     },
     {
+      _id: ids.bank_accounts.farah,
       user_id: ids.users.farah,
-      wg_id: null,
       balance: money(98000),
-      currency: "EUR",
-      created_at: createdAt
-    },
-    {
-      user_id: ids.users.anna,
-      wg_id: ids.wgs.sonnenallee,
-      balance: money(76000),
-      currency: "EUR",
-      created_at: createdAt
-    },
-    {
-      user_id: ids.users.ben,
-      wg_id: ids.wgs.sonnenallee,
-      balance: money(42000),
-      currency: "EUR",
-      created_at: createdAt
-    },
-    {
-      user_id: ids.users.clara,
-      wg_id: ids.wgs.sonnenallee,
-      balance: money(39000),
-      currency: "EUR",
-      created_at: createdAt
-    },
-    {
-      user_id: ids.users.emre,
-      wg_id: ids.wgs.neckarstadt,
-      balance: money(51000),
-      currency: "EUR",
-      created_at: createdAt
-    },
-    {
-      user_id: ids.users.farah,
-      wg_id: ids.wgs.neckarstadt,
-      balance: money(24500),
-      currency: "EUR",
-      created_at: createdAt
-    },
-    {
-      user_id: ids.users.anna,
-      wg_id: ids.wgs.neckarstadt,
-      balance: money(18000),
       currency: "EUR",
       created_at: createdAt
     }
@@ -143,8 +222,6 @@ const data = {
   expenses: [
     {
       _id: ids.expenses.rentJan,
-      wg_id: ids.wgs.sonnenallee,
-      paid_by_user_id: ids.users.anna,
       amount: money(180000),
       currency: "EUR",
       info: "Miete Januar",
@@ -154,8 +231,6 @@ const data = {
     },
     {
       _id: ids.expenses.internetJan,
-      wg_id: ids.wgs.sonnenallee,
-      paid_by_user_id: ids.users.ben,
       amount: money(4500),
       currency: "EUR",
       info: "Internet Januar",
@@ -165,8 +240,6 @@ const data = {
     },
     {
       _id: ids.expenses.groceriesWeek2,
-      wg_id: ids.wgs.sonnenallee,
-      paid_by_user_id: ids.users.clara,
       amount: money(7800),
       currency: "EUR",
       info: "Wocheneinkauf KW6",
@@ -176,8 +249,6 @@ const data = {
     },
     {
       _id: ids.expenses.electricityJan,
-      wg_id: ids.wgs.neckarstadt,
-      paid_by_user_id: ids.users.emre,
       amount: money(6300),
       currency: "EUR",
       info: "Strom Januar",
@@ -186,20 +257,7 @@ const data = {
       created_at: new Date("2026-02-02T09:10:00.000Z")
     },
     {
-      _id: ids.expenses.kitchenRepair,
-      wg_id: ids.wgs.neckarstadt,
-      paid_by_user_id: ids.users.anna,
-      amount: money(12000),
-      currency: "EUR",
-      info: "Kuechenreparatur",
-      category: "maintenance",
-      due_date: new Date("2026-02-25T00:00:00.000Z"),
-      created_at: new Date("2026-02-08T14:40:00.000Z")
-    },
-    {
       _id: ids.expenses.flights,
-      wg_id: ids.wgs.barcelonaTrip,
-      paid_by_user_id: ids.users.farah,
       amount: money(54900),
       currency: "EUR",
       info: "Fluege Barcelona",
@@ -210,6 +268,7 @@ const data = {
   ],
   expense_shares: [
     {
+      _id: ids.expense_shares.rentAnna,
       expense_id: ids.expenses.rentJan,
       user_id: ids.users.anna,
       amount: money(60000),
@@ -217,6 +276,7 @@ const data = {
       settled_at: new Date("2026-01-29T08:10:00.000Z")
     },
     {
+      _id: ids.expense_shares.rentBen,
       expense_id: ids.expenses.rentJan,
       user_id: ids.users.ben,
       amount: money(60000),
@@ -224,6 +284,7 @@ const data = {
       settled_at: new Date("2026-02-03T09:15:00.000Z")
     },
     {
+      _id: ids.expense_shares.rentClara,
       expense_id: ids.expenses.rentJan,
       user_id: ids.users.clara,
       amount: money(60000),
@@ -231,6 +292,7 @@ const data = {
       settled_at: null
     },
     {
+      _id: ids.expense_shares.internetAnna,
       expense_id: ids.expenses.internetJan,
       user_id: ids.users.anna,
       amount: money(1500),
@@ -238,6 +300,7 @@ const data = {
       settled_at: null
     },
     {
+      _id: ids.expense_shares.internetBen,
       expense_id: ids.expenses.internetJan,
       user_id: ids.users.ben,
       amount: money(1500),
@@ -245,6 +308,7 @@ const data = {
       settled_at: new Date("2026-02-01T11:35:00.000Z")
     },
     {
+      _id: ids.expense_shares.internetClara,
       expense_id: ids.expenses.internetJan,
       user_id: ids.users.clara,
       amount: money(1500),
@@ -252,95 +316,27 @@ const data = {
       settled_at: new Date("2026-02-11T19:00:00.000Z")
     },
     {
-      expense_id: ids.expenses.groceriesWeek2,
-      user_id: ids.users.anna,
-      amount: money(2600),
-      is_settled: true,
-      settled_at: new Date("2026-02-08T10:00:00.000Z")
-    },
-    {
-      expense_id: ids.expenses.groceriesWeek2,
-      user_id: ids.users.ben,
-      amount: money(2600),
-      is_settled: true,
-      settled_at: new Date("2026-02-09T10:30:00.000Z")
-    },
-    {
-      expense_id: ids.expenses.groceriesWeek2,
-      user_id: ids.users.clara,
-      amount: money(2600),
-      is_settled: true,
-      settled_at: new Date("2026-02-07T16:30:00.000Z")
-    },
-    {
+      _id: ids.expense_shares.electricityEmre,
       expense_id: ids.expenses.electricityJan,
       user_id: ids.users.emre,
-      amount: money(2100),
+      amount: money(3150),
       is_settled: true,
       settled_at: new Date("2026-02-02T09:15:00.000Z")
     },
     {
+      _id: ids.expense_shares.electricityFarah,
       expense_id: ids.expenses.electricityJan,
       user_id: ids.users.farah,
-      amount: money(2100),
+      amount: money(3150),
       is_settled: false,
       settled_at: null
-    },
-    {
-      expense_id: ids.expenses.electricityJan,
-      user_id: ids.users.anna,
-      amount: money(2100),
-      is_settled: true,
-      settled_at: new Date("2026-02-12T08:00:00.000Z")
-    },
-    {
-      expense_id: ids.expenses.kitchenRepair,
-      user_id: ids.users.emre,
-      amount: money(4000),
-      is_settled: false,
-      settled_at: null
-    },
-    {
-      expense_id: ids.expenses.kitchenRepair,
-      user_id: ids.users.farah,
-      amount: money(4000),
-      is_settled: true,
-      settled_at: new Date("2026-02-10T09:00:00.000Z")
-    },
-    {
-      expense_id: ids.expenses.kitchenRepair,
-      user_id: ids.users.anna,
-      amount: money(4000),
-      is_settled: true,
-      settled_at: new Date("2026-02-08T14:45:00.000Z")
-    },
-    {
-      expense_id: ids.expenses.flights,
-      user_id: ids.users.ben,
-      amount: money(18300),
-      is_settled: false,
-      settled_at: null
-    },
-    {
-      expense_id: ids.expenses.flights,
-      user_id: ids.users.clara,
-      amount: money(18300),
-      is_settled: false,
-      settled_at: null
-    },
-    {
-      expense_id: ids.expenses.flights,
-      user_id: ids.users.farah,
-      amount: money(18300),
-      is_settled: true,
-      settled_at: new Date("2026-02-09T18:10:00.000Z")
     }
   ],
   requests: [
     {
+      _id: ids.requests.annaToClara,
       from_user_id: ids.users.anna,
       to_user_id: ids.users.clara,
-      wg_id: ids.wgs.sonnenallee,
       amount: money(30000),
       currency: "EUR",
       due_date: new Date("2026-02-26T00:00:00.000Z"),
@@ -348,9 +344,9 @@ const data = {
       created_at: new Date("2026-02-11T08:30:00.000Z")
     },
     {
+      _id: ids.requests.farahToBen,
       from_user_id: ids.users.farah,
       to_user_id: ids.users.ben,
-      wg_id: ids.wgs.barcelonaTrip,
       amount: money(18300),
       currency: "EUR",
       due_date: new Date("2026-03-06T00:00:00.000Z"),
@@ -358,9 +354,9 @@ const data = {
       created_at: new Date("2026-02-10T09:20:00.000Z")
     },
     {
+      _id: ids.requests.emreToAnna,
       from_user_id: ids.users.emre,
       to_user_id: ids.users.anna,
-      wg_id: ids.wgs.neckarstadt,
       amount: money(4000),
       currency: "EUR",
       due_date: new Date("2026-02-20T00:00:00.000Z"),
@@ -368,9 +364,9 @@ const data = {
       created_at: new Date("2026-02-09T10:00:00.000Z")
     },
     {
+      _id: ids.requests.claraToBen,
       from_user_id: ids.users.clara,
       to_user_id: ids.users.ben,
-      wg_id: ids.wgs.sonnenallee,
       amount: money(2000),
       currency: "EUR",
       due_date: new Date("2026-02-22T00:00:00.000Z"),
@@ -380,94 +376,66 @@ const data = {
   ],
   transactions: [
     {
-      from_user_id: ids.users.ben,
-      to_user_id: ids.users.anna,
-      wg_id: ids.wgs.sonnenallee,
       amount: money(60000),
       currency: "EUR",
-      expense_id: ids.expenses.rentJan,
+      request_id: null,
+      expense_shares_id: ids.expense_shares.rentBen,
       created_at: new Date("2026-02-03T09:15:00.000Z")
     },
     {
-      from_user_id: ids.users.clara,
-      to_user_id: ids.users.anna,
-      wg_id: ids.wgs.sonnenallee,
-      amount: money(30000),
-      currency: "EUR",
-      expense_id: ids.expenses.rentJan,
-      created_at: new Date("2026-02-06T19:00:00.000Z")
-    },
-    {
-      from_user_id: ids.users.clara,
-      to_user_id: ids.users.ben,
-      wg_id: ids.wgs.sonnenallee,
       amount: money(1500),
       currency: "EUR",
-      expense_id: ids.expenses.internetJan,
+      request_id: null,
+      expense_shares_id: ids.expense_shares.internetClara,
       created_at: new Date("2026-02-11T19:00:00.000Z")
     },
     {
-      from_user_id: ids.users.ben,
-      to_user_id: ids.users.clara,
-      wg_id: ids.wgs.sonnenallee,
-      amount: money(2600),
+      amount: money(3150),
       currency: "EUR",
-      expense_id: ids.expenses.groceriesWeek2,
-      created_at: new Date("2026-02-09T10:30:00.000Z")
+      request_id: null,
+      expense_shares_id: ids.expense_shares.electricityEmre,
+      created_at: new Date("2026-02-02T09:15:00.000Z")
     },
     {
-      from_user_id: ids.users.anna,
-      to_user_id: ids.users.emre,
-      wg_id: ids.wgs.neckarstadt,
-      amount: money(2100),
+      amount: money(18300),
       currency: "EUR",
-      expense_id: ids.expenses.electricityJan,
-      created_at: new Date("2026-02-12T08:00:00.000Z")
-    },
-    {
-      from_user_id: ids.users.farah,
-      to_user_id: ids.users.anna,
-      wg_id: ids.wgs.neckarstadt,
-      amount: money(4000),
-      currency: "EUR",
-      expense_id: ids.expenses.kitchenRepair,
-      created_at: new Date("2026-02-10T09:00:00.000Z")
-    },
-    {
-      from_user_id: ids.users.ben,
-      to_user_id: ids.users.farah,
-      wg_id: ids.wgs.barcelonaTrip,
-      amount: money(10000),
-      currency: "EUR",
-      expense_id: ids.expenses.flights,
+      request_id: ids.requests.farahToBen,
+      expense_shares_id: null,
       created_at: new Date("2026-02-11T13:20:00.000Z")
     },
     {
-      from_user_id: ids.users.clara,
-      to_user_id: ids.users.farah,
-      wg_id: ids.wgs.barcelonaTrip,
-      amount: money(8500),
+      amount: money(4000),
       currency: "EUR",
-      expense_id: ids.expenses.flights,
-      created_at: new Date("2026-02-11T14:10:00.000Z")
+      request_id: ids.requests.emreToAnna,
+      expense_shares_id: null,
+      created_at: new Date("2026-02-10T09:00:00.000Z")
+    }
+  ],
+  shares: [
+    {
+      bank_id: ids.bank_accounts.anna,
+      shares: "AAPL",
+      amount: new Int32(12)
     },
     {
-      from_user_id: ids.users.anna,
-      to_user_id: ids.users.farah,
-      wg_id: null,
-      amount: money(5000),
-      currency: "EUR",
-      expense_id: null,
-      created_at: new Date("2026-02-11T20:00:00.000Z")
+      bank_id: ids.bank_accounts.ben,
+      shares: "MSFT",
+      amount: new Int32(8)
     },
     {
-      from_user_id: ids.users.emre,
-      to_user_id: ids.users.ben,
-      wg_id: null,
-      amount: money(2500),
-      currency: "EUR",
-      expense_id: null,
-      created_at: new Date("2026-02-10T17:30:00.000Z")
+      bank_id: ids.bank_accounts.clara,
+      shares: "TSLA",
+      amount: new Int32(5)
+    },
+    {
+      bank_id: ids.bank_accounts.emre,
+      shares: "SAP",
+      amount: new Int32(14)
+    },
+    {
+      bank_id: ids.bank_accounts.farah,
+      shares: "NVDA",
+      amount: new Int32(4)
     }
   ]
 };
@@ -480,7 +448,8 @@ const collectionOrder = [
   "expenses",
   "expense_shares",
   "requests",
-  "transactions"
+  "transactions",
+  "shares"
 ];
 
 async function clearCollections(db) {
