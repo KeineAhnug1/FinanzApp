@@ -452,6 +452,90 @@ const collectionOrder = [
   "shares"
 ];
 
+function getRequiredSet(validator) {
+  const required = validator?.$jsonSchema?.required;
+  return new Set(Array.isArray(required) ? required : []);
+}
+
+function getProperties(validator) {
+  const props = validator?.$jsonSchema?.properties;
+  return props && typeof props === "object" ? props : {};
+}
+
+async function assertSchemaIsUpToDate(db) {
+  const collections = await db.listCollections({}, { nameOnly: false }).toArray();
+  const byName = new Map(collections.map((c) => [c.name, c]));
+
+  const issues = [];
+
+  const requiredCollections = collectionOrder;
+  for (const name of requiredCollections) {
+    if (!byName.has(name)) {
+      issues.push(`Missing collection "${name}"`);
+    }
+  }
+
+  const checks = [
+    {
+      name: "users",
+      requiredFields: ["email", "password", "firstname", "lastname", "age"]
+    },
+    {
+      name: "wgs",
+      requiredFields: ["adress"]
+    },
+    {
+      name: "bank_accounts",
+      requiredFields: ["user_id", "balance", "currency", "created_at"]
+    },
+    {
+      name: "expenses",
+      requiredFields: ["amount", "currency", "info", "category", "due_date", "created_at"]
+    },
+    {
+      name: "requests",
+      requiredFields: ["from_user_id", "to_user_id", "amount", "currency", "due_date", "status", "created_at"]
+    },
+    {
+      name: "shares",
+      requiredFields: ["bank_id", "shares", "amount"]
+    }
+  ];
+
+  for (const check of checks) {
+    const info = byName.get(check.name);
+    if (!info) {
+      continue;
+    }
+
+    const validator = info.options?.validator;
+    const required = getRequiredSet(validator);
+    for (const field of check.requiredFields) {
+      if (!required.has(field)) {
+        issues.push(`Collection "${check.name}" validator does not require "${field}"`);
+      }
+    }
+  }
+
+  const txInfo = byName.get("transactions");
+  if (txInfo) {
+    const txProps = getProperties(txInfo.options?.validator);
+    if (!Object.prototype.hasOwnProperty.call(txProps, "request_id")) {
+      issues.push('Collection "transactions" validator is missing "request_id"');
+    }
+    if (!Object.prototype.hasOwnProperty.call(txProps, "expense_shares_id")) {
+      issues.push('Collection "transactions" validator is missing "expense_shares_id"');
+    }
+  }
+
+  if (issues.length > 0) {
+    const details = issues.map((i) => `- ${i}`).join("\n");
+    throw new Error(
+      `Database schema is not compatible with this seed file.\n${details}\nRun "npm run schema:setup" and then retry "npm run seed:reset".`
+    );
+  }
+}
+
 async function clearCollections(db) {
   const clearOrder = [...collectionOrder].reverse();
   for (const name of clearOrder) {
@@ -475,6 +559,10 @@ async function run() {
   try {
     await client.connect();
     const db = client.db(dbName);
+
+    console.log("Checking schema compatibility...");
+    await assertSchemaIsUpToDate(db);
+    console.log("Schema check passed.");
 
     console.log("Resetting existing app data...");
     await clearCollections(db);
