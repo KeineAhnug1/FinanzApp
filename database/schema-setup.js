@@ -15,14 +15,23 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["username", "email", "password", "firstname", "lastname", "age", "created_at"],
+        required: [
+          "username",
+          "email",
+          "password",
+          "first_name",
+          "last_name",
+          "income",
+          "created_at"
+        ],
         properties: {
           username: { bsonType: "string", minLength: 1 },
           email: { bsonType: "string", minLength: 5 },
           password: { bsonType: "string", minLength: 1 },
-          firstname: { bsonType: "string", minLength: 1 },
-          lastname: { bsonType: "string", minLength: 1 },
-          age: { bsonType: "int", minimum: 0 },
+          first_name: { bsonType: "string", minLength: 1 },
+          last_name: { bsonType: "string", minLength: 1 },
+          age: { bsonType: ["int", "long", "double", "decimal", "null"], minimum: 0 },
+          income: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
@@ -34,29 +43,29 @@ const collections = [
     ]
   },
   {
-    name: "wgs",
+    name: "groups",
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["name", "adress", "created_at"],
+        required: ["name", "created_at"],
         properties: {
           name: { bsonType: "string", minLength: 1 },
-          adress: { bsonType: "string", minLength: 1 },
+          address: { bsonType: ["string", "null"] },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
       }
     },
-    indexes: [{ key: { name: 1 }, options: { name: "wgs_name_idx" } }]
+    indexes: [{ key: { name: 1 }, options: { name: "groups_name_idx" } }]
   },
   {
-    name: "wg_members",
+    name: "group_members",
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["wg_id", "user_id", "role", "joined_at"],
+        required: ["group_id", "user_id", "role", "joined_at"],
         properties: {
-          wg_id: { bsonType: "objectId" },
+          group_id: { bsonType: "objectId" },
           user_id: { bsonType: "objectId" },
           role: { bsonType: "string", minLength: 1 },
           joined_at: { bsonType: "date" }
@@ -65,8 +74,9 @@ const collections = [
       }
     },
     indexes: [
-      { key: { wg_id: 1, user_id: 1 }, options: { unique: true, name: "wg_members_unique_pair" } },
-      { key: { user_id: 1 }, options: { name: "wg_members_user_id_idx" } }
+      { key: { group_id: 1, user_id: 1 }, options: { unique: true, name: "group_members_unique_pair" } },
+      { key: { user_id: 1 }, options: { name: "group_members_user_idx" } },
+      { key: { group_id: 1 }, options: { name: "group_members_group_idx" } }
     ]
   },
   {
@@ -74,73 +84,17 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["user_id", "balance", "currency", "created_at"],
+        required: ["user_id", "balance", "created_at"],
         properties: {
           user_id: { bsonType: "objectId" },
-          balance: { bsonType: "int" },
-          currency: { bsonType: "string", minLength: 3, maxLength: 3 },
+          balance: { bsonType: ["int", "long", "double", "decimal"] },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
       }
     },
     indexes: [
-      {
-        key: { user_id: 1 },
-        options: { unique: true, name: "bank_accounts_user_unique" }
-      }
-    ]
-  },
-  {
-    name: "transactions",
-    validator: {
-      $jsonSchema: {
-        bsonType: "object",
-        required: ["amount", "currency", "created_at"],
-        properties: {
-          amount: { bsonType: "int" },
-          currency: { bsonType: "string", minLength: 3, maxLength: 3 },
-          request_id: { bsonType: ["objectId", "null"] },
-          expense_shares_id: { bsonType: ["objectId", "null"] },
-          created_at: { bsonType: "date" }
-        },
-        anyOf: [
-          { required: ["request_id"] },
-          { required: ["expense_shares_id"] }
-        ],
-        additionalProperties: true
-      }
-    },
-    indexes: [
-      { key: { created_at: -1 }, options: { name: "transactions_created_at_idx" } },
-      { key: { request_id: 1 }, options: { name: "transactions_request_id_idx" } },
-      { key: { expense_shares_id: 1 }, options: { name: "transactions_expense_share_id_idx" } }
-    ]
-  },
-  {
-    name: "requests",
-    validator: {
-      $jsonSchema: {
-        bsonType: "object",
-        required: ["from_user_id", "to_user_id", "amount", "currency", "due_date", "status", "created_at"],
-        properties: {
-          from_user_id: { bsonType: "objectId" },
-          to_user_id: { bsonType: "objectId" },
-          amount: { bsonType: "int" },
-          currency: { bsonType: "string", minLength: 3, maxLength: 3 },
-          due_date: { bsonType: "date" },
-          status: { bsonType: "string", enum: ["pending", "accepted", "rejected", "paid"] },
-          created_at: { bsonType: "date" }
-        },
-        additionalProperties: true
-      }
-    },
-    indexes: [
-      {
-        key: { from_user_id: 1, to_user_id: 1, status: 1 },
-        options: { name: "requests_from_to_status_idx" }
-      },
-      { key: { due_date: 1, status: 1 }, options: { name: "requests_due_status_idx" } }
+      { key: { user_id: 1 }, options: { unique: true, name: "bank_accounts_user_unique" } }
     ]
   },
   {
@@ -148,20 +102,23 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["amount", "currency", "info", "category", "due_date", "created_at"],
+        required: ["amount", "created_at"],
         properties: {
-          amount: { bsonType: "int" },
-          currency: { bsonType: "string", minLength: 3, maxLength: 3 },
-          info: { bsonType: "string" },
-          category: { bsonType: "string" },
-          due_date: { bsonType: "date" },
+          amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          info: { bsonType: ["string", "null"] },
+          category: { bsonType: ["string", "null"] },
+          due_date: { bsonType: ["date", "null"] },
+          group_id: { bsonType: ["objectId", "null"] },
+          repeating: { bsonType: ["bool", "null"] },
+          cycle_date: { bsonType: ["date", "null"] },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
       }
     },
     indexes: [
-      { key: { category: 1, due_date: 1 }, options: { name: "expenses_category_due_date_idx" } },
+      { key: { group_id: 1, due_date: 1 }, options: { name: "expenses_group_due_idx" } },
+      { key: { category: 1 }, options: { name: "expenses_category_idx" } },
       { key: { created_at: -1 }, options: { name: "expenses_created_at_idx" } }
     ]
   },
@@ -170,11 +127,12 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["expense_id", "user_id", "amount", "is_settled"],
+        required: ["expense_id", "user_id", "paid_amount", "theo_amount", "is_settled"],
         properties: {
           expense_id: { bsonType: "objectId" },
           user_id: { bsonType: "objectId" },
-          amount: { bsonType: "int" },
+          paid_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          theo_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
           is_settled: { bsonType: "bool" },
           settled_at: { bsonType: ["date", "null"] }
         },
@@ -183,7 +141,69 @@ const collections = [
     },
     indexes: [
       { key: { expense_id: 1, user_id: 1 }, options: { unique: true, name: "expense_shares_unique_pair" } },
-      { key: { user_id: 1, is_settled: 1 }, options: { name: "expense_shares_user_settled_idx" } }
+      { key: { user_id: 1, is_settled: 1 }, options: { name: "expense_shares_user_settled_idx" } },
+      { key: { expense_id: 1 }, options: { name: "expense_shares_expense_idx" } }
+    ]
+  },
+  {
+    name: "requests",
+    validator: {
+      $jsonSchema: {
+        bsonType: "object",
+        required: ["from_user_id", "to_user_id", "amount", "status", "created_at"],
+        properties: {
+          from_user_id: { bsonType: "objectId" },
+          to_user_id: { bsonType: "objectId" },
+          expense_share_id: { bsonType: ["objectId", "null"] },
+          amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          due_date: { bsonType: ["date", "null"] },
+          info: { bsonType: ["string", "null"] },
+          category: { bsonType: ["string", "null"] },
+          status: { bsonType: "string", minLength: 1 },
+          created_at: { bsonType: "date" }
+        },
+        additionalProperties: true
+      }
+    },
+    indexes: [
+      { key: { from_user_id: 1, to_user_id: 1, status: 1 }, options: { name: "requests_from_to_status_idx" } },
+      { key: { expense_share_id: 1 }, options: { name: "requests_expense_share_idx" } },
+      { key: { due_date: 1, status: 1 }, options: { name: "requests_due_status_idx" } }
+    ]
+  },
+  {
+    name: "transactions",
+    validator: {
+      $jsonSchema: {
+        bsonType: "object",
+        required: ["amount", "request_id", "expense_share_id", "created_at"],
+        properties: {
+          amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          request_id: { bsonType: ["objectId", "null"] },
+          expense_share_id: { bsonType: ["objectId", "null"] },
+          created_at: { bsonType: "date" }
+        },
+        oneOf: [
+          {
+            properties: {
+              request_id: { bsonType: "objectId" },
+              expense_share_id: { bsonType: "null" }
+            }
+          },
+          {
+            properties: {
+              request_id: { bsonType: "null" },
+              expense_share_id: { bsonType: "objectId" }
+            }
+          }
+        ],
+        additionalProperties: true
+      }
+    },
+    indexes: [
+      { key: { request_id: 1 }, options: { name: "transactions_request_id_idx" } },
+      { key: { expense_share_id: 1 }, options: { name: "transactions_expense_share_id_idx" } },
+      { key: { created_at: -1 }, options: { name: "transactions_created_at_idx" } }
     ]
   },
   {
@@ -191,18 +211,42 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["bank_id", "shares", "amount"],
+        required: ["bank_account_id", "symbol", "units", "bought_at", "bought_for"],
         properties: {
-          bank_id: { bsonType: "objectId" },
-          shares: { bsonType: "string", minLength: 1 },
-          amount: { bsonType: "int" }
+          bank_account_id: { bsonType: "objectId" },
+          symbol: { bsonType: "string", minLength: 1 },
+          units: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          bought_at: { bsonType: "date" },
+          bought_for: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 }
         },
         additionalProperties: true
       }
     },
     indexes: [
-      { key: { bank_id: 1 }, options: { name: "shares_bank_id_idx" } },
-      { key: { shares: 1 }, options: { name: "shares_symbol_idx" } }
+      { key: { bank_account_id: 1 }, options: { name: "shares_bank_account_idx" } },
+      { key: { symbol: 1 }, options: { name: "shares_symbol_idx" } }
+    ]
+  },
+  {
+    name: "budget",
+    validator: {
+      $jsonSchema: {
+        bsonType: "object",
+        required: ["user_id", "target_amount", "current_amount", "created_at"],
+        properties: {
+          user_id: { bsonType: "objectId" },
+          category: { bsonType: ["string", "null"] },
+          target_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          current_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          cycle_date: { bsonType: ["date", "null"] },
+          created_at: { bsonType: "date" }
+        },
+        additionalProperties: true
+      }
+    },
+    indexes: [
+      { key: { user_id: 1, category: 1 }, options: { name: "budget_user_category_idx" } },
+      { key: { cycle_date: 1 }, options: { name: "budget_cycle_date_idx" } }
     ]
   }
 ];
