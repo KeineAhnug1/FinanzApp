@@ -9,7 +9,9 @@ FinanzApp/
     schema.dbml        # canonical DBML v2 schema
     schema-setup.js    # creates/updates MongoDB collections, validators, indexes
     seed-reset.mjs     # clears and re-inserts linked test data for all collections
+    wipe-data.mjs      # deletes all documents from all non-system collections
   README.md
+  Datastructure.png
   package.json
   package-lock.json
   .env
@@ -29,11 +31,11 @@ Collections and fields now follow this structure:
 - `budget`
 
 Key updates from previous schema:
-- Money fields use decimal-style numeric values (`decimal(12,2)` equivalent in model design).
+- Money fields use MongoDB `Decimal128` values to model DBML decimals (`decimal(12,2)` / `decimal(12,4)`).
 - Naming consistency fixed (`groups`, `group_members`, `address`, `first_name`, `last_name`, `expense_share_id`, `bank_account_id`).
 - `transactions` enforces exactly one source (`request_id` XOR `expense_share_id`).
 - Added `budget` collection.
-- Added/updated indexes and uniqueness constraints.
+- Added/updated validators, indexes, and uniqueness constraints in MongoDB setup.
 
 ## Data Structure Diagram
 Reference image file: `Datastructure.png`
@@ -67,10 +69,6 @@ Table group_members {
   user_id int [not null]
   role varchar [not null]
   joined_at timestamp [not null]
-
-  indexes {
-    (group_id, user_id) [unique]
-  }
 }
 
 Table bank_accounts {
@@ -78,10 +76,6 @@ Table bank_accounts {
   user_id int [not null]
   balance decimal(12,2) [not null, default: 0]
   created_at timestamp [not null]
-
-  indexes {
-    (user_id) [unique]
-  }
 }
 
 Table expenses {
@@ -100,14 +94,9 @@ Table expense_shares {
   id int [pk, increment]
   expense_id int [not null]
   user_id int [not null]
-  paid_amount decimal(12,2) [not null, default: 0]
   theo_amount decimal(12,2) [not null]
   is_settled bool [not null, default: false]
   settled_at timestamp [null]
-
-  indexes {
-    (expense_id, user_id) [unique]
-  }
 }
 
 Table requests {
@@ -129,8 +118,6 @@ Table transactions {
   request_id int
   expense_share_id int
   created_at timestamp [not null]
-
-  note: 'Exactly one source must be set: request_id XOR expense_share_id.'
 }
 
 Table shares {
@@ -156,7 +143,9 @@ Ref: group_members.group_id > groups.id
 Ref: group_members.user_id > users.id
 
 Ref: expenses.group_id > groups.id
+
 Ref: budget.user_id > users.id
+
 Ref: bank_accounts.user_id > users.id
 
 Ref: expense_shares.expense_id > expenses.id
@@ -179,8 +168,35 @@ MongoDB does not enforce relational foreign keys. This project enforces structur
 - application logic for referential integrity
 
 `transactions` source rule is enforced in validator with `oneOf`:
-- `request_id` is `ObjectId` and `expense_share_id` is `null`
-- or `request_id` is `null` and `expense_share_id` is `ObjectId`
+- `request_id` is present as `ObjectId` and `expense_share_id` is absent
+- or `expense_share_id` is present as `ObjectId` and `request_id` is absent
+
+## Implemented Constraints and Indexes
+Implemented in `database/schema-setup.js`:
+
+- `users`
+  - unique: `username`, `email`
+- `groups`
+  - index: `name`
+- `group_members`
+  - unique composite: `(group_id, user_id)`
+  - indexes: `user_id`, `group_id`
+- `bank_accounts`
+  - index: `user_id`
+- `expenses`
+  - indexes: `(group_id, due_date)`, `category`, `created_at desc`
+- `expense_shares`
+  - unique composite: `(expense_id, user_id)`
+  - indexes: `(user_id, is_settled)`, `expense_id`
+- `requests`
+  - indexes: `(from_user_id, to_user_id, status)`, `expense_share_id`, `(due_date, status)`
+- `transactions`
+  - validator constraint: exactly one of `request_id` or `expense_share_id`
+  - indexes: `request_id`, `expense_share_id`, `created_at desc`
+- `shares`
+  - indexes: `bank_account_id`, `symbol`
+- `budget`
+  - indexes: `(user_id, category)`, `cycle_date`
 
 ## Setup
 ### Prerequisites
@@ -211,3 +227,10 @@ npm run seed:reset
 ```
 
 (Equivalent command: `npm run import:testdata`)
+
+### Wipe all database data
+```bash
+npm run db:wipe
+```
+
+This removes all documents from all non-system collections in `MONGODB_DB` while keeping collections, validators, and indexes.

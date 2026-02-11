@@ -30,8 +30,8 @@ const collections = [
           password: { bsonType: "string", minLength: 1 },
           first_name: { bsonType: "string", minLength: 1 },
           last_name: { bsonType: "string", minLength: 1 },
-          age: { bsonType: ["int", "long", "double", "decimal", "null"], minimum: 0 },
-          income: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          age: { bsonType: ["int", "null"], minimum: 0 },
+          income: { bsonType: "decimal", minimum: 0 },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
@@ -87,14 +87,15 @@ const collections = [
         required: ["user_id", "balance", "created_at"],
         properties: {
           user_id: { bsonType: "objectId" },
-          balance: { bsonType: ["int", "long", "double", "decimal"] },
+          balance: { bsonType: "decimal", minimum: 0 },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
       }
     },
+    dropIndexes: ["bank_accounts_user_unique"],
     indexes: [
-      { key: { user_id: 1 }, options: { unique: true, name: "bank_accounts_user_unique" } }
+      { key: { user_id: 1 }, options: { name: "bank_accounts_user_idx" } }
     ]
   },
   {
@@ -104,7 +105,7 @@ const collections = [
         bsonType: "object",
         required: ["amount", "created_at"],
         properties: {
-          amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          amount: { bsonType: "decimal", minimum: 0 },
           info: { bsonType: ["string", "null"] },
           category: { bsonType: ["string", "null"] },
           due_date: { bsonType: ["date", "null"] },
@@ -127,12 +128,11 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["expense_id", "user_id", "paid_amount", "theo_amount", "is_settled"],
+        required: ["expense_id", "user_id", "theo_amount", "is_settled"],
         properties: {
           expense_id: { bsonType: "objectId" },
           user_id: { bsonType: "objectId" },
-          paid_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
-          theo_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          theo_amount: { bsonType: "decimal", minimum: 0 },
           is_settled: { bsonType: "bool" },
           settled_at: { bsonType: ["date", "null"] }
         },
@@ -155,7 +155,7 @@ const collections = [
           from_user_id: { bsonType: "objectId" },
           to_user_id: { bsonType: "objectId" },
           expense_share_id: { bsonType: ["objectId", "null"] },
-          amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          amount: { bsonType: "decimal", minimum: 0 },
           due_date: { bsonType: ["date", "null"] },
           info: { bsonType: ["string", "null"] },
           category: { bsonType: ["string", "null"] },
@@ -176,23 +176,25 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["amount", "request_id", "expense_share_id", "created_at"],
+        required: ["amount", "created_at"],
         properties: {
-          amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
-          request_id: { bsonType: ["objectId", "null"] },
-          expense_share_id: { bsonType: ["objectId", "null"] },
+          amount: { bsonType: "decimal", minimum: 0 },
+          request_id: { bsonType: "objectId" },
+          expense_share_id: { bsonType: "objectId" },
           created_at: { bsonType: "date" }
         },
         oneOf: [
           {
+            required: ["request_id"],
+            not: { required: ["expense_share_id"] },
             properties: {
-              request_id: { bsonType: "objectId" },
-              expense_share_id: { bsonType: "null" }
+              request_id: { bsonType: "objectId" }
             }
           },
           {
+            required: ["expense_share_id"],
+            not: { required: ["request_id"] },
             properties: {
-              request_id: { bsonType: "null" },
               expense_share_id: { bsonType: "objectId" }
             }
           }
@@ -215,9 +217,9 @@ const collections = [
         properties: {
           bank_account_id: { bsonType: "objectId" },
           symbol: { bsonType: "string", minLength: 1 },
-          units: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          units: { bsonType: "decimal", minimum: 0 },
           bought_at: { bsonType: "date" },
-          bought_for: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 }
+          bought_for: { bsonType: "decimal", minimum: 0 }
         },
         additionalProperties: true
       }
@@ -236,8 +238,8 @@ const collections = [
         properties: {
           user_id: { bsonType: "objectId" },
           category: { bsonType: ["string", "null"] },
-          target_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
-          current_amount: { bsonType: ["int", "long", "double", "decimal"], minimum: 0 },
+          target_amount: { bsonType: "decimal", minimum: 0 },
+          current_amount: { bsonType: "decimal", minimum: 0 },
           cycle_date: { bsonType: ["date", "null"] },
           created_at: { bsonType: "date" }
         },
@@ -269,6 +271,17 @@ async function ensureCollection(db, config) {
       validationAction: "error"
     });
     console.log(`Updated validator for ${config.name}`);
+  }
+
+  for (const indexName of config.dropIndexes ?? []) {
+    try {
+      await db.collection(config.name).dropIndex(indexName);
+      console.log(`Dropped legacy index ${config.name}.${indexName}`);
+    } catch (err) {
+      if (err.codeName !== "IndexNotFound") {
+        throw err;
+      }
+    }
   }
 
   for (const index of config.indexes) {

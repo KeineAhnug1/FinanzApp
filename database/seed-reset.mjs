@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { MongoClient, ObjectId, Int32 } from "mongodb";
+import { MongoClient, ObjectId, Int32, Decimal128 } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
@@ -9,6 +9,8 @@ if (!uri) {
 
 const dbName = process.env.MONGODB_DB || "finanzapp";
 const client = new MongoClient(uri);
+const d2 = (value) => Decimal128.fromString(Number(value).toFixed(2));
+const d4 = (value) => Decimal128.fromString(Number(value).toFixed(4));
 
 const ids = {
   users: {
@@ -67,7 +69,7 @@ const data = {
       first_name: "Anna",
       last_name: "Schmidt",
       age: new Int32(24),
-      income: 2800.0,
+      income: d2(2800.0),
       created_at: createdAt
     },
     {
@@ -78,7 +80,7 @@ const data = {
       first_name: "Ben",
       last_name: "Keller",
       age: new Int32(26),
-      income: 3100.0,
+      income: d2(3100.0),
       created_at: createdAt
     },
     {
@@ -89,7 +91,7 @@ const data = {
       first_name: "Clara",
       last_name: "Weber",
       age: new Int32(23),
-      income: 2250.0,
+      income: d2(2250.0),
       created_at: createdAt
     },
     {
@@ -100,7 +102,7 @@ const data = {
       first_name: "Emre",
       last_name: "Yilmaz",
       age: new Int32(27),
-      income: 3400.0,
+      income: d2(3400.0),
       created_at: createdAt
     },
     {
@@ -111,7 +113,7 @@ const data = {
       first_name: "Farah",
       last_name: "Ali",
       age: new Int32(25),
-      income: 2100.0,
+      income: d2(2100.0),
       created_at: createdAt
     }
   ],
@@ -189,38 +191,38 @@ const data = {
     {
       _id: ids.bank_accounts.anna,
       user_id: ids.users.anna,
-      balance: 2450.0,
+      balance: d2(2450.0),
       created_at: createdAt
     },
     {
       _id: ids.bank_accounts.ben,
       user_id: ids.users.ben,
-      balance: 1760.0,
+      balance: d2(1760.0),
       created_at: createdAt
     },
     {
       _id: ids.bank_accounts.clara,
       user_id: ids.users.clara,
-      balance: 1340.0,
+      balance: d2(1340.0),
       created_at: createdAt
     },
     {
       _id: ids.bank_accounts.emre,
       user_id: ids.users.emre,
-      balance: 2120.0,
+      balance: d2(2120.0),
       created_at: createdAt
     },
     {
       _id: ids.bank_accounts.farah,
       user_id: ids.users.farah,
-      balance: 980.0,
+      balance: d2(980.0),
       created_at: createdAt
     }
   ],
   expenses: [
     {
       _id: ids.expenses.rentJan,
-      amount: 1800.0,
+      amount: d2(1800.0),
       info: "Miete Januar",
       category: "rent",
       due_date: new Date("2026-02-03T00:00:00.000Z"),
@@ -231,7 +233,7 @@ const data = {
     },
     {
       _id: ids.expenses.internetJan,
-      amount: 45.0,
+      amount: d2(45.0),
       info: "Internet Januar",
       category: "utilities",
       due_date: new Date("2026-02-10T00:00:00.000Z"),
@@ -242,7 +244,7 @@ const data = {
     },
     {
       _id: ids.expenses.groceriesWeek2,
-      amount: 78.0,
+      amount: d2(78.0),
       info: "Wocheneinkauf KW6",
       category: "food",
       due_date: new Date("2026-02-18T00:00:00.000Z"),
@@ -253,7 +255,7 @@ const data = {
     },
     {
       _id: ids.expenses.electricityJan,
-      amount: 63.0,
+      amount: d2(63.0),
       info: "Strom Januar",
       category: "utilities",
       due_date: new Date("2026-02-20T00:00:00.000Z"),
@@ -264,7 +266,7 @@ const data = {
     },
     {
       _id: ids.expenses.flights,
-      amount: 549.0,
+      amount: d2(549.0),
       info: "Fluege Barcelona",
       category: "travel",
       due_date: new Date("2026-03-05T00:00:00.000Z"),
@@ -279,8 +281,7 @@ const data = {
       _id: ids.expense_shares.rentAnna,
       expense_id: ids.expenses.rentJan,
       user_id: ids.users.anna,
-      paid_amount: 600.0,
-      theo_amount: 600.0,
+      theo_amount: d2(600.0),
       is_settled: true,
       settled_at: new Date("2026-01-29T08:10:00.000Z")
     },
@@ -288,8 +289,7 @@ const data = {
       _id: ids.expense_shares.rentBen,
       expense_id: ids.expenses.rentJan,
       user_id: ids.users.ben,
-      paid_amount: 600.0,
-      theo_amount: 600.0,
+      theo_amount: d2(600.0),
       is_settled: true,
       settled_at: new Date("2026-02-03T09:15:00.000Z")
     },
@@ -297,8 +297,7 @@ const data = {
       _id: ids.expense_shares.rentClara,
       expense_id: ids.expenses.rentJan,
       user_id: ids.users.clara,
-      paid_amount: 0,
-      theo_amount: 600.0,
+      theo_amount: d2(600.0),
       is_settled: false,
       settled_at: null
     },
@@ -306,8 +305,7 @@ const data = {
       _id: ids.expense_shares.internetAnna,
       expense_id: ids.expenses.internetJan,
       user_id: ids.users.anna,
-      paid_amount: 0,
-      theo_amount: 15.0,
+      theo_amount: d2(15.0),
       is_settled: false,
       settled_at: null
     },
@@ -315,8 +313,7 @@ const data = {
       _id: ids.expense_shares.internetBen,
       expense_id: ids.expenses.internetJan,
       user_id: ids.users.ben,
-      paid_amount: 15.0,
-      theo_amount: 15.0,
+      theo_amount: d2(15.0),
       is_settled: true,
       settled_at: new Date("2026-02-01T11:35:00.000Z")
     },
@@ -324,8 +321,7 @@ const data = {
       _id: ids.expense_shares.internetClara,
       expense_id: ids.expenses.internetJan,
       user_id: ids.users.clara,
-      paid_amount: 15.0,
-      theo_amount: 15.0,
+      theo_amount: d2(15.0),
       is_settled: true,
       settled_at: new Date("2026-02-11T19:00:00.000Z")
     },
@@ -333,8 +329,7 @@ const data = {
       _id: ids.expense_shares.electricityEmre,
       expense_id: ids.expenses.electricityJan,
       user_id: ids.users.emre,
-      paid_amount: 31.5,
-      theo_amount: 31.5,
+      theo_amount: d2(31.5),
       is_settled: true,
       settled_at: new Date("2026-02-02T09:15:00.000Z")
     },
@@ -342,8 +337,7 @@ const data = {
       _id: ids.expense_shares.electricityFarah,
       expense_id: ids.expenses.electricityJan,
       user_id: ids.users.farah,
-      paid_amount: 0,
-      theo_amount: 31.5,
+      theo_amount: d2(31.5),
       is_settled: false,
       settled_at: null
     }
@@ -354,7 +348,7 @@ const data = {
       from_user_id: ids.users.anna,
       to_user_id: ids.users.clara,
       expense_share_id: ids.expense_shares.rentClara,
-      amount: 300.0,
+      amount: d2(300.0),
       due_date: new Date("2026-02-26T00:00:00.000Z"),
       info: "Teilzahlung offene Miete",
       category: "rent",
@@ -366,7 +360,7 @@ const data = {
       from_user_id: ids.users.farah,
       to_user_id: ids.users.ben,
       expense_share_id: null,
-      amount: 183.0,
+      amount: d2(183.0),
       due_date: new Date("2026-03-06T00:00:00.000Z"),
       info: "Ausgleich Barcelona Hotel",
       category: "travel",
@@ -378,7 +372,7 @@ const data = {
       from_user_id: ids.users.emre,
       to_user_id: ids.users.anna,
       expense_share_id: null,
-      amount: 40.0,
+      amount: d2(40.0),
       due_date: new Date("2026-02-20T00:00:00.000Z"),
       info: "Rueckzahlung Einkauf",
       category: "food",
@@ -390,7 +384,7 @@ const data = {
       from_user_id: ids.users.clara,
       to_user_id: ids.users.ben,
       expense_share_id: null,
-      amount: 20.0,
+      amount: d2(20.0),
       due_date: new Date("2026-02-22T00:00:00.000Z"),
       info: "Kuechenbedarf",
       category: "household",
@@ -400,33 +394,28 @@ const data = {
   ],
   transactions: [
     {
-      amount: 600.0,
-      request_id: null,
+      amount: d2(600.0),
       expense_share_id: ids.expense_shares.rentBen,
       created_at: new Date("2026-02-03T09:15:00.000Z")
     },
     {
-      amount: 15.0,
-      request_id: null,
+      amount: d2(15.0),
       expense_share_id: ids.expense_shares.internetClara,
       created_at: new Date("2026-02-11T19:00:00.000Z")
     },
     {
-      amount: 31.5,
-      request_id: null,
+      amount: d2(31.5),
       expense_share_id: ids.expense_shares.electricityEmre,
       created_at: new Date("2026-02-02T09:15:00.000Z")
     },
     {
-      amount: 183.0,
+      amount: d2(183.0),
       request_id: ids.requests.farahToBen,
-      expense_share_id: null,
       created_at: new Date("2026-02-11T13:20:00.000Z")
     },
     {
-      amount: 40.0,
+      amount: d2(40.0),
       request_id: ids.requests.emreToAnna,
-      expense_share_id: null,
       created_at: new Date("2026-02-10T09:00:00.000Z")
     }
   ],
@@ -434,61 +423,61 @@ const data = {
     {
       bank_account_id: ids.bank_accounts.anna,
       symbol: "AAPL",
-      units: 12.25,
+      units: d4(12.25),
       bought_at: new Date("2025-11-15T09:30:00.000Z"),
-      bought_for: 1875.0
+      bought_for: d2(1875.0)
     },
     {
       bank_account_id: ids.bank_accounts.ben,
       symbol: "MSFT",
-      units: 8.0,
+      units: d4(8.0),
       bought_at: new Date("2025-10-20T09:30:00.000Z"),
-      bought_for: 2520.0
+      bought_for: d2(2520.0)
     },
     {
       bank_account_id: ids.bank_accounts.clara,
       symbol: "TSLA",
-      units: 5.5,
+      units: d4(5.5),
       bought_at: new Date("2025-12-05T09:30:00.000Z"),
-      bought_for: 1386.0
+      bought_for: d2(1386.0)
     },
     {
       bank_account_id: ids.bank_accounts.emre,
       symbol: "SAP",
-      units: 14.0,
+      units: d4(14.0),
       bought_at: new Date("2025-09-13T09:30:00.000Z"),
-      bought_for: 2184.0
+      bought_for: d2(2184.0)
     },
     {
       bank_account_id: ids.bank_accounts.farah,
       symbol: "NVDA",
-      units: 4.2,
+      units: d4(4.2),
       bought_at: new Date("2025-08-28T09:30:00.000Z"),
-      bought_for: 2035.0
+      bought_for: d2(2035.0)
     }
   ],
   budget: [
     {
       user_id: ids.users.anna,
       category: "food",
-      target_amount: 350.0,
-      current_amount: 142.5,
+      target_amount: d2(350.0),
+      current_amount: d2(142.5),
       cycle_date: new Date("2026-02-01T00:00:00.000Z"),
       created_at: createdAt
     },
     {
       user_id: ids.users.ben,
       category: "travel",
-      target_amount: 250.0,
-      current_amount: 183.0,
+      target_amount: d2(250.0),
+      current_amount: d2(183.0),
       cycle_date: new Date("2026-02-01T00:00:00.000Z"),
       created_at: createdAt
     },
     {
       user_id: ids.users.clara,
       category: "rent",
-      target_amount: 700.0,
-      current_amount: 600.0,
+      target_amount: d2(700.0),
+      current_amount: d2(600.0),
       cycle_date: new Date("2026-02-01T00:00:00.000Z"),
       created_at: createdAt
     }
@@ -541,11 +530,11 @@ async function assertSchemaIsUpToDate(db) {
     },
     {
       name: "expense_shares",
-      requiredFields: ["expense_id", "user_id", "paid_amount", "theo_amount", "is_settled"]
+      requiredFields: ["expense_id", "user_id", "theo_amount", "is_settled"]
     },
     {
       name: "transactions",
-      requiredFields: ["amount", "request_id", "expense_share_id", "created_at"]
+      requiredFields: ["amount", "created_at"]
     },
     {
       name: "budget",
