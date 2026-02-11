@@ -49,15 +49,21 @@ FinanzApp/
 ```
 
 ## Current Data Structure (MongoDB)
-All IDs are MongoDB `ObjectId`.  
+All IDs are MongoDB `ObjectId` in implementation, and references map to the DBML relations.
 Money fields (`amount`, `balance`) are stored as integer cents (`Int32`).
 
 ### Collections and fields
 - `users`
   - `username` (string, unique, required)
+  - `email` (string, unique, required)
+  - `password` (string, required)
+  - `firstname` (string, required)
+  - `lastname` (string, required)
+  - `age` (int, required)
   - `created_at` (date, required)
 - `wgs` (Wohngemeinschaften)
   - `name` (string, required)
+  - `adress` (string, required)
   - `created_at` (date, required)
 - `wg_members`
   - `wg_id` (ObjectId -> `wgs._id`, required)
@@ -67,31 +73,25 @@ Money fields (`amount`, `balance`) are stored as integer cents (`Int32`).
   - unique index on (`wg_id`, `user_id`)
 - `bank_accounts`
   - `user_id` (ObjectId -> `users._id`, required)
-  - `wg_id` (ObjectId -> `wgs._id`, nullable)
   - `balance` (int, required)
   - `currency` (string length 3, required)
   - `created_at` (date, required)
-  - unique index on (`user_id`, `wg_id`)
+  - unique index on (`user_id`)
 - `transactions`
-  - `from_user_id` (ObjectId -> `users._id`, required)
-  - `to_user_id` (ObjectId -> `users._id`, required)
-  - `wg_id` (ObjectId -> `wgs._id`, nullable)
   - `amount` (int, required)
   - `currency` (string length 3, required)
-  - `expense_id` (ObjectId -> `expenses._id`, nullable)
+  - `request_id` (ObjectId -> `requests._id`, nullable)
+  - `expense_shares_id` (ObjectId -> `expense_shares._id`, nullable)
   - `created_at` (date, required)
 - `requests`
   - `from_user_id` (ObjectId -> `users._id`, required)
   - `to_user_id` (ObjectId -> `users._id`, required)
-  - `wg_id` (ObjectId -> `wgs._id`, nullable)
   - `amount` (int, required)
   - `currency` (string length 3, required)
   - `due_date` (date, required)
   - `status` (enum: `pending`, `accepted`, `rejected`, `paid`, required)
   - `created_at` (date, required)
 - `expenses`
-  - `wg_id` (ObjectId -> `wgs._id`, required)
-  - `paid_by_user_id` (ObjectId -> `users._id`, required)
   - `amount` (int, required)
   - `currency` (string length 3, required)
   - `info` (string, required)
@@ -105,11 +105,17 @@ Money fields (`amount`, `balance`) are stored as integer cents (`Int32`).
   - `is_settled` (bool, required)
   - `settled_at` (date, nullable)
   - unique index on (`expense_id`, `user_id`)
+- `shares`
+  - `bank_id` (ObjectId -> `bank_accounts._id`, required)
+  - `shares` (string, required)
+  - `amount` (int, required)
 
 ### Relation overview
 - One user can be in many WGs through `wg_members`
 - One WG has many members through `wg_members`
-- `transactions`, `requests`, `expenses`, and `expense_shares` reference users/WGs/expenses by `ObjectId`
+- One user has one bank account in `bank_accounts`
+- `transactions` connect either to `requests` or `expense_shares`
+- `shares` reference `bank_accounts`
 - MongoDB does not enforce foreign keys automatically; referential integrity must be handled in application logic
 
 ## Tech Stack
