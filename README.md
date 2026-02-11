@@ -32,7 +32,72 @@ For individuals:
 - Database logic for cost splitting and reporting
 
 ## Current Status
-This repository currently contains a small Node.js script that connects to MongoDB Atlas, inserts a sample user, and lists all users. It serves as a starting point for database connectivity.
+This repository contains a MongoDB schema setup script for the FinanzApp architecture.  
+Running `index.js` creates (or updates) all required collections, validators, and indexes in your Atlas database.
+
+## Current Data Structure (MongoDB)
+All IDs are MongoDB `ObjectId`.  
+Money fields (`amount`, `balance`) are stored as integer cents (`Int32`).
+
+### Collections and fields
+- `users`
+  - `username` (string, unique, required)
+  - `created_at` (date, required)
+- `wgs` (Wohngemeinschaften)
+  - `name` (string, required)
+  - `created_at` (date, required)
+- `wg_members`
+  - `wg_id` (ObjectId -> `wgs._id`, required)
+  - `user_id` (ObjectId -> `users._id`, required)
+  - `role` (string, required)
+  - `joined_at` (date, required)
+  - unique index on (`wg_id`, `user_id`)
+- `bank_accounts`
+  - `user_id` (ObjectId -> `users._id`, required)
+  - `wg_id` (ObjectId -> `wgs._id`, nullable)
+  - `balance` (int, required)
+  - `currency` (string length 3, required)
+  - `created_at` (date, required)
+  - unique index on (`user_id`, `wg_id`)
+- `transactions`
+  - `from_user_id` (ObjectId -> `users._id`, required)
+  - `to_user_id` (ObjectId -> `users._id`, required)
+  - `wg_id` (ObjectId -> `wgs._id`, nullable)
+  - `amount` (int, required)
+  - `currency` (string length 3, required)
+  - `expense_id` (ObjectId -> `expenses._id`, nullable)
+  - `created_at` (date, required)
+- `requests`
+  - `from_user_id` (ObjectId -> `users._id`, required)
+  - `to_user_id` (ObjectId -> `users._id`, required)
+  - `wg_id` (ObjectId -> `wgs._id`, nullable)
+  - `amount` (int, required)
+  - `currency` (string length 3, required)
+  - `due_date` (date, required)
+  - `status` (enum: `pending`, `accepted`, `rejected`, `paid`, required)
+  - `created_at` (date, required)
+- `expenses`
+  - `wg_id` (ObjectId -> `wgs._id`, required)
+  - `paid_by_user_id` (ObjectId -> `users._id`, required)
+  - `amount` (int, required)
+  - `currency` (string length 3, required)
+  - `info` (string, required)
+  - `category` (string, required)
+  - `due_date` (date, required)
+  - `created_at` (date, required)
+- `expense_shares`
+  - `expense_id` (ObjectId -> `expenses._id`, required)
+  - `user_id` (ObjectId -> `users._id`, required)
+  - `amount` (int, required)
+  - `is_settled` (bool, required)
+  - `settled_at` (date, nullable)
+  - unique index on (`expense_id`, `user_id`)
+
+### Relation overview
+- One user can be in many WGs through `wg_members`
+- One WG has many members through `wg_members`
+- `transactions`, `requests`, `expenses`, and `expense_shares` reference users/WGs/expenses by `ObjectId`
+- MongoDB does not enforce foreign keys automatically; referential integrity must be handled in application logic
 
 ## Tech Stack
 - Backend: JavaScript (Node.js) with a NoSQL database (MongoDB)
@@ -61,11 +126,32 @@ Create a `.env` file in the project root with your MongoDB URI:
 
 ```env
 MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-host>/?appName=FinanzApp"
+MONGODB_DB="finanzapp"
 ```
 
-### Run
+### Run schema setup
 ```bash
-node index.js
+npm run schema:setup
 ```
 
-You should see a "Connected to MongoDB!" message and the list of users.
+You should see logs for:
+- collection creation/validator updates
+- index creation
+- final schema setup confirmation
+
+No sample records are inserted by this script.
+
+### Import test data
+```bash
+npm run import:testdata
+```
+
+This script clears existing documents in the app collections and inserts linked test data for:
+- users
+- wgs
+- wg_members
+- bank_accounts
+- expenses
+- expense_shares
+- requests
+- transactions
