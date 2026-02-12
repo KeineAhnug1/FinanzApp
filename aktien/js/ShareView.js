@@ -1256,6 +1256,91 @@
 	}
 
 	/**
+	 * Merkt sich Hover-Status je Linienchart-Canvas.
+	 * Scope: [SHARED]
+	 * @type {WeakMap<HTMLCanvasElement, {iHoverIndex: number, oCtx?: CanvasRenderingContext2D, aPoints?: Array<{t: string, y: number}>, bPnlOnly?: boolean}>}
+	 */
+	const mLineChartHover = new WeakMap();
+
+	/**
+	 * Liefert die Chart-Geometrie passend zur aktuellen Canvas-Breite.
+	 * Scope: [SHARED]
+	 * @param {number} iWidth
+	 * @param {number} iHeight
+	 * @returns {{bCompact: boolean, iPadL: number, iPadR: number, iPadT: number, iPadB: number, iInnerWidth: number, iInnerHeight: number}}
+	 */
+	function fnGetLineChartGeometry(iWidth, iHeight) {
+		const bCompact = iWidth < 520;
+		const iPadL = bCompact ? 56 : 78;
+		const iPadR = bCompact ? 16 : 26;
+		const iPadT = bCompact ? 16 : 20;
+		const iPadB = bCompact ? 36 : 44;
+		const iInnerWidth = iWidth - iPadL - iPadR;
+		const iInnerHeight = iHeight - iPadT - iPadB;
+		return { bCompact, iPadL, iPadR, iPadT, iPadB, iInnerWidth, iInnerHeight };
+	}
+
+	/**
+	 * Initialisiert Pointer-Events für Hover-Markierung im Linienchart.
+	 * Scope: [SHARED]
+	 * @param {HTMLCanvasElement} elCanvas
+	 */
+	function fnEnsureLineChartHoverHandlers(elCanvas) {
+		if (elCanvas.dataset.hoverInit === "1") return;
+		elCanvas.dataset.hoverInit = "1";
+
+		const fnResolveHoverIndex = (oEvent) => {
+			const oState = mLineChartHover.get(elCanvas) || { iHoverIndex: -1 };
+			const aPoints = Array.isArray(oState.aPoints) ? oState.aPoints : [];
+			const oRect = elCanvas.getBoundingClientRect();
+			const iWidth = Math.max(1, Math.round(oRect.width || elCanvas.clientWidth || elCanvas.width));
+			const iHeight = Math.max(1, Math.round(oRect.height || elCanvas.clientHeight || elCanvas.height));
+			const { iPadL, iPadT, iInnerWidth, iInnerHeight } = fnGetLineChartGeometry(iWidth, iHeight);
+			const nX = oEvent.clientX - oRect.left;
+			const nY = oEvent.clientY - oRect.top;
+
+			if (
+				nX < iPadL ||
+				nX > iPadL + iInnerWidth ||
+				nY < iPadT ||
+				nY > iPadT + iInnerHeight ||
+				aPoints.length <= 0
+			) {
+				return -1;
+			}
+
+			if (aPoints.length === 1) return 0;
+			const nRatio = (nX - iPadL) / iInnerWidth;
+			const iIndex = Math.round(nRatio * (aPoints.length - 1));
+			return Math.max(0, Math.min(aPoints.length - 1, iIndex));
+		};
+
+		const fnHandleMove = (oEvent) => {
+			const oState = mLineChartHover.get(elCanvas) || { iHoverIndex: -1 };
+			const iNextHoverIndex = fnResolveHoverIndex(oEvent);
+			if (oState.iHoverIndex === iNextHoverIndex) return;
+			oState.iHoverIndex = iNextHoverIndex;
+			mLineChartHover.set(elCanvas, oState);
+			if (oState.oCtx && Array.isArray(oState.aPoints)) {
+				fnDrawLineChart(oState.oCtx, elCanvas, oState.aPoints, Boolean(oState.bPnlOnly));
+			}
+		};
+
+		const fnHandleLeave = () => {
+			const oState = mLineChartHover.get(elCanvas) || { iHoverIndex: -1 };
+			if (oState.iHoverIndex < 0) return;
+			oState.iHoverIndex = -1;
+			mLineChartHover.set(elCanvas, oState);
+			if (oState.oCtx && Array.isArray(oState.aPoints)) {
+				fnDrawLineChart(oState.oCtx, elCanvas, oState.aPoints, Boolean(oState.bPnlOnly));
+			}
+		};
+
+		elCanvas.addEventListener("pointermove", fnHandleMove);
+		elCanvas.addEventListener("pointerleave", fnHandleLeave);
+	}
+
+	/**
 	 * Zeichnet einen einheitlichen Linienchart für Gesamt- und Einzelansicht.
 	 * Scope: [SHARED]
 	 * Variablen:
@@ -1271,6 +1356,14 @@
 	 * @param {boolean} bPnlOnly
 	 */
 	function fnDrawLineChart(oCtx, elCanvas, aPoints, bPnlOnly) {
+		const oHoverState = mLineChartHover.get(elCanvas) || { iHoverIndex: -1 };
+		oHoverState.oCtx = oCtx;
+		oHoverState.aPoints = aPoints;
+		oHoverState.bPnlOnly = bPnlOnly;
+		if (!Number.isInteger(oHoverState.iHoverIndex)) oHoverState.iHoverIndex = -1;
+		if (oHoverState.iHoverIndex >= aPoints.length) oHoverState.iHoverIndex = -1;
+		mLineChartHover.set(elCanvas, oHoverState);
+		fnEnsureLineChartHoverHandlers(elCanvas);
 		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
 		oCtx.clearRect(0, 0, iWidth, iHeight);
 		const oStyles = getComputedStyle(document.documentElement);
@@ -1279,15 +1372,10 @@
 		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
 		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
 		const sBorderStrong = oStyles.getPropertyValue("--clr-border-strong").trim() || "#b5c0ba";
+		const sSurface = oStyles.getPropertyValue("--clr-surface").trim() || "#ffffff";
+		const sText = oStyles.getPropertyValue("--clr-text").trim() || "#1d2522";
 
-		const bCompact = iWidth < 520;
-		const iPadL = bCompact ? 56 : 78;
-		const iPadR = bCompact ? 16 : 26;
-		const iPadT = bCompact ? 16 : 20;
-		const iPadB = bCompact ? 36 : 44;
-
-		const iInnerWidth = iWidth - iPadL - iPadR;
-		const iInnerHeight = iHeight - iPadT - iPadB;
+		const { bCompact, iPadL, iPadT, iInnerWidth, iInnerHeight } = fnGetLineChartGeometry(iWidth, iHeight);
 
 		const aValues = aPoints.map((oPoint) => oPoint.y);
 		let nMin = Math.min(...aValues);
@@ -1377,6 +1465,59 @@
 		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 8, 0, Math.PI * 2);
 		oCtx.fillStyle = "rgba(29, 122, 91, 0.23)";
 		oCtx.fill();
+
+		const iHoverIndex = Number.isInteger(oHoverState.iHoverIndex) ? oHoverState.iHoverIndex : -1;
+		if (iHoverIndex >= 0 && iHoverIndex < aCanvasPoints.length) {
+			const oHoverPoint = aCanvasPoints[iHoverIndex];
+			const nHoverValue = Number(aPoints[iHoverIndex]?.y);
+			const sHoverValue = Number.isFinite(nHoverValue) ? fnFmtMoney(nHoverValue, "USD") : "—";
+
+			oCtx.beginPath();
+			oCtx.setLineDash([4, 4]);
+			oCtx.moveTo(oHoverPoint.nX, iPadT);
+			oCtx.lineTo(oHoverPoint.nX, iPadT + iInnerHeight);
+			oCtx.strokeStyle = sBorderStrong;
+			oCtx.lineWidth = 1;
+			oCtx.stroke();
+			oCtx.setLineDash([]);
+
+			oCtx.beginPath();
+			oCtx.arc(oHoverPoint.nX, oHoverPoint.nY, 6.5, 0, Math.PI * 2);
+			oCtx.fillStyle = "rgba(29, 122, 91, 0.18)";
+			oCtx.fill();
+
+			oCtx.beginPath();
+			oCtx.arc(oHoverPoint.nX, oHoverPoint.nY, 4, 0, Math.PI * 2);
+			oCtx.fillStyle = sPrimary;
+			oCtx.fill();
+
+			oCtx.font = `${bCompact ? 11 : 12}px 'Sora', 'Avenir Next', sans-serif`;
+			const iPadX = bCompact ? 8 : 10;
+			const iPadY = bCompact ? 5 : 6;
+			const iBoxH = bCompact ? 24 : 26;
+			const iTextW = Math.ceil(oCtx.measureText(sHoverValue).width);
+			const iBoxW = iTextW + iPadX * 2;
+			let nBoxX = oHoverPoint.nX + 10;
+			if (nBoxX + iBoxW > iPadL + iInnerWidth) {
+				nBoxX = oHoverPoint.nX - iBoxW - 10;
+			}
+			nBoxX = Math.max(iPadL + 2, nBoxX);
+			let nBoxY = oHoverPoint.nY - iBoxH - 10;
+			if (nBoxY < iPadT + 2) nBoxY = oHoverPoint.nY + 10;
+			if (nBoxY + iBoxH > iPadT + iInnerHeight - 2) nBoxY = iPadT + iInnerHeight - iBoxH - 2;
+
+			fnCanvasRoundRect(oCtx, nBoxX, nBoxY, iBoxW, iBoxH, 7);
+			oCtx.fillStyle = sSurface;
+			oCtx.fill();
+			oCtx.lineWidth = 1;
+			oCtx.strokeStyle = sBorderStrong;
+			oCtx.stroke();
+
+			oCtx.fillStyle = sText;
+			oCtx.textAlign = "left";
+			oCtx.textBaseline = "middle";
+			oCtx.fillText(sHoverValue, nBoxX + iPadX, nBoxY + iBoxH / 2);
+		}
 
 		const iLabelCount = Math.min(bCompact ? 4 : 6, aPoints.length);
 		oCtx.font = `${bCompact ? 10 : 11}px 'Sora', 'Avenir Next', sans-serif`;
