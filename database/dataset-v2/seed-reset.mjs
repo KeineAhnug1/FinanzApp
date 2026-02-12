@@ -143,35 +143,35 @@ const data = {
       group_id: ids.groups.sonnenallee,
       user_id: ids.users.anna,
       role: "admin",
-      status: "active"
+      status: "accepted"
     }),
     createGroupMemberEntity({
       _id: ids.group_members.benSonnenallee,
       group_id: ids.groups.sonnenallee,
       user_id: ids.users.ben,
       role: "member",
-      status: "active"
+      status: "accepted"
     }),
     createGroupMemberEntity({
       _id: ids.group_members.claraSonnenallee,
       group_id: ids.groups.sonnenallee,
       user_id: ids.users.clara,
       role: "member",
-      status: "active"
+      status: "accepted"
     }),
     createGroupMemberEntity({
       _id: ids.group_members.emreNeckarstadt,
       group_id: ids.groups.neckarstadt,
       user_id: ids.users.emre,
       role: "admin",
-      status: "active"
+      status: "accepted"
     }),
     createGroupMemberEntity({
       _id: ids.group_members.farahNeckarstadt,
       group_id: ids.groups.neckarstadt,
       user_id: ids.users.farah,
       role: "member",
-      status: "active"
+      status: "accepted"
     })
   ],
   bank_accounts: [

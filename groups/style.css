@@ -178,6 +178,12 @@ body {
   font-weight: 650;
 }
 
+.inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .admin-panel {
   margin-top: 8px;
   border: 1px solid var(--border);

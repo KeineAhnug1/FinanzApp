@@ -34,6 +34,22 @@ function toObjectId(value) {
   return new ObjectId(value);
 }
 
+function normalizeGroupMemberStatus(value = "accepted") {
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "active") {
+    return "accepted";
+  }
+  if (normalized === "denialed") {
+    return "denied";
+  }
+
+  if (!["invited", "denied", "accepted"].includes(normalized)) {
+    throw new TypeError("group_members.status must be one of invited, denied, accepted.");
+  }
+
+  return normalized;
+}
+
 export function createUserEntity({
   _id,
   username,
@@ -77,14 +93,14 @@ export function createGroupMemberEntity({
   group_id,
   user_id,
   role,
-  status = null
+  status = "accepted"
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
     group_id: toObjectId(group_id),
     user_id: toObjectId(user_id),
     role,
-    status
+    status: normalizeGroupMemberStatus(status)
   };
 }
 

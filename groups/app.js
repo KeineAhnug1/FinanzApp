@@ -2,6 +2,8 @@ const SESSION_USER = "anna";
 
 const sessionUserBadge = document.getElementById("sessionUserBadge");
 const groupsList = document.getElementById("groupsList");
+const inboxInvitations = document.getElementById("inboxInvitations");
+const inboxStatus = document.getElementById("inboxStatus");
 const groupForm = document.getElementById("groupForm");
 const nameInput = document.getElementById("nameInput");
 const addressInput = document.getElementById("addressInput");
@@ -20,8 +22,15 @@ const deleteGroupButton = document.getElementById("deleteGroupButton");
 const detailStatus = document.getElementById("detailStatus");
 
 let groupsState = [];
+let invitationsState = [];
 let selectedGroupId = null;
 let selectedGroupDetail = null;
+
+function normalizeMemberStatus(status) {
+  if (status === "active") return "accepted";
+  if (status === "denialed") return "denied";
+  return status || "accepted";
+}
 
 function formatDate(value) {
   if (!value) return "n/a";
@@ -39,6 +48,14 @@ function setDetailStatus(message, type = "") {
     detailStatus.classList.add(type);
   }
   detailStatus.textContent = message || "";
+}
+
+function setInboxStatus(message, type = "") {
+  inboxStatus.className = "form-status";
+  if (type) {
+    inboxStatus.classList.add(type);
+  }
+  inboxStatus.textContent = message || "";
 }
 
 function renderGroups(groups) {
@@ -61,11 +78,40 @@ function renderGroups(groups) {
     card.innerHTML = `
       <h3>${group.name}</h3>
       <p class="meta"><strong>Role:</strong> ${group.role}</p>
+      <p class="meta"><strong>Status:</strong> ${normalizeMemberStatus(group.status)}</p>
       <p class="meta"><strong>Address:</strong> ${group.address || "n/a"}</p>
-      <p class="meta"><strong>Joined:</strong> ${formatDate(group.joined_at)}</p>
       <button type="button" class="select-group-button" data-group-id="${group.group_id}">Open details</button>
     `;
     groupsList.appendChild(card);
+  }
+}
+
+function renderInvitations(invitations) {
+  inboxInvitations.innerHTML = "";
+
+  if (!invitations.length) {
+    const empty = document.createElement("li");
+    empty.className = "member-item";
+    empty.innerHTML = `<p class="meta">No pending invitations.</p>`;
+    inboxInvitations.appendChild(empty);
+    return;
+  }
+
+  for (const invitation of invitations) {
+    const item = document.createElement("li");
+    item.className = "member-item";
+    item.innerHTML = `
+      <div>
+        <p class="member-name">${invitation.group_name}</p>
+        <p class="meta">Status: ${normalizeMemberStatus(invitation.status)} | Role: ${invitation.role}</p>
+        <p class="meta">Address: ${invitation.group_address || "n/a"}</p>
+      </div>
+      <div class="inbox-actions">
+        <button type="button" class="accept-invite-button" data-group-id="${invitation.group_id}">Accept</button>
+        <button type="button" class="small-danger-button deny-invite-button" data-group-id="${invitation.group_id}">Deny</button>
+      </div>
+    `;
+    inboxInvitations.appendChild(item);
   }
 }
 
@@ -98,7 +144,7 @@ function renderGroupDetail(detail) {
     item.innerHTML = `
       <div>
         <p class="member-name">${identity}${isSessionUser ? " (you)" : ""}</p>
-        <p class="meta">Role: ${member.role} | Joined: ${formatDate(member.joined_at)}</p>
+        <p class="meta">Role: ${member.role} | Status: ${normalizeMemberStatus(member.status)}</p>
       </div>
     `;
 
@@ -107,7 +153,7 @@ function renderGroupDetail(detail) {
       button.type = "button";
       button.className = "small-danger-button";
       button.dataset.userId = member.user_id;
-      button.textContent = "Remove";
+      button.textContent = "Kick out";
       item.appendChild(button);
     }
 
@@ -168,6 +214,17 @@ async function loadGroups(preferredGroupId = selectedGroupId) {
   await loadGroupDetail(selectedGroupId);
 }
 
+async function loadInvitations() {
+  const response = await fetch("/api/inbox/invitations");
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not load invitations");
+  }
+
+  invitationsState = payload.invitations || [];
+  renderInvitations(invitationsState);
+}
+
 async function createGroup(name, address) {
   const response = await fetch("/api/groups", {
     method: "POST",
@@ -203,6 +260,26 @@ async function removeMember(groupId, userId) {
   }
 }
 
+async function acceptInvitation(groupId) {
+  const response = await fetch(`/api/inbox/invitations/${groupId}/accept`, {
+    method: "POST"
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not accept invitation");
+  }
+}
+
+async function denyInvitation(groupId) {
+  const response = await fetch(`/api/inbox/invitations/${groupId}/deny`, {
+    method: "POST"
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not deny invitation");
+  }
+}
+
 async function deleteGroup(groupId) {
   const response = await fetch(`/api/groups/${groupId}`, {
     method: "DELETE"
@@ -231,6 +308,32 @@ groupsList.addEventListener("click", async (event) => {
   }
 });
 
+inboxInvitations.addEventListener("click", async (event) => {
+  const acceptButton = event.target.closest(".accept-invite-button");
+  const denyButton = event.target.closest(".deny-invite-button");
+  const button = acceptButton || denyButton;
+  if (!button) return;
+
+  const groupId = button.dataset.groupId;
+  if (!groupId) return;
+
+  const isAccept = button.classList.contains("accept-invite-button");
+  setInboxStatus(isAccept ? "Accepting invitation..." : "Denying invitation...");
+
+  try {
+    if (isAccept) {
+      await acceptInvitation(groupId);
+      setInboxStatus("Invitation accepted.", "ok");
+    } else {
+      await denyInvitation(groupId);
+      setInboxStatus("Invitation denied.", "ok");
+    }
+    await Promise.all([loadInvitations(), loadGroups()]);
+  } catch (error) {
+    setInboxStatus(error.message, "error");
+  }
+});
+
 membersList.addEventListener("click", async (event) => {
   const button = event.target.closest(".small-danger-button");
   if (!button || !selectedGroupDetail || !selectedGroupId) return;
@@ -242,7 +345,7 @@ membersList.addEventListener("click", async (event) => {
   try {
     await removeMember(selectedGroupId, userId);
     await loadGroupDetail(selectedGroupId);
-    setDetailStatus("Participant removed.", "ok");
+    setDetailStatus("Participant removed from group.", "ok");
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
@@ -256,7 +359,7 @@ inviteForm.addEventListener("submit", async (event) => {
   try {
     await inviteUserToGroup(selectedGroupId, inviteUsernameInput.value);
     inviteForm.reset();
-    await loadGroupDetail(selectedGroupId);
+    await Promise.all([loadGroupDetail(selectedGroupId), loadInvitations()]);
     setDetailStatus("User invited successfully.", "ok");
   } catch (error) {
     setDetailStatus(error.message, "error");
@@ -297,7 +400,7 @@ groupForm.addEventListener("submit", async (event) => {
   }
 });
 
-Promise.all([loadSession(), loadGroups()]).catch((error) => {
+Promise.all([loadSession(), loadGroups(), loadInvitations()]).catch((error) => {
   formStatus.className = "form-status error";
   formStatus.textContent = error.message;
 });

@@ -5,7 +5,8 @@ const { MongoClient, ObjectId } = require("mongodb");
 require("dotenv").config();
 
 const PORT = Number(process.env.PORT || 3001);
-const DB_NAME = process.env.MONGODB_DB || "finanzapp";
+const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
+const DB_NAME = process.env.MONGODB_DB_V2 || `${BASE_DB_NAME}_v2`;
 const MONGO_URI = process.env.MONGODB_URI;
 const STATIC_ROOT = __dirname;
 const SESSION_USERNAME = "anna";
@@ -70,6 +71,29 @@ async function getSessionUser() {
   );
 }
 
+function activeMembershipFilter() {
+  return {
+    $or: [
+      { status: "accepted" },
+      { status: "active" },
+      { status: null },
+      { status: { $exists: false } }
+    ]
+  };
+}
+
+function visibleMembershipFilter() {
+  return {
+    $or: [
+      { status: "accepted" },
+      { status: "invited" },
+      { status: "active" },
+      { status: null },
+      { status: { $exists: false } }
+    ]
+  };
+}
+
 async function handleGetSession(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -110,7 +134,8 @@ async function getGroupContext(groupIdRaw) {
 
   const membership = await db.collection("group_members").findOne({
     group_id: groupId,
-    user_id: user._id
+    user_id: user._id,
+    ...activeMembershipFilter()
   });
   if (!membership) {
     return { ok: false, status: 403, message: "You are not a participant of this group" };
@@ -131,7 +156,7 @@ async function handleGroupDetail(req, res, groupIdRaw) {
   }
 
   const members = await db.collection("group_members").aggregate([
-    { $match: { group_id: context.groupId } },
+    { $match: { group_id: context.groupId, ...visibleMembershipFilter() } },
     {
       $lookup: {
         from: "users",
@@ -141,7 +166,7 @@ async function handleGroupDetail(req, res, groupIdRaw) {
       }
     },
     { $unwind: "$user" },
-    { $sort: { joined_at: 1 } },
+    { $sort: { "user.username": 1 } },
     {
       $project: {
         _id: 0,
@@ -150,7 +175,7 @@ async function handleGroupDetail(req, res, groupIdRaw) {
         first_name: "$user.first_name",
         last_name: "$user.last_name",
         role: "$role",
-        joined_at: "$joined_at"
+        status: "$status"
       }
     }
   ]).toArray();
@@ -171,7 +196,7 @@ async function handleGroupDetail(req, res, groupIdRaw) {
       first_name: member.first_name ?? null,
       last_name: member.last_name ?? null,
       role: member.role,
-      joined_at: member.joined_at
+      status: member.status ?? null
     }))
   });
 }
@@ -218,15 +243,37 @@ async function handleInviteUser(req, res, groupIdRaw) {
     user_id: inviteUser._id
   });
   if (existingMembership) {
+    if (existingMembership.status === "denied") {
+      await db.collection("group_members").updateOne(
+        { _id: existingMembership._id },
+        { $set: { role: "member", status: "invited" } }
+      );
+
+      return sendJson(res, 200, {
+        ok: true,
+        member: {
+          user_id: String(inviteUser._id),
+          username: inviteUser.username,
+          first_name: inviteUser.first_name ?? null,
+          last_name: inviteUser.last_name ?? null,
+          role: "member",
+          status: "invited"
+        }
+      });
+    }
+
+    if (existingMembership.status === "invited") {
+      return sendJson(res, 409, { ok: false, message: "User already has a pending invitation" });
+    }
+
     return sendJson(res, 409, { ok: false, message: "User is already in this group" });
   }
 
-  const joinedAt = new Date();
   await db.collection("group_members").insertOne({
     group_id: context.groupId,
     user_id: inviteUser._id,
     role: "member",
-    joined_at: joinedAt
+    status: "invited"
   });
 
   return sendJson(res, 201, {
@@ -237,9 +284,94 @@ async function handleInviteUser(req, res, groupIdRaw) {
       first_name: inviteUser.first_name ?? null,
       last_name: inviteUser.last_name ?? null,
       role: "member",
-      joined_at: joinedAt
+      status: "invited"
     }
   });
+}
+
+async function handleGetInvitations(req, res) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const user = await getSessionUser();
+  if (!user) {
+    return sendJson(res, 404, { ok: false, message: "Session user not found" });
+  }
+
+  const invitations = await db.collection("group_members").aggregate([
+    { $match: { user_id: user._id, status: "invited" } },
+    {
+      $lookup: {
+        from: "groups",
+        localField: "group_id",
+        foreignField: "_id",
+        as: "group"
+      }
+    },
+    { $unwind: "$group" },
+    { $sort: { "group.created_at": -1 } },
+    {
+      $project: {
+        _id: 0,
+        group_id: "$group._id",
+        group_name: "$group.name",
+        group_address: "$group.address",
+        group_created_at: "$group.created_at",
+        role: "$role",
+        status: "$status"
+      }
+    }
+  ]).toArray();
+
+  return sendJson(res, 200, {
+    ok: true,
+    invitations: invitations.map((entry) => ({
+      group_id: String(entry.group_id),
+      group_name: entry.group_name,
+      group_address: entry.group_address ?? null,
+      group_created_at: entry.group_created_at ?? null,
+      role: entry.role,
+      status: entry.status
+    }))
+  });
+}
+
+async function handleInvitationDecision(req, res, groupIdRaw, decision) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (decision !== "accept" && decision !== "deny") {
+    return sendJson(res, 400, { ok: false, message: "Invalid invitation decision" });
+  }
+
+  const groupId = toObjectId(groupIdRaw);
+  if (!groupId) {
+    return sendJson(res, 400, { ok: false, message: "Invalid group id" });
+  }
+
+  const user = await getSessionUser();
+  if (!user) {
+    return sendJson(res, 404, { ok: false, message: "Session user not found" });
+  }
+
+  const targetStatus = decision === "accept" ? "accepted" : "denied";
+  const result = await db.collection("group_members").updateOne({
+    group_id: groupId,
+    user_id: user._id,
+    status: "invited"
+  }, {
+    $set: { status: targetStatus }
+  });
+
+  if (result.matchedCount === 0) {
+    return sendJson(res, 404, { ok: false, message: "Invitation not found or already handled" });
+  }
+
+  return sendJson(res, 200, { ok: true, status: targetStatus });
 }
 
 async function handleRemoveMember(req, res, groupIdRaw, userIdRaw) {
@@ -289,45 +421,31 @@ async function handleDeleteGroup(req, res, groupIdRaw) {
     return sendJson(res, 403, { ok: false, message: "Only admins can delete groups" });
   }
 
-  const expenses = await db.collection("expenses").find(
+  const groupFunding = await db.collection("group_funding").find(
     { group_id: context.groupId },
     { projection: { _id: 1 } }
   ).toArray();
-  const expenseIds = expenses.map((expense) => expense._id);
+  const fundingIds = groupFunding.map((funding) => funding._id);
 
-  let expenseShareIds = [];
-  if (expenseIds.length) {
-    const expenseShares = await db.collection("expense_shares").find(
-      { expense_id: { $in: expenseIds } },
+  let groupExpenseIds = [];
+  if (fundingIds.length) {
+    const groupExpenses = await db.collection("group_expenses").find(
+      { group_funding_id: { $in: fundingIds } },
       { projection: { _id: 1 } }
     ).toArray();
-    expenseShareIds = expenseShares.map((share) => share._id);
+    groupExpenseIds = groupExpenses.map((expense) => expense._id);
   }
 
-  let requestIds = [];
-  if (expenseShareIds.length) {
-    const requests = await db.collection("requests").find(
-      { expense_share_id: { $in: expenseShareIds } },
-      { projection: { _id: 1 } }
-    ).toArray();
-    requestIds = requests.map((request) => request._id);
+  if (groupExpenseIds.length) {
+    await db.collection("transactions").deleteMany({ group_expense_id: { $in: groupExpenseIds } });
+    await db.collection("group_expenses").deleteMany({ _id: { $in: groupExpenseIds } });
+  }
+  if (fundingIds.length) {
+    await db.collection("funding_participants").deleteMany({ group_funding_id: { $in: fundingIds } });
+    await db.collection("group_funding").deleteMany({ _id: { $in: fundingIds } });
   }
 
-  if (requestIds.length) {
-    await db.collection("transactions").deleteMany({ request_id: { $in: requestIds } });
-  }
-  if (expenseShareIds.length) {
-    await db.collection("transactions").deleteMany({ expense_share_id: { $in: expenseShareIds } });
-  }
-  if (requestIds.length) {
-    await db.collection("requests").deleteMany({ _id: { $in: requestIds } });
-  }
-  if (expenseShareIds.length) {
-    await db.collection("expense_shares").deleteMany({ _id: { $in: expenseShareIds } });
-  }
-  if (expenseIds.length) {
-    await db.collection("expenses").deleteMany({ _id: { $in: expenseIds } });
-  }
+  await db.collection("group_activities").deleteMany({ group_id: context.groupId });
 
   await db.collection("group_members").deleteMany({ group_id: context.groupId });
   await db.collection("groups").deleteOne({ _id: context.groupId });
@@ -343,7 +461,7 @@ async function handleGroups(req, res) {
     }
 
     const memberships = await db.collection("group_members").aggregate([
-      { $match: { user_id: user._id } },
+      { $match: { user_id: user._id, ...activeMembershipFilter() } },
       {
         $lookup: {
           from: "groups",
@@ -353,7 +471,7 @@ async function handleGroups(req, res) {
         }
       },
       { $unwind: "$group" },
-      { $sort: { joined_at: -1 } },
+      { $sort: { "group.created_at": -1 } },
       {
         $project: {
           _id: 0,
@@ -362,7 +480,7 @@ async function handleGroups(req, res) {
           address: "$group.address",
           created_at: "$group.created_at",
           role: "$role",
-          joined_at: "$joined_at"
+          status: "$status"
         }
       }
     ]).toArray();
@@ -376,7 +494,7 @@ async function handleGroups(req, res) {
         address: entry.address ?? null,
         created_at: entry.created_at ?? null,
         role: entry.role,
-        joined_at: entry.joined_at
+        status: entry.status ?? null
       }))
     });
   }
@@ -415,7 +533,7 @@ async function handleGroups(req, res) {
       group_id: groupResult.insertedId,
       user_id: user._id,
       role: "admin",
-      joined_at: now
+      status: "accepted"
     });
 
     return sendJson(res, 201, {
@@ -425,7 +543,7 @@ async function handleGroups(req, res) {
         name,
         address: address || null,
         role: "admin",
-        joined_at: now,
+        status: "accepted",
         created_at: now
       }
     });
@@ -472,6 +590,15 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === "/api/groups") {
       return await handleGroups(req, res);
+    }
+
+    if (url.pathname === "/api/inbox/invitations") {
+      return await handleGetInvitations(req, res);
+    }
+
+    const invitationDecisionMatch = url.pathname.match(/^\/api\/inbox\/invitations\/([^/]+)\/(accept|deny)$/);
+    if (invitationDecisionMatch) {
+      return await handleInvitationDecision(req, res, invitationDecisionMatch[1], invitationDecisionMatch[2]);
     }
 
     const inviteMatch = url.pathname.match(/^\/api\/groups\/([^/]+)\/invite$/);

@@ -56,12 +56,12 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["group_id", "user_id", "role"],
+        required: ["group_id", "user_id", "role", "status"],
         properties: {
           group_id: { bsonType: "objectId" },
           user_id: { bsonType: "objectId" },
           role: { bsonType: "string", minLength: 1 },
-          status: { bsonType: ["string", "null"] }
+          status: { enum: ["invited", "denied", "accepted"] }
         },
         additionalProperties: true
       }
