@@ -303,7 +303,7 @@
 	/**
 	 * Lädt den lokalen Aktienkatalog aus `testdata/Allstocks.json`.
 	 * Scope: [SHARED]
-	 * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCurrency: string}>>}
+	 * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCurrency: string, sType: string}>>}
 	 */
 	async function fnLoadAllStocksCatalog() {
 		try {
@@ -318,6 +318,7 @@
 						sName: String(oRow?.name || "").trim(),
 						sExchange: String(oRow?.exchange || "").trim(),
 						sCurrency: String(oRow?.currency || "").trim(),
+						sType: String(oRow?.type || "").trim(),
 					}))
 					.filter((oRow) => Boolean(oRow.sSymbol))
 				: [];
@@ -612,6 +613,53 @@
       `;
 
 			fnInitFutureAnalysisView();
+			return;
+		}
+
+		// [KATEGORIEN] Template + Startlogik
+		if (
+			sViewName === "category_common_stock" ||
+			sViewName === "category_preferred_stock" ||
+			sViewName === "category_etf" ||
+			sViewName === "category_real_estate" ||
+			sViewName === "category_depositary_receipts" ||
+			sViewName === "category_partnerships" ||
+			sViewName === "category_closed_end_funds" ||
+			sViewName === "category_etn"
+		) {
+			const oCategoryMeta = fnGetCategoryMeta(sViewName);
+			elViewHost.innerHTML = `
+        <section class="category-page">
+          <h2 class="view-title">${fnEscapeHtml(oCategoryMeta.sTitle)}</h2>
+
+          <div class="card">
+            <div class="row analysis-top-row">
+              <div class="muted" id="categoryInfo">Lade Daten...</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Meine gehaltenen Aktien (${fnEscapeHtml(oCategoryMeta.sTitle)})</h3>
+            <div class="table-wrap">
+              <table class="table" id="categoryHoldingsTable">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Typ</th>
+                    <th>Gesamtmenge</th>
+                    <th>Erster Kauf</th>
+                    <th>Ø Kaufpreis</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      `;
+
+			fnInitCategoryView(sViewName);
 			return;
 		}
 
@@ -1947,7 +1995,134 @@
 	}
 
 	// =====================================================
-	// [ZUKUNFT] 11) Zukunftsaussicht-Funktionen
+	// [KATEGORIEN] 11) Kategorie-Funktionen
+	// Für Stammaktie, ETF und Real Estate.
+	// =====================================================
+
+	/**
+	 * Liefert Anzeige- und Filtermetadaten für eine Kategorie.
+	 * Scope: [KATEGORIEN]
+	 * @param {string} sCategoryView
+	 * @returns {{sTitle: string}}
+	 */
+	function fnGetCategoryMeta(sCategoryView) {
+		if (sCategoryView === "category_common_stock") return { sTitle: "Stammaktie" };
+		if (sCategoryView === "category_preferred_stock") return { sTitle: "Vorzugsaktie" };
+		if (sCategoryView === "category_etf") return { sTitle: "ETF" };
+		if (sCategoryView === "category_real_estate") return { sTitle: "Real Estate" };
+		if (sCategoryView === "category_depositary_receipts") return { sTitle: "Depositary Receipts" };
+		if (sCategoryView === "category_partnerships") return { sTitle: "Partnerships" };
+		if (sCategoryView === "category_closed_end_funds") return { sTitle: "Closed-end Funds" };
+		if (sCategoryView === "category_etn") return { sTitle: "ETNs" };
+		return { sTitle: "Kategorie" };
+	}
+
+	/**
+	 * Prüft, ob ein Katalogeintrag zur gewünschten Kategorie gehört.
+	 * Scope: [KATEGORIEN]
+	 * @param {{sName?: string, sType?: string} | null | undefined} oCatalogRow
+	 * @param {string} sCategoryView
+	 * @returns {boolean}
+	 */
+	function fnIsCatalogRowInCategory(oCatalogRow, sCategoryView) {
+		if (!oCatalogRow) return false;
+		const sType = String(oCatalogRow?.sType || "").trim().toLowerCase();
+		const sName = String(oCatalogRow?.sName || "").trim().toLowerCase();
+
+		if (sCategoryView === "category_common_stock") {
+			return sType === "common stock";
+		}
+		if (sCategoryView === "category_preferred_stock") {
+			return sType === "preferred stock";
+		}
+		if (sCategoryView === "category_etf") {
+			return sType.includes("etf") || sType.includes("exchange-traded fund") || sName.includes(" etf");
+		}
+		if (sCategoryView === "category_real_estate") {
+			return sType === "reit";
+		}
+		if (sCategoryView === "category_depositary_receipts") {
+			return sType === "depositary receipt" || sType === "american depositary receipt" || sType === "global depositary receipt";
+		}
+		if (sCategoryView === "category_partnerships") {
+			return sType === "limited partnership";
+		}
+		if (sCategoryView === "category_closed_end_funds") {
+			return sType === "closed-end fund";
+		}
+		if (sCategoryView === "category_etn") {
+			return sType === "exchange-traded note";
+		}
+		return false;
+	}
+
+	/**
+	 * Initialisiert die Kategorien-Ansicht und zeigt gehaltene Aktien je Bereich.
+	 * Scope: [KATEGORIEN]
+	 * @param {"category_common_stock"|"category_preferred_stock"|"category_etf"|"category_real_estate"|"category_depositary_receipts"|"category_partnerships"|"category_closed_end_funds"|"category_etn"} sCategoryView
+	 */
+	async function fnInitCategoryView(sCategoryView) {
+		const elInfo = document.getElementById("categoryInfo");
+		const elTableTbody = document.querySelector("#categoryHoldingsTable tbody");
+		if (!elInfo || !elTableTbody) {
+			fnShowError("Kategorieansicht konnte nicht initialisiert werden (fehlende DOM-Elemente).");
+			return;
+		}
+
+		let aPositions = [];
+		let aAllStocksCatalog = [];
+		try {
+			[aPositions, aAllStocksCatalog] = await Promise.all([fnLoadPositions(), fnLoadAllStocksCatalog()]);
+		} catch (oError) {
+			fnShowError(String(oError?.message || oError));
+			elInfo.textContent = "Konnte Daten nicht laden.";
+			elTableTbody.innerHTML = "";
+			return;
+		}
+
+		const mCatalogBySymbol = new Map(
+			(aAllStocksCatalog || []).map((oRow) => [String(oRow?.sSymbol || "").trim().toUpperCase(), oRow])
+		);
+
+		const aOwnedRows = fnAggregateOwnedSymbols(aPositions);
+		const aFilteredRows = aOwnedRows.filter((oRow) => {
+			const oCatalogRow = mCatalogBySymbol.get(oRow.sSymbol);
+			return fnIsCatalogRowInCategory(oCatalogRow, sCategoryView);
+		});
+
+		if (!aFilteredRows.length) {
+			elInfo.textContent = "Keine gehaltenen Aktien in dieser Kategorie gefunden.";
+			elTableTbody.innerHTML = `
+        <tr>
+          <td colspan="6">Keine passenden Positionen vorhanden.</td>
+        </tr>
+      `;
+			return;
+		}
+
+		elInfo.textContent = `${aFilteredRows.length} Symbol(e) in dieser Kategorie gefunden.`;
+		elTableTbody.innerHTML = aFilteredRows
+			.map((oRow) => {
+				const oCatalogRow = mCatalogBySymbol.get(oRow.sSymbol) || {};
+				const sName = String(oCatalogRow?.sName || "Unbekannt");
+				const sType = String(oCatalogRow?.sType || "Unbekannt");
+				const sFirstBuyDate = Number.isFinite(oRow.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
+				return `
+          <tr>
+            <td><b>${fnEscapeHtml(oRow.sSymbol)}</b></td>
+            <td>${fnEscapeHtml(sName)}</td>
+            <td>${fnEscapeHtml(sType)}</td>
+            <td>${fnFmtNumber(oRow.nTotalAmount, 4)}</td>
+            <td>${sFirstBuyDate}</td>
+            <td>${fnFmtMoney(oRow.nAvgBuyPrice, "USD")}</td>
+          </tr>
+        `;
+			})
+			.join("");
+	}
+
+	// =====================================================
+	// [ZUKUNFT] 12) Zukunftsaussicht-Funktionen
 	// Nur für data-view="futureanalysis".
 	// =====================================================
 
@@ -2284,7 +2459,7 @@
 	}
 
 	// =====================================================
-	// [SHARED] 12) Navigation + App-Start
+	// [SHARED] 13) Navigation + App-Start
 	// =====================================================
 
 	/**
