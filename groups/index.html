@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Groups | FinanzApp</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="groups-layout">
+      <header class="layout-toolbar">
+        <p class="toolbar-brand">FinanzApp Groups</p>
+        <p id="sessionUserBadge" class="session-badge">Session: anna</p>
+      </header>
+
+      <section class="panel">
+        <h1 class="panel-title">Your Groups</h1>
+        <p class="panel-copy">
+          Click a group to open its detail view.
+        </p>
+        <div id="groupsList" class="groups-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Group Detail</h2>
+        <div id="groupDetailEmpty" class="empty-state">
+          Select one of your groups to see participants and admin actions.
+        </div>
+
+        <div id="groupDetailContent" class="detail-content" hidden>
+          <p id="groupDetailName" class="detail-name"></p>
+          <p id="groupDetailAddress" class="meta"></p>
+          <p id="groupDetailCreated" class="meta"></p>
+
+          <h3 class="sub-title">Participants</h3>
+          <ul id="membersList" class="members-list"></ul>
+
+          <div id="adminPanel" class="admin-panel" hidden>
+            <h3 class="sub-title">Admin Actions</h3>
+
+            <form id="inviteForm" class="invite-form">
+              <label class="field">
+                <span>Invite by username</span>
+                <input id="inviteUsernameInput" type="text" required maxlength="80" />
+              </label>
+              <button type="submit">Invite user</button>
+            </form>
+
+            <button id="deleteGroupButton" type="button" class="danger-button">
+              Delete this group
+            </button>
+          </div>
+
+          <p id="detailStatus" class="form-status" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Create New Group</h2>
+        <form id="groupForm" class="group-form">
+          <label class="field">
+            <span>Group name</span>
+            <input id="nameInput" name="name" type="text" required maxlength="120" />
+          </label>
+          <label class="field">
+            <span>Address (optional)</span>
+            <input id="addressInput" name="address" type="text" maxlength="200" />
+          </label>
+          <button type="submit">Create group</button>
+          <p id="formStatus" class="form-status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

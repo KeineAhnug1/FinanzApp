@@ -13,6 +13,7 @@
     "db:check": "node database/check-connection.mjs",
     "data:prepare": "node database/prepare-data.mjs",
     "web:start": "node uebersicht/server.js",
+    "groups:start": "node groups/server.js",
     "stocks:server": "node aktien/backend/server.mjs",
     "stocks:api": "PORT=5588 node aktien/backend/server.mjs",
     "stocks:web": "python3 -m http.server 5500",
