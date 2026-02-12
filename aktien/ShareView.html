@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Share View - Stocks</title>
+	<link rel="stylesheet" href="css/ShareView.css">
+</head>
+
+<body>
+	<header>
+		<h1>Share View - Aktien</h1>
+	</header>
+
+	<div class="app">
+		<nav>
+			<div class="group">
+				<div class="group-title">Depot</div>
+				<button class="navbtn active" data-view="depot">Gesamtsdepot</button>
+				<button class="navbtn" data-view="analysis">Einzelanalyse</button>
+				<button class="navbtn" data-view="futureanalysis">Zukunftsaussicht</button>
+			</div>
+
+			<div class="group">
+				<div class="group-title">Gruppierungen</div>
+				<button class="navbtn" data-view="symbol_search">Stammaktie</button>
+				<button class="navbtn" data-view="stocks">ETFs</button>
+				<button class="navbtn" data-view="stocks">Real Estate</button>
+			</div>
+
+
+			<p class="hint">
+				Falls keine Aktienkurse angezeigt werden liegt dies an der vollständigen Auslastung des API Keys.
+				Dies führt zu keinem verfälschten Ergebnis.
+			</p>
+		</nav>
+
+		<main>
+
+
+			<div id="viewHost"></div>
+		</main>
+	</div>
+
+	<script src="js/ShareView.js"></script>
+</body>
+
+</html>

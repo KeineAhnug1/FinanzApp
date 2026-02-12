@@ -1,0 +1,674 @@
+/* ======================================================
+   1) Design Tokens
+   Beschreibung:
+   - Zentrale Farben, Schatten, Radius, Spacing
+   - Anpassungen zuerst hier vornehmen
+   ====================================================== */
+:root {
+  /* Flächen */
+  --clr-bg: #0d1015;
+  --clr-surface: #151a22;
+  --clr-surface-soft: #1b222e;
+
+  /* Text */
+  --clr-text: #e9eef8;
+  --clr-text-muted: #a9b3c6;
+  --clr-text-soft: #7f8aa0;
+
+  /* Akzent */
+  --clr-primary: #5fa5ff;
+  --clr-primary-soft: #1f3354;
+
+  /* Linien */
+  --clr-border: #2a3242;
+  --clr-border-strong: #3a455b;
+
+  /* Schatten */
+  --shadow-soft: 0 14px 30px rgba(3, 7, 14, 0.45);
+
+  /* Geometrie */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+
+  /* Spacing */
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 20px;
+  --space-5: 24px;
+}
+
+/* ======================================================
+   2) Base
+   Beschreibung:
+   - Grundtypografie, Hintergrund und Reset
+   ====================================================== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Avenir Next", "Helvetica Neue", sans-serif;
+  color: var(--clr-text);
+  background: var(--clr-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+/* ======================================================
+   3) Header
+   Beschreibung:
+   - Klarer Kopfbereich mit ruhiger Trennung
+   ====================================================== */
+header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+}
+
+header h1 {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+/* ======================================================
+   4) App Layout
+   Beschreibung:
+   - Navigation links, Inhalt rechts
+   ====================================================== */
+.app {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  min-height: calc(100vh - 61px);
+}
+
+main {
+  padding: var(--space-4);
+}
+
+/* ======================================================
+   5) Sidebar
+   Beschreibung:
+   - Schlichte Navigation mit klaren aktiven Zuständen
+   ====================================================== */
+nav {
+  border-right: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  padding: var(--space-3);
+}
+
+.group {
+  margin-bottom: var(--space-5);
+}
+
+.group-title {
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: var(--clr-text-soft);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.navbtn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--clr-text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.navbtn:hover {
+  background: var(--clr-surface-soft);
+  color: var(--clr-text);
+}
+
+.navbtn.active {
+  border-color: var(--clr-border);
+  background: var(--clr-surface-soft);
+  color: var(--clr-text);
+  font-weight: 620;
+}
+
+.hint {
+  margin-top: var(--space-4);
+  font-size: 12px;
+  color: var(--clr-text-soft);
+  line-height: 1.45;
+}
+
+/* ======================================================
+   6) UI Komponenten
+   Beschreibung:
+   - Karten, Formulare, Buttons, Statusfarben
+   ====================================================== */
+.card {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--clr-text-muted);
+}
+
+input,
+select {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.check-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.check-row span {
+  font-size: 13px;
+  color: var(--clr-text-muted);
+}
+
+.ui-check {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: unset;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--clr-border-strong);
+  border-radius: 999px;
+  background: #263043;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.ui-check::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e8edf8;
+  transition: transform 0.18s ease;
+}
+
+.ui-check:checked {
+  background: var(--clr-primary);
+  border-color: var(--clr-primary);
+}
+
+.ui-check:checked::before {
+  transform: translateX(18px);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(95, 165, 255, 0.24);
+}
+
+.action {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.action:hover {
+  border-color: var(--clr-border-strong);
+  background: var(--clr-surface-soft);
+}
+
+.action.primary {
+  border-color: var(--clr-primary);
+  background: var(--clr-primary);
+  color: #fff;
+  font-weight: 620;
+}
+
+.action.primary:hover {
+  background: #4a90e6;
+}
+
+.muted {
+  color: var(--clr-text-muted);
+  font-size: 13px;
+}
+
+/* ======================================================
+   7) Controls + KPIs
+   Beschreibung:
+   - Zeitraum-Schalter und KPI-Karten im minimalistischen Stil
+   ====================================================== */
+.depot-page .view-title,
+.analysis-page .view-title {
+  margin-bottom: var(--space-2);
+  font-weight: 630;
+}
+
+.range-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.range-btn {
+  padding: 8px 13px;
+  border: 1px solid var(--clr-border);
+  border-radius: 999px;
+  background: var(--clr-surface);
+  color: var(--clr-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.range-btn:hover {
+  border-color: var(--clr-border-strong);
+  color: var(--clr-text);
+}
+
+.range-btn.active {
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+  background: var(--clr-primary-soft);
+}
+
+.depot-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.kpis {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.kpi {
+  min-width: 210px;
+  padding: 10px 12px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface-soft);
+}
+
+.kpi b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--clr-text-soft);
+}
+
+/* ======================================================
+   8) Chart + Suchtreffer
+   Beschreibung:
+   - Canvas bewusst neutral, damit die Zeichnung wirkt
+   - Trefferliste klar und klickbar
+   ====================================================== */
+.line-chart,
+#depotChart,
+#analysisChart {
+  width: 100%;
+  height: 340px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface-soft);
+}
+
+.depot-chart-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.depot-line-wrap,
+.depot-pie-wrap {
+  min-width: 0;
+}
+
+.depot-chart-layout.is-pie-hidden {
+  grid-template-columns: 1fr;
+}
+
+.depot-pie-content {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(170px, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.pie-chart {
+  width: 100%;
+  height: 340px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface-soft);
+}
+
+.pie-legend {
+  margin-top: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.pie-legend-item {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  background: var(--clr-surface);
+  color: var(--clr-text-muted);
+  font-size: 13px;
+}
+
+.pie-legend-item b {
+  color: var(--clr-text);
+  font-size: 13px;
+}
+
+.pie-legend-item.is-active {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 1px rgba(95, 165, 255, 0.35) inset;
+}
+
+.pie-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.analysis-top-row {
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.analysis-top-row label {
+  min-width: 220px;
+}
+
+.analysis-top-row input,
+.analysis-top-row select {
+  min-width: 220px;
+}
+
+.analysis-search-results {
+  margin-top: var(--space-2);
+  display: grid;
+  gap: 8px;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.analysis-search-item {
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.analysis-search-item:hover {
+  border-color: var(--clr-border-strong);
+  background: var(--clr-surface-soft);
+}
+
+.analysis-search-item span,
+.analysis-search-item small {
+  display: block;
+}
+
+.analysis-search-item small {
+  margin-top: 3px;
+  color: var(--clr-text-soft);
+}
+
+/* ======================================================
+   9) Tabellen + JSON
+   Beschreibung:
+   - Dezente Trennlinien, bessere Lesbarkeit
+   ====================================================== */
+.table-wrap {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 11px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--clr-border);
+  font-size: 14px;
+}
+
+.table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--clr-text-soft);
+  font-weight: 620;
+}
+
+.table tr:hover td {
+  background: var(--clr-surface-soft);
+}
+
+/* ======================================================
+   10) Responsive
+   Beschreibung:
+   - Bei kleineren Viewports wird die Sidebar oben angezeigt
+   ====================================================== */
+@media (max-width: 980px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  nav {
+    border-right: none;
+    border-bottom: 1px solid var(--clr-border);
+  }
+
+  main {
+    padding: var(--space-3);
+  }
+
+  .navbtn,
+  .range-btn,
+  .action {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  header {
+    padding: 14px 12px;
+  }
+
+  header h1 {
+    font-size: 18px;
+  }
+
+  main {
+    padding: 12px;
+  }
+
+  .card {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .row,
+  .analysis-top-row,
+  .depot-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  label {
+    width: 100%;
+  }
+
+  .analysis-top-row label,
+  .analysis-top-row input,
+  .analysis-top-row select {
+    min-width: 100%;
+  }
+
+  input,
+  input:not(.ui-check),
+  select,
+  .action {
+    width: 100%;
+  }
+
+  .range-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 4px;
+    margin-right: -2px;
+  }
+
+  .range-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .line-chart,
+  #depotChart,
+  #analysisChart {
+    height: 260px;
+  }
+
+  .depot-chart-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .depot-pie-content {
+    grid-template-columns: 1fr;
+  }
+
+  .pie-chart {
+    height: 280px;
+  }
+
+  .kpis {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .kpi {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  .table {
+    min-width: 560px;
+  }
+
+  .table th,
+  .table td {
+    font-size: 13px;
+    padding: 10px 7px;
+  }
+
+  .hint {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  header h1 {
+    font-size: 16px;
+  }
+
+  .line-chart,
+  #depotChart,
+  #analysisChart {
+    height: 230px;
+  }
+
+  .pie-chart {
+    height: 250px;
+  }
+
+  .table {
+    min-width: 500px;
+  }
+
+  .group-title {
+    font-size: 10px;
+  }
+}
