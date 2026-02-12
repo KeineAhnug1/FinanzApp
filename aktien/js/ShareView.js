@@ -19,6 +19,7 @@
 	});
 	const sAllStocksDataPath = "testdata/Allstocks.json";
 	const sLocalBuyStorageKey = "shareview_positions_buys_v1";
+	const sLocalSellStorageKey = "shareview_positions_sells_v1";
 	const iCacheTtlMs = 5 * 60 * 1000;
 	const sLocale = "de-DE";
 
@@ -217,8 +218,9 @@
 	 */
 	async function fnLoadPositions() {
 		const aLocalBoughtPositions = fnReadLocalBoughtPositions();
+		const aLocalSoldPositions = fnReadLocalSoldPositions();
 		if (Array.isArray(window.POSITIONS)) {
-			return fnNormalizePositions([...window.POSITIONS, ...aLocalBoughtPositions]);
+			return fnApplySoldPositions([...window.POSITIONS, ...aLocalBoughtPositions], aLocalSoldPositions);
 		}
 
 		for (const sPositionsEndpoint of aPositionsEndpoints) {
@@ -227,7 +229,7 @@
 				if (oResponse.ok) {
 					const oData = await oResponse.json();
 					if (Array.isArray(oData)) {
-						return fnNormalizePositions([...oData, ...aLocalBoughtPositions]);
+						return fnApplySoldPositions([...oData, ...aLocalBoughtPositions], aLocalSoldPositions);
 					}
 				}
 				console.warn(`Positions Backend Fehler (${sPositionsEndpoint}): HTTP ${oResponse.status}.`);
@@ -237,7 +239,7 @@
 		}
 
 		console.warn("Kein Positions-Endpoint erreichbar. Nutze nur lokale Käufe.");
-		return fnNormalizePositions(aLocalBoughtPositions);
+		return fnApplySoldPositions(aLocalBoughtPositions, aLocalSoldPositions);
 	}
 
 	/**
@@ -268,6 +270,39 @@
 	}
 
 	/**
+	 * Liest lokal gespeicherte Verkäufe aus dem Browser-Storage.
+	 * Scope: [SHARED]
+	 * @returns {Array<{symbol: string, amount: number, created_at: number}>}
+	 */
+	function fnReadLocalSoldPositions() {
+		const sRaw = localStorage.getItem(sLocalSellStorageKey);
+		if (!sRaw) return [];
+
+		try {
+			const aParsed = JSON.parse(sRaw);
+			if (!Array.isArray(aParsed)) return [];
+			return fnNormalizePositions(aParsed)
+				.map((oPosition) => ({
+					symbol: oPosition.symbol,
+					amount: Number(oPosition.amount),
+					created_at: Number(oPosition.created_at),
+				}))
+				.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
+		} catch {
+			return [];
+		}
+	}
+
+	/**
+	 * Schreibt lokal gespeicherte Verkäufe in den Browser-Storage.
+	 * Scope: [SHARED]
+	 * @param {Array<{symbol: string, amount: number, created_at: number}>} aPositions
+	 */
+	function fnWriteLocalSoldPositions(aPositions) {
+		localStorage.setItem(sLocalSellStorageKey, JSON.stringify(aPositions));
+	}
+
+	/**
 	 * Speichert einen Kauf lokal und ergänzt optional `window.POSITIONS`.
 	 * Scope: [SHARED]
 	 * @param {{symbol: string, amount: number, created_at: number, worthwhenbought: number}} oPosition
@@ -280,6 +315,68 @@
 		if (Array.isArray(window.POSITIONS)) {
 			window.POSITIONS.push(oPosition);
 		}
+	}
+
+	/**
+	 * Speichert einen Verkauf lokal.
+	 * Scope: [SHARED]
+	 * @param {{symbol: string, amount: number, created_at: number}} oPosition
+	 */
+	function fnPersistSoldPosition(oPosition) {
+		const aLocalSellPositions = fnReadLocalSoldPositions();
+		aLocalSellPositions.push(oPosition);
+		fnWriteLocalSoldPositions(aLocalSellPositions);
+	}
+
+	/**
+	 * Wendet Verkäufe auf Positionsdaten an (FIFO: neueste Käufe zuerst reduziert).
+	 * Scope: [SHARED]
+	 * @param {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>} aPositions
+	 * @param {Array<{symbol: string, amount: number, created_at: number}>} aSoldPositions
+	 * @returns {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>}
+	 */
+	function fnApplySoldPositions(aPositions, aSoldPositions) {
+		const aBasePositions = fnNormalizePositions(aPositions)
+			.map((oPosition) => ({
+				...oPosition,
+				amount: Number(oPosition.amount),
+				created_at: Number(oPosition.created_at),
+				worthwhenbought: Number(oPosition.worthwhenbought),
+			}))
+			.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
+
+		const mPositionsBySymbol = new Map();
+		for (const oPosition of aBasePositions) {
+			if (!mPositionsBySymbol.has(oPosition.symbol)) mPositionsBySymbol.set(oPosition.symbol, []);
+			mPositionsBySymbol.get(oPosition.symbol).push(oPosition);
+		}
+
+		for (const aSymbolPositions of mPositionsBySymbol.values()) {
+			aSymbolPositions.sort((oA, oB) => Number(oB.created_at) - Number(oA.created_at));
+		}
+
+		const aSells = fnNormalizePositions(aSoldPositions)
+			.map((oSell) => ({
+				symbol: oSell.symbol,
+				amount: Number(oSell.amount),
+				created_at: Number(oSell.created_at),
+			}))
+			.filter((oSell) => Number.isFinite(oSell.amount) && oSell.amount > 0)
+			.sort((oA, oB) => Number(oA.created_at) - Number(oB.created_at));
+
+		for (const oSell of aSells) {
+			let nAmountLeft = oSell.amount;
+			const aSymbolPositions = mPositionsBySymbol.get(oSell.symbol) || [];
+			for (const oPosition of aSymbolPositions) {
+				if (nAmountLeft <= 0) break;
+				if (!Number.isFinite(oPosition.amount) || oPosition.amount <= 0) continue;
+				const nReduce = Math.min(oPosition.amount, nAmountLeft);
+				oPosition.amount -= nReduce;
+				nAmountLeft -= nReduce;
+			}
+		}
+
+		return aBasePositions.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0.0000001);
 	}
 
 	/**
@@ -470,11 +567,12 @@
               <button class="action" id="analysisUseOwnedBtn" type="button">Aus Depot laden</button>
 
               <label>
-                Menge kaufen
-                <input id="analysisBuyAmountInput" type="number" min="0.0001" step="0.0001" value="1">
+                Menge
+                <input id="analysisTradeAmountInput" type="number" min="0.0001" step="0.0001" value="1">
               </label>
 
               <button class="action primary" id="analysisBuyBtn" type="button">Kaufen</button>
+              <button class="action primary" id="analysisSellBtn" type="button">Verkaufen</button>
             </div>
             <div class="muted" id="analysisBuyFeedback"></div>
           </div>
@@ -1795,8 +1893,9 @@
 		const elSearchResults = document.getElementById("analysisSearchResults");
 		const elOwnedSymbolSelect = document.getElementById("analysisOwnedSymbolSelect");
 		const elUseOwnedBtn = document.getElementById("analysisUseOwnedBtn");
-		const elBuyAmountInput = document.getElementById("analysisBuyAmountInput");
+		const elTradeAmountInput = document.getElementById("analysisTradeAmountInput");
 		const elBuyBtn = document.getElementById("analysisBuyBtn");
+		const elSellBtn = document.getElementById("analysisSellBtn");
 		const elBuyFeedback = document.getElementById("analysisBuyFeedback");
 		const elTableTbody = document.querySelector("#analysisHoldingsTable tbody");
 
@@ -1807,7 +1906,7 @@
 		const elCanvas = document.getElementById("analysisChart");
 		const oCtx = elCanvas?.getContext("2d");
 
-		if (!elInfo || !elCatalogSearchInput || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elBuyAmountInput || !elBuyBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
+		if (!elInfo || !elCatalogSearchInput || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
 			fnShowError("Einzelanalyse konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
 			return;
 		}
@@ -1971,7 +2070,7 @@
 
 		elBuyBtn.addEventListener("click", async () => {
 			const sSymbol = String(sSelectedSymbol || "").trim().toUpperCase();
-			const nAmount = Number(elBuyAmountInput.value);
+			const nAmount = Number(elTradeAmountInput.value);
 
 			if (!sSymbol) {
 				elBuyFeedback.textContent = "Bitte zuerst eine Aktie auswählen.";
@@ -2007,6 +2106,48 @@
 			fnRenderOwnedSelectOptions();
 
 			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")}.`;
+			await fnRefreshAnalysisChart();
+		});
+
+		elSellBtn.addEventListener("click", async () => {
+			const sSymbol = String(sSelectedSymbol || "").trim().toUpperCase();
+			const nAmount = Number(elTradeAmountInput.value);
+
+			if (!sSymbol) {
+				elBuyFeedback.textContent = "Bitte zuerst eine Aktie auswählen.";
+				return;
+			}
+
+			if (!Number.isFinite(nAmount) || nAmount <= 0) {
+				elBuyFeedback.textContent = "Bitte eine gültige Verkaufsmenge größer als 0 eingeben.";
+				return;
+			}
+
+			const oOwnedRow = aOwnedRows.find((oRow) => oRow.sSymbol === sSymbol);
+			const nOwnedAmount = Number(oOwnedRow?.nTotalAmount);
+			if (!Number.isFinite(nOwnedAmount) || nOwnedAmount <= 0) {
+				elBuyFeedback.textContent = `Verkauf nicht möglich: ${sSymbol} ist nicht im Bestand.`;
+				return;
+			}
+			if (nAmount > nOwnedAmount) {
+				elBuyFeedback.textContent = `Verkauf nicht möglich: Bestand ${fnFmtNumber(nOwnedAmount, 4)} ${sSymbol}.`;
+				return;
+			}
+
+			const iNowUnixSeconds = Math.floor(Date.now() / 1000);
+			const oSoldPosition = {
+				symbol: sSymbol,
+				amount: nAmount,
+				created_at: iNowUnixSeconds,
+			};
+
+			fnPersistSoldPosition(oSoldPosition);
+			aPositions = fnApplySoldPositions(aPositions, [oSoldPosition]);
+			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
+			fnRenderOwnedRows();
+			fnRenderOwnedSelectOptions();
+
+			elBuyFeedback.textContent = `Verkauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol}.`;
 			await fnRefreshAnalysisChart();
 		});
 
