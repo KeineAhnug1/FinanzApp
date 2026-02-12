@@ -172,6 +172,28 @@ Stop server:
 The stock frontend currently uses a Twelve Data API key in client-side code (`aktien/js/ShareView.js`).
 For production usage, move the key to a backend proxy/service and do not expose secrets in frontend code.
 
+## Part 3: Login Demo (`uebersicht/`)
+
+### Start
+
+```bash
+npm run web:start
+```
+
+Open:
+- `http://localhost:3000`
+
+### Login source
+- Login checks `users.email` and `users.password` in MongoDB.
+- Seed users are inserted by `npm run seed:reset`.
+
+### Seed test credentials
+- `anna@example.com` / `anna_pw_hash`
+- `ben@example.com` / `ben_pw_hash`
+- `clara@example.com` / `clara_pw_hash`
+- `emre@example.com` / `emre_pw_hash`
+- `farah@example.com` / `farah_pw_hash`
+
 ## NPM Scripts
 Defined in `package.json`:
 - `npm run schema:setup`
