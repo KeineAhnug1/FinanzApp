@@ -8,7 +8,9 @@
     "schema:setup": "node database/schema-setup.js",
     "import:testdata": "node database/seed-reset.mjs",
     "seed:reset": "node database/seed-reset.mjs",
-    "db:wipe": "node database/wipe-data.mjs"
+    "db:wipe": "node database/wipe-data.mjs",
+    "db:check": "node database/check-connection.mjs",
+    "data:prepare": "node database/prepare-data.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.4",

@@ -20,6 +20,10 @@ FinanzApp/
     schema-setup.js
     seed-reset.mjs
     wipe-data.mjs
+    db-client.mjs
+    data-service.mjs
+    prepare-data.mjs
+    check-connection.mjs
   Datastructure.png
   README.md
   package.json
@@ -94,6 +98,39 @@ npm run import:testdata
 npm run db:wipe
 ```
 
+### Check database connection
+
+```bash
+npm run db:check
+```
+
+Returns JSON with:
+- `ok` (boolean)
+- `database`
+- `checked_at`
+- `error` (present on failure)
+
+### Read and prepare app-ready data
+
+Outputs normalized JSON (ObjectId/Decimal128/Date converted) with:
+- profile + account snapshot
+- memberships
+- budgets
+- requests (incoming/outgoing)
+- expense share status
+- stock holdings
+- quick finance counters
+
+```bash
+npm run data:prepare
+```
+
+Filter to one user:
+
+```bash
+npm run data:prepare -- --username anna
+```
+
 ### Data Model Reference
 - DBML source: `database/schema.dbml`
 - Diagram: `Datastructure.png`
@@ -141,3 +178,5 @@ Defined in `package.json`:
 - `npm run seed:reset`
 - `npm run import:testdata`
 - `npm run db:wipe`
+- `npm run db:check`
+- `npm run data:prepare`
