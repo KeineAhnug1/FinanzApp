@@ -2,9 +2,21 @@
 	// =====================================================
 	// [SHARED] 0) Konfiguration (für Depot + Einzelanalyse)
 	// =====================================================
-	const sTwelveApiKey = "551db088d29044888daee527fe5da4b1";
-	const sTdBaseUrl = "https://api.twelvedata.com";
-	const sPositionsEndpoint = "/api/positions";
+	const aPositionsEndpoints = [
+		window.SHAREVIEW_POSITIONS_ENDPOINT,
+		"/api/positions",
+		"http://127.0.0.1:5588/api/positions",
+		"http://localhost:5588/api/positions",
+	].filter(Boolean);
+	const aBackendBaseUrls = [
+		window.SHAREVIEW_BACKEND_BASE_URL,
+		window.location.origin,
+		"http://127.0.0.1:5588",
+		"http://localhost:5588",
+	].filter((sValue, iIndex, aValues) => {
+		const sNormalized = String(sValue ?? "").trim();
+		return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
+	});
 	const sAllStocksDataPath = "testdata/Allstocks.json";
 	const sLocalBuyStorageKey = "shareview_positions_buys_v1";
 	const iCacheTtlMs = 5 * 60 * 1000;
@@ -156,54 +168,50 @@
 	 * @returns {Promise<{data: any, fromCache: boolean}>}
 	 */
 	async function fnTdFetch(sPath, oParams) {
-		const oUrl = new URL(sTdBaseUrl + sPath);
-		Object.entries(oParams).forEach(([sKeyParam, xValue]) => {
-			oUrl.searchParams.set(sKeyParam, String(xValue));
-		});
-
 		const sKey = fnCacheKey({ path: sPath, params: oParams });
 		const oCachedData = fnCacheRead(sKey);
 		if (oCachedData) return { data: oCachedData, fromCache: true };
 
-		const oResponse = await fetch(oUrl.toString());
-		if (!oResponse.ok) throw new Error(`HTTP ${oResponse.status} - ${oResponse.statusText}`);
+		let sLastError = "Kein Backend-Endpoint verfügbar.";
+		for (const sBaseUrl of aBackendBaseUrls) {
+			const sEndpointPath = `/api/twelvedata${sPath}`;
+			const oUrl = sBaseUrl
+				? new URL(sEndpointPath, sBaseUrl)
+				: new URL(sEndpointPath, window.location.origin);
 
-		const oData = await oResponse.json();
-		if (oData?.status === "error") {
-			throw new Error(oData?.message || "Twelve Data Fehler");
+			Object.entries(oParams).forEach(([sKeyParam, xValue]) => {
+				oUrl.searchParams.set(sKeyParam, String(xValue));
+			});
+
+			try {
+				const oResponse = await fetch(oUrl.toString());
+				if (!oResponse.ok) {
+					sLastError = `HTTP ${oResponse.status} - ${oResponse.statusText} (${oUrl.toString()})`;
+					continue;
+				}
+
+				const oData = await oResponse.json();
+				if (oData?.status === "error") {
+					sLastError = oData?.message || "Twelve Data Fehler";
+					continue;
+				}
+
+				fnCacheWrite(sKey, oData);
+				return { data: oData, fromCache: false };
+			} catch (oError) {
+				sLastError = String(oError?.message || oError);
+			}
 		}
 
-		fnCacheWrite(sKey, oData);
-		return { data: oData, fromCache: false };
+		throw new Error(`Twelve-Data-Backend Fehler: ${sLastError}`);
 	}
 
 	// =====================================================
 	// [SHARED] 5) Positions- und Katalogdaten
 	// Wird in Depot und Einzelanalyse verwendet.
 	// =====================================================
-	const aFallbackPositions = [
-		{
-			symbol: "AAPL",
-			amount: 3.1,
-			created_at: 1749549600,
-			worthwhenbought: 202.69,
-		},
-		{
-			symbol: "MSFT",
-			amount: 1.75,
-			created_at: 1749636000,
-			worthwhenbought: 472.62,
-		},
-		{
-			symbol: "TSLA",
-			amount: 0.85,
-			created_at: 1749722400,
-			worthwhenbought: 319.11,
-		},
-	];
-
 	/**
-	 * Lädt Positionen aus `window.POSITIONS`, Backend-Endpoint oder Fallback.
+	 * Lädt Positionen aus `window.POSITIONS` oder Backend-Endpoint.
 	 * Scope: [SHARED]
 	 * @returns {Promise<Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>>}
 	 */
@@ -213,24 +221,23 @@
 			return fnNormalizePositions([...window.POSITIONS, ...aLocalBoughtPositions]);
 		}
 
-		try {
-			const oResponse = await fetch(sPositionsEndpoint);
-			if (oResponse.ok) {
-				const oData = await oResponse.json();
-				if (Array.isArray(oData)) {
-					return fnNormalizePositions([...oData, ...aLocalBoughtPositions]);
+		for (const sPositionsEndpoint of aPositionsEndpoints) {
+			try {
+				const oResponse = await fetch(sPositionsEndpoint);
+				if (oResponse.ok) {
+					const oData = await oResponse.json();
+					if (Array.isArray(oData)) {
+						return fnNormalizePositions([...oData, ...aLocalBoughtPositions]);
+					}
 				}
+				console.warn(`Positions Backend Fehler (${sPositionsEndpoint}): HTTP ${oResponse.status}.`);
+			} catch (oError) {
+				console.warn(`Positions Backend nicht erreichbar (${sPositionsEndpoint}).`, oError);
 			}
-			console.warn(`Positions Backend Fehler: HTTP ${oResponse.status}. Nutze Fallback-Daten.`);
-		} catch (oError) {
-			console.warn("Positions Backend nicht erreichbar. Nutze Fallback-Daten.", oError);
 		}
 
-		if (!Array.isArray(aFallbackPositions)) {
-			throw new Error("Ungueltige Fallback-Daten. Erwartet Array aus Positionen.");
-		}
-
-		return fnNormalizePositions([...aFallbackPositions, ...aLocalBoughtPositions]);
+		console.warn("Kein Positions-Endpoint erreichbar. Nutze nur lokale Käufe.");
+		return fnNormalizePositions(aLocalBoughtPositions);
 	}
 
 	/**
@@ -519,6 +526,95 @@
 			return;
 		}
 
+		// [ZUKUNFT] Template + Startlogik
+		if (sViewName === "futureanalysis") {
+			elViewHost.innerHTML = `
+        <section class="future-page">
+          <h2 class="view-title">Zukunftsaussicht</h2>
+
+          <div class="card">
+            <div class="row future-top-row">
+              <label>
+                Prognosezeitraum (Jahre)
+                <input id="futureYearsInput" type="number" min="1" max="50" step="1" value="5">
+              </label>
+
+              <button class="action" id="futureRecalcBtn" type="button">Neu berechnen</button>
+              <button class="action" id="futureSelectAllBtn" type="button">Alle wählen</button>
+              <button class="action" id="futureSelectNoneBtn" type="button">Keine wählen</button>
+            </div>
+
+            <div class="muted" id="futureInfo">Bereit.</div>
+          </div>
+
+          <div class="card">
+            <h3>Meine gehaltenen Aktien (einzeln oder mehrfach auswählen)</h3>
+            <div id="futureOwnedList" class="future-owned-list"></div>
+          </div>
+
+          <div class="card">
+            <div class="kpis">
+              <div class="kpi">
+                <b>Ausgewählte Aktien</b>
+                <span id="futureSelectedSymbols">—</span>
+              </div>
+              <div class="kpi">
+                <b>Aktueller Wert</b>
+                <span id="futureCurrentValue">—</span>
+              </div>
+              <div class="kpi">
+                <b>Ø Gewinn pro Jahr (seit Erstkauf)</b>
+                <span id="futureAvgProfitYear">—</span>
+              </div>
+              <div class="kpi">
+                <b>Ø Rendite pro Jahr (seit Erstkauf)</b>
+                <span id="futureAvgReturnYear">—</span>
+              </div>
+              <div class="kpi">
+                <b>Prognosewert</b>
+                <span id="futureProjectedValue">—</span>
+              </div>
+              <div class="kpi">
+                <b>Prognose Gewinn/Verlust</b>
+                <span id="futureProjectedPnl">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Historische Entwicklung (ab erstem Kauf)</h3>
+            <canvas id="futureHistoryChart" class="line-chart" width="1200" height="420"></canvas>
+          </div>
+
+          <div class="card">
+            <h3>Prognose bei gleichbleibenden Bedingungen</h3>
+            <canvas id="futureProjectionChart" class="line-chart" width="1200" height="420"></canvas>
+          </div>
+
+          <div class="card">
+            <h3>Bestand (aggregiert)</h3>
+            <div class="table-wrap">
+              <table class="table" id="futureHoldingsTable">
+                <thead>
+                  <tr>
+                    <th>Aktiv</th>
+                    <th>Symbol</th>
+                    <th>Gesamtmenge</th>
+                    <th>Erster Kauf</th>
+                    <th>Ø Kaufpreis</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      `;
+
+			fnInitFutureAnalysisView();
+			return;
+		}
+
 		elViewHost.innerHTML = `
       <div class="card">
         <h2 class="view-title">${fnEscapeHtml(sViewName)}</h2>
@@ -654,7 +750,6 @@
 				const oFetchResult = await fnTdFetch("/time_series", {
 					symbol: sSymbol,
 					...oQuery,
-					apikey: sTwelveApiKey,
 				});
 
 				const aValues = Array.isArray(oFetchResult.data?.values)
@@ -1456,14 +1551,6 @@
 	 */
 	async function fnBuildDepotChart(oArgs) {
 		const aPositions = oArgs.aPositions || [];
-		if (!sTwelveApiKey) {
-			fnShowError("Bitte trage deinen Twelve Data API Key in ShareView.js ein.");
-			oArgs.elInfo.textContent = "Kein API-Key gesetzt.";
-			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
-			oArgs.fnOnCompositionChange?.([]);
-			return;
-		}
-
 		if (!aPositions.length) {
 			oArgs.elInfo.textContent = "Keine Positionen vorhanden.";
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
@@ -1635,7 +1722,6 @@
 			try {
 				const oFetchResult = await fnTdFetch("/quote", {
 					symbol: sSymbol,
-					apikey: sTwelveApiKey,
 				});
 
 				const nClose = Number(oFetchResult?.data?.close);
@@ -1796,13 +1882,6 @@
 	 * }} oArgs
 	 */
 	async function fnBuildAnalysisChart(oArgs) {
-		if (!sTwelveApiKey) {
-			fnShowError("Bitte trage deinen Twelve Data API Key in ShareView.js ein.");
-			oArgs.elInfo.textContent = "Kein API-Key gesetzt.";
-			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
-			return;
-		}
-
 		const sSymbol = String(oArgs.sSelectedSymbol || "").trim().toUpperCase();
 		if (!sSymbol) {
 			oArgs.elInfo.textContent = "Keine Aktie ausgewählt.";
@@ -1868,7 +1947,344 @@
 	}
 
 	// =====================================================
-	// [SHARED] 11) Navigation + App-Start
+	// [ZUKUNFT] 11) Zukunftsaussicht-Funktionen
+	// Nur für data-view="futureanalysis".
+	// =====================================================
+
+	/**
+	 * Rendert die Zukunftsaussicht mit Mehrfachauswahl, Kennzahlen und Prognosechart.
+	 * Scope: [ZUKUNFT]
+	 */
+	async function fnInitFutureAnalysisView() {
+		const elInfo = document.getElementById("futureInfo");
+		const elYearsInput = document.getElementById("futureYearsInput");
+		const elRecalcBtn = document.getElementById("futureRecalcBtn");
+		const elSelectAllBtn = document.getElementById("futureSelectAllBtn");
+		const elSelectNoneBtn = document.getElementById("futureSelectNoneBtn");
+		const elOwnedList = document.getElementById("futureOwnedList");
+		const elTableTbody = document.querySelector("#futureHoldingsTable tbody");
+
+		const elSelectedSymbols = document.getElementById("futureSelectedSymbols");
+		const elCurrentValue = document.getElementById("futureCurrentValue");
+		const elAvgProfitYear = document.getElementById("futureAvgProfitYear");
+		const elAvgReturnYear = document.getElementById("futureAvgReturnYear");
+		const elProjectedValue = document.getElementById("futureProjectedValue");
+		const elProjectedPnl = document.getElementById("futureProjectedPnl");
+
+		const elHistoryCanvas = document.getElementById("futureHistoryChart");
+		const oHistoryCtx = elHistoryCanvas?.getContext("2d");
+		const elProjectionCanvas = document.getElementById("futureProjectionChart");
+		const oProjectionCtx = elProjectionCanvas?.getContext("2d");
+
+		if (
+			!elInfo ||
+			!elYearsInput ||
+			!elRecalcBtn ||
+			!elSelectAllBtn ||
+			!elSelectNoneBtn ||
+			!elOwnedList ||
+			!elTableTbody ||
+			!elSelectedSymbols ||
+			!elCurrentValue ||
+			!elAvgProfitYear ||
+			!elAvgReturnYear ||
+			!elProjectedValue ||
+			!elProjectedPnl ||
+			!elHistoryCanvas ||
+			!oHistoryCtx ||
+			!elProjectionCanvas ||
+			!oProjectionCtx
+		) {
+			fnShowError("Zukunftsaussicht konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
+			return;
+		}
+
+		let aPositions = [];
+		try {
+			aPositions = await fnLoadPositions();
+		} catch (oError) {
+			fnShowError(String(oError?.message || oError));
+			elInfo.textContent = "Konnte Positionen nicht laden.";
+			fnClearCanvas(oHistoryCtx, elHistoryCanvas);
+			fnClearCanvas(oProjectionCtx, elProjectionCanvas);
+			return;
+		}
+
+		const aOwnedRows = fnAggregateOwnedSymbols(aPositions);
+		const setSelectedSymbols = new Set(aOwnedRows.map((oRow) => oRow.sSymbol));
+
+		const fnRenderOwnedSelectors = () => {
+			if (!aOwnedRows.length) {
+				elOwnedList.innerHTML = `<div class="muted">Keine gehaltenen Aktien vorhanden.</div>`;
+				elTableTbody.innerHTML = "";
+				return;
+			}
+
+			elOwnedList.innerHTML = aOwnedRows
+				.map((oRow) => {
+					const sChecked = setSelectedSymbols.has(oRow.sSymbol) ? "checked" : "";
+					return `
+            <label class="future-owned-item">
+              <input type="checkbox" data-symbol="${fnEscapeHtml(oRow.sSymbol)}" ${sChecked}>
+              <span><b>${fnEscapeHtml(oRow.sSymbol)}</b> (${fnFmtNumber(oRow.nTotalAmount, 4)} Stk)</span>
+            </label>
+          `;
+				})
+				.join("");
+
+			elTableTbody.innerHTML = aOwnedRows
+				.map((oRow) => {
+					const sIsActive = setSelectedSymbols.has(oRow.sSymbol) ? "Ja" : "Nein";
+					const sFirstBuyDate = Number.isFinite(oRow.iEarliestBuyMs)
+						? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs)
+						: "—";
+					return `
+            <tr>
+              <td>${sIsActive}</td>
+              <td><b>${fnEscapeHtml(oRow.sSymbol)}</b></td>
+              <td>${fnFmtNumber(oRow.nTotalAmount, 4)}</td>
+              <td>${sFirstBuyDate}</td>
+              <td>${fnFmtMoney(oRow.nAvgBuyPrice, "USD")}</td>
+            </tr>
+          `;
+				})
+				.join("");
+		};
+
+		const fnBuildProjectionPoints = (nCurrentValue, nAnnualRate, nYears) => {
+			const iMonths = Math.max(1, Math.round(nYears * 12));
+			const dNow = new Date();
+			const aPoints = [];
+
+			for (let iMonthIndex = 0; iMonthIndex <= iMonths; iMonthIndex += 1) {
+				const dPointDate = new Date(dNow);
+				dPointDate.setMonth(dPointDate.getMonth() + iMonthIndex);
+				const nYearsFromNow = iMonthIndex / 12;
+				const nProjectedValue = nCurrentValue * Math.pow(1 + nAnnualRate, nYearsFromNow);
+				aPoints.push({
+					t: fnFmtYmd(dPointDate),
+					total: nProjectedValue,
+					invested: 0,
+					pnl: nProjectedValue - nCurrentValue,
+					y: nProjectedValue,
+				});
+			}
+
+			return aPoints;
+		};
+
+		const fnRefreshFuture = async () => {
+			const nYearsRaw = Number(elYearsInput.value);
+			const nYears = Number.isFinite(nYearsRaw) ? Math.max(1, Math.min(50, Math.round(nYearsRaw))) : 5;
+			elYearsInput.value = String(nYears);
+
+			const aSelectedSymbols = aOwnedRows
+				.map((oRow) => oRow.sSymbol)
+				.filter((sSymbol) => setSelectedSymbols.has(sSymbol));
+
+			if (!aSelectedSymbols.length) {
+				elInfo.textContent = "Bitte mindestens eine gehaltene Aktie auswählen.";
+				elSelectedSymbols.textContent = "—";
+				elCurrentValue.textContent = "—";
+				elAvgProfitYear.textContent = "—";
+				elAvgReturnYear.textContent = "—";
+				elProjectedValue.textContent = "—";
+				elProjectedPnl.textContent = "—";
+				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
+				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
+				return;
+			}
+
+			const aSelectedPositions = aPositions.filter((oPosition) =>
+				setSelectedSymbols.has(String(oPosition?.symbol || "").trim().toUpperCase())
+			);
+			if (!aSelectedPositions.length) {
+				elInfo.textContent = "Für die Auswahl gibt es keine Positionen.";
+				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
+				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
+				return;
+			}
+
+			const dFirstBuy = fnGetFirstBuyDate(aSelectedPositions);
+			const dEnd = new Date();
+			const oQuery = {
+				interval: "1day",
+				start_date: fnFmtYmd(dFirstBuy || new Date(dEnd.getTime() - 365 * 24 * 60 * 60 * 1000)),
+				end_date: fnFmtYmd(dEnd),
+				outputsize: 5000,
+			};
+
+			elInfo.textContent = `Lade Kursdaten für ${aSelectedSymbols.join(", ")}...`;
+			const mSeriesBySymbol = await fnLoadSeriesForSymbols(aSelectedSymbols, oQuery);
+			if (!mSeriesBySymbol.size) {
+				elInfo.textContent = "Keine Kursdaten für die Auswahl erhalten.";
+				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
+				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
+				return;
+			}
+
+			const aRawHistoryPoints = fnBuildSeriesPointsForPositions(aSelectedPositions, mSeriesBySymbol, false);
+			const aHistoryPoints = fnWithFixedDateRange(aRawHistoryPoints, oQuery, false);
+			if (aHistoryPoints.length < 2) {
+				elInfo.textContent = "Zu wenige historische Datenpunkte für die Auswahl.";
+				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
+				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
+				return;
+			}
+
+			fnDrawLineChart(oHistoryCtx, elHistoryCanvas, aHistoryPoints, false);
+
+				const nInvested = aSelectedPositions.reduce((nSum, oPosition) => {
+					const nAmount = Number(oPosition?.amount);
+					const nBuyPrice = Number(oPosition?.worthwhenbought);
+					if (!Number.isFinite(nAmount) || nAmount <= 0 || !Number.isFinite(nBuyPrice) || nBuyPrice <= 0) return nSum;
+					return nSum + nAmount * nBuyPrice;
+				}, 0);
+
+				const nYearsSinceFirst = Number.isFinite(dFirstBuy?.getTime())
+					? Math.max((Date.now() - dFirstBuy.getTime()) / (365.25 * 24 * 60 * 60 * 1000), 1 / 365.25)
+					: 1;
+				const mPositionsBySymbol = new Map();
+				for (const oPosition of aSelectedPositions) {
+					const sSymbol = String(oPosition?.symbol || "").trim().toUpperCase();
+					if (!sSymbol) continue;
+					if (!mPositionsBySymbol.has(sSymbol)) mPositionsBySymbol.set(sSymbol, []);
+					mPositionsBySymbol.get(sSymbol).push(oPosition);
+				}
+
+				let nCurrentValue = 0;
+				let nRateWeightedSum = 0;
+				let nRateWeight = 0;
+				const aProjectionSeries = [];
+
+				for (const [sSymbol, aSymbolPositions] of mPositionsBySymbol.entries()) {
+					const nTotalAmount = aSymbolPositions.reduce((nSum, oPosition) => {
+						const nAmount = Number(oPosition?.amount);
+						return Number.isFinite(nAmount) && nAmount > 0 ? nSum + nAmount : nSum;
+					}, 0);
+					if (!Number.isFinite(nTotalAmount) || nTotalAmount <= 0) continue;
+
+					const nSymbolInvested = aSymbolPositions.reduce((nSum, oPosition) => {
+						const nAmount = Number(oPosition?.amount);
+						const nBuyPrice = Number(oPosition?.worthwhenbought);
+						if (!Number.isFinite(nAmount) || nAmount <= 0 || !Number.isFinite(nBuyPrice) || nBuyPrice <= 0) return nSum;
+						return nSum + nAmount * nBuyPrice;
+					}, 0);
+
+					const aSeriesValues = mSeriesBySymbol.get(sSymbol)?.values || [];
+					const nLastClose = Number(aSeriesValues[aSeriesValues.length - 1]?.close);
+					const nSymbolCurrentValue = Number.isFinite(nLastClose) && nLastClose > 0 ? nLastClose * nTotalAmount : 0;
+					nCurrentValue += nSymbolCurrentValue;
+
+					const dSymbolFirstBuy = fnGetFirstBuyDate(aSymbolPositions);
+					const nSymbolYearsSinceFirst = Number.isFinite(dSymbolFirstBuy?.getTime())
+						? Math.max((Date.now() - dSymbolFirstBuy.getTime()) / (365.25 * 24 * 60 * 60 * 1000), 1 / 365.25)
+						: nYearsSinceFirst;
+
+					let nSymbolAnnualRate = 0;
+					if (nSymbolInvested > 0) {
+						if (nSymbolCurrentValue <= 0) {
+							nSymbolAnnualRate = -1;
+						} else {
+							nSymbolAnnualRate = Math.pow(nSymbolCurrentValue / nSymbolInvested, 1 / nSymbolYearsSinceFirst) - 1;
+						}
+					}
+					nSymbolAnnualRate = Math.max(-1, nSymbolAnnualRate);
+
+					if (nSymbolCurrentValue > 0) {
+						nRateWeightedSum += nSymbolAnnualRate * nSymbolCurrentValue;
+						nRateWeight += nSymbolCurrentValue;
+					}
+
+					aProjectionSeries.push(fnBuildProjectionPoints(nSymbolCurrentValue, nSymbolAnnualRate, nYears));
+				}
+
+				const mProjectionSumByDate = new Map();
+				for (const aSeries of aProjectionSeries) {
+					for (const oPoint of aSeries) {
+						const sDay = String(oPoint?.t || "");
+						if (!sDay) continue;
+						const nPrev = Number(mProjectionSumByDate.get(sDay) || 0);
+						const nY = Number(oPoint?.y);
+						mProjectionSumByDate.set(sDay, nPrev + (Number.isFinite(nY) ? nY : 0));
+					}
+				}
+
+				const aProjectionPoints = [...mProjectionSumByDate.entries()]
+					.sort(([sA], [sB]) => (sA < sB ? -1 : 1))
+					.map(([sDay, nTotal]) => ({
+						t: sDay,
+						total: nTotal,
+						invested: 0,
+						pnl: nTotal - nCurrentValue,
+						y: nTotal,
+					}));
+
+				if (aProjectionPoints.length < 2) {
+					elInfo.textContent = "Zu wenige Prognosedaten für die Auswahl.";
+					fnClearCanvas(oProjectionCtx, elProjectionCanvas);
+					return;
+				}
+
+				const nTotalProfit = nCurrentValue - nInvested;
+				const nAvgProfitPerYear = nTotalProfit / nYearsSinceFirst;
+				const nAnnualRate = nRateWeight > 0 ? nRateWeightedSum / nRateWeight : 0;
+				fnDrawLineChart(oProjectionCtx, elProjectionCanvas, aProjectionPoints, false);
+
+				const nProjectedValue = Number(aProjectionPoints[aProjectionPoints.length - 1]?.y);
+				const nProjectedPnl = nProjectedValue - nCurrentValue;
+
+				elSelectedSymbols.textContent = aSelectedSymbols.join(", ");
+				elCurrentValue.textContent = fnFmtMoney(nCurrentValue, "USD");
+				elAvgProfitYear.textContent = fnFmtMoney(nAvgProfitPerYear, "USD");
+				elAvgReturnYear.textContent = `${(nAnnualRate * 100).toFixed(2)}%`;
+				elProjectedValue.textContent = fnFmtMoney(nProjectedValue, "USD");
+				elProjectedPnl.textContent = `${fnFmtMoney(nProjectedPnl, "USD")} (${(nAnnualRate * 100).toFixed(2)}% p.a.)`;
+
+				const bSomeFromCache = [...mSeriesBySymbol.values()].some((oSeries) => oSeries.fromCache);
+				elInfo.textContent = `Zukunftsaussicht aktualisiert: ${nYears} Jahr(e), Basis seit ${fnFmtDateFromTimestamp(dFirstBuy?.getTime() || Date.now())}${bSomeFromCache ? " (teilweise aus Cache)" : ""}`;
+		};
+
+		elOwnedList.addEventListener("change", async (oEvent) => {
+			const elTarget = oEvent.target instanceof HTMLInputElement ? oEvent.target : null;
+			if (!elTarget || elTarget.type !== "checkbox") return;
+			const sSymbol = String(elTarget.dataset.symbol || "").trim().toUpperCase();
+			if (!sSymbol) return;
+			if (elTarget.checked) {
+				setSelectedSymbols.add(sSymbol);
+			} else {
+				setSelectedSymbols.delete(sSymbol);
+			}
+			fnRenderOwnedSelectors();
+			await fnRefreshFuture();
+		});
+
+		elSelectAllBtn.addEventListener("click", async () => {
+			aOwnedRows.forEach((oRow) => setSelectedSymbols.add(oRow.sSymbol));
+			fnRenderOwnedSelectors();
+			await fnRefreshFuture();
+		});
+
+		elSelectNoneBtn.addEventListener("click", async () => {
+			setSelectedSymbols.clear();
+			fnRenderOwnedSelectors();
+			await fnRefreshFuture();
+		});
+
+		elRecalcBtn.addEventListener("click", async () => {
+			await fnRefreshFuture();
+		});
+
+		elYearsInput.addEventListener("change", async () => {
+			await fnRefreshFuture();
+		});
+
+		fnRenderOwnedSelectors();
+		await fnRefreshFuture();
+	}
+
+	// =====================================================
+	// [SHARED] 12) Navigation + App-Start
 	// =====================================================
 
 	/**

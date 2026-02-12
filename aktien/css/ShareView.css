@@ -483,6 +483,44 @@ select:focus {
   color: var(--clr-text-soft);
 }
 
+.future-top-row {
+  justify-content: flex-start;
+  align-items: flex-end;
+}
+
+.future-top-row label {
+  min-width: 220px;
+}
+
+.future-owned-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.future-owned-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface-soft);
+}
+
+.future-owned-item input[type="checkbox"] {
+  min-height: 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.future-owned-item span {
+  color: var(--clr-text);
+  font-size: 14px;
+}
+
 /* ======================================================
    9) Tabellen + JSON
    Beschreibung:
@@ -577,7 +615,8 @@ select:focus {
 
   .analysis-top-row label,
   .analysis-top-row input,
-  .analysis-top-row select {
+  .analysis-top-row select,
+  .future-top-row label {
     min-width: 100%;
   }
 
