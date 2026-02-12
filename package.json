@@ -10,7 +10,8 @@
     "seed:reset": "node database/seed-reset.mjs",
     "db:wipe": "node database/wipe-data.mjs",
     "db:check": "node database/check-connection.mjs",
-    "data:prepare": "node database/prepare-data.mjs"
+    "data:prepare": "node database/prepare-data.mjs",
+    "web:start": "node uebersicht/server.js"
   },
   "dependencies": {
     "dotenv": "^17.2.4",
