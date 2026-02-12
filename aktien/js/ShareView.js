@@ -1090,7 +1090,71 @@
 	 * @param {HTMLCanvasElement} elCanvas
 	 */
 	function fnClearCanvas(oCtx, elCanvas) {
+		oCtx.save();
+		oCtx.setTransform(1, 0, 0, 1, 0, 0);
 		oCtx.clearRect(0, 0, elCanvas.width, elCanvas.height);
+		oCtx.restore();
+	}
+
+	/**
+	 * Synchronisiert die interne Canvas-Auflösung mit der sichtbaren Größe.
+	 * Scope: [SHARED]
+	 * @param {CanvasRenderingContext2D} oCtx
+	 * @param {HTMLCanvasElement} elCanvas
+	 * @param {{bForceSquare?: boolean}} [oOptions]
+	 * @returns {{iWidth: number, iHeight: number}}
+	 */
+	function fnPrepareCanvas(oCtx, elCanvas, oOptions = {}) {
+		const nDpr = Math.max(1, window.devicePixelRatio || 1);
+		const oRect = elCanvas.getBoundingClientRect();
+		let iWidth = Math.max(1, Math.round(oRect.width || elCanvas.clientWidth || elCanvas.width));
+		let iHeight = Math.max(1, Math.round(oRect.height || elCanvas.clientHeight || elCanvas.height));
+
+		if (oOptions.bForceSquare) {
+			const iSide = Math.max(1, Math.min(iWidth, iHeight));
+			iWidth = iSide;
+			iHeight = iSide;
+		}
+
+		const iPixelWidth = Math.max(1, Math.round(iWidth * nDpr));
+		const iPixelHeight = Math.max(1, Math.round(iHeight * nDpr));
+		if (elCanvas.width !== iPixelWidth || elCanvas.height !== iPixelHeight) {
+			elCanvas.width = iPixelWidth;
+			elCanvas.height = iPixelHeight;
+		}
+
+		oCtx.setTransform(1, 0, 0, 1, 0, 0);
+		oCtx.scale(nDpr, nDpr);
+		return { iWidth, iHeight };
+	}
+
+	/**
+	 * Zeichnet ein Rechteck mit gerundeten Ecken als Canvas-Pfad.
+	 * Scope: [SHARED]
+	 * @param {CanvasRenderingContext2D} oCtx
+	 * @param {number} nX
+	 * @param {number} nY
+	 * @param {number} nWidth
+	 * @param {number} nHeight
+	 * @param {number} nRadius
+	 */
+	function fnCanvasRoundRect(oCtx, nX, nY, nWidth, nHeight, nRadius) {
+		const nR = Math.max(0, Math.min(nRadius, nWidth / 2, nHeight / 2));
+		oCtx.beginPath();
+		if (typeof oCtx.roundRect === "function") {
+			oCtx.roundRect(nX, nY, nWidth, nHeight, nR);
+			return;
+		}
+		oCtx.moveTo(nX + nR, nY);
+		oCtx.lineTo(nX + nWidth - nR, nY);
+		oCtx.quadraticCurveTo(nX + nWidth, nY, nX + nWidth, nY + nR);
+		oCtx.lineTo(nX + nWidth, nY + nHeight - nR);
+		oCtx.quadraticCurveTo(nX + nWidth, nY + nHeight, nX + nWidth - nR, nY + nHeight);
+		oCtx.lineTo(nX + nR, nY + nHeight);
+		oCtx.quadraticCurveTo(nX, nY + nHeight, nX, nY + nHeight - nR);
+		oCtx.lineTo(nX, nY + nR);
+		oCtx.quadraticCurveTo(nX, nY, nX + nR, nY);
+		oCtx.closePath();
 	}
 
 	/**
@@ -1109,15 +1173,20 @@
 	 * @param {boolean} bPnlOnly
 	 */
 	function fnDrawLineChart(oCtx, elCanvas, aPoints, bPnlOnly) {
-		fnClearCanvas(oCtx, elCanvas);
+		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
+		oCtx.clearRect(0, 0, iWidth, iHeight);
+		const oStyles = getComputedStyle(document.documentElement);
+		const sPrimary = oStyles.getPropertyValue("--clr-primary").trim() || "#1d7a5b";
+		const sPrimarySoft = oStyles.getPropertyValue("--clr-primary-soft").trim() || "rgba(29, 122, 91, 0.12)";
+		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
+		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
+		const sBorderStrong = oStyles.getPropertyValue("--clr-border-strong").trim() || "#b5c0ba";
 
-		const iWidth = elCanvas.width;
-		const iHeight = elCanvas.height;
-
-		const iPadL = 78;
-		const iPadR = 26;
-		const iPadT = 20;
-		const iPadB = 44;
+		const bCompact = iWidth < 520;
+		const iPadL = bCompact ? 56 : 78;
+		const iPadR = bCompact ? 16 : 26;
+		const iPadT = bCompact ? 16 : 20;
+		const iPadB = bCompact ? 36 : 44;
 
 		const iInnerWidth = iWidth - iPadL - iPadR;
 		const iInnerHeight = iHeight - iPadT - iPadB;
@@ -1134,18 +1203,18 @@
 		};
 		const fnYAt = (nValue) => iPadT + (1 - (nValue - nMin) / (nMax - nMin)) * iInnerHeight;
 
-		oCtx.strokeStyle = "#2c3445";
+		oCtx.strokeStyle = sBorderStrong;
 		oCtx.lineWidth = 1;
 		oCtx.strokeRect(iPadL, iPadT, iInnerWidth, iInnerHeight);
 
-		oCtx.font = "12px 'Avenir Next', 'Nunito Sans', sans-serif";
-		oCtx.fillStyle = "#aeb8cc";
+		oCtx.font = `${bCompact ? 10 : 12}px 'Sora', 'Avenir Next', sans-serif`;
+		oCtx.fillStyle = sTextMuted;
 
 		for (let iTickIndex = 0; iTickIndex <= 5; iTickIndex += 1) {
 			const nTickValue = nMax - (iTickIndex / 5) * (nMax - nMin);
 			const nY = fnYAt(nTickValue);
 
-			oCtx.strokeStyle = iTickIndex === 5 ? "#3a4458" : "#262f40";
+			oCtx.strokeStyle = iTickIndex === 5 ? sBorderStrong : sBorder;
 			oCtx.setLineDash(iTickIndex === 5 ? [] : [3, 5]);
 			oCtx.beginPath();
 			oCtx.moveTo(iPadL, nY);
@@ -1165,8 +1234,8 @@
 		}));
 
 		const oGradient = oCtx.createLinearGradient(0, iPadT, 0, iPadT + iInnerHeight);
-		oGradient.addColorStop(0, "rgba(95, 165, 255, 0.32)");
-		oGradient.addColorStop(1, "rgba(95, 165, 255, 0.04)");
+		oGradient.addColorStop(0, "rgba(29, 122, 91, 0.30)");
+		oGradient.addColorStop(1, sPrimarySoft || "rgba(29, 122, 91, 0.08)");
 
 		oCtx.beginPath();
 		oCtx.moveTo(aCanvasPoints[0].nX, iPadT + iInnerHeight);
@@ -1197,23 +1266,23 @@
 			oCtx.quadraticCurveTo(nCurrentX, nCurrentY, nControlX, (nCurrentY + nNextY) / 2);
 		}
 		oCtx.lineTo(oLastPoint.nX, oLastPoint.nY);
-		oCtx.strokeStyle = "#66aeff";
+		oCtx.strokeStyle = sPrimary;
 		oCtx.lineWidth = 2.6;
 		oCtx.stroke();
 
 		oCtx.beginPath();
 		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 3.5, 0, Math.PI * 2);
-		oCtx.fillStyle = "#66aeff";
+		oCtx.fillStyle = sPrimary;
 		oCtx.fill();
 
 		oCtx.beginPath();
 		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 8, 0, Math.PI * 2);
-		oCtx.fillStyle = "rgba(102, 174, 255, 0.25)";
+		oCtx.fillStyle = "rgba(29, 122, 91, 0.23)";
 		oCtx.fill();
 
-		const iLabelCount = Math.min(6, aPoints.length);
-		oCtx.font = "11px 'Avenir Next', 'Nunito Sans', sans-serif";
-		oCtx.fillStyle = "#98a3ba";
+		const iLabelCount = Math.min(bCompact ? 4 : 6, aPoints.length);
+		oCtx.font = `${bCompact ? 10 : 11}px 'Sora', 'Avenir Next', sans-serif`;
+		oCtx.fillStyle = sTextMuted;
 		oCtx.textAlign = "center";
 		oCtx.textBaseline = "top";
 		for (let iLabelIndex = 0; iLabelIndex < iLabelCount; iLabelIndex += 1) {
@@ -1271,16 +1340,16 @@
 	 */
 	function fnPieColorAt(iIndex) {
 		const aPalette = [
-			"#66aeff",
-			"#6ee7c8",
-			"#f7b267",
-			"#c89bff",
-			"#ff8f8f",
-			"#9cd05d",
-			"#7fd8ff",
-			"#ffd166",
-			"#9fb3ff",
-			"#f78fb3",
+			"#1d7a5b",
+			"#2f8d6b",
+			"#58be97",
+			"#4ea57e",
+			"#7bc9ab",
+			"#3f7f68",
+			"#76b495",
+			"#2d6c57",
+			"#6fae90",
+			"#245846",
 		];
 		return aPalette[iIndex % aPalette.length];
 	}
@@ -1296,12 +1365,13 @@
 	 */
 	function fnGetPieSliceIndexAtPoint(elCanvas, aItems, nX, nY) {
 		if (!aItems.length) return -1;
-		const iWidth = elCanvas.width;
-		const iHeight = elCanvas.height;
+		const oRect = elCanvas.getBoundingClientRect();
+		const iWidth = Math.max(1, Math.round(oRect.width || elCanvas.clientWidth || elCanvas.width));
+		const iHeight = Math.max(1, Math.round(oRect.height || elCanvas.clientHeight || elCanvas.height));
 		const nCx = iWidth / 2;
 		const nCy = iHeight / 2;
-		const nRadius = Math.min(iWidth, iHeight) * 0.34;
-		const nInnerRadius = nRadius * 0.48;
+		const nRadius = Math.min(iWidth, iHeight) * 0.37;
+		const nInnerRadius = nRadius * 0.52;
 		const nDx = nX - nCx;
 		const nDy = nY - nCy;
 		const nDistance = Math.sqrt(nDx * nDx + nDy * nDy);
@@ -1330,19 +1400,25 @@
 	 * @param {Array<{sSymbol: string, nValue: number, nPct: number}>} aItems
 	 */
 	function fnDrawPieChart(oCtx, elCanvas, aItems, oOptions = {}) {
-		fnClearCanvas(oCtx, elCanvas);
-		const iWidth = elCanvas.width;
-		const iHeight = elCanvas.height;
+		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas, { bForceSquare: true });
+		oCtx.clearRect(0, 0, iWidth, iHeight);
+		const oStyles = getComputedStyle(document.documentElement);
+		const sSurfaceSoft = oStyles.getPropertyValue("--clr-surface-soft").trim() || "#f3f4f1";
+		const sSurface = oStyles.getPropertyValue("--clr-surface").trim() || "#ffffff";
+		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
+		const sText = oStyles.getPropertyValue("--clr-text").trim() || "#1d2522";
+		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
+		const sPrimary = oStyles.getPropertyValue("--clr-primary").trim() || "#1d7a5b";
 		const nCx = iWidth / 2;
 		const nCy = iHeight / 2;
-		const nRadius = Math.min(iWidth, iHeight) * 0.34;
-		const nInnerRadius = nRadius * 0.48;
+		const nRadius = Math.min(iWidth, iHeight) * 0.37;
+		const nInnerRadius = nRadius * 0.52;
 		const iSelectedIndex = Number.isInteger(oOptions.iSelectedIndex) ? oOptions.iSelectedIndex : -1;
 		const nSelectScale = Number.isFinite(oOptions.nSelectScale) ? Math.max(0, Math.min(1, oOptions.nSelectScale)) : 0;
 
 		if (!aItems.length) {
-			oCtx.fillStyle = "#98a3ba";
-			oCtx.font = "13px 'Avenir Next', 'Nunito Sans', sans-serif";
+			oCtx.fillStyle = sTextMuted;
+			oCtx.font = "13px 'Sora', 'Avenir Next', sans-serif";
 			oCtx.textAlign = "center";
 			oCtx.textBaseline = "middle";
 			oCtx.fillText("Keine Verteilung verfügbar", nCx, nCy);
@@ -1365,8 +1441,8 @@
 			oCtx.closePath();
 			oCtx.fillStyle = fnPieColorAt(iIndex);
 			oCtx.fill();
-			oCtx.strokeStyle = "#1f2735";
-			oCtx.lineWidth = 2;
+			oCtx.strokeStyle = sSurface;
+			oCtx.lineWidth = 3;
 			oCtx.stroke();
 
 			nStartAngle = nEndAngle;
@@ -1375,23 +1451,36 @@
 		// Donut-Mitte freilegen für moderneren Look
 		oCtx.beginPath();
 		oCtx.arc(nCx, nCy, nInnerRadius, 0, Math.PI * 2);
-		oCtx.fillStyle = "#1b222e";
+		oCtx.fillStyle = sSurfaceSoft;
 		oCtx.fill();
 
-		oCtx.fillStyle = "#aeb8cc";
-		oCtx.font = "11px 'Avenir Next', 'Nunito Sans', sans-serif";
+		const iInfoWidth = Math.min(iWidth * 0.56, nInnerRadius * 2.1);
+		const iInfoHeight = Math.min(iHeight * 0.26, nInnerRadius * 1.7);
+		fnCanvasRoundRect(oCtx, nCx - iInfoWidth / 2, nCy - iInfoHeight / 2, iInfoWidth, iInfoHeight, 14);
+		oCtx.fillStyle = sSurface;
+		oCtx.fill();
+		oCtx.strokeStyle = sBorder;
+		oCtx.lineWidth = 1;
+		oCtx.stroke();
+
+		const sInfoTitle = iSelectedIndex >= 0 ? "Auswahl" : "Depot";
+		const sInfoNameRaw = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? aItems[iSelectedIndex].sSymbol : "Allokation";
+		const sInfoName = String(sInfoNameRaw || "");
+		const sInfoNameShort = sInfoName.length > 14 ? `${sInfoName.slice(0, 13)}…` : sInfoName;
+		const sInfoPct = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? `${aItems[iSelectedIndex].nPct.toFixed(2)}%` : "";
+
+		oCtx.fillStyle = sTextMuted;
+		oCtx.font = "600 11px 'Sora', 'Avenir Next', sans-serif";
 		oCtx.textAlign = "center";
 		oCtx.textBaseline = "middle";
-		oCtx.fillText(iSelectedIndex >= 0 ? "Auswahl" : "Depot", nCx, nCy - 8);
-		oCtx.fillStyle = "#e9eef8";
-		oCtx.font = "700 15px 'Avenir Next', 'Nunito Sans', sans-serif";
-		if (iSelectedIndex >= 0 && aItems[iSelectedIndex]) {
-			oCtx.fillText(aItems[iSelectedIndex].sSymbol, nCx, nCy + 2);
-			oCtx.fillStyle = "#aeb8cc";
-			oCtx.font = "12px 'Avenir Next', 'Nunito Sans', sans-serif";
-			oCtx.fillText(`${aItems[iSelectedIndex].nPct.toFixed(2)}%`, nCx, nCy + 20);
-		} else {
-			oCtx.fillText("Allokation", nCx, nCy + 11);
+		oCtx.fillText(sInfoTitle, nCx, nCy - 16);
+		oCtx.fillStyle = sText;
+		oCtx.font = "700 15px 'Sora', 'Avenir Next', sans-serif";
+		oCtx.fillText(sInfoNameShort, nCx, nCy + 2);
+		if (sInfoPct) {
+			oCtx.fillStyle = sPrimary;
+			oCtx.font = "700 12px 'Sora', 'Avenir Next', sans-serif";
+			oCtx.fillText(sInfoPct, nCx, nCy + 21);
 		}
 	}
 
@@ -1463,6 +1552,9 @@
 		let iSelectedPieIndex = -1;
 		let nPieSelectScale = 0;
 		let iAnimFrame = 0;
+		let aLastDepotChartPoints = [];
+		let bLastDepotPnlOnly = false;
+		let iResizeAnimFrame = 0;
 
 		const fnRenderPie = () => {
 			const bShowPie = Boolean(elShowPie.checked);
@@ -1474,6 +1566,19 @@
 				nSelectScale: nPieSelectScale,
 			});
 			fnRenderPieLegend(elPieLegend, aPieItemsCurrent, iSelectedPieIndex);
+		};
+
+		const fnRedrawDepotFromCache = () => {
+			if (!aLastDepotChartPoints.length) return;
+			fnDrawLineChart(oCtx, elCanvas, aLastDepotChartPoints, bLastDepotPnlOnly);
+			fnRenderPie();
+		};
+
+		const fnScheduleResponsiveRedraw = () => {
+			cancelAnimationFrame(iResizeAnimFrame);
+			iResizeAnimFrame = requestAnimationFrame(() => {
+				fnRedrawDepotFromCache();
+			});
 		};
 
 		const fnAnimatePieSelection = () => {
@@ -1492,10 +1597,16 @@
 		elPieCanvas.addEventListener("click", (oEvent) => {
 			if (!elShowPie.checked || !aPieItemsCurrent.length) return;
 			const oRect = elPieCanvas.getBoundingClientRect();
-			const nX = (oEvent.clientX - oRect.left) * (elPieCanvas.width / oRect.width);
-			const nY = (oEvent.clientY - oRect.top) * (elPieCanvas.height / oRect.height);
+			const nX = oEvent.clientX - oRect.left;
+			const nY = oEvent.clientY - oRect.top;
 			const iHitIndex = fnGetPieSliceIndexAtPoint(elPieCanvas, aPieItemsCurrent, nX, nY);
 			if (iHitIndex < 0) return;
+			if (iSelectedPieIndex === iHitIndex) {
+				iSelectedPieIndex = -1;
+				nPieSelectScale = 0;
+				fnRenderPie();
+				return;
+			}
 			iSelectedPieIndex = iHitIndex;
 			nPieSelectScale = 0;
 			fnAnimatePieSelection();
@@ -1534,8 +1645,8 @@
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 		let sActiveRange = "1D";
 
-		const fnRefreshDepotChart = async () => {
-			await fnBuildDepotChart({
+			const fnRefreshDepotChart = async () => {
+				await fnBuildDepotChart({
 				aPositions,
 				sRange: sActiveRange,
 				oCtx,
@@ -1549,13 +1660,17 @@
 				elPieCanvas,
 				elPieLegend,
 				bShowPie: Boolean(elShowPie?.checked),
-				fnOnCompositionChange: (aComposition) => {
-					aPieItemsCurrent = aComposition;
-					if (iSelectedPieIndex >= aPieItemsCurrent.length) iSelectedPieIndex = -1;
-					fnRenderPie();
-				},
-			});
-		};
+					fnOnCompositionChange: (aComposition) => {
+						aPieItemsCurrent = aComposition;
+						if (iSelectedPieIndex >= aPieItemsCurrent.length) iSelectedPieIndex = -1;
+						fnRenderPie();
+					},
+					fnOnPointsChange: (aPoints, bPnlOnlyCurrent) => {
+						aLastDepotChartPoints = Array.isArray(aPoints) ? aPoints : [];
+						bLastDepotPnlOnly = Boolean(bPnlOnlyCurrent);
+					},
+				});
+			};
 
 		aElRangeButtons.forEach((elButton) => {
 			elButton.addEventListener("click", async () => {
@@ -1570,9 +1685,13 @@
 			await fnRefreshDepotChart();
 		});
 
-		elShowPie?.addEventListener("change", () => {
+		elShowPie?.addEventListener("change", async () => {
 			fnRenderPie();
+			fnScheduleResponsiveRedraw();
+			await fnRefreshDepotChart();
 		});
+
+		window.addEventListener("resize", fnScheduleResponsiveRedraw);
 
 		await fnRefreshDepotChart();
 	}
@@ -1644,6 +1763,7 @@
 		oArgs.elKChange.textContent = `${fnFmtMoney(nChangeAbs, "USD")} (${Number.isFinite(nChangePct) ? nChangePct.toFixed(2) : "—"}%)`;
 
 		fnDrawLineChart(oArgs.oCtx, oArgs.elCanvas, aPoints, oArgs.bPnlOnly);
+		oArgs.fnOnPointsChange?.(aPoints, oArgs.bPnlOnly);
 		const aComposition = fnBuildDepotComposition(aPositions, mSeriesBySymbol);
 		oArgs.fnOnCompositionChange?.(aComposition);
 
