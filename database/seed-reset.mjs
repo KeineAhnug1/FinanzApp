@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createHash } from "node:crypto";
 import { MongoClient, ObjectId, Int32, Decimal128 } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
@@ -11,6 +12,7 @@ const dbName = process.env.MONGODB_DB || "finanzapp";
 const client = new MongoClient(uri);
 const d2 = (value) => Decimal128.fromString(Number(value).toFixed(2));
 const d4 = (value) => Decimal128.fromString(Number(value).toFixed(4));
+const hashPasswort = (password) => createHash("sha256").update(String(password)).digest("hex");
 
 const ids = {
   users: {
@@ -66,6 +68,7 @@ const data = {
       username: "anna",
       email: "anna@example.com",
       password: "anna_pw_hash",
+      hashed_passwort: hashPasswort("anna_pw_hash"),
       first_name: "Anna",
       last_name: "Schmidt",
       age: new Int32(24),
@@ -77,6 +80,7 @@ const data = {
       username: "ben",
       email: "ben@example.com",
       password: "ben_pw_hash",
+      hashed_passwort: hashPasswort("ben_pw_hash"),
       first_name: "Ben",
       last_name: "Keller",
       age: new Int32(26),
@@ -88,6 +92,7 @@ const data = {
       username: "clara",
       email: "clara@example.com",
       password: "clara_pw_hash",
+      hashed_passwort: hashPasswort("clara_pw_hash"),
       first_name: "Clara",
       last_name: "Weber",
       age: new Int32(23),
@@ -99,6 +104,7 @@ const data = {
       username: "emre",
       email: "emre@example.com",
       password: "emre_pw_hash",
+      hashed_passwort: hashPasswort("emre_pw_hash"),
       first_name: "Emre",
       last_name: "Yilmaz",
       age: new Int32(27),
@@ -110,6 +116,7 @@ const data = {
       username: "farah",
       email: "farah@example.com",
       password: "farah_pw_hash",
+      hashed_passwort: hashPasswort("farah_pw_hash"),
       first_name: "Farah",
       last_name: "Ali",
       age: new Int32(25),
@@ -522,7 +529,16 @@ async function assertSchemaIsUpToDate(db) {
   const checks = [
     {
       name: "users",
-      requiredFields: ["username", "email", "password", "first_name", "last_name", "income", "created_at"]
+      requiredFields: [
+        "username",
+        "email",
+        "password",
+        "hashed_passwort",
+        "first_name",
+        "last_name",
+        "income",
+        "created_at"
+      ]
     },
     {
       name: "groups",

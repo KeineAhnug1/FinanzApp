@@ -3,6 +3,7 @@ Table users {
   username varchar [not null, unique]
   email varchar [not null, unique]
   password varchar [not null]
+  hashed_passwort varchar [not null]
   first_name varchar [not null]
   last_name varchar [not null]
   age int
