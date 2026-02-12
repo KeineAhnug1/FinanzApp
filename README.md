@@ -16,14 +16,26 @@ FinanzApp/
     js/ShareView.js
     testdata/
   database/
-    schema.dbml
+    dataset-legacy/
+      schema.dbml
+      schema-setup.js
+      seed-reset.mjs
+      wipe-data.mjs
+      db-client.mjs
+      data-service.mjs
+      prepare-data.mjs
+      check-connection.mjs
+    dataset-v2/
+      schema.dbml
+      schema-setup.js
+      wipe-data.mjs
+      db-client.mjs
+      check-connection.mjs
     schema-setup.js
     seed-reset.mjs
     wipe-data.mjs
-    db-client.mjs
-    data-service.mjs
-    prepare-data.mjs
     check-connection.mjs
+    prepare-data.mjs
   Datastructure.png
   README.md
   package.json
@@ -34,12 +46,18 @@ FinanzApp/
 ## Part 1: Database (MongoDB)
 
 ### Purpose
-`database/` contains scripts to:
-- create/update collections, validators, and indexes
-- wipe existing app data
-- reset and import linked demo data
+`database/` contains two dataset-specific setups:
+- `database/dataset-legacy/` for the current/original model
+- `database/dataset-v2/` for the new model variant
 
-### Collections
+Root-level scripts in `database/` are compatibility wrappers that run the legacy setup.
+
+Both setups provide scripts to:
+- create/update collections, validators, and indexes
+- wipe existing app data (legacy + v2)
+- reset/import linked demo data (legacy)
+
+### Collections (Legacy Dataset)
 - `users`
 - `groups`
 - `group_members`
@@ -51,7 +69,7 @@ FinanzApp/
 - `shares`
 - `budget`
 
-### Notes
+### Notes (Legacy Dataset)
 - Money fields are stored as MongoDB `Decimal128`.
 - `transactions` enforces exactly one source: `request_id` XOR `expense_share_id`.
 - MongoDB relation behavior is modeled through validators + indexes (no FK enforcement).
@@ -132,7 +150,8 @@ npm run data:prepare -- --username anna
 ```
 
 ### Data Model Reference
-- DBML source: `database/schema.dbml`
+- Legacy DBML source: `database/dataset-legacy/schema.dbml`
+- V2 DBML source: `database/dataset-v2/schema.dbml`
 - Diagram: `Datastructure.png`
 
 ![FinanzApp data structure](./Datastructure.png)
@@ -224,3 +243,11 @@ Defined in `package.json`:
 - `npm run db:wipe`
 - `npm run db:check`
 - `npm run data:prepare`
+- `npm run schema:setup:legacy`
+- `npm run seed:reset:legacy`
+- `npm run db:wipe:legacy`
+- `npm run db:check:legacy`
+- `npm run data:prepare:legacy`
+- `npm run schema:setup:v2`
+- `npm run db:wipe:v2`
+- `npm run db:check:v2`

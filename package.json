@@ -12,6 +12,20 @@
     "db:wipe": "node database/wipe-data.mjs",
     "db:check": "node database/check-connection.mjs",
     "data:prepare": "node database/prepare-data.mjs",
+
+    "schema:setup:legacy": "node database/dataset-legacy/schema-setup.js",
+    "seed:reset:legacy": "node database/dataset-legacy/seed-reset.mjs",
+    "db:wipe:legacy": "node database/dataset-legacy/wipe-data.mjs",
+    "db:check:legacy": "node database/dataset-legacy/check-connection.mjs",
+    "data:prepare:legacy": "node database/dataset-legacy/prepare-data.mjs",
+
+    "schema:setup:v2": "node database/dataset-v2/schema-setup.js",
+    "seed:reset:v2": "node database/dataset-v2/seed-reset.mjs",
+    "import:testdata:v2": "node database/dataset-v2/seed-reset.mjs",
+    "db:wipe:v2": "node database/dataset-v2/wipe-data.mjs",
+    "db:check:v2": "node database/dataset-v2/check-connection.mjs",
+    "data:prepare:v2": "node database/dataset-v2/prepare-data.mjs",
+
     "web:start": "node uebersicht/server.js",
     "groups:start": "node groups/server.js",
     "stocks:server": "node aktien/backend/server.mjs",
