@@ -1,3 +1,67 @@
+const THEME_STORAGE_KEY = "finanzapp.themeMode";
+const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
+const prefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function getStoredThemeMode() {
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored && THEME_OPTIONS.has(stored)) {
+    return stored;
+  }
+  return "auto";
+}
+
+function resolveTheme(mode) {
+  if (mode === "auto") {
+    return prefersDarkQuery.matches ? "dark" : "light";
+  }
+  return mode;
+}
+
+function updateThemeButtons(mode) {
+  const buttons = document.querySelectorAll(".theme-option");
+  for (const button of buttons) {
+    const isActive = button.dataset.themeChoice === mode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+}
+
+function applyTheme(mode) {
+  const resolved = resolveTheme(mode);
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.themeMode = mode;
+  updateThemeButtons(mode);
+}
+
+function initThemeSwitcher() {
+  applyTheme(getStoredThemeMode());
+
+  const buttons = document.querySelectorAll(".theme-option");
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.themeChoice;
+      if (!mode || !THEME_OPTIONS.has(mode)) {
+        return;
+      }
+      window.localStorage.setItem(THEME_STORAGE_KEY, mode);
+      applyTheme(mode);
+    });
+  }
+
+  const handleSchemeChange = () => {
+    const mode = getStoredThemeMode();
+    if (mode === "auto") {
+      applyTheme(mode);
+    }
+  };
+
+  if (typeof prefersDarkQuery.addEventListener === "function") {
+    prefersDarkQuery.addEventListener("change", handleSchemeChange);
+  } else if (typeof prefersDarkQuery.addListener === "function") {
+    prefersDarkQuery.addListener(handleSchemeChange);
+  }
+}
+
 class UsersLogin extends HTMLElement {
   connectedCallback() {
     this.render();
@@ -14,10 +78,7 @@ class UsersLogin extends HTMLElement {
       const password = String(formData.get("password") || "");
 
       submitButton.disabled = true;
-      submitButton.style.opacity = "0.75";
-      submitButton.style.cursor = "not-allowed";
-      status.textContent = "Pruefe Login...";
-      status.style.color = "#475467";
+      setStatus(status, "idle", "Pruefe Login...");
 
       try {
         const response = await fetch("/api/login", {
@@ -30,65 +91,77 @@ class UsersLogin extends HTMLElement {
 
         const result = await response.json();
         if (!response.ok || !result.ok) {
-          status.textContent = result.message || "E-Mail oder Passwort ist falsch.";
-          status.style.color = "#b42318";
+          setStatus(status, "error", result.message || "E-Mail oder Passwort ist falsch.");
           return;
         }
 
-        status.textContent = `Login erfolgreich: ${result.user.email}`;
-        status.style.color = "#146c43";
+        setStatus(status, "success", `Login erfolgreich: ${result.user.email}`);
       } catch {
-        status.textContent = "Server nicht erreichbar.";
-        status.style.color = "#b42318";
+        setStatus(status, "error", "Server nicht erreichbar.");
       } finally {
         submitButton.disabled = false;
-        submitButton.style.opacity = "1";
-        submitButton.style.cursor = "pointer";
       }
     });
   }
 
   render() {
     this.innerHTML = `
-      <section style="width:min(420px,92vw);background:#fff;border:1px solid #d9e0ea;border-radius:12px;padding:24px;box-shadow:0 8px 24px rgba(15,23,42,.08)">
-        <h1 style="margin:0 0 8px;font-size:1.35rem">Anmeldung</h1>
-        <p style="margin:0 0 16px;color:#475467;font-size:.95rem">
-          Mit <code>email</code> und <code>password</code> anmelden.
+      <section class="login-card">
+        <span class="login-badge">FinanzApp Access</span>
+        <h1 class="login-title">Willkommen zur FinanzApp</h1>
+        <p class="login-subtitle">
+          Melde dich mit deinen Zugangsdaten an und oeffne deine Finanzuebersicht.
         </p>
-        <form>
-          <label for="email" style="display:block;margin-bottom:6px;font-weight:600">E-Mail</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autocomplete="email"
-            placeholder="anna@example.com"
-            style="width:100%;padding:10px 12px;border:1px solid #cfd8e3;border-radius:8px;box-sizing:border-box"
-          />
 
-          <label for="password" style="display:block;margin:14px 0 6px;font-weight:600">Passwort</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autocomplete="current-password"
-            placeholder="anna_pw_hash"
-            style="width:100%;padding:10px 12px;border:1px solid #cfd8e3;border-radius:8px;box-sizing:border-box"
-          />
+        <form class="login-form">
+          <div>
+            <label class="login-label" for="email">E-Mail</label>
+            <input
+              class="login-input"
+              id="email"
+              name="email"
+              type="email"
+              required
+              autocomplete="email"
+              placeholder="anna@example.com"
+            />
+          </div>
 
-          <button
-            type="submit"
-            style="width:100%;margin-top:16px;padding:11px 14px;border:0;background:#1f6feb;color:#fff;border-radius:8px;cursor:pointer;font-weight:600"
-          >
-            Einloggen
-          </button>
+          <div>
+            <label class="login-label" for="password">Passwort</label>
+            <input
+              class="login-input"
+              id="password"
+              name="password"
+              type="password"
+              required
+              autocomplete="current-password"
+              placeholder="anna_pw_hash"
+            />
+          </div>
+
+          <button class="login-button" type="submit">Einloggen</button>
         </form>
-        <p id="login-status" style="min-height:1.2em;margin:14px 0 0;font-size:.95rem"></p>
+
+        <p id="login-status" class="login-status"></p>
+        <p class="seed-hint">
+          Test: <code>anna@example.com</code> / <code>anna_pw_hash</code>
+        </p>
       </section>
     `;
   }
 }
 
+function setStatus(element, type, text) {
+  element.textContent = text;
+  element.classList.remove("is-success", "is-error");
+  if (type === "success") {
+    element.classList.add("is-success");
+  }
+  if (type === "error") {
+    element.classList.add("is-error");
+  }
+}
+
 customElements.define("users-login", UsersLogin);
+initThemeSwitcher();

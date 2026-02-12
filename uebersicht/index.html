@@ -1,26 +1,51 @@
 <!doctype html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FinanzApp Login</title>
-    <style>
-      :root {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        color: #1b1d23;
-        background: #f4f7fb;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-      }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanzApp Login</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-    <users-login>Login wird geladen...</users-login>
-    <script src="./script.js"></script>
+  <main class="auth-layout">
+    <header class="layout-toolbar">
+      <span class="toolbar-brand">FinanzApp</span>
+      <div class="theme-switch" role="group" aria-label="Farbmodus">
+        <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
+        <button type="button" class="theme-option" data-theme-choice="dark">Dunkel</button>
+        <button type="button" class="theme-option" data-theme-choice="auto">Auto</button>
+      </div>
+    </header>
+
+    <section class="intro-panel">
+      <h1 class="intro-title">Moderne Finanzuebersicht fuer Alltag und WG.</h1>
+      <p class="intro-copy">
+        Verfolge Ausgaben, offene Forderungen und Sparziele zentral in einem klaren Dashboard.
+      </p>
+
+      <div class="metric-grid">
+        <article class="metric-card">
+          <p class="metric-label">Cashflow</p>
+          <p class="metric-value">+ 1.420,00 EUR</p>
+          <p class="metric-trend positive">+8,6% im Monat</p>
+        </article>
+        <article class="metric-card">
+          <p class="metric-label">Offene Requests</p>
+          <p class="metric-value">3</p>
+          <p class="metric-trend neutral">2 WG, 1 privat</p>
+        </article>
+        <article class="metric-card">
+          <p class="metric-label">Budget Status</p>
+          <p class="metric-value">74%</p>
+          <p class="metric-trend positive">im Zielkorridor</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <users-login>Login wird geladen...</users-login>
+    </section>
+  </main>
+  <script src="./script.js"></script>
 </body>
 </html>
