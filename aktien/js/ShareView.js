@@ -1343,13 +1343,6 @@
 	/**
 	 * Zeichnet einen einheitlichen Linienchart für Gesamt- und Einzelansicht.
 	 * Scope: [SHARED]
-	 * Variablen:
-	 * - `oCtx`: 2D-Kontext.
-	 * - `elCanvas`: Ziel-Canvas.
-	 * - `aPoints`: Datenpunkte mit `y`-Wert.
-	 * - `bPnlOnly`: Schaltet Y-Label-Formatierung für PnL um.
-	 * - `iWidth` / `iHeight`: Canvas-Dimensionen.
-	 * - `nMin` / `nMax`: Wertebereich auf Y.
 	 * @param {CanvasRenderingContext2D} oCtx
 	 * @param {HTMLCanvasElement} elCanvas
 	 * @param {Array<{t: string, y: number}>} aPoints
