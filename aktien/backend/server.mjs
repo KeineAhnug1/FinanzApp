@@ -12,6 +12,7 @@ const sProjectRootPath = path.resolve(sCurrentDirPath, "..", "..");
 const iPort = Number(process.env.PORT || 5500);
 const sTwelveDataBaseUrl = "https://api.twelvedata.com";
 const sTwelveDataApiKey = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
+let fnWithDbCached = null;
 
 const oMimeByExt = {
 	".css": "text/css; charset=utf-8",
@@ -38,6 +39,74 @@ function fnWriteJson(oResponse, iStatusCode, oPayload) {
 		"Content-Type": "application/json; charset=utf-8",
 	});
 	oResponse.end(JSON.stringify(oPayload));
+}
+
+/**
+ * Konvertiert Mongo-Werte (inkl. Decimal128) robust in Number.
+ * @param {any} xValue
+ * @returns {number}
+ */
+function fnToNumber(xValue) {
+	if (xValue == null) return Number.NaN;
+	if (typeof xValue === "number") return xValue;
+	if (typeof xValue === "object" && typeof xValue.toString === "function") {
+		const nParsed = Number(xValue.toString());
+		return Number.isFinite(nParsed) ? nParsed : Number.NaN;
+	}
+	return Number(xValue);
+}
+
+/**
+ * Lädt Positionen aus MongoDB (`shares`) und mappt sie auf das Frontend-Format.
+ * Hinweis: Nutzerfilter folgt später; aktuell werden alle Shares geladen.
+ * @returns {Promise<Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>>}
+ */
+async function fnLoadPositionsFromMongo() {
+	try {
+		if (!fnWithDbCached) {
+			const oDbClientModule = await import("../../database/db-client.mjs");
+			fnWithDbCached = oDbClientModule?.withDb;
+		}
+
+		if (typeof fnWithDbCached !== "function") return [];
+
+		return await fnWithDbCached(async (oDb) => {
+			const aShares = await oDb
+				.collection("shares")
+				.find({})
+				.sort({ bought_at: 1 })
+				.limit(300)
+				.toArray();
+
+			return (aShares || [])
+				.map((oShare) => {
+					const sSymbol = String(oShare?.symbol || "").trim().toUpperCase();
+					const nAmount = fnToNumber(oShare?.units);
+					const nBoughtFor = fnToNumber(oShare?.bought_for);
+					const iBoughtAtMs = oShare?.bought_at instanceof Date ? oShare.bought_at.getTime() : Date.parse(String(oShare?.bought_at || ""));
+					const iCreatedAt = Number.isFinite(iBoughtAtMs) ? Math.floor(iBoughtAtMs / 1000) : Number.NaN;
+					const nWorthWhenBought = Number.isFinite(nAmount) && nAmount > 0 && Number.isFinite(nBoughtFor)
+						? nBoughtFor / nAmount
+						: Number.NaN;
+
+					if (!sSymbol) return null;
+					if (!Number.isFinite(nAmount) || nAmount <= 0) return null;
+					if (!Number.isFinite(iCreatedAt) || iCreatedAt <= 0) return null;
+					if (!Number.isFinite(nWorthWhenBought) || nWorthWhenBought <= 0) return null;
+
+					return {
+						symbol: sSymbol,
+						amount: Number(nAmount.toFixed(4)),
+						created_at: iCreatedAt,
+						worthwhenbought: Number(nWorthWhenBought.toFixed(4)),
+					};
+				})
+				.filter(Boolean);
+		});
+	} catch (oError) {
+		console.warn("Mongo-Positionsabfrage fehlgeschlagen. Nutze Fallback-Daten.", oError?.message || oError);
+		return [];
+	}
 }
 
 /**
@@ -144,7 +213,9 @@ async function fnHandleRequest(oRequest, oResponse) {
 	}
 
 	if (sMethod === "GET" && sPathname === "/api/positions") {
-		fnWriteJson(oResponse, 200, aFallbackPositions);
+		const aMongoPositions = await fnLoadPositionsFromMongo();
+		const aPositions = aMongoPositions.length ? aMongoPositions : aFallbackPositions;
+		fnWriteJson(oResponse, 200, aPositions);
 		return;
 	}
 
