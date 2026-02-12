@@ -8,6 +8,7 @@
     "schema:setup": "node database/schema-setup.js",
     "import:testdata": "node database/seed-reset.mjs",
     "seed:reset": "node database/seed-reset.mjs",
+    "seed:family-demo": "node database/seed-family-demo.mjs",
     "db:wipe": "node database/wipe-data.mjs",
     "db:check": "node database/check-connection.mjs",
     "data:prepare": "node database/prepare-data.mjs",
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "dotenv": "^17.2.4",
-    "mongodb": "^6.20.0"
+    "mongodb": "^6.20.0",
+    "nodemailer": "^8.0.1"
   }
 }
