@@ -153,13 +153,7 @@ Entry point:
 From project root:
 
 ```bash
-python3 -m http.server 5500
-```
-
-If `python3` is unavailable:
-
-```bash
-python -m http.server 5500
+npm run stocks:server
 ```
 
 Then open:
@@ -168,9 +162,37 @@ Then open:
 Stop server:
 - `Ctrl + C`
 
+### Start frontend + API as separate servers
+If you want to run the HTML on a separate static server and the API on its own port:
+
+```bash
+npm run stocks:all
+```
+
+This starts:
+- Frontend static server: `http://localhost:5500/aktien/ShareView.html`
+- Positions API: `http://localhost:5588/api/positions`
+
+### Stocks backend endpoint (temporary fallback data)
+The stock module now includes a simple backend endpoint:
+- `GET /api/positions`
+- `GET /api/twelvedata/*` (proxy to Twelve Data)
+
+Source for the temporary fallback positions:
+- `aktien/backend/fallback-positions.mjs`
+
+Server implementation:
+- `aktien/backend/server.mjs`
+
 ### Configuration note
-The stock frontend currently uses a Twelve Data API key in client-side code (`aktien/js/ShareView.js`).
-For production usage, move the key to a backend proxy/service and do not expose secrets in frontend code.
+The stock frontend no longer calls Twelve Data directly.
+Set your Twelve Data API key in backend environment:
+
+```env
+TWELVE_DATA_API_KEY="<your-key>"
+```
+
+The backend proxy route `/api/twelvedata/*` appends this key server-side.
 
 ## Part 3: Login Demo (`uebersicht/`)
 

@@ -11,7 +11,11 @@
     "db:wipe": "node database/wipe-data.mjs",
     "db:check": "node database/check-connection.mjs",
     "data:prepare": "node database/prepare-data.mjs",
-    "web:start": "node uebersicht/server.js"
+    "web:start": "node uebersicht/server.js",
+    "stocks:server": "node aktien/backend/server.mjs",
+    "stocks:api": "PORT=5588 node aktien/backend/server.mjs",
+    "stocks:web": "python3 -m http.server 5500",
+    "stocks:all": "node aktien/backend/run-all-servers.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.4",
