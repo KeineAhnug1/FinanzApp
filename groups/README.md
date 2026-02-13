@@ -7,6 +7,9 @@ This folder contains the standalone group management app for FinanzApp.
 The app provides:
 - list of memberships for the current session user
 - group detail view with participants
+- member actions:
+  - create group activity
+  - create group funding (optional link to existing group activity)
 - invitation inbox (accept/deny)
 - admin actions:
   - invite user by username
@@ -39,6 +42,8 @@ Database target:
 - `POST /api/groups`
 - `GET /api/groups/:groupId`
 - `DELETE /api/groups/:groupId`
+- `POST /api/groups/:groupId/activities`
+- `POST /api/groups/:groupId/funding`
 - `POST /api/groups/:groupId/invite`
 - `DELETE /api/groups/:groupId/members/:userId`
 - `GET /api/inbox/invitations`
@@ -69,4 +74,3 @@ Primary statuses:
 - `accepted`
 
 Compatibility fallbacks still exist in code for legacy values (for example `active` or missing status), but the v2 schema expects the three statuses above.
-

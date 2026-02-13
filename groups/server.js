@@ -1,7 +1,7 @@
 const http = require("http");
 const path = require("path");
 const { readFile } = require("fs/promises");
-const { MongoClient, ObjectId } = require("mongodb");
+const { MongoClient, ObjectId, Decimal128 } = require("mongodb");
 require("dotenv").config();
 
 const PORT = Number(process.env.PORT || 3001);
@@ -62,6 +62,17 @@ function toObjectId(value) {
   } catch {
     return null;
   }
+}
+
+function toNullableDate(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
 }
 
 async function getSessionUser() {
@@ -180,6 +191,11 @@ async function handleGroupDetail(req, res, groupIdRaw) {
     }
   ]).toArray();
 
+  const activities = await db.collection("group_activities").find(
+    { group_id: context.groupId },
+    { projection: { _id: 1, info: 1, date: 1, created_at: 1 } }
+  ).sort({ date: -1, created_at: -1 }).toArray();
+
   return sendJson(res, 200, {
     ok: true,
     group: {
@@ -197,7 +213,136 @@ async function handleGroupDetail(req, res, groupIdRaw) {
       last_name: member.last_name ?? null,
       role: member.role,
       status: member.status ?? null
+    })),
+    activities: activities.map((activity) => ({
+      activity_id: String(activity._id),
+      info: activity.info ?? null,
+      date: activity.date ?? null,
+      created_at: activity.created_at ?? null
     }))
+  });
+}
+
+async function handleCreateGroupActivity(req, res, groupIdRaw) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw);
+  if (!context.ok) {
+    return sendJson(res, context.status, { ok: false, message: context.message });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") {
+      return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    }
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const info = String(payload.info || "").trim();
+  if (!info) {
+    return sendJson(res, 400, { ok: false, message: "Activity info is required" });
+  }
+
+  const date = toNullableDate(payload.date);
+  if (payload.date && !date) {
+    return sendJson(res, 400, { ok: false, message: "Activity date is invalid" });
+  }
+
+  const createdAt = new Date();
+  const insertResult = await db.collection("group_activities").insertOne({
+    group_id: context.groupId,
+    info,
+    date,
+    created_at: createdAt
+  });
+
+  return sendJson(res, 201, {
+    ok: true,
+    activity: {
+      activity_id: String(insertResult.insertedId),
+      info,
+      date,
+      created_at: createdAt
+    }
+  });
+}
+
+async function handleCreateGroupFunding(req, res, groupIdRaw) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw);
+  if (!context.ok) {
+    return sendJson(res, context.status, { ok: false, message: context.message });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") {
+      return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    }
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const info = String(payload.info || "").trim() || null;
+  const amountRaw = String(payload.amount ?? "").trim();
+  const amountNumber = amountRaw ? Number(amountRaw) : null;
+  if (amountRaw && (!Number.isFinite(amountNumber) || amountNumber < 0)) {
+    return sendJson(res, 400, { ok: false, message: "Funding amount must be a non-negative number" });
+  }
+  const amount = amountNumber == null ? null : Decimal128.fromString(amountNumber.toFixed(2));
+
+  let groupActivityId = null;
+  const activityIdRaw = String(payload.group_activity_id || "").trim();
+  if (activityIdRaw) {
+    groupActivityId = toObjectId(activityIdRaw);
+    if (!groupActivityId) {
+      return sendJson(res, 400, { ok: false, message: "Invalid linked activity id" });
+    }
+    const linkedActivity = await db.collection("group_activities").findOne({
+      _id: groupActivityId,
+      group_id: context.groupId
+    });
+    if (!linkedActivity) {
+      return sendJson(res, 400, { ok: false, message: "Linked activity does not exist in this group" });
+    }
+  }
+
+  if (!info && amount == null && !groupActivityId) {
+    return sendJson(res, 400, {
+      ok: false,
+      message: "Funding needs at least amount, info or a linked activity"
+    });
+  }
+
+  const createdAt = new Date();
+  const insertResult = await db.collection("group_funding").insertOne({
+    group_id: context.groupId,
+    group_activity_id: groupActivityId,
+    amount,
+    info,
+    created_at: createdAt
+  });
+
+  return sendJson(res, 201, {
+    ok: true,
+    funding: {
+      funding_id: String(insertResult.insertedId),
+      group_activity_id: groupActivityId ? String(groupActivityId) : null,
+      amount: amountNumber,
+      info,
+      created_at: createdAt
+    }
   });
 }
 
@@ -604,6 +749,16 @@ const server = http.createServer(async (req, res) => {
     const inviteMatch = url.pathname.match(/^\/api\/groups\/([^/]+)\/invite$/);
     if (inviteMatch) {
       return await handleInviteUser(req, res, inviteMatch[1]);
+    }
+
+    const createActivityMatch = url.pathname.match(/^\/api\/groups\/([^/]+)\/activities$/);
+    if (createActivityMatch) {
+      return await handleCreateGroupActivity(req, res, createActivityMatch[1]);
+    }
+
+    const createFundingMatch = url.pathname.match(/^\/api\/groups\/([^/]+)\/funding$/);
+    if (createFundingMatch) {
+      return await handleCreateGroupFunding(req, res, createFundingMatch[1]);
     }
 
     const removeMemberMatch = url.pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)$/);

@@ -42,6 +42,40 @@
           <h3 class="sub-title">Participants</h3>
           <ul id="membersList" class="members-list"></ul>
 
+          <div id="memberActionsPanel" class="member-panel">
+            <h3 class="sub-title">Member Actions</h3>
+
+            <form id="activityForm" class="group-form">
+              <label class="field">
+                <span>New group activity</span>
+                <input id="activityInfoInput" type="text" required maxlength="180" placeholder="e.g. Saturday cooking event" />
+              </label>
+              <label class="field">
+                <span>Date (optional)</span>
+                <input id="activityDateInput" type="datetime-local" />
+              </label>
+              <button type="submit">Create activity</button>
+            </form>
+
+            <form id="fundingForm" class="group-form">
+              <label class="field">
+                <span>Funding info (optional)</span>
+                <input id="fundingInfoInput" type="text" maxlength="180" placeholder="e.g. Shared groceries budget" />
+              </label>
+              <label class="field">
+                <span>Funding amount (optional)</span>
+                <input id="fundingAmountInput" type="number" min="0" step="0.01" inputmode="decimal" />
+              </label>
+              <label class="field">
+                <span>Link to existing activity (optional)</span>
+                <select id="fundingActivitySelect">
+                  <option value="">No linked activity</option>
+                </select>
+              </label>
+              <button type="submit">Create funding</button>
+            </form>
+          </div>
+
           <div id="adminPanel" class="admin-panel" hidden>
             <h3 class="sub-title">Admin Actions</h3>
 

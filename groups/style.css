@@ -194,6 +194,16 @@ body {
   gap: 12px;
 }
 
+.member-panel {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--bg-soft);
+  display: grid;
+  gap: 12px;
+}
+
 .invite-form {
   display: grid;
   gap: 12px;
@@ -226,7 +236,23 @@ input {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+select {
+  font: inherit;
+  color: var(--text-strong);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 10px 12px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
 input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-ring);
+}
+
+select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 4px var(--primary-ring);

@@ -15,6 +15,14 @@ const groupDetailName = document.getElementById("groupDetailName");
 const groupDetailAddress = document.getElementById("groupDetailAddress");
 const groupDetailCreated = document.getElementById("groupDetailCreated");
 const membersList = document.getElementById("membersList");
+const memberActionsPanel = document.getElementById("memberActionsPanel");
+const activityForm = document.getElementById("activityForm");
+const activityInfoInput = document.getElementById("activityInfoInput");
+const activityDateInput = document.getElementById("activityDateInput");
+const fundingForm = document.getElementById("fundingForm");
+const fundingInfoInput = document.getElementById("fundingInfoInput");
+const fundingAmountInput = document.getElementById("fundingAmountInput");
+const fundingActivitySelect = document.getElementById("fundingActivitySelect");
 const adminPanel = document.getElementById("adminPanel");
 const inviteForm = document.getElementById("inviteForm");
 const inviteUsernameInput = document.getElementById("inviteUsernameInput");
@@ -56,6 +64,29 @@ function setInboxStatus(message, type = "") {
     inboxStatus.classList.add(type);
   }
   inboxStatus.textContent = message || "";
+}
+
+function formatActivityOption(activity) {
+  if (!activity) return "";
+  const info = activity.info || "Untitled activity";
+  if (!activity.date) return info;
+  return `${info} (${formatDate(activity.date)})`;
+}
+
+function renderFundingActivityOptions(activities = []) {
+  fundingActivitySelect.innerHTML = "";
+
+  const emptyOption = document.createElement("option");
+  emptyOption.value = "";
+  emptyOption.textContent = "No linked activity";
+  fundingActivitySelect.appendChild(emptyOption);
+
+  for (const activity of activities) {
+    const option = document.createElement("option");
+    option.value = activity.activity_id;
+    option.textContent = formatActivityOption(activity);
+    fundingActivitySelect.appendChild(option);
+  }
 }
 
 function renderGroups(groups) {
@@ -121,6 +152,7 @@ function renderGroupDetail(detail) {
   if (!detail) {
     groupDetailEmpty.hidden = false;
     groupDetailContent.hidden = true;
+    renderFundingActivityOptions([]);
     return;
   }
 
@@ -129,7 +161,9 @@ function renderGroupDetail(detail) {
   groupDetailName.textContent = detail.group.name;
   groupDetailAddress.textContent = `Address: ${detail.group.address || "n/a"}`;
   groupDetailCreated.textContent = `Created: ${formatDate(detail.group.created_at)}`;
+  memberActionsPanel.hidden = false;
   adminPanel.hidden = !detail.is_admin;
+  renderFundingActivityOptions(detail.activities || []);
   membersList.innerHTML = "";
 
   for (const member of detail.members) {
@@ -260,6 +294,34 @@ async function removeMember(groupId, userId) {
   }
 }
 
+async function createGroupActivity(groupId, info, date) {
+  const response = await fetch(`/api/groups/${groupId}/activities`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ info, date: date || null })
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not create activity");
+  }
+}
+
+async function createGroupFunding(groupId, info, amount, groupActivityId) {
+  const response = await fetch(`/api/groups/${groupId}/funding`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      info: info || null,
+      amount: amount || null,
+      group_activity_id: groupActivityId || null
+    })
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not create funding");
+  }
+}
+
 async function acceptInvitation(groupId) {
   const response = await fetch(`/api/inbox/invitations/${groupId}/accept`, {
     method: "POST"
@@ -361,6 +423,41 @@ inviteForm.addEventListener("submit", async (event) => {
     inviteForm.reset();
     await Promise.all([loadGroupDetail(selectedGroupId), loadInvitations()]);
     setDetailStatus("User invited successfully.", "ok");
+  } catch (error) {
+    setDetailStatus(error.message, "error");
+  }
+});
+
+activityForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedGroupId) return;
+
+  setDetailStatus("Creating activity...");
+  try {
+    await createGroupActivity(selectedGroupId, activityInfoInput.value, activityDateInput.value);
+    activityForm.reset();
+    await loadGroupDetail(selectedGroupId);
+    setDetailStatus("Group activity created.", "ok");
+  } catch (error) {
+    setDetailStatus(error.message, "error");
+  }
+});
+
+fundingForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedGroupId) return;
+
+  setDetailStatus("Creating funding...");
+  try {
+    await createGroupFunding(
+      selectedGroupId,
+      fundingInfoInput.value.trim(),
+      fundingAmountInput.value.trim(),
+      fundingActivitySelect.value
+    );
+    fundingForm.reset();
+    await loadGroupDetail(selectedGroupId);
+    setDetailStatus("Group funding created.", "ok");
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
