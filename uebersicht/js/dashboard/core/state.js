@@ -1,14 +1,10 @@
 // Globaler Dashboard-Zustand: Konstanten, Optionen und veraenderbare Laufzeitdaten.
-const THEME_STORAGE_KEY = "finanzapp.themeMode";
-const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
-const USER_STORAGE_KEY = "finanzapp.currentUser";
 const VIEW_STORAGE_KEY = "finanzapp.dashboardView";
 const VIEW_OPTIONS = new Set(["overview", "income", "expense"]);
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR"]);
 const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
 const SETTINGS_RECURRENCE_OPTIONS = new Set(["once", "weekly", "monthly"]);
-const prefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const DEFAULT_DASHBOARD_SETTINGS = {
   currency: "EUR",
   locale: "de-DE",

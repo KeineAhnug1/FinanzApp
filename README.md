@@ -189,3 +189,24 @@ FinanzApp/
 ```
 
 Wenn du möchtest, kann ich als nächsten Schritt eine zweite README `README-DEV.md` ergänzen (nur für Entwickler mit API-Endpunkten und Datenmodell-Details).
+
+---
+
+## 11) Aufgeraeumte Struktur (Refactor)
+
+Das Projekt wurde strukturell bereinigt:
+
+- `backend/`
+  - aktiver zentraler Server (`server.mjs`)
+- `shared/`
+  - gemeinsame UI/CSS (`unified-ui.css`)
+  - gemeinsame Browser-JS (`shared/js/*`)
+- `legacy/`
+  - alte, nicht mehr aktive Server-Dateien (nur Referenz)
+
+Aktive Shared-JS-Dateien:
+- `shared/js/theme-utils.js`
+- `shared/js/session-utils.js`
+- `shared/topbar.js`
+
+Diese Shared-Dateien werden von mehreren Seiten genutzt, damit Funktionen nicht mehrfach gepflegt werden muessen.

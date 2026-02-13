@@ -1,137 +1,99 @@
-(() => {
-  const THEME_STORAGE_KEY = "finanzapp.themeMode";
-  const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
-  const prefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+/**
+ * Shared Topbar Initialisierung:
+ * - Theme-Switcher
+ * - Profil-Datenanzeige
+ * - Profilmenu + Logout
+ */
+(function initSharedTopbar() {
+  /**
+   * Schreibt Session-Userdaten in alle Profilelemente der Topbar.
+   * @param {{first_name?: string, last_name?: string, username?: string, email?: string}} oSessionUser Userdaten.
+   */
+  function fnFillProfileElements(oSessionUser) {
+    const sProfileName = `${oSessionUser.first_name || ""} ${oSessionUser.last_name || ""}`.trim() || oSessionUser.username || "Nutzer";
+    const sAvatarInitials = window.FinanzAppSession.initialsFromUser(oSessionUser);
 
-  function getStoredThemeMode() {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored && THEME_OPTIONS.has(stored)) return stored;
-    return "auto";
+    const aProfileNameElements = document.querySelectorAll("[data-profile-name]");
+    for (const oProfileNameElement of aProfileNameElements) oProfileNameElement.textContent = sProfileName;
+
+    const aProfileMenuNameElements = document.querySelectorAll("[data-profile-menu-name]");
+    for (const oProfileMenuNameElement of aProfileMenuNameElements) oProfileMenuNameElement.textContent = sProfileName;
+
+    const aProfileMenuMailElements = document.querySelectorAll("[data-profile-menu-mail]");
+    for (const oProfileMenuMailElement of aProfileMenuMailElements) oProfileMenuMailElement.textContent = oSessionUser.email || "-";
+
+    const aProfileAvatarElements = document.querySelectorAll("[data-profile-avatar]");
+    for (const oProfileAvatarElement of aProfileAvatarElements) oProfileAvatarElement.textContent = sAvatarInitials;
   }
 
-  function resolveTheme(mode) {
-    if (mode === "auto") return prefersDarkQuery.matches ? "dark" : "light";
-    return mode;
-  }
+  /**
+   * Initialisiert das Oeffnen/Schliessen aller Profilmenues.
+   * Zudem wird Logout an den zentralen Session-Handler gebunden.
+   */
+  function fnInitProfileMenus() {
+    const aProfileWraps = document.querySelectorAll(".profile-wrap");
+    for (const oProfileWrap of aProfileWraps) {
+      const oProfileButton = oProfileWrap.querySelector(".profile-btn");
+      const oProfileMenu = oProfileWrap.querySelector(".profile-menu");
+      const oLogoutButton = oProfileWrap.querySelector(".logout-btn");
+      if (!oProfileButton || !oProfileMenu || !oLogoutButton) continue;
 
-  function updateThemeButtons(mode) {
-    const buttons = document.querySelectorAll(".theme-option");
-    for (const button of buttons) {
-      const isActive = button.dataset.themeChoice === mode;
-      button.classList.toggle("is-active", isActive);
-      button.setAttribute("aria-pressed", String(isActive));
-    }
-  }
+      oProfileButton.addEventListener("click", () => {
+        const bWillOpen = oProfileMenu.hidden;
 
-  function applyTheme(mode) {
-    const resolved = resolveTheme(mode);
-    document.documentElement.dataset.theme = resolved;
-    document.documentElement.dataset.themeMode = mode;
-    updateThemeButtons(mode);
-  }
-
-  function initThemeSwitcher() {
-    applyTheme(getStoredThemeMode());
-    const buttons = document.querySelectorAll(".theme-option");
-    for (const button of buttons) {
-      button.addEventListener("click", () => {
-        const mode = button.dataset.themeChoice;
-        if (!mode || !THEME_OPTIONS.has(mode)) return;
-        window.localStorage.setItem(THEME_STORAGE_KEY, mode);
-        applyTheme(mode);
-      });
-    }
-
-    const handleSchemeChange = () => {
-      const mode = getStoredThemeMode();
-      if (mode === "auto") applyTheme(mode);
-    };
-
-    if (typeof prefersDarkQuery.addEventListener === "function") {
-      prefersDarkQuery.addEventListener("change", handleSchemeChange);
-    } else if (typeof prefersDarkQuery.addListener === "function") {
-      prefersDarkQuery.addListener(handleSchemeChange);
-    }
-  }
-
-  function initialsFromUser(user) {
-    const first = String(user.first_name || user.username || "U").charAt(0).toUpperCase();
-    const last = String(user.last_name || "").charAt(0).toUpperCase();
-    return `${first}${last}`.trim() || "U";
-  }
-
-  function fillProfile(user) {
-    const profileName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
-    for (const el of document.querySelectorAll("[data-profile-name]")) el.textContent = profileName;
-    for (const el of document.querySelectorAll("[data-profile-menu-name]")) el.textContent = profileName;
-    for (const el of document.querySelectorAll("[data-profile-menu-mail]")) el.textContent = user.email || "-";
-    for (const el of document.querySelectorAll("[data-profile-avatar]")) el.textContent = initialsFromUser(user);
-  }
-
-  async function loadSessionUser() {
-    const response = await fetch("/api/session", { credentials: "same-origin" });
-    const payload = await response.json();
-    if (!response.ok || !payload?.ok || !payload?.session_user) {
-      throw new Error(payload?.message || "Session konnte nicht geladen werden.");
-    }
-    fillProfile(payload.session_user);
-  }
-
-  function initProfileMenus() {
-    const wraps = document.querySelectorAll(".profile-wrap");
-    for (const wrap of wraps) {
-      const btn = wrap.querySelector(".profile-btn");
-      const menu = wrap.querySelector(".profile-menu");
-      const logoutBtn = wrap.querySelector(".logout-btn");
-      if (!btn || !menu || !logoutBtn) continue;
-
-      btn.addEventListener("click", () => {
-        const willOpen = menu.hidden;
-        for (const otherWrap of wraps) {
-          const otherMenu = otherWrap.querySelector(".profile-menu");
-          const otherBtn = otherWrap.querySelector(".profile-btn");
-          if (otherMenu) otherMenu.hidden = true;
-          if (otherBtn) otherBtn.setAttribute("aria-expanded", "false");
+        for (const oOtherProfileWrap of aProfileWraps) {
+          const oOtherProfileMenu = oOtherProfileWrap.querySelector(".profile-menu");
+          const oOtherProfileButton = oOtherProfileWrap.querySelector(".profile-btn");
+          if (oOtherProfileMenu) oOtherProfileMenu.hidden = true;
+          if (oOtherProfileButton) oOtherProfileButton.setAttribute("aria-expanded", "false");
         }
-        menu.hidden = !willOpen;
-        btn.setAttribute("aria-expanded", String(willOpen));
+
+        oProfileMenu.hidden = !bWillOpen;
+        oProfileButton.setAttribute("aria-expanded", String(bWillOpen));
       });
 
-      logoutBtn.addEventListener("click", async () => {
-        try {
-          await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
-        } catch {
-          // no-op
-        }
-        window.sessionStorage.removeItem("finanzapp.currentUser");
-        window.location.assign("/");
+      oLogoutButton.addEventListener("click", () => {
+        window.FinanzAppSession.logoutAndRedirect();
       });
     }
 
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      for (const wrap of wraps) {
-        const btn = wrap.querySelector(".profile-btn");
-        const menu = wrap.querySelector(".profile-menu");
-        if (!btn || !menu) continue;
-        if (!wrap.contains(target)) {
-          menu.hidden = true;
-          btn.setAttribute("aria-expanded", "false");
+    document.addEventListener("click", (oEvent) => {
+      const oTarget = oEvent.target;
+      if (!(oTarget instanceof Node)) return;
+
+      for (const oProfileWrap of aProfileWraps) {
+        const oProfileButton = oProfileWrap.querySelector(".profile-btn");
+        const oProfileMenu = oProfileWrap.querySelector(".profile-menu");
+        if (!oProfileButton || !oProfileMenu) continue;
+        if (!oProfileWrap.contains(oTarget)) {
+          oProfileMenu.hidden = true;
+          oProfileButton.setAttribute("aria-expanded", "false");
         }
       }
     });
   }
 
-  async function initTopbar() {
-    initThemeSwitcher();
-    initProfileMenus();
+  /**
+   * Hauptinitialisierung:
+   * - Theme-Hooks laden
+   * - Profilmenus binden
+   * - Session-User laden und anzeigen
+   */
+  async function fnInitTopbar() {
+    if (window.FinanzAppTheme?.initThemeSwitcher) {
+      window.FinanzAppTheme.initThemeSwitcher();
+    }
+
+    fnInitProfileMenus();
+
     try {
-      await loadSessionUser();
+      const oSessionUser = await window.FinanzAppSession.fetchSessionUser();
+      fnFillProfileElements(oSessionUser);
+      window.FinanzAppSession.setCurrentUserInStorage(oSessionUser);
     } catch {
-      // Session wird serverseitig geschuetzt; ignorieren falls nicht verfuegbar.
+      // Seitenzugriffe sind serverseitig geschuetzt.
     }
   }
 
-  initTopbar();
+  fnInitTopbar();
 })();

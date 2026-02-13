@@ -1,50 +1,22 @@
 // Laufzeit-Helfer: Theme, Settings-Speicherung, View-Wechsel und Session-Zugriff.
 function getStoredThemeMode() {
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored && THEME_OPTIONS.has(stored)) return stored;
-  return "auto";
+  return window.FinanzAppTheme.getStoredThemeMode();
 }
 
 function resolveTheme(mode) {
-  return mode === "auto" ? (prefersDarkQuery.matches ? "dark" : "light") : mode;
+  return window.FinanzAppTheme.resolveThemeMode(mode);
 }
 
 function updateThemeButtons(mode) {
-  const buttons = document.querySelectorAll(".theme-option");
-  for (const button of buttons) {
-    const isActive = button.dataset.themeChoice === mode;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  }
+  window.FinanzAppTheme.updateThemeButtons(mode);
 }
 
 function applyTheme(mode) {
-  document.documentElement.dataset.theme = resolveTheme(mode);
-  document.documentElement.dataset.themeMode = mode;
-  updateThemeButtons(mode);
+  window.FinanzAppTheme.applyThemeMode(mode);
 }
 
 function initThemeSwitcher() {
-  applyTheme(getStoredThemeMode());
-
-  const buttons = document.querySelectorAll(".theme-option");
-  for (const button of buttons) {
-    button.addEventListener("click", () => {
-      const mode = button.dataset.themeChoice;
-      if (!mode || !THEME_OPTIONS.has(mode)) return;
-      window.localStorage.setItem(THEME_STORAGE_KEY, mode);
-      applyTheme(mode);
-    });
-  }
-
-  const handleSchemeChange = () => {
-    if (getStoredThemeMode() === "auto") applyTheme("auto");
-  };
-  if (typeof prefersDarkQuery.addEventListener === "function") {
-    prefersDarkQuery.addEventListener("change", handleSchemeChange);
-  } else if (typeof prefersDarkQuery.addListener === "function") {
-    prefersDarkQuery.addListener(handleSchemeChange);
-  }
+  window.FinanzAppTheme.initThemeSwitcher();
 }
 
 function sanitizeSettingChoice(value, allowedValues, fallback) {
@@ -154,19 +126,11 @@ function initSectionTabs() {
 }
 
 function getCurrentUser() {
-  const raw = window.sessionStorage.getItem(USER_STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  return window.FinanzAppSession.getCurrentUserFromStorage();
 }
 
 function setCurrentUser(nextUser) {
-  if (!nextUser) return;
-  const current = getCurrentUser() || {};
-  const merged = { ...current, ...nextUser };
-  window.sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(merged));
+  const merged = window.FinanzAppSession.setCurrentUserInStorage(nextUser);
+  if (!merged) return;
   appState.user = merged;
 }

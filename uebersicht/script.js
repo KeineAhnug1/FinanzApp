@@ -1,67 +1,4 @@
-// Login/Registrierung: Theme-Schalter, Formular-Modi und API-Kommunikation.
-const THEME_STORAGE_KEY = "finanzapp.themeMode";
-const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
-const prefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-function getStoredThemeMode() {
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored && THEME_OPTIONS.has(stored)) {
-    return stored;
-  }
-  return "auto";
-}
-
-function resolveTheme(mode) {
-  if (mode === "auto") {
-    return prefersDarkQuery.matches ? "dark" : "light";
-  }
-  return mode;
-}
-
-function updateThemeButtons(mode) {
-  const buttons = document.querySelectorAll(".theme-option");
-  for (const button of buttons) {
-    const isActive = button.dataset.themeChoice === mode;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  }
-}
-
-function applyTheme(mode) {
-  const resolved = resolveTheme(mode);
-  document.documentElement.dataset.theme = resolved;
-  document.documentElement.dataset.themeMode = mode;
-  updateThemeButtons(mode);
-}
-
-function initThemeSwitcher() {
-  applyTheme(getStoredThemeMode());
-
-  const buttons = document.querySelectorAll(".theme-option");
-  for (const button of buttons) {
-    button.addEventListener("click", () => {
-      const mode = button.dataset.themeChoice;
-      if (!mode || !THEME_OPTIONS.has(mode)) {
-        return;
-      }
-      window.localStorage.setItem(THEME_STORAGE_KEY, mode);
-      applyTheme(mode);
-    });
-  }
-
-  const handleSchemeChange = () => {
-    const mode = getStoredThemeMode();
-    if (mode === "auto") {
-      applyTheme(mode);
-    }
-  };
-
-  if (typeof prefersDarkQuery.addEventListener === "function") {
-    prefersDarkQuery.addEventListener("change", handleSchemeChange);
-  } else if (typeof prefersDarkQuery.addListener === "function") {
-    prefersDarkQuery.addListener(handleSchemeChange);
-  }
-}
+// Login/Registrierung: Formular-Modi und API-Kommunikation.
 
 class UsersLogin extends HTMLElement {
   constructor() {
@@ -141,13 +78,10 @@ class UsersLogin extends HTMLElement {
     }
 
     setStatus(status, "success", `Login erfolgreich: ${result.user.email}`);
-    window.sessionStorage.setItem(
-      "finanzapp.currentUser",
-      JSON.stringify({
-        ...result.user,
-        logged_in_at: new Date().toISOString()
-      })
-    );
+    window.FinanzAppSession.setCurrentUserInStorage({
+      ...result.user,
+      logged_in_at: new Date().toISOString()
+    });
     window.setTimeout(() => {
       window.location.assign("/dashboard.html");
     }, 240);
@@ -372,14 +306,14 @@ function escapeAttribute(value) {
 }
 
 customElements.define("users-login", UsersLogin);
-initThemeSwitcher();
+window.FinanzAppTheme.initThemeSwitcher();
 
 (async () => {
   try {
     const response = await fetch("/api/session", { credentials: "same-origin" });
     const payload = await response.json();
     if (response.ok && payload?.ok && payload.session_user) {
-      window.sessionStorage.setItem("finanzapp.currentUser", JSON.stringify(payload.session_user));
+      window.FinanzAppSession.setCurrentUserInStorage(payload.session_user);
       window.location.assign("/dashboard.html");
     }
   } catch {

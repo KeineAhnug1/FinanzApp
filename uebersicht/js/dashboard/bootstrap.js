@@ -12,7 +12,7 @@ async function bootstrap() {
   }
 
   if (!sessionUser) {
-    window.sessionStorage.removeItem(USER_STORAGE_KEY);
+    window.FinanzAppSession.clearCurrentUserFromStorage();
     window.location.assign("/");
     return;
   }
