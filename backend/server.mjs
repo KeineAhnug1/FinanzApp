@@ -2,7 +2,7 @@ import "dotenv/config";
 import http from "node:http";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import { createHash, randomBytes, randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { MongoClient, Decimal128, ObjectId } from "mongodb";
 import nodemailer from "nodemailer";
@@ -21,6 +21,10 @@ const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
 const SESSION_COOKIE_NAME = "finanzapp_session";
 const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
+const PASSWORD_HASH_PREFIX = "scrypt$";
+const PASSWORD_HASH_SHA256_PREFIX = "sha256$";
+const PASSWORD_SALT_BYTES = 16;
+const PASSWORD_KEYLEN = 64;
 
 if (!MONGO_URI) {
   throw new Error("MONGODB_URI is not set in the environment");
@@ -115,6 +119,53 @@ function parseCookies(req) {
 
 function hashValue(value) {
   return createHash("sha256").update(String(value)).digest("hex");
+}
+
+function isScryptPasswordHash(value) {
+  return typeof value === "string" && value.startsWith(PASSWORD_HASH_PREFIX);
+}
+
+function isSha256PasswordHash(value) {
+  return typeof value === "string" && value.startsWith(PASSWORD_HASH_SHA256_PREFIX);
+}
+
+function hashPassword(plainPassword) {
+  const password = String(plainPassword || "");
+  const salt = randomBytes(PASSWORD_SALT_BYTES).toString("hex");
+  const derived = scryptSync(password, salt, PASSWORD_KEYLEN).toString("hex");
+  return `${PASSWORD_HASH_PREFIX}${salt}$${derived}`;
+}
+
+function verifyPassword(plainPassword, storedPassword) {
+  const plain = String(plainPassword || "");
+  const stored = String(storedPassword || "");
+
+  if (!stored) return false;
+
+  if (isScryptPasswordHash(stored)) {
+    const parts = stored.split("$");
+    if (parts.length !== 3) return false;
+
+    const salt = parts[1];
+    const expectedHex = parts[2];
+
+    try {
+      const expected = Buffer.from(expectedHex, "hex");
+      const actual = scryptSync(plain, salt, expected.length);
+      if (actual.length !== expected.length) return false;
+      return timingSafeEqual(actual, expected);
+    } catch {
+      return false;
+    }
+  }
+
+  if (isSha256PasswordHash(stored)) {
+    const expectedHash = stored.slice(PASSWORD_HASH_SHA256_PREFIX.length);
+    return hashValue(plain) === expectedHash;
+  }
+
+  // Legacy-Fallback: Klartext-Passwort (wird nach erfolgreichem Login migriert).
+  return plain === stored;
 }
 
 function normalizeEmail(value) {
@@ -424,6 +475,65 @@ async function migrateLegacyExpenseEntriesToV2() {
   }
 }
 
+async function migratePlaintextPasswords() {
+  const users = await db.collection(COLLECTIONS.users).find(
+    {},
+    { projection: { _id: 1, password: 1, hashed_passwort: 1 } }
+  ).toArray();
+
+  let migratedUsers = 0;
+  for (const user of users) {
+    const password = typeof user.password === "string" ? user.password : "";
+    const legacyHash = typeof user.hashed_passwort === "string" ? user.hashed_passwort : "";
+    let nextPassword = null;
+
+    if (isScryptPasswordHash(password) || isSha256PasswordHash(password)) {
+      nextPassword = password;
+    } else if (password) {
+      nextPassword = hashPassword(password);
+    } else if (legacyHash) {
+      nextPassword = `${PASSWORD_HASH_SHA256_PREFIX}${legacyHash}`;
+    }
+
+    if (!nextPassword) continue;
+
+    const needsPasswordWrite = password !== nextPassword;
+    const needsLegacyFieldCleanup = Object.prototype.hasOwnProperty.call(user, "hashed_passwort");
+    if (!needsPasswordWrite && !needsLegacyFieldCleanup) continue;
+
+    await db.collection(COLLECTIONS.users).updateOne(
+      { _id: user._id },
+      {
+        ...(needsPasswordWrite ? { $set: { password: nextPassword } } : {}),
+        ...(needsLegacyFieldCleanup ? { $unset: { hashed_passwort: "" } } : {})
+      }
+    );
+    migratedUsers += 1;
+  }
+
+  const verifications = await db.collection(COLLECTIONS.emailVerifications).find(
+    {},
+    { projection: { _id: 1, password: 1 } }
+  ).toArray();
+
+  let migratedVerifications = 0;
+  for (const verification of verifications) {
+    if (isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)) continue;
+    const password = String(verification.password || "");
+    if (!password) continue;
+
+    await db.collection(COLLECTIONS.emailVerifications).updateOne(
+      { _id: verification._id },
+      { $set: { password: hashPassword(password) } }
+    );
+    migratedVerifications += 1;
+  }
+
+  if (migratedUsers > 0 || migratedVerifications > 0) {
+    console.log(`[migration] Passwort-Migration abgeschlossen: users=${migratedUsers}, verifications=${migratedVerifications}.`);
+  }
+}
+
 async function rememberUserCategory(userId, kind, categoryValue) {
   const normalized = normalizeCategoryValue(categoryValue);
   if (!normalized) return;
@@ -461,11 +571,29 @@ async function handleLogin(req, res) {
 
   const user = await db.collection(COLLECTIONS.users).findOne(
     { email },
-    { projection: { username: 1, email: 1, password: 1, first_name: 1, last_name: 1, income: 1 } }
+    { projection: { username: 1, email: 1, password: 1, hashed_passwort: 1, first_name: 1, last_name: 1, income: 1 } }
   );
 
-  if (!user || user.password !== password) {
+  if (!user) {
     return sendJson(res, 401, { ok: false, message: "E-Mail oder Passwort falsch" });
+  }
+
+  let isValid = verifyPassword(password, user.password);
+  if (!isValid && typeof user.hashed_passwort === "string" && user.hashed_passwort) {
+    isValid = hashValue(password) === user.hashed_passwort;
+  }
+
+  if (!isValid) return sendJson(res, 401, { ok: false, message: "E-Mail oder Passwort falsch" });
+
+  // Erfolgreiche Logins migrieren alte Passwortformate sofort auf scrypt.
+  if (!isScryptPasswordHash(user.password)) {
+    await db.collection(COLLECTIONS.users).updateOne(
+      { _id: user._id },
+      {
+        $set: { password: hashPassword(password) },
+        $unset: { hashed_passwort: "" }
+      }
+    );
   }
 
   const token = createSession(user._id);
@@ -555,6 +683,7 @@ async function handleRegister(req, res) {
   const code = createVerificationCode();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000);
+  const passwordHash = hashPassword(password);
 
   await db.collection(COLLECTIONS.emailVerifications).updateOne(
     { email },
@@ -562,7 +691,7 @@ async function handleRegister(req, res) {
       $set: {
         email,
         username,
-        password,
+        password: passwordHash,
         first_name: firstName,
         last_name: lastName,
         income,
@@ -626,11 +755,14 @@ async function handleRegisterVerify(req, res) {
     return sendJson(res, 400, { ok: false, message: "Verifizierungscode ist ungueltig" });
   }
 
+  const passwordHash = isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)
+    ? verification.password
+    : hashPassword(verification.password);
+
   const userDoc = {
     username: verification.username,
     email: verification.email,
-    password: verification.password,
-    hashed_passwort: hashValue(verification.password),
+    password: passwordHash,
     first_name: verification.first_name,
     last_name: verification.last_name,
     age: null,
@@ -1831,6 +1963,7 @@ async function start() {
   await client.connect();
   db = client.db(DB_NAME);
 
+  await migratePlaintextPasswords();
   await migrateLegacyExpenseEntriesToV2();
   await ensureIndexes();
 
