@@ -73,6 +73,7 @@ let selectedGroupId = null;
 let selectedGroupDetail = null;
 let selectedFundingId = null;
 let activeDetailTab = "members";
+let sessionUser = null;
 
 function normalizeMemberStatus(status) {
   if (status === "active") return "accepted";
@@ -466,8 +467,10 @@ async function loadSession() {
   if (!response.ok || !payload.ok) {
     throw new Error(payload.message || "Could not load session");
   }
+  sessionUser = payload.session_user || null;
   if (sessionUserBadge) {
-    sessionUserBadge.textContent = `Session: ${payload.session_user.username}`;
+    const username = sessionUser?.username || "unknown";
+    sessionUserBadge.textContent = `Session: ${username}`;
   }
 }
 
