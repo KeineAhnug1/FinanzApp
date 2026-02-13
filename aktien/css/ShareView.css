@@ -91,6 +91,10 @@ select {
    - Klarer Kopfbereich mit ruhiger Trennung
    ====================================================== */
 header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--clr-border);
   background: #f6f8f6;
@@ -101,6 +105,27 @@ header h1 {
   font-size: 20px;
   font-weight: 650;
   letter-spacing: 0.01em;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.header-account-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+  font-size: 12px;
+  color: var(--clr-text-muted);
+}
+
+.header-account-picker select {
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 /* ======================================================
@@ -648,11 +673,18 @@ select:focus {
 
 @media (max-width: 640px) {
   header {
+    flex-direction: column;
+    align-items: stretch;
     padding: 14px 12px;
   }
 
   header h1 {
     font-size: 18px;
+  }
+
+  .header-account-picker {
+    min-width: 0;
+    width: 100%;
   }
 
   main {

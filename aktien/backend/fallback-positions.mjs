@@ -4,8 +4,8 @@
 export const aFallbackPositions = [
 	{
 		symbol: "AAPL",
-		amount: 3.1,
-		created_at: 1749549600,
+		amount: 3.1,	//units
+		created_at: 1749549600,	//Wir als Datum gespeichert
 		worthwhenbought: 202.69,
 	},
 	{

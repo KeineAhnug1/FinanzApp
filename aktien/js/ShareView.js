@@ -8,6 +8,12 @@
 		"http://127.0.0.1:5588/api/positions",
 		"http://localhost:5588/api/positions",
 	].filter(Boolean);
+	const aBankAccountsEndpoints = [
+		window.SHAREVIEW_BANK_ACCOUNTS_ENDPOINT,
+		"/api/bank-accounts",
+		"http://127.0.0.1:5588/api/bank-accounts",
+		"http://localhost:5588/api/bank-accounts",
+	].filter(Boolean);
 	const aBackendBaseUrls = [
 		window.SHAREVIEW_BACKEND_BASE_URL,
 		window.location.origin,
@@ -28,8 +34,11 @@
 	// =====================================================
 	const aElNavButtons = [...document.querySelectorAll(".navbtn")];
 	const elViewHost = document.getElementById("viewHost");
+	const elGlobalBankAccountSelect = document.getElementById("globalBankAccountSelect");
 
 	let sActiveView = "depot";
+	let aBankAccounts = [];
+	let sSelectedBankAccountId = "";
 
 	// =====================================================
 	// [SHARED] 2) UI-Helfer - Lokalisierung
@@ -212,6 +221,87 @@
 	// Wird in Depot und Einzelanalyse verwendet.
 	// =====================================================
 	/**
+	 * Baut eine Endpoint-URL inkl. Query-Parametern.
+	 * Scope: [SHARED]
+	 * @param {string} sEndpoint
+	 * @param {Record<string, string>} oParams
+	 * @returns {URL}
+	 */
+	function fnBuildUrlWithQuery(sEndpoint, oParams = {}) {
+		const oUrl = new URL(sEndpoint, window.location.origin);
+		Object.entries(oParams).forEach(([sKey, sValue]) => {
+			const sValueTrimmed = String(sValue || "").trim();
+			if (!sValueTrimmed) return;
+			oUrl.searchParams.set(sKey, sValueTrimmed);
+		});
+		return oUrl;
+	}
+
+	/**
+	 * Rendert Optionen im globalen Bankkonto-Dropdown.
+	 * Scope: [SHARED]
+	 */
+	function fnRenderBankAccountOptions() {
+		if (!elGlobalBankAccountSelect) return;
+
+		const sCurrent = String(sSelectedBankAccountId || "").trim();
+		const sOptions = [
+			`<option value="">Alle Konten</option>`,
+			...aBankAccounts.map((oAccount) => {
+				const sId = fnEscapeHtml(String(oAccount?.id || ""));
+				const sLabel = fnEscapeHtml(String(oAccount?.label || sId || "Konto"));
+				return `<option value="${sId}">${sLabel}</option>`;
+			}),
+		].join("");
+
+		elGlobalBankAccountSelect.innerHTML = sOptions;
+		const bSelectionExists = aBankAccounts.some((oAccount) => String(oAccount?.id || "") === sCurrent);
+		elGlobalBankAccountSelect.value = bSelectionExists ? sCurrent : "";
+		sSelectedBankAccountId = elGlobalBankAccountSelect.value;
+	}
+
+	/**
+	 * Lädt die verfügbaren Bankkonten aus dem Backend.
+	 * Scope: [SHARED]
+	 * @returns {Promise<void>}
+	 */
+	async function fnLoadBankAccounts() {
+		if (!elGlobalBankAccountSelect) return;
+
+		for (const sEndpoint of aBankAccountsEndpoints) {
+			try {
+				const oUrl = fnBuildUrlWithQuery(sEndpoint);
+				const oResponse = await fetch(oUrl.toString());
+				if (!oResponse.ok) {
+					console.warn(`Bankkonto-Backend Fehler (${sEndpoint}): HTTP ${oResponse.status}.`);
+					continue;
+				}
+
+				const oData = await oResponse.json();
+				const aAccounts = Array.isArray(oData?.accounts) ? oData.accounts : [];
+				aBankAccounts = aAccounts
+					.map((oAccount, iIndex) => {
+						const sId = String(oAccount?.id || "").trim();
+						if (!sId) return null;
+						const sLabelRaw = String(oAccount?.label || "").trim();
+						return {
+							id: sId,
+							label: sLabelRaw || `Konto ${iIndex + 1}`,
+						};
+					})
+					.filter(Boolean);
+				fnRenderBankAccountOptions();
+				return;
+			} catch (oError) {
+				console.warn(`Bankkonto-Backend nicht erreichbar (${sEndpoint}).`, oError);
+			}
+		}
+
+		aBankAccounts = [];
+		fnRenderBankAccountOptions();
+	}
+
+	/**
 	 * Lädt Positionen aus `window.POSITIONS` oder Backend-Endpoint.
 	 * Scope: [SHARED]
 	 * @returns {Promise<Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>>}
@@ -225,14 +315,17 @@
 
 		for (const sPositionsEndpoint of aPositionsEndpoints) {
 			try {
-				const oResponse = await fetch(sPositionsEndpoint);
+				const oUrl = fnBuildUrlWithQuery(sPositionsEndpoint, {
+					bank_account_id: sSelectedBankAccountId,
+				});
+				const oResponse = await fetch(oUrl.toString());
 				if (oResponse.ok) {
 					const oData = await oResponse.json();
 					if (Array.isArray(oData)) {
 						return fnApplySoldPositions([...oData, ...aLocalBoughtPositions], aLocalSoldPositions);
 					}
 				}
-				console.warn(`Positions Backend Fehler (${sPositionsEndpoint}): HTTP ${oResponse.status}.`);
+				console.warn(`Positions Backend Fehler (${oUrl.toString()}): HTTP ${oResponse.status}.`);
 			} catch (oError) {
 				console.warn(`Positions Backend nicht erreichbar (${sPositionsEndpoint}).`, oError);
 			}
@@ -2878,6 +2971,18 @@
 		});
 	});
 
-	fnSetActiveNav(sActiveView);
-	fnRenderView(sActiveView);
+	if (elGlobalBankAccountSelect) {
+		elGlobalBankAccountSelect.addEventListener("change", () => {
+			sSelectedBankAccountId = String(elGlobalBankAccountSelect.value || "").trim();
+			fnRenderView(sActiveView);
+		});
+	}
+
+	async function fnInitApp() {
+		await fnLoadBankAccounts();
+		fnSetActiveNav(sActiveView);
+		fnRenderView(sActiveView);
+	}
+
+	fnInitApp();
 })();
