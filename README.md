@@ -6,6 +6,38 @@ FinanzApp combines two parts in one repository:
 
 This file is the single source of truth for project setup.
 
+## Current Status Snapshot (2026-02-13)
+
+The `uebersicht/` app is no longer a single JS file. It is split into domain-focused files under:
+
+- `uebersicht/js/dashboard/core/*`
+- `uebersicht/js/dashboard/ui/*`
+- `uebersicht/js/dashboard/categories/*`
+- `uebersicht/js/dashboard/overview/*`
+- `uebersicht/js/dashboard/profile/*`
+- `uebersicht/js/dashboard/settings/*`
+- `uebersicht/js/dashboard/api/*`
+- `uebersicht/js/dashboard/interactions/*`
+- `uebersicht/js/dashboard/bootstrap.js`
+
+Implemented dashboard features:
+
+- login + registration + email verification flow
+- profile menu with logout
+- settings menu (currency, locale, start view, default recurrence)
+- income and expense CRUD
+- recurrence support (`once`, `weekly`, `monthly`) + active toggle
+- category presets + custom category persistence + custom category deletion
+- nested timeline grouping (year -> month -> day) with search
+- cashflow line chart (income/expense/savings), horizontal scroll, y-axis labels
+- interactive chart hover tooltip with monthly values
+
+Helpful docs for follow-up chats:
+
+- `uebersicht/README.md` (frontend/dashboard handover)
+- `uebersicht/server.js` (API and static routing)
+- `database/seed-family-demo.mjs` (demo account + 24 months seeded finance data)
+
 ## Project Structure
 
 ```text
@@ -227,6 +259,7 @@ Open:
 ### Login source
 - Login checks `users.email` and `users.password` in MongoDB.
 - Seed users are inserted by `npm run seed:reset`.
+- Full API and frontend split are documented in `uebersicht/README.md`.
 
 ### Seed test credentials
 - `anna@example.com` / `anna_pw_hash`
@@ -234,6 +267,10 @@ Open:
 - `clara@example.com` / `clara_pw_hash`
 - `emre@example.com` / `emre_pw_hash`
 - `farah@example.com` / `farah_pw_hash`
+
+Additional demo account (24-month realistic history):
+- run `npm run seed:family-demo`
+- login: `familienvater.dev@example.com` / `FamilieDev2026!`
 
 ## NPM Scripts
 Defined in `package.json`:

@@ -2,6 +2,31 @@
 
 Dieser Ordner enthaelt das Frontend und den Server fuer Login/Registrierung und das Finanz-Dashboard.
 
+## Handover (Current State)
+
+Wenn ein neuer Chat aufgesetzt wird, sind diese Punkte bereits umgesetzt:
+
+- Login + Registrierung + E-Mail-Verifizierung (Code per Mail) ueber `server.js`
+- Dashboard-Frontend in klar getrennte Bereiche aufgeteilt (kein Monolith)
+- Profil-Menue mit Abmelden
+- Einstellungs-Menue (Waehrung, Locale, Startbereich, Default-Wiederholung)
+- Einnahmen/Ausgaben CRUD inkl. Bearbeiten und Loeschen
+- Wiederholungen (`once`, `weekly`, `monthly`) inkl. aktiv/pausiert
+- Kategorien: Presets + eigene Kategorien + persistente Speicherung + Loeschen
+- Listenansicht mit Suche und Hierarchie `Jahr -> Monat -> Tag`
+- Cashflow-Chart als Liniengraph:
+  - Einnahmen, Ausgaben, Erspartes
+  - horizontales Scrollen innerhalb des Chart-Blocks
+  - Y-Achse mit Geldskala
+  - Hover-Tooltip mit Monatswerten
+
+Wichtige Einstiegsdateien fuer neue Chats:
+
+- `uebersicht/server.js` (Backend/API)
+- `uebersicht/dashboard.html` (Dashboard Layout + Script-Reihenfolge)
+- `uebersicht/dashboard.css` (Dashboard Design)
+- `uebersicht/js/dashboard/bootstrap.js` (Startup-Ablauf)
+
 ## Starten
 
 ```bash
@@ -77,5 +102,6 @@ Diese Reihenfolge darf nicht geaendert werden, ohne Abhaengigkeiten mitzudenken.
 
 ## Letzte Aenderung
 
-- Cashflow-Graph ist jetzt interaktiv:
+- Dateinamen im Dashboard sind jetzt eindeutig (keine mehrfachen `module.js` mehr).
+- Cashflow-Graph ist interaktiv:
   Hover auf Monatsbereich zeigt Tooltip mit `Einnahmen`, `Ausgaben` und `Erspart`.
