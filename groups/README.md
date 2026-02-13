@@ -1,6 +1,6 @@
 # Groups App
 
-This folder contains the standalone group management app for FinanzApp.
+This folder contains the group management frontend for FinanzApp.
 
 ## Scope
 
@@ -19,9 +19,9 @@ The app provides:
 
 ## Current Runtime Setup
 
-- Entry: `groups/server.js`
+- Entry: `backend/server.mjs` (central server for all apps)
 - UI files: `groups/index.html`, `groups/app.js`, `groups/style.css`
-- Default port: `3001`
+- Default port: `3000`
 - Start command (from repo root): `npm run groups:start`
 
 Database target:
@@ -31,9 +31,9 @@ Database target:
 
 ## Session Model (Current State)
 
-- Session user is currently hardcoded to `anna` in backend (`SESSION_USERNAME`).
-- Frontend also has a `SESSION_USER` constant, but effective identity is determined by backend lookup.
-- There is no login/session token flow in this app yet.
+- Session user is resolved from central cookie session (`finanzapp_session`).
+- No hardcoded backend or frontend session user remains.
+- Group data is scoped to the logged-in user session.
 
 ## API Endpoints
 

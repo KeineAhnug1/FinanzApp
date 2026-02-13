@@ -331,6 +331,7 @@ async function postJson(url, payload) {
   try {
     const response = await fetch(url, {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
@@ -372,3 +373,16 @@ function escapeAttribute(value) {
 
 customElements.define("users-login", UsersLogin);
 initThemeSwitcher();
+
+(async () => {
+  try {
+    const response = await fetch("/api/session", { credentials: "same-origin" });
+    const payload = await response.json();
+    if (response.ok && payload?.ok && payload.session_user) {
+      window.sessionStorage.setItem("finanzapp.currentUser", JSON.stringify(payload.session_user));
+      window.location.assign("/dashboard.html");
+    }
+  } catch {
+    // Keine aktive Session: Login-Seite normal anzeigen.
+  }
+})();

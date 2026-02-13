@@ -88,7 +88,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 6px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .toolbar-brand {
@@ -97,6 +104,34 @@ body {
   text-transform: uppercase;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+.app-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-nav-link {
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(24, 35, 29, 0.09);
+}
+
+.app-nav-link:hover {
+  color: var(--text-strong);
+}
+
+.app-nav-link.is-active {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  background: var(--bg-soft);
 }
 
 .theme-switch {
@@ -366,6 +401,12 @@ users-login {
     margin-bottom: 0;
   }
 
+  .toolbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
   .intro-panel {
     padding: 6px 2px;
   }
@@ -380,6 +421,10 @@ users-login {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .toolbar-actions {
+    width: 100%;
   }
 
   .metric-grid {

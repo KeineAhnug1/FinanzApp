@@ -35,7 +35,7 @@ Implemented dashboard features:
 Helpful docs for follow-up chats:
 
 - `uebersicht/README.md` (frontend/dashboard handover)
-- `uebersicht/server.js` (API and static routing)
+- `backend/server.mjs` (zentraler API- und Static-Server)
 - `database/seed-family-demo.mjs` (demo account + 24 months seeded finance data)
 
 ## Project Structure
@@ -189,7 +189,38 @@ npm run data:prepare -- --username anna
 
 ![FinanzApp data structure](./Datastructure.png)
 
-## Part 2: Stock Frontend (`aktien/`)
+## Part 2: Unified Backend + Frontends
+
+### Purpose
+Alle drei bisherigen Server (`uebersicht`, `groups`, `aktien`) wurden in einen zentralen Server zusammengefuehrt:
+- `backend/server.mjs`
+
+Der Server stellt bereit:
+- Auth + Session (`/api/login`, `/api/logout`, `/api/session`, Registrierung/Verifizierung)
+- Dashboard APIs (`/api/income-entries`, `/api/expense-entries`, `/api/categories`, `/api/user-income`)
+- Groups APIs (`/api/groups`, `/api/inbox/invitations`, ...)
+- Stocks APIs (`/api/positions`, `/api/bank-accounts`, `/api/twelvedata/*`)
+- statische Dateien fuer Login, Dashboard, Groups und Aktien-View
+
+### Session-Verhalten
+- Bei erfolgreichem Login erstellt der Server eine Cookie-Session (`HttpOnly`, `SameSite=Lax`).
+- Session-TTL ist per `SESSION_TTL_MINUTES` konfigurierbar (Default: `180`).
+- Alle datenrelevanten APIs lesen den User ausschliesslich aus der Session.
+- Frontend-seitig wird weiterhin ein kurzer User-Snapshot in `sessionStorage` gehalten, aber serverseitig ist die Session die Quelle der Wahrheit.
+
+### Start
+
+```bash
+npm run backend:start
+```
+
+Danach:
+- Login: `http://localhost:3000/`
+- Dashboard: `http://localhost:3000/dashboard.html`
+- Groups: `http://localhost:3000/groups`
+- Aktien: `http://localhost:3000/aktien`
+
+## Part 3: Stock Frontend (`aktien/`)
 
 ### Purpose
 The stock module provides:
@@ -202,39 +233,23 @@ Entry point:
 - `aktien/ShareView.html`
 
 ### Start locally
-From project root:
+Aktien laufen jetzt ueber denselben zentralen Server:
 
 ```bash
-npm run stocks:server
+npm run backend:start
 ```
 
-Then open:
-- `http://localhost:5500/aktien/ShareView.html`
+Dann oeffnen:
+- `http://localhost:3000/aktien`
 
-Stop server:
-- `Ctrl + C`
-
-### Start frontend + API as separate servers
-If you want to run the HTML on a separate static server and the API on its own port:
-
-```bash
-npm run stocks:all
-```
-
-This starts:
-- Frontend static server: `http://localhost:5500/aktien/ShareView.html`
-- Positions API: `http://localhost:5588/api/positions`
-
-### Stocks backend endpoint (temporary fallback data)
-The stock module now includes a simple backend endpoint:
+### Stocks backend endpoints
+Das Stock-Modul nutzt im zentralen Backend:
 - `GET /api/positions`
+- `GET /api/bank-accounts`
 - `GET /api/twelvedata/*` (proxy to Twelve Data)
 
-Source for the temporary fallback positions:
-- `aktien/backend/fallback-positions.mjs`
-
 Server implementation:
-- `aktien/backend/server.mjs`
+- `backend/server.mjs`
 
 ### Configuration note
 The stock frontend no longer calls Twelve Data directly.
@@ -246,12 +261,12 @@ TWELVE_DATA_API_KEY="<your-key>"
 
 The backend proxy route `/api/twelvedata/*` appends this key server-side.
 
-## Part 3: Login Demo (`uebersicht/`)
+## Part 4: Login Demo (`uebersicht/`)
 
 ### Start
 
 ```bash
-npm run web:start
+npm run backend:start
 ```
 
 Open:

@@ -1,7 +1,10 @@
 // API-Aufrufe und Formularstatus fuer Einnahmen, Ausgaben und Kategorien.
 async function requestJson(url, options) {
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      ...options
+    });
     const raw = await response.text();
     let data = {};
     try {
@@ -17,21 +20,21 @@ async function requestJson(url, options) {
 
 // Laedt die serverseitig gespeicherten Einnahmen fuer den aktiven User.
 async function loadIncomeEntries(userId) {
-  const result = await requestJson(`/api/income-entries?user_id=${encodeURIComponent(userId)}`);
+  const result = await requestJson("/api/income-entries");
   if (!result.ok) return [];
   return Array.isArray(result.entries) ? result.entries : [];
 }
 
 // Laedt die serverseitig gespeicherten Ausgaben fuer den aktiven User.
 async function loadExpenseEntries(userId) {
-  const result = await requestJson(`/api/expense-entries?user_id=${encodeURIComponent(userId)}`);
+  const result = await requestJson("/api/expense-entries");
   if (!result.ok) return [];
   return Array.isArray(result.entries) ? result.entries : [];
 }
 
 // Laedt die kombinierte Kategorienliste (Preset + benutzerdefiniert).
 async function loadUserCategories(userId) {
-  const result = await requestJson(`/api/categories?user_id=${encodeURIComponent(userId)}`);
+  const result = await requestJson("/api/categories");
   if (!result.ok) return { income: [], expense: [] };
   return {
     income: Array.isArray(result.income) ? result.income : [],
@@ -187,12 +190,12 @@ async function handleCreateIncome(payload) {
   return await requestJson("/api/income-entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: appState.user.id, ...payload })
+    body: JSON.stringify(payload)
   });
 }
 
 async function handleUpdateIncome(entryId, payload) {
-  return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}?user_id=${encodeURIComponent(appState.user.id)}`, {
+  return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -200,7 +203,7 @@ async function handleUpdateIncome(entryId, payload) {
 }
 
 async function handleDeleteIncome(entryId) {
-  return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}?user_id=${encodeURIComponent(appState.user.id)}`, {
+  return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}`, {
     method: "DELETE"
   });
 }
@@ -209,12 +212,12 @@ async function handleCreateExpense(payload) {
   return await requestJson("/api/expense-entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: appState.user.id, ...payload })
+    body: JSON.stringify(payload)
   });
 }
 
 async function handleUpdateExpense(entryId, payload) {
-  return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}?user_id=${encodeURIComponent(appState.user.id)}`, {
+  return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -222,7 +225,7 @@ async function handleUpdateExpense(entryId, payload) {
 }
 
 async function handleDeleteExpense(entryId) {
-  return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}?user_id=${encodeURIComponent(appState.user.id)}`, {
+  return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}`, {
     method: "DELETE"
   });
 }
@@ -231,10 +234,7 @@ async function handleUpdateBaseIncome(income) {
   return await requestJson("/api/user-income", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: appState.user.id,
-      income
-    })
+    body: JSON.stringify({ income })
   });
 }
 
@@ -243,7 +243,6 @@ async function handleDeleteCategory(kind, category) {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      user_id: appState.user.id,
       kind,
       category,
       replace_with: "other"

@@ -1,0 +1,110 @@
+:root {
+  --ui-bg-c1: #f0f2ef;
+  --ui-bg-c2: #e7ebe8;
+  --ui-bg-c3: #f6f5f2;
+  --ui-bg-stripe-a: rgba(50, 86, 70, 0.06);
+  --ui-bg-stripe-b: rgba(29, 122, 91, 0.045);
+  --ui-bg-grid: rgba(16, 40, 30, 0.035);
+  --ui-surface: #ffffff;
+  --ui-surface-soft: #f3f4f1;
+  --ui-text: #1d2522;
+  --ui-text-muted: #5d6763;
+  --ui-border: #d2d8d4;
+  --ui-primary: #1d7a5b;
+  --ui-primary-dark: #145a43;
+  --ui-shadow-soft: 0 8px 18px rgba(24, 35, 29, 0.09);
+}
+
+:root[data-theme="dark"] {
+  --ui-bg-c1: #121614;
+  --ui-bg-c2: #171f1c;
+  --ui-bg-c3: #101412;
+  --ui-bg-stripe-a: rgba(255, 255, 255, 0.02);
+  --ui-bg-stripe-b: rgba(255, 255, 255, 0.015);
+  --ui-bg-grid: rgba(255, 255, 255, 0.014);
+  --ui-surface: #1a2320;
+  --ui-surface-soft: #22302b;
+  --ui-text: #e7eee9;
+  --ui-text-muted: #a0b0a8;
+  --ui-border: #33423c;
+  --ui-primary: #58be97;
+  --ui-primary-dark: #2f8d6b;
+  --ui-shadow-soft: 0 8px 18px rgba(3, 8, 6, 0.35);
+}
+
+body {
+  background:
+    repeating-linear-gradient(
+      128deg,
+      var(--ui-bg-stripe-a) 0,
+      var(--ui-bg-stripe-a) 1px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      38deg,
+      var(--ui-bg-stripe-b) 0,
+      var(--ui-bg-stripe-b) 1px,
+      transparent 1px,
+      transparent 31px
+    ),
+    linear-gradient(90deg, var(--ui-bg-grid) 1px, transparent 1px),
+    linear-gradient(0deg, var(--ui-bg-grid) 1px, transparent 1px),
+    linear-gradient(180deg, var(--ui-bg-c1) 0%, var(--ui-bg-c2) 52%, var(--ui-bg-c3) 100%);
+  background-size: auto, auto, 42px 42px, 42px 42px, auto;
+}
+
+.dash-topbar,
+.layout-toolbar,
+.page-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toolbar-actions,
+.topbar-right,
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.app-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-nav-link {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+  box-shadow: var(--ui-shadow-soft);
+}
+
+.app-nav-link:hover {
+  color: var(--ui-text);
+}
+
+.app-nav-link.is-active {
+  border-color: var(--ui-primary);
+  color: var(--ui-primary-dark);
+  background: var(--ui-surface-soft);
+}
+
+@media (max-width: 720px) {
+  .dash-topbar,
+  .layout-toolbar,
+  .page-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -109,6 +109,34 @@ body {
   gap: 10px;
 }
 
+.app-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-nav-link {
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(24, 35, 29, 0.09);
+}
+
+.app-nav-link:hover {
+  color: var(--text-strong);
+}
+
+.app-nav-link.is-active {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  background: var(--bg-soft);
+}
+
 .theme-switch {
   display: inline-flex;
   border: 1px solid var(--border);

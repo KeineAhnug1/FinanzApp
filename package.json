@@ -26,12 +26,13 @@
     "db:check:v2": "node database/dataset-v2/check-connection.mjs",
     "data:prepare:v2": "node database/dataset-v2/prepare-data.mjs",
 
-    "web:start": "node uebersicht/server.js",
-    "groups:start": "node groups/server.js",
-    "stocks:server": "node aktien/backend/server.mjs",
-    "stocks:api": "PORT=5588 node aktien/backend/server.mjs",
-    "stocks:web": "python3 -m http.server 5500",
-    "stocks:all": "node aktien/backend/run-all-servers.mjs"
+    "backend:start": "node backend/server.mjs",
+    "web:start": "node backend/server.mjs",
+    "groups:start": "node backend/server.mjs",
+    "stocks:server": "node backend/server.mjs",
+    "stocks:api": "node backend/server.mjs",
+    "stocks:web": "node backend/server.mjs",
+    "stocks:all": "node backend/server.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.4",

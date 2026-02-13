@@ -4,7 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FinanzApp Uebersicht</title>
+  <script>
+    (function () {
+      try {
+        var THEME_STORAGE_KEY = "finanzapp.themeMode";
+        var THEME_OPTIONS = { light: true, dark: true, auto: true };
+        var stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+        var mode = THEME_OPTIONS[stored] ? stored : "auto";
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.style.backgroundColor = resolved === "dark" ? "#121614" : "#f0f2ef";
+      } catch (_) {
+        document.documentElement.dataset.theme = "light";
+        document.documentElement.dataset.themeMode = "auto";
+        document.documentElement.style.backgroundColor = "#f0f2ef";
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="./dashboard.css" />
+  <link rel="stylesheet" href="/shared/unified-ui.css" />
 </head>
 <body>
   <div class="dash-shell">
@@ -15,6 +35,12 @@
       </div>
 
       <div class="topbar-right">
+        <nav class="app-nav-links" aria-label="App Navigation">
+          <a class="app-nav-link is-active" href="/dashboard.html">Dashboard</a>
+          <a class="app-nav-link" href="/groups/">Groups</a>
+          <a class="app-nav-link" href="/aktien/">Aktien</a>
+        </nav>
+
         <div class="theme-switch" role="group" aria-label="Farbmodus">
           <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
           <button type="button" class="theme-option" data-theme-choice="dark">Dunkel</button>

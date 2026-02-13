@@ -1,5 +1,3 @@
-const SESSION_USER = "anna";
-
 const sessionUserBadge = document.getElementById("sessionUserBadge");
 const groupsList = document.getElementById("groupsList");
 const inboxInvitations = document.getElementById("inboxInvitations");
@@ -201,7 +199,9 @@ async function loadSession() {
   if (!response.ok || !payload.ok) {
     throw new Error(payload.message || "Could not load session");
   }
-  sessionUserBadge.textContent = `Session: ${payload.session_user.username}`;
+  if (sessionUserBadge) {
+    sessionUserBadge.textContent = `Session: ${payload.session_user.username}`;
+  }
 }
 
 async function fetchGroupDetail(groupId) {
@@ -263,7 +263,7 @@ async function createGroup(name, address) {
   const response = await fetch("/api/groups", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, address, session_user: SESSION_USER })
+    body: JSON.stringify({ name, address })
   });
   const payload = await response.json();
   if (!response.ok || !payload.ok) {

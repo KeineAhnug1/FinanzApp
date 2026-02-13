@@ -1,12 +1,12 @@
 # Uebersicht Modul
 
-Dieser Ordner enthaelt das Frontend und den Server fuer Login/Registrierung und das Finanz-Dashboard.
+Dieser Ordner enthaelt das Frontend fuer Login/Registrierung und das Finanz-Dashboard.
 
 ## Handover (Current State)
 
 Wenn ein neuer Chat aufgesetzt wird, sind diese Punkte bereits umgesetzt:
 
-- Login + Registrierung + E-Mail-Verifizierung (Code per Mail) ueber `server.js`
+- Login + Registrierung + E-Mail-Verifizierung (Code per Mail) ueber `backend/server.mjs`
 - Dashboard-Frontend in klar getrennte Bereiche aufgeteilt (kein Monolith)
 - Profil-Menue mit Abmelden
 - Einstellungs-Menue (Waehrung, Locale, Startbereich, Default-Wiederholung)
@@ -22,7 +22,7 @@ Wenn ein neuer Chat aufgesetzt wird, sind diese Punkte bereits umgesetzt:
 
 Wichtige Einstiegsdateien fuer neue Chats:
 
-- `uebersicht/server.js` (Backend/API)
+- `backend/server.mjs` (zentraler Backend/API-Server)
 - `uebersicht/dashboard.html` (Dashboard Layout + Script-Reihenfolge)
 - `uebersicht/dashboard.css` (Dashboard Design)
 - `uebersicht/js/dashboard/bootstrap.js` (Startup-Ablauf)
@@ -36,13 +36,12 @@ npm run web:start
 Danach ist die App unter `http://localhost:3000` erreichbar.
 
 Hinweis zur Datenbank:
-- `uebersicht/server.js` verwendet standardmaessig `MONGODB_DB_V2` (oder `${MONGODB_DB}_v2`).
+- `backend/server.mjs` verwendet standardmaessig `MONGODB_DB_V2` (oder `${MONGODB_DB}_v2`).
 
 ## Struktur
 
 ```text
 uebersicht/
-├── server.js                  # HTTP-Server + API-Endpunkte + statische Dateien
 ├── index.html                 # Login/Registrierung
 ├── script.js                  # Login/Registrierung Logik
 ├── style.css                  # Login/Registrierung Styles
@@ -100,7 +99,7 @@ Diese Reihenfolge darf nicht geaendert werden, ohne Abhaengigkeiten mitzudenken.
    `settings/settings-menu.js`, `overview/overview-cashflow.js`,
    `categories/categories-controls.js`, `api/api-client.js`, `core/*`.
 2. Beim Hinzufuegen neuer Features `uebersicht/README.md` im selben Commit aktualisieren.
-3. Wenn neue API-Endpunkte in `server.js` entstehen, hier kurz dokumentieren.
+3. Wenn neue API-Endpunkte in `backend/server.mjs` entstehen, hier kurz dokumentieren.
 4. Wenn du neue Dateien/Ordner hinzufuegst, die Struktur oben im README sofort erweitern.
 
 ## Letzte Aenderung

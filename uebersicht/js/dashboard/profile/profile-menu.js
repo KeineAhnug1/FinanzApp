@@ -39,7 +39,12 @@ function initProfileMenu() {
     }
   });
 
-  logoutBtn.addEventListener("click", () => {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+    } catch {
+      // no-op: lokales Logout wird trotzdem durchgefuehrt
+    }
     window.sessionStorage.removeItem(USER_STORAGE_KEY);
     window.location.assign("/");
   });

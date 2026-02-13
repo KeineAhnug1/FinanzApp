@@ -1,13 +1,24 @@
 // Startpunkt des Dashboards: Session laden, UI initialisieren und Daten abrufen.
 async function bootstrap() {
-  const user = getCurrentUser();
-  if (!user) {
+  let sessionUser = null;
+  try {
+    const response = await fetch("/api/session", { credentials: "same-origin" });
+    const payload = await response.json();
+    if (response.ok && payload?.ok && payload.session_user) {
+      sessionUser = payload.session_user;
+    }
+  } catch {
+    sessionUser = null;
+  }
+
+  if (!sessionUser) {
+    window.sessionStorage.removeItem(USER_STORAGE_KEY);
     window.location.assign("/");
     return;
   }
 
-  appState.user = user;
-  appState.settings = loadDashboardSettings(user.id);
+  setCurrentUser(sessionUser);
+  appState.settings = loadDashboardSettings(sessionUser.id);
 
   initThemeSwitcher();
   initSectionTabs();
