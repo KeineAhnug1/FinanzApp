@@ -1,4 +1,4 @@
-// Dashboard bootstrap.
+// Startpunkt des Dashboards: Session laden, UI initialisieren und Daten abrufen.
 async function bootstrap() {
   const user = getCurrentUser();
   if (!user) {

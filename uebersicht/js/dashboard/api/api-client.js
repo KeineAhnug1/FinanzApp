@@ -1,4 +1,4 @@
-// API and form state handlers for income/expense/category data.
+// API-Aufrufe und Formularstatus fuer Einnahmen, Ausgaben und Kategorien.
 async function requestJson(url, options) {
   try {
     const response = await fetch(url, options);
@@ -15,18 +15,21 @@ async function requestJson(url, options) {
   }
 }
 
+// Laedt die serverseitig gespeicherten Einnahmen fuer den aktiven User.
 async function loadIncomeEntries(userId) {
   const result = await requestJson(`/api/income-entries?user_id=${encodeURIComponent(userId)}`);
   if (!result.ok) return [];
   return Array.isArray(result.entries) ? result.entries : [];
 }
 
+// Laedt die serverseitig gespeicherten Ausgaben fuer den aktiven User.
 async function loadExpenseEntries(userId) {
   const result = await requestJson(`/api/expense-entries?user_id=${encodeURIComponent(userId)}`);
   if (!result.ok) return [];
   return Array.isArray(result.entries) ? result.entries : [];
 }
 
+// Laedt die kombinierte Kategorienliste (Preset + benutzerdefiniert).
 async function loadUserCategories(userId) {
   const result = await requestJson(`/api/categories?user_id=${encodeURIComponent(userId)}`);
   if (!result.ok) return { income: [], expense: [] };
@@ -36,6 +39,7 @@ async function loadUserCategories(userId) {
   };
 }
 
+// Aktualisiert die Kategorie-Selects im UI.
 async function refreshCategoryData() {
   if (!appState.user?.id) return;
   const categories = await loadUserCategories(appState.user.id);
@@ -44,6 +48,7 @@ async function refreshCategoryData() {
   applyCategoryOptions();
 }
 
+// Holt Einnahmen/Ausgaben neu und rendert alle abhängigen UI-Bausteine.
 async function refreshDashboardData() {
   if (!appState.user?.id) return;
   const [incomeEntries, expenseEntries] = await Promise.all([
@@ -58,6 +63,7 @@ async function refreshDashboardData() {
   updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
 }
 
+// Schaltet den Aktiv-Checkbox-Status passend zur Wiederholung.
 function initRecurrenceToggle(recurrenceId, activeId) {
   const recurrence = document.getElementById(recurrenceId);
   const active = document.getElementById(activeId);
@@ -73,6 +79,7 @@ function initRecurrenceToggle(recurrenceId, activeId) {
   sync();
 }
 
+// Kapselt das Lesen aller Income-Formular-Elemente.
 function getIncomeFormElements() {
   const form = document.getElementById("income-form");
   const submitBtn = document.getElementById("income-submit-btn");
@@ -89,6 +96,7 @@ function getIncomeFormElements() {
   return { form, submitBtn, cancelBtn, source, amount, date, recurrence, category, categoryCustomWrap, categoryCustom, active, note };
 }
 
+// Setzt das Income-Formular auf "neu anlegen".
 function setIncomeFormModeCreate() {
   incomeState.editingId = null;
   const { form, submitBtn, cancelBtn, date, recurrence, active } = getIncomeFormElements();
@@ -105,6 +113,7 @@ function setIncomeFormModeCreate() {
   if (cancelBtn) cancelBtn.hidden = true;
 }
 
+// Fuellt das Income-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 function setIncomeFormModeEdit(entry) {
   incomeState.editingId = entry.id;
   const { source, amount, date, recurrence, active, note, submitBtn, cancelBtn } = getIncomeFormElements();
@@ -122,6 +131,7 @@ function setIncomeFormModeEdit(entry) {
   if (cancelBtn) cancelBtn.hidden = false;
 }
 
+// Kapselt das Lesen aller Expense-Formular-Elemente.
 function getExpenseFormElements() {
   const form = document.getElementById("expense-form");
   const submitBtn = document.getElementById("expense-submit-btn");
@@ -138,6 +148,7 @@ function getExpenseFormElements() {
   return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, date, recurrence, active, note };
 }
 
+// Setzt das Expense-Formular auf "neu anlegen".
 function setExpenseFormModeCreate() {
   expenseState.editingId = null;
   const { form, submitBtn, cancelBtn, date, recurrence, active } = getExpenseFormElements();
@@ -154,6 +165,7 @@ function setExpenseFormModeCreate() {
   if (cancelBtn) cancelBtn.hidden = true;
 }
 
+// Fuellt das Expense-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 function setExpenseFormModeEdit(entry) {
   expenseState.editingId = entry.id;
   const { source, amount, date, recurrence, active, note, submitBtn, cancelBtn } = getExpenseFormElements();

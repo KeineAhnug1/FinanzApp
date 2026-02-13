@@ -1,4 +1,4 @@
-// Core state: global constants and mutable app state.
+// Globaler Dashboard-Zustand: Konstanten, Optionen und veraenderbare Laufzeitdaten.
 const THEME_STORAGE_KEY = "finanzapp.themeMode";
 const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
 const USER_STORAGE_KEY = "finanzapp.currentUser";

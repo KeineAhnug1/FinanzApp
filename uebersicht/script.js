@@ -1,3 +1,4 @@
+// Login/Registrierung: Theme-Schalter, Formular-Modi und API-Kommunikation.
 const THEME_STORAGE_KEY = "finanzapp.themeMode";
 const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
 const prefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");

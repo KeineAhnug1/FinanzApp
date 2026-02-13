@@ -1,4 +1,4 @@
-// Profile/logout menu handling.
+// Profil-Menue: Anzeige des Nutzers und Abmelden aus der Session.
 function initialsFromUser(user) {
   const first = String(user.first_name || user.username || "U").charAt(0).toUpperCase();
   const last = String(user.last_name || "").charAt(0).toUpperCase();

@@ -7,7 +7,9 @@ const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const PORT = Number(process.env.PORT || 3000);
-const DB_NAME = process.env.MONGODB_DB || "finanzapp";
+// Standard fuer das Dashboard ist jetzt die v2-Datenbank.
+const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
+const DB_NAME = process.env.MONGODB_DB_V2 || `${BASE_DB_NAME}_v2`;
 const MONGO_URI = process.env.MONGODB_URI;
 const STATIC_ROOT = __dirname;
 const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
@@ -25,6 +27,14 @@ const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const PRESET_INCOME_CATEGORY_KEYS = new Set(["salary", "freelance", "bonus", "refund", "investment", "other"]);
 const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utilities", "transport", "health", "entertainment", "other"]);
+const COLLECTIONS = {
+  users: "users",
+  emailVerifications: "email_verifications",
+  incomeEntries: "income_entries",
+  // In v2 liegen private Ausgaben in dieser Collection.
+  expenseEntries: "private_expenses",
+  userCategories: "user_categories"
+};
 
 const client = new MongoClient(MONGO_URI);
 let db;
@@ -152,11 +162,75 @@ function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Uebernimmt alte expense_entries einmalig in das v2-Format private_expenses.
+async function migrateLegacyExpenseEntriesToV2() {
+  const legacyCollectionName = "expense_entries";
+  const legacyExists = await db.listCollections({ name: legacyCollectionName }, { nameOnly: true }).hasNext();
+  if (!legacyExists) return;
+
+  const legacyEntries = await db.collection(legacyCollectionName).find({}).toArray();
+  if (!legacyEntries.length) return;
+
+  const operations = [];
+  for (const legacyEntry of legacyEntries) {
+    if (!legacyEntry.user_id) continue;
+
+    const amount = toNumber(legacyEntry.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+
+    const normalizedRecurrence = normalizeRecurrence(legacyEntry.recurrence) || "once";
+    const isActive = parseBoolean(legacyEntry.is_active, true);
+    const normalizedCategory = normalizeCategoryValue(legacyEntry.category) || "other";
+    const source = String(legacyEntry.source || legacyEntry.info || "Legacy-Ausgabe").trim();
+    const note = String(legacyEntry.note || "").trim();
+    const spentAt =
+      legacyEntry.spent_at instanceof Date
+        ? legacyEntry.spent_at
+        : legacyEntry.created_at instanceof Date
+          ? legacyEntry.created_at
+          : new Date();
+    const legacyId = String(legacyEntry._id);
+
+    operations.push({
+      updateOne: {
+        filter: { legacy_expense_entry_id: legacyId },
+        update: {
+          $setOnInsert: {
+            user_id: legacyEntry.user_id,
+            source,
+            category: normalizedCategory,
+            amount: toDecimal(amount),
+            theo_amount: toDecimal(amount),
+            spent_at: spentAt,
+            due_date: spentAt,
+            info: source || note || null,
+            state: normalizedRecurrence === "once" ? "open" : (isActive ? "open" : "paused"),
+            note,
+            recurrence: normalizedRecurrence,
+            is_active: normalizedRecurrence === "once" ? true : isActive,
+            legacy_expense_entry_id: legacyId,
+            created_at: legacyEntry.created_at instanceof Date ? legacyEntry.created_at : new Date(),
+            updated_at: new Date()
+          }
+        },
+        upsert: true
+      }
+    });
+  }
+
+  if (!operations.length) return;
+
+  const migrationResult = await db.collection(COLLECTIONS.expenseEntries).bulkWrite(operations, { ordered: false });
+  if (migrationResult.upsertedCount > 0) {
+    console.log(`[migration] ${migrationResult.upsertedCount} legacy expense entries in private_expenses uebernommen.`);
+  }
+}
+
 async function rememberUserCategory(userId, kind, categoryValue) {
   const normalized = normalizeCategoryValue(categoryValue);
   if (!normalized) return;
   const key = categoryKey(normalized);
-  await db.collection("user_categories").updateOne(
+  await db.collection(COLLECTIONS.userCategories).updateOne(
     { user_id: userId, kind, key },
     {
       $setOnInsert: {
@@ -191,15 +265,26 @@ function serializeIncomeEntry(entry) {
 }
 
 function serializeExpenseEntry(entry) {
+  // v2 hat mehrere moegliche Datumsfelder; fuer die UI priorisieren wir spent_at,
+  // danach due_date und als Fallback created_at.
+  const spentAtDate =
+    entry.spent_at instanceof Date
+      ? entry.spent_at
+      : entry.due_date instanceof Date
+        ? entry.due_date
+        : entry.created_at instanceof Date
+          ? entry.created_at
+          : null;
+
   return {
     id: String(entry._id),
     user_id: String(entry.user_id),
-    source: entry.source || "",
-    category: entry.category,
+    source: entry.source || entry.info || "",
+    category: entry.category || "other",
     amount: toNumber(entry.amount),
     recurrence: entry.recurrence || "once",
-    is_active: typeof entry.is_active === "boolean" ? entry.is_active : true,
-    spent_at: entry.spent_at instanceof Date ? entry.spent_at.toISOString() : null,
+    is_active: typeof entry.is_active === "boolean" ? entry.is_active : entry.state !== "paused",
+    spent_at: spentAtDate ? spentAtDate.toISOString() : null,
     note: entry.note || "",
     created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : null,
     updated_at: entry.updated_at instanceof Date ? entry.updated_at.toISOString() : null
@@ -251,6 +336,7 @@ async function sendVerificationEmail(toEmail, firstName, code) {
 }
 
 async function handleLogin(req, res) {
+  // Login prueft E-Mail + Passwort direkt gegen die Users-Collection.
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -273,7 +359,7 @@ async function handleLogin(req, res) {
     return sendJson(res, 400, { ok: false, message: "Email und Passwort sind Pflichtfelder" });
   }
 
-  const user = await db.collection("users").findOne(
+  const user = await db.collection(COLLECTIONS.users).findOne(
     { email },
     { projection: { username: 1, email: 1, password: 1, first_name: 1, last_name: 1, income: 1 } }
   );
@@ -300,6 +386,7 @@ async function handleLogin(req, res) {
 }
 
 async function handleRegister(req, res) {
+  // Registrierung legt zunaechst nur einen Verifizierungseintrag an.
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -341,7 +428,7 @@ async function handleRegister(req, res) {
     return sendJson(res, 400, { ok: false, message: "Income muss eine Zahl >= 0 sein" });
   }
 
-  const existingUser = await db.collection("users").findOne(
+  const existingUser = await db.collection(COLLECTIONS.users).findOne(
     { $or: [{ email }, { username }] },
     { projection: { _id: 1 } }
   );
@@ -353,7 +440,7 @@ async function handleRegister(req, res) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000);
 
-  await db.collection("email_verifications").updateOne(
+  await db.collection(COLLECTIONS.emailVerifications).updateOne(
     { email },
     {
       $set: {
@@ -398,6 +485,7 @@ async function handleRegister(req, res) {
 }
 
 async function handleRegisterVerify(req, res) {
+  // Verifizierung erstellt erst nach gueltigem Code den finalen User.
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -420,13 +508,13 @@ async function handleRegisterVerify(req, res) {
     return sendJson(res, 400, { ok: false, message: "E-Mail und Code sind Pflichtfelder" });
   }
 
-  const verification = await db.collection("email_verifications").findOne({ email });
+  const verification = await db.collection(COLLECTIONS.emailVerifications).findOne({ email });
   if (!verification) {
     return sendJson(res, 404, { ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" });
   }
 
   if (verification.expires_at && new Date(verification.expires_at).getTime() < Date.now()) {
-    await db.collection("email_verifications").deleteOne({ email });
+    await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
     return sendJson(res, 410, { ok: false, message: "Code abgelaufen. Bitte erneut registrieren." });
   }
 
@@ -436,7 +524,7 @@ async function handleRegisterVerify(req, res) {
 
   const codeHash = hashValue(code);
   if (codeHash !== verification.code_hash) {
-    await db.collection("email_verifications").updateOne(
+    await db.collection(COLLECTIONS.emailVerifications).updateOne(
       { email },
       { $inc: { attempts: 1 } }
     );
@@ -456,8 +544,8 @@ async function handleRegisterVerify(req, res) {
   };
 
   try {
-    const insert = await db.collection("users").insertOne(userDoc);
-    await db.collection("email_verifications").deleteOne({ email });
+    const insert = await db.collection(COLLECTIONS.users).insertOne(userDoc);
+    await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
     return sendJson(res, 201, {
       ok: true,
       message: "E-Mail verifiziert und Konto erstellt",
@@ -476,6 +564,7 @@ async function handleRegisterVerify(req, res) {
 }
 
 async function handleCategories(req, res, url) {
+  // Kategorien koennen gelesen und benutzerdefiniert bereinigt werden.
   if (req.method === "GET") {
     const userId = parseObjectId(url.searchParams.get("user_id"));
     if (!userId) {
@@ -483,12 +572,12 @@ async function handleCategories(req, res, url) {
     }
 
     const [stored, incomeDistinct, expenseDistinct] = await Promise.all([
-      db.collection("user_categories")
+      db.collection(COLLECTIONS.userCategories)
         .find({ user_id: userId })
         .project({ _id: 0, kind: 1, value: 1 })
         .toArray(),
-      db.collection("income_entries").distinct("category", { user_id: userId }),
-      db.collection("expense_entries").distinct("category", { user_id: userId })
+      db.collection(COLLECTIONS.incomeEntries).distinct("category", { user_id: userId }),
+      db.collection(COLLECTIONS.expenseEntries).distinct("category", { user_id: userId })
     ]);
 
     const incomeValues = [];
@@ -545,7 +634,7 @@ async function handleCategories(req, res, url) {
     return sendJson(res, 400, { ok: false, message: "replace_with ist ungueltig" });
   }
 
-  const collectionName = kind === "income" ? "income_entries" : "expense_entries";
+  const collectionName = kind === "income" ? COLLECTIONS.incomeEntries : COLLECTIONS.expenseEntries;
   const updateResult = await db.collection(collectionName).updateMany(
     {
       user_id: userId,
@@ -559,7 +648,7 @@ async function handleCategories(req, res, url) {
     }
   );
 
-  await db.collection("user_categories").deleteOne({
+  await db.collection(COLLECTIONS.userCategories).deleteOne({
     user_id: userId,
     kind,
     key: categoryKey(category)
@@ -580,13 +669,14 @@ async function handleCategories(req, res, url) {
 }
 
 async function handleIncomeEntries(req, res, url) {
+  // Einnahmen bleiben als Dashboard-spezifische Collection erhalten.
   if (req.method === "GET") {
     const userId = parseObjectId(url.searchParams.get("user_id"));
     if (!userId) {
       return sendJson(res, 400, { ok: false, message: "user_id ist ungueltig" });
     }
 
-    const entries = await db.collection("income_entries")
+    const entries = await db.collection(COLLECTIONS.incomeEntries)
       .find({ user_id: userId })
       .sort({ received_at: -1, created_at: -1 })
       .limit(200)
@@ -656,8 +746,8 @@ async function handleIncomeEntries(req, res, url) {
     updated_at: new Date()
   };
 
-  const insert = await db.collection("income_entries").insertOne(doc);
-  const inserted = await db.collection("income_entries").findOne({ _id: insert.insertedId });
+  const insert = await db.collection(COLLECTIONS.incomeEntries).insertOne(doc);
+  const inserted = await db.collection(COLLECTIONS.incomeEntries).findOne({ _id: insert.insertedId });
 
   return sendJson(res, 201, {
     ok: true,
@@ -666,6 +756,7 @@ async function handleIncomeEntries(req, res, url) {
 }
 
 async function handleIncomeEntryById(req, res, url, entryIdRaw) {
+  // Einzeloperationen fuer Einnahmen: Update und Delete.
   const entryId = parseObjectId(entryIdRaw);
   if (!entryId) {
     return sendJson(res, 400, { ok: false, message: "entry_id ist ungueltig" });
@@ -677,7 +768,7 @@ async function handleIncomeEntryById(req, res, url, entryIdRaw) {
   }
 
   if (req.method === "DELETE") {
-    const deletion = await db.collection("income_entries").deleteOne({
+    const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({
       _id: entryId,
       user_id: userId
     });
@@ -728,7 +819,7 @@ async function handleIncomeEntryById(req, res, url, entryIdRaw) {
 
   await rememberUserCategory(userId, "income", category);
 
-  const updated = await db.collection("income_entries").findOneAndUpdate(
+  const updated = await db.collection(COLLECTIONS.incomeEntries).findOneAndUpdate(
     {
       _id: entryId,
       user_id: userId
@@ -759,15 +850,17 @@ async function handleIncomeEntryById(req, res, url, entryIdRaw) {
 }
 
 async function handleExpenseEntries(req, res, url) {
+  // Ausgaben laufen in v2 auf private_expenses inkl. UI-kompatibler Zusatzfelder.
   if (req.method === "GET") {
     const userId = parseObjectId(url.searchParams.get("user_id"));
     if (!userId) {
       return sendJson(res, 400, { ok: false, message: "user_id ist ungueltig" });
     }
 
-    const entries = await db.collection("expense_entries")
+    // v2: Dashboard-Ausgaben werden aus private_expenses gelesen.
+    const entries = await db.collection(COLLECTIONS.expenseEntries)
       .find({ user_id: userId })
-      .sort({ spent_at: -1, created_at: -1 })
+      .sort({ spent_at: -1, due_date: -1, created_at: -1 })
       .limit(200)
       .toArray();
 
@@ -827,7 +920,11 @@ async function handleExpenseEntries(req, res, url) {
     source,
     category,
     amount: toDecimal(amountNumber),
+    theo_amount: toDecimal(amountNumber),
     spent_at: spentAt,
+    due_date: spentAt,
+    info: source || note || null,
+    state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
     note,
     recurrence,
     is_active: recurrence === "once" ? true : isActive,
@@ -835,8 +932,8 @@ async function handleExpenseEntries(req, res, url) {
     updated_at: new Date()
   };
 
-  const insert = await db.collection("expense_entries").insertOne(doc);
-  const inserted = await db.collection("expense_entries").findOne({ _id: insert.insertedId });
+  const insert = await db.collection(COLLECTIONS.expenseEntries).insertOne(doc);
+  const inserted = await db.collection(COLLECTIONS.expenseEntries).findOne({ _id: insert.insertedId });
 
   return sendJson(res, 201, {
     ok: true,
@@ -845,6 +942,7 @@ async function handleExpenseEntries(req, res, url) {
 }
 
 async function handleExpenseEntryById(req, res, url, entryIdRaw) {
+  // Einzeloperationen fuer private Ausgaben: Update und Delete.
   const entryId = parseObjectId(entryIdRaw);
   if (!entryId) {
     return sendJson(res, 400, { ok: false, message: "entry_id ist ungueltig" });
@@ -856,7 +954,7 @@ async function handleExpenseEntryById(req, res, url, entryIdRaw) {
   }
 
   if (req.method === "DELETE") {
-    const deletion = await db.collection("expense_entries").deleteOne({
+    const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({
       _id: entryId,
       user_id: userId
     });
@@ -907,7 +1005,7 @@ async function handleExpenseEntryById(req, res, url, entryIdRaw) {
 
   await rememberUserCategory(userId, "expense", category);
 
-  const updated = await db.collection("expense_entries").findOneAndUpdate(
+  const updated = await db.collection(COLLECTIONS.expenseEntries).findOneAndUpdate(
     {
       _id: entryId,
       user_id: userId
@@ -918,7 +1016,11 @@ async function handleExpenseEntryById(req, res, url, entryIdRaw) {
         category,
         note,
         amount: toDecimal(amountNumber),
+        theo_amount: toDecimal(amountNumber),
         spent_at: spentAt,
+        due_date: spentAt,
+        info: source || note || null,
+        state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
         recurrence,
         is_active: recurrence === "once" ? true : isActive,
         updated_at: new Date()
@@ -938,6 +1040,7 @@ async function handleExpenseEntryById(req, res, url, entryIdRaw) {
 }
 
 async function handleUserIncome(req, res) {
+  // Aktualisiert das Basis-Einkommen direkt im User-Dokument.
   if (req.method !== "PATCH") {
     res.setHeader("Allow", "PATCH");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -962,7 +1065,7 @@ async function handleUserIncome(req, res) {
     return sendJson(res, 400, { ok: false, message: "Monatliche Einnahme muss eine Zahl >= 0 sein" });
   }
 
-  const updated = await db.collection("users").findOneAndUpdate(
+  const updated = await db.collection(COLLECTIONS.users).findOneAndUpdate(
     { _id: userId },
     {
       $set: {
@@ -1075,36 +1178,41 @@ const server = http.createServer(async (req, res) => {
 async function start() {
   await client.connect();
   db = client.db(DB_NAME);
+  await migrateLegacyExpenseEntriesToV2();
 
-  await db.collection("email_verifications").createIndex(
+  await db.collection(COLLECTIONS.emailVerifications).createIndex(
     { email: 1 },
     { unique: true, name: "email_verifications_email_unique" }
   );
-  await db.collection("email_verifications").createIndex(
+  await db.collection(COLLECTIONS.emailVerifications).createIndex(
     { expires_at: 1 },
     { expireAfterSeconds: 0, name: "email_verifications_expires_ttl" }
   );
-  await db.collection("income_entries").createIndex(
+  await db.collection(COLLECTIONS.incomeEntries).createIndex(
     { user_id: 1, received_at: -1 },
     { name: "income_entries_user_date_idx" }
   );
-  await db.collection("income_entries").createIndex(
+  await db.collection(COLLECTIONS.incomeEntries).createIndex(
     { user_id: 1, recurrence: 1, is_active: 1 },
     { name: "income_entries_user_recurrence_idx" }
   );
-  await db.collection("expense_entries").createIndex(
-    { user_id: 1, spent_at: -1 },
-    { name: "expense_entries_user_date_idx" }
+  await db.collection(COLLECTIONS.expenseEntries).createIndex(
+    { user_id: 1, spent_at: -1, due_date: -1 },
+    { name: "private_expenses_dashboard_user_date_idx" }
   );
-  await db.collection("expense_entries").createIndex(
+  await db.collection(COLLECTIONS.expenseEntries).createIndex(
     { user_id: 1, recurrence: 1, is_active: 1 },
-    { name: "expense_entries_user_recurrence_idx" }
+    { name: "private_expenses_dashboard_user_recurrence_idx" }
   );
-  await db.collection("user_categories").createIndex(
+  await db.collection(COLLECTIONS.expenseEntries).createIndex(
+    { legacy_expense_entry_id: 1 },
+    { unique: true, sparse: true, name: "private_expenses_legacy_expense_entry_unique" }
+  );
+  await db.collection(COLLECTIONS.userCategories).createIndex(
     { user_id: 1, kind: 1, key: 1 },
     { unique: true, name: "user_categories_user_kind_key_unique" }
   );
-  await db.collection("user_categories").createIndex(
+  await db.collection(COLLECTIONS.userCategories).createIndex(
     { user_id: 1, kind: 1, value: 1 },
     { name: "user_categories_user_kind_value_idx" }
   );

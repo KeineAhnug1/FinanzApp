@@ -1,4 +1,4 @@
-// UI helpers: formatting and small DOM utility functions.
+// UI-Helfer: Formatierung und kleine DOM-Werkzeuge fuer wiederverwendbare Aufgaben.
 function formatMoney(value) {
   const amount = Number(value) || 0;
   try {

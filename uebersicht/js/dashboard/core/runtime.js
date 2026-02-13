@@ -1,4 +1,4 @@
-// Core runtime: theme, settings persistence, view switching, session access.
+// Laufzeit-Helfer: Theme, Settings-Speicherung, View-Wechsel und Session-Zugriff.
 function getStoredThemeMode() {
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   if (stored && THEME_OPTIONS.has(stored)) return stored;

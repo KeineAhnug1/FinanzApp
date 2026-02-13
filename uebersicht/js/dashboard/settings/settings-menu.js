@@ -1,4 +1,4 @@
-// Settings menu (currency, locale, defaults).
+// Einstellungsmenue fuer Waehrung, Locale und Default-Werte.
 function populateSettingsForm() {
   const currency = document.getElementById("settings-currency");
   const locale = document.getElementById("settings-locale");

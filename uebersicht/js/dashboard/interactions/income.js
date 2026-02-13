@@ -1,4 +1,4 @@
-// Income flows: list actions, form handling and base income form.
+// Einnahmen-Logik: Listenaktionen, Formularablauf und Basis-Einkommen.
 function initIncomeListActions() {
   const list = document.getElementById("income-list");
   if (!list) return;
@@ -52,6 +52,8 @@ function initIncomeListActions() {
     }
   });
 }
+
+// Verarbeitet Formular-Submit fuer Anlegen/Aktualisieren von Einnahmen.
 function initIncomeForm() {
   const { form, submitBtn, cancelBtn } = getIncomeFormElements();
   if (!form) return;
@@ -102,6 +104,8 @@ function initIncomeForm() {
     if (submitBtn) submitBtn.disabled = false;
   });
 }
+
+// Verarbeitet das monatliche Basis-Einkommen im User-Profil.
 function initBaseIncomeForm() {
   const form = document.getElementById("base-income-form");
   const input = document.getElementById("base-income");

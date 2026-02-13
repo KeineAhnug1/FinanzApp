@@ -1,4 +1,4 @@
-// Categories: category labels, select options and category list rendering.
+// Kategorien: Labels, Select-Optionen und Darstellung der verwaltbaren Kategorien.
 function categoryLabel(value) {
   const normalized = String(value || "").trim();
   if (!normalized) return "Ohne Kategorie";

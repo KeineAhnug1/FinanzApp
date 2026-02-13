@@ -79,31 +79,32 @@ FinanzApp/
 
 ### Purpose
 `database/` contains two dataset-specific setups:
-- `database/dataset-legacy/` for the current/original model
-- `database/dataset-v2/` for the new model variant
-
-Root-level scripts in `database/` are compatibility wrappers that run the legacy setup.
+- `database/dataset-v2/` as the active/default model
+- `database/dataset-legacy/` as fallback/compatibility model
 
 Both setups provide scripts to:
 - create/update collections, validators, and indexes
-- wipe existing app data (legacy + v2)
-- reset/import linked demo data (legacy)
+- wipe existing app data
+- reset/import linked demo data
 
-### Collections (Legacy Dataset)
+### Collections (V2 Default Dataset)
 - `users`
 - `groups`
 - `group_members`
 - `bank_accounts`
-- `expenses`
-- `expense_shares`
+- `private_expenses`
+- `group_expenses`
+- `group_funding`
+- `funding_participants`
 - `requests`
 - `transactions`
 - `shares`
-- `budget`
+- `budgets`
+- `group_activities`
 
-### Notes (Legacy Dataset)
+### Notes (V2 Dataset)
 - Money fields are stored as MongoDB `Decimal128`.
-- `transactions` enforces exactly one source: `request_id` XOR `expense_share_id`.
+- `transactions` enforces exactly one source: `request_id` XOR `private_expense_id` XOR `group_expense_id`.
 - MongoDB relation behavior is modeled through validators + indexes (no FK enforcement).
 
 ### Prerequisites
@@ -182,8 +183,8 @@ npm run data:prepare -- --username anna
 ```
 
 ### Data Model Reference
-- Legacy DBML source: `database/dataset-legacy/schema.dbml`
 - V2 DBML source: `database/dataset-v2/schema.dbml`
+- Legacy DBML source: `database/dataset-legacy/schema.dbml`
 - Diagram: `Datastructure.png`
 
 ![FinanzApp data structure](./Datastructure.png)

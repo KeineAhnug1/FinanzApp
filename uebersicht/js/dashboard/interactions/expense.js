@@ -1,4 +1,4 @@
-// Expense flows: list actions and form handling.
+// Ausgaben-Logik: Listenaktionen und Speichern/Bearbeiten im Formular.
 function initExpenseListActions() {
   const list = document.getElementById("expense-list");
   if (!list) return;
@@ -52,6 +52,8 @@ function initExpenseListActions() {
     }
   });
 }
+
+// Verarbeitet Formular-Submit fuer Anlegen/Aktualisieren von Ausgaben.
 function initExpenseForm() {
   const { form, submitBtn, cancelBtn } = getExpenseFormElements();
   if (!form) return;

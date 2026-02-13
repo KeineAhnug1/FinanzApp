@@ -1,4 +1,4 @@
-// Overview: entry grouping/list rendering and cashflow/kpi calculations.
+// Uebersicht: Gruppierung/Rendering der Listen sowie Cashflow- und KPI-Berechnung.
 function entryMatchesQuery(entry, query, dateField) {
   if (!query) return true;
   const haystack = [

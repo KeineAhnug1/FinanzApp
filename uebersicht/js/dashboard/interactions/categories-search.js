@@ -1,4 +1,4 @@
-// Category delete actions and list search bindings.
+// Aktionen fuer Kategorie-Loeschen und Event-Bindings fuer die Listen-Suche.
 function initCategoryManagerActions() {
   const incomeList = document.getElementById("income-category-list");
   const expenseList = document.getElementById("expense-category-list");
