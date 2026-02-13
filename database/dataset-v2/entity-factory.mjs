@@ -35,6 +35,10 @@ function toObjectId(value) {
 }
 
 function normalizeGroupMemberStatus(value = "accepted") {
+  if (value == null) {
+    return null;
+  }
+
   const normalized = String(value).trim().toLowerCase();
   if (normalized === "active") {
     return "accepted";
@@ -77,12 +81,14 @@ export function createUserEntity({
 export function createGroupEntity({
   _id,
   name,
+  info = null,
   address = null,
   created_at = new Date()
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
     name,
+    info,
     address,
     created_at: toDate(created_at)
   };
@@ -143,12 +149,16 @@ export function createPrivateExpenseEntity({
 export function createGroupFundingEntity({
   _id,
   group_id,
+  group_activity_id = null,
+  amount = null,
   info = null,
   created_at = new Date()
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
     group_id: toObjectId(group_id),
+    group_activity_id: group_activity_id == null ? null : toObjectId(group_activity_id),
+    amount: amount == null ? null : toDecimal128(amount),
     info,
     created_at: toDate(created_at)
   };

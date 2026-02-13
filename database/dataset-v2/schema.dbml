@@ -20,6 +20,7 @@ Table users {
 Table groups {
   id int [pk, increment]
   name varchar [not null]
+  info varchar
   address varchar
   created_at timestamp [not null]
 }
@@ -29,7 +30,7 @@ Table group_members {
   group_id int [not null]
   user_id int [not null]
   role varchar [not null]
-  status varchar [not null, note: "invited | denied | accepted"]
+  status varchar
 }
 
 Table bank_accounts {
@@ -112,6 +113,8 @@ Table group_activities {
 Table group_funding {
   id int [pk, increment]
   group_id int [not null]
+  group_activity_id int
+  amount decimal(12,2)
   info varchar
   created_at timestamp [not null]
 }
@@ -130,6 +133,7 @@ Ref: funding_participants.group_funding_id > group_funding.id
 Ref: funding_participants.group_member_id > group_members.id
 
 Ref: group_funding.group_id > groups.id
+Ref: group_funding.group_activity_id > group_activities.id
 
 Ref: group_members.group_id > groups.id
 Ref: group_members.user_id > users.id

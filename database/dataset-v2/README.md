@@ -8,7 +8,7 @@ V2 replaces the older mixed expense model with a clearer split between:
 - private user expenses
 - group funding and group expenses
 
-It also introduces explicit membership status handling for group invitations.
+It also keeps membership status handling for group invitations while allowing nullable status values.
 
 ## Main Differences vs Legacy
 
@@ -16,7 +16,7 @@ It also introduces explicit membership status handling for group invitations.
   - `private_expenses`
   - `group_expenses` (linked through `group_funding`)
 - `budget` is renamed to `budgets`.
-- `group_members` uses `status` (`invited`, `denied`, `accepted`) instead of `joined_at`.
+- `group_members` keeps `status` support (`invited`, `denied`, `accepted`) instead of `joined_at`.
 - `transactions` supports exactly one source:
   - `request_id` or
   - `private_expense_id` or
@@ -33,7 +33,7 @@ It also introduces explicit membership status handling for group invitations.
 - `group_members`: user/group membership with role + status
 - `bank_accounts`: account balance per user
 - `private_expenses`: personal expenses
-- `group_funding`: funding buckets for a group
+- `group_funding`: funding buckets for a group (optional link to `group_activities`)
 - `funding_participants`: member participation in a funding bucket
 - `group_expenses`: expenses paid from group funding
 - `requests`: payment requests between users (optional link to private expense)
@@ -77,4 +77,3 @@ Optional:
 - Money fields are stored as `Decimal128`.
 - The seed script validates schema compatibility before inserting data.
 - V2 is the dataset expected by the `groups/` app.
-

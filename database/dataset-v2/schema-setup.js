@@ -43,6 +43,7 @@ const collections = [
         required: ["name", "created_at"],
         properties: {
           name: { bsonType: "string", minLength: 1 },
+          info: { bsonType: ["string", "null"] },
           address: { bsonType: ["string", "null"] },
           created_at: { bsonType: "date" }
         },
@@ -56,12 +57,12 @@ const collections = [
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["group_id", "user_id", "role", "status"],
+        required: ["group_id", "user_id", "role"],
         properties: {
           group_id: { bsonType: "objectId" },
           user_id: { bsonType: "objectId" },
           role: { bsonType: "string", minLength: 1 },
-          status: { enum: ["invited", "denied", "accepted"] }
+          status: { bsonType: ["string", "null"] }
         },
         additionalProperties: true
       }
@@ -119,13 +120,18 @@ const collections = [
         required: ["group_id", "created_at"],
         properties: {
           group_id: { bsonType: "objectId" },
+          group_activity_id: { bsonType: ["objectId", "null"] },
+          amount: { bsonType: ["decimal", "null"], minimum: 0 },
           info: { bsonType: ["string", "null"] },
           created_at: { bsonType: "date" }
         },
         additionalProperties: true
       }
     },
-    indexes: [{ key: { group_id: 1 }, options: { name: "group_funding_group_idx" } }]
+    indexes: [
+      { key: { group_id: 1, created_at: -1 }, options: { name: "group_funding_group_created_idx" } },
+      { key: { group_activity_id: 1 }, options: { sparse: true, name: "group_funding_activity_idx" } }
+    ]
   },
   {
     name: "group_expenses",

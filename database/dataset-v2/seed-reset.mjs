@@ -51,6 +51,10 @@ const ids = {
     sonnenalleeFeb: new ObjectId("66a400000000000000000001"),
     neckarstadtTrip: new ObjectId("66a400000000000000000002")
   },
+  group_activities: {
+    sonnenalleeCleanup: new ObjectId("66a600000000000000000001"),
+    neckarstadtGameNight: new ObjectId("66a600000000000000000002")
+  },
   group_expenses: {
     sonnenalleeGroceries: new ObjectId("66a410000000000000000001"),
     sonnenalleeInternet: new ObjectId("66a410000000000000000002"),
@@ -127,12 +131,14 @@ const data = {
     createGroupEntity({
       _id: ids.groups.sonnenallee,
       name: "WG Sonnenallee Berlin",
+      info: "Shared flat in Berlin-Neukoelln",
       address: "Sonnenallee 110, Berlin",
       created_at: createdAt
     }),
     createGroupEntity({
       _id: ids.groups.neckarstadt,
       name: "WG Neckarstadt Mannheim",
+      info: "Student flat near Neckarstadt center",
       address: "Mittelstrasse 8, Mannheim",
       created_at: createdAt
     })
@@ -217,12 +223,15 @@ const data = {
     createGroupFundingEntity({
       _id: ids.group_funding.sonnenalleeFeb,
       group_id: ids.groups.sonnenallee,
+      amount: 750,
       info: "Monthly funding February",
       created_at: "2026-02-01T08:00:00.000Z"
     }),
     createGroupFundingEntity({
       _id: ids.group_funding.neckarstadtTrip,
       group_id: ids.groups.neckarstadt,
+      group_activity_id: ids.group_activities.neckarstadtGameNight,
+      amount: 360,
       info: "Weekend trip funding",
       created_at: "2026-02-03T09:00:00.000Z"
     })
@@ -393,15 +402,17 @@ const data = {
   ],
   group_activities: [
     createGroupActivityEntity({
+      _id: ids.group_activities.sonnenalleeCleanup,
       group_id: ids.groups.sonnenallee,
-      info: "Monthly funding created",
-      date: "2026-02-01T08:00:00.000Z",
-      created_at: "2026-02-01T08:01:00.000Z"
+      info: "Common kitchen cleanup plan",
+      date: "2026-02-02T18:00:00.000Z",
+      created_at: "2026-02-01T19:01:00.000Z"
     }),
     createGroupActivityEntity({
+      _id: ids.group_activities.neckarstadtGameNight,
       group_id: ids.groups.neckarstadt,
-      info: "Trip funding started",
-      date: "2026-02-03T09:00:00.000Z",
+      info: "Board game night organization",
+      date: "2026-02-06T19:30:00.000Z",
       created_at: "2026-02-03T09:01:00.000Z"
     })
   ]

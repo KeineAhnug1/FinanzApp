@@ -303,6 +303,8 @@ export async function getPreparedData(db, options = {}) {
           group_id: membership.group_id,
           group_name: membership.group_name,
           group_funding_id: funding._id,
+          group_activity_id: funding.group_activity_id ?? null,
+          amount: toNumber(funding.amount),
           info: funding.info,
           created_at: funding.created_at,
           participants,

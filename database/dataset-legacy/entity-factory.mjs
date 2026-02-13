@@ -82,7 +82,7 @@ export function createGroupMemberEntity({
     user_id: toObjectId(user_id),
     role,
     joined_at: toDate(joined_at)
-  };
+  };se
 }
 
 export function createBankAccountEntity({
