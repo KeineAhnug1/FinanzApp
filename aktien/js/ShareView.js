@@ -40,6 +40,67 @@
 	let aBankAccounts = [];
 	let sSelectedBankAccountId = "";
 
+	/**
+	 * Normalisiert eine Konto-ID als String.
+	 * Scope: [SHARED]
+	 * @param {any} xValue
+	 * @returns {string}
+	 */
+	function fnNormalizeBankAccountId(xValue) {
+		return String(xValue || "").trim();
+	}
+
+	/**
+	 * Prüft, ob die Gesamtansicht ("Alle Konten") aktiv ist.
+	 * Scope: [SHARED]
+	 * @returns {boolean}
+	 */
+	function fnIsAllAccountsSelected() {
+		return !fnNormalizeBankAccountId(sSelectedBankAccountId);
+	}
+
+	/**
+	 * Liefert den Anzeigenamen eines Kontos.
+	 * Scope: [SHARED]
+	 * @param {string} sBankAccountId
+	 * @returns {string}
+	 */
+	function fnGetBankAccountLabel(sBankAccountId) {
+		const sId = fnNormalizeBankAccountId(sBankAccountId);
+		const oMatch = aBankAccounts.find((oAccount) => fnNormalizeBankAccountId(oAccount?.id) === sId);
+		return String(oMatch?.label || sId || "Unbekanntes Konto");
+	}
+
+	/**
+	 * Fragt bei Gesamtansicht ein Zielkonto für Käufe per kleinem Popup ab.
+	 * Scope: [SHARED]
+	 * @returns {string | null} Ausgewählte Konto-ID, leer bei ungültiger Auswahl, null bei Abbruch.
+	 */
+	function fnPromptBuyTargetAccountId() {
+		if (!aBankAccounts.length) return "";
+		const sOptions = aBankAccounts
+			.map((oAccount, iIndex) => `${iIndex + 1}) ${oAccount.label} (${oAccount.id})`)
+			.join("\n");
+		const sInput = window.prompt(
+			`Gesamtkonto ist aktiv.\nAuf welches Konto soll gekauft werden?\n${sOptions}\n\nBitte Nummer oder Konto-ID eingeben:`,
+			"1"
+		);
+		if (sInput == null) return null;
+
+		const sTrimmedInput = String(sInput).trim();
+		if (!sTrimmedInput) return "";
+
+		const iNumber = Number(sTrimmedInput);
+		if (Number.isInteger(iNumber) && iNumber >= 1 && iNumber <= aBankAccounts.length) {
+			return fnNormalizeBankAccountId(aBankAccounts[iNumber - 1]?.id);
+		}
+
+		const sMatchedId = fnNormalizeBankAccountId(
+			aBankAccounts.find((oAccount) => fnNormalizeBankAccountId(oAccount?.id) === sTrimmedInput)?.id
+		);
+		return sMatchedId || "";
+	}
+
 	// =====================================================
 	// [SHARED] 2) UI-Helfer - Lokalisierung
 	// =====================================================
@@ -307,8 +368,15 @@
 	 * @returns {Promise<Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>>}
 	 */
 	async function fnLoadPositions() {
-		const aLocalBoughtPositions = fnReadLocalBoughtPositions();
-		const aLocalSoldPositions = fnReadLocalSoldPositions();
+		const sActiveAccountId = fnNormalizeBankAccountId(sSelectedBankAccountId);
+		const aLocalBoughtPositionsAll = fnReadLocalBoughtPositions();
+		const aLocalSoldPositionsAll = fnReadLocalSoldPositions();
+		const aLocalBoughtPositions = sActiveAccountId
+			? aLocalBoughtPositionsAll.filter((oPosition) => fnNormalizeBankAccountId(oPosition?.bank_account_id) === sActiveAccountId)
+			: aLocalBoughtPositionsAll;
+		const aLocalSoldPositions = sActiveAccountId
+			? aLocalSoldPositionsAll.filter((oPosition) => fnNormalizeBankAccountId(oPosition?.bank_account_id) === sActiveAccountId)
+			: aLocalSoldPositionsAll;
 		if (Array.isArray(window.POSITIONS)) {
 			return fnApplySoldPositions([...window.POSITIONS, ...aLocalBoughtPositions], aLocalSoldPositions);
 		}
@@ -379,6 +447,7 @@
 					symbol: oPosition.symbol,
 					amount: Number(oPosition.amount),
 					created_at: Number(oPosition.created_at),
+					bank_account_id: fnNormalizeBankAccountId(oPosition?.bank_account_id),
 				}))
 				.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
 		} catch {
@@ -613,8 +682,8 @@
                   <tr>
                     <th>Symbol</th>
                     <th>Menge</th>
-                    <th>Kaufdatum</th>
-                    <th>Preis bei Kauf</th>
+                    <th>Erster Kauf</th>
+                    <th>Ø Kaufpreis</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -1949,12 +2018,13 @@
 			return;
 		}
 
-		elHoldingsTbody.innerHTML = aPositions
-			.map((oPosition) => {
-				const sSymbol = fnEscapeHtml(String(oPosition?.symbol || ""));
-				const sAmount = fnFmtNumber(Number(oPosition?.amount), 4);
-				const sBuyDate = fnFmtDateFromTimestamp(oPosition?.created_at);
-				const sBuyPrice = fnFmtNumber(Number(oPosition?.worthwhenbought), 4);
+		const aDepotRows = fnAggregateOwnedSymbols(aPositions);
+		elHoldingsTbody.innerHTML = aDepotRows
+			.map((oRow) => {
+				const sSymbol = fnEscapeHtml(String(oRow?.sSymbol || ""));
+				const sAmount = fnFmtNumber(Number(oRow?.nTotalAmount), 4);
+				const sBuyDate = Number.isFinite(oRow?.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
+				const sBuyPrice = fnFmtMoney(Number(oRow?.nAvgBuyPrice), "USD");
 
 				return `
           <tr>
@@ -2309,6 +2379,20 @@
 				return;
 			}
 
+			let sTargetBankAccountId = fnNormalizeBankAccountId(sSelectedBankAccountId);
+			if (!sTargetBankAccountId) {
+				const sPromptResult = fnPromptBuyTargetAccountId();
+				if (sPromptResult == null) {
+					elBuyFeedback.textContent = "Kauf abgebrochen.";
+					return;
+				}
+				sTargetBankAccountId = fnNormalizeBankAccountId(sPromptResult);
+				if (!sTargetBankAccountId) {
+					elBuyFeedback.textContent = "Kauf nicht möglich: Bitte ein gültiges Zielkonto wählen.";
+					return;
+				}
+			}
+
 			let nBuyPrice = await fnGetLatestPriceBySymbol(sSymbol);
 			if (!Number.isFinite(nBuyPrice) || nBuyPrice <= 0) {
 				nBuyPrice = nLastKnownClose;
@@ -2324,15 +2408,18 @@
 				amount: nAmount,
 				created_at: iNowUnixSeconds,
 				worthwhenbought: nBuyPrice,
+				bank_account_id: sTargetBankAccountId,
 			};
 
 			fnPersistBoughtPosition(oNewPosition);
-			aPositions.push(oNewPosition);
+			if (fnIsAllAccountsSelected() || fnNormalizeBankAccountId(sSelectedBankAccountId) === sTargetBankAccountId) {
+				aPositions.push(oNewPosition);
+			}
 			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
-
-			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")}.`;
+			const sTargetLabel = fnGetBankAccountLabel(sTargetBankAccountId);
+			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")} auf ${sTargetLabel}.`;
 			await fnRefreshAnalysisChart();
 		});
 
