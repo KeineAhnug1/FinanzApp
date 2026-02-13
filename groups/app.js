@@ -1,11 +1,29 @@
 const sessionUserBadge = document.getElementById("sessionUserBadge");
 const groupsList = document.getElementById("groupsList");
+const mainView = document.getElementById("mainView");
+const detailView = document.getElementById("detailView");
+
+const openInboxButton = document.getElementById("openInboxButton");
+const openCreateGroupButton = document.getElementById("openCreateGroupButton");
+const backToGroupsButton = document.getElementById("backToGroupsButton");
+const openInviteWindowButton = document.getElementById("openInviteWindowButton");
+
+const inboxModal = document.getElementById("inboxModal");
+const closeInboxButton = document.getElementById("closeInboxButton");
 const inboxInvitations = document.getElementById("inboxInvitations");
 const inboxStatus = document.getElementById("inboxStatus");
+
+const createGroupModal = document.getElementById("createGroupModal");
+const closeCreateGroupButton = document.getElementById("closeCreateGroupButton");
 const groupForm = document.getElementById("groupForm");
 const nameInput = document.getElementById("nameInput");
 const addressInput = document.getElementById("addressInput");
 const formStatus = document.getElementById("formStatus");
+
+const inviteModal = document.getElementById("inviteModal");
+const closeInviteButton = document.getElementById("closeInviteButton");
+const inviteForm = document.getElementById("inviteForm");
+const inviteUsernameInput = document.getElementById("inviteUsernameInput");
 
 const groupDetailEmpty = document.getElementById("groupDetailEmpty");
 const groupDetailContent = document.getElementById("groupDetailContent");
@@ -13,24 +31,48 @@ const groupDetailName = document.getElementById("groupDetailName");
 const groupDetailAddress = document.getElementById("groupDetailAddress");
 const groupDetailCreated = document.getElementById("groupDetailCreated");
 const membersList = document.getElementById("membersList");
+const groupActivitiesList = document.getElementById("groupActivitiesList");
+const groupFundingsList = document.getElementById("groupFundingsList");
+const groupExpensesList = document.getElementById("groupExpensesList");
+const fundingTransactionsList = document.getElementById("fundingTransactionsList");
+const fundingDetailEmpty = document.getElementById("fundingDetailEmpty");
+const fundingDetailContent = document.getElementById("fundingDetailContent");
+const fundingDetailTitle = document.getElementById("fundingDetailTitle");
+const fundingDetailMeta = document.getElementById("fundingDetailMeta");
 const memberActionsPanel = document.getElementById("memberActionsPanel");
+const adminPanel = document.getElementById("adminPanel");
+const expensePanel = document.getElementById("expensePanel");
+const deleteGroupButton = document.getElementById("deleteGroupButton");
+const detailStatus = document.getElementById("detailStatus");
+
 const activityForm = document.getElementById("activityForm");
 const activityInfoInput = document.getElementById("activityInfoInput");
 const activityDateInput = document.getElementById("activityDateInput");
+
 const fundingForm = document.getElementById("fundingForm");
 const fundingInfoInput = document.getElementById("fundingInfoInput");
 const fundingAmountInput = document.getElementById("fundingAmountInput");
 const fundingActivitySelect = document.getElementById("fundingActivitySelect");
-const adminPanel = document.getElementById("adminPanel");
-const inviteForm = document.getElementById("inviteForm");
-const inviteUsernameInput = document.getElementById("inviteUsernameInput");
-const deleteGroupButton = document.getElementById("deleteGroupButton");
-const detailStatus = document.getElementById("detailStatus");
+
+const donationForm = document.getElementById("donationForm");
+const donationFundingSelect = document.getElementById("donationFundingSelect");
+const donationAmountInput = document.getElementById("donationAmountInput");
+
+const expenseForm = document.getElementById("expenseForm");
+const expenseFundingSelect = document.getElementById("expenseFundingSelect");
+const expenseAmountInput = document.getElementById("expenseAmountInput");
+const expenseInfoInput = document.getElementById("expenseInfoInput");
+const expenseDueDateInput = document.getElementById("expenseDueDateInput");
+
+const detailTabButtons = Array.from(document.querySelectorAll("[data-detail-tab-target]"));
+const detailTabPanels = Array.from(document.querySelectorAll("[data-detail-tab-content]"));
 
 let groupsState = [];
 let invitationsState = [];
 let selectedGroupId = null;
 let selectedGroupDetail = null;
+let selectedFundingId = null;
+let activeDetailTab = "members";
 
 function normalizeMemberStatus(status) {
   if (status === "active") return "accepted";
@@ -48,6 +90,14 @@ function formatDate(value) {
   }).format(date);
 }
 
+function formatAmount(value) {
+  if (value == null || Number.isNaN(Number(value))) return "n/a";
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR"
+  }).format(Number(value));
+}
+
 function setDetailStatus(message, type = "") {
   detailStatus.className = "form-status";
   if (type) {
@@ -62,6 +112,34 @@ function setInboxStatus(message, type = "") {
     inboxStatus.classList.add(type);
   }
   inboxStatus.textContent = message || "";
+}
+
+function switchDetailTab(tabName) {
+  activeDetailTab = tabName;
+  for (const button of detailTabButtons) {
+    button.classList.toggle("is-active", button.dataset.detailTabTarget === tabName);
+  }
+  for (const panel of detailTabPanels) {
+    panel.classList.toggle("is-active", panel.dataset.detailTabContent === tabName);
+  }
+}
+
+function showMainView() {
+  mainView.hidden = false;
+  detailView.hidden = true;
+}
+
+function showDetailView() {
+  mainView.hidden = true;
+  detailView.hidden = false;
+}
+
+function openModal(modal) {
+  modal.hidden = false;
+}
+
+function closeModal(modal) {
+  modal.hidden = true;
 }
 
 function formatActivityOption(activity) {
@@ -84,6 +162,178 @@ function renderFundingActivityOptions(activities = []) {
     option.value = activity.activity_id;
     option.textContent = formatActivityOption(activity);
     fundingActivitySelect.appendChild(option);
+  }
+}
+
+function renderFundingSelects(fundings = []) {
+  donationFundingSelect.innerHTML = "";
+  expenseFundingSelect.innerHTML = "";
+
+  const donationEmpty = document.createElement("option");
+  donationEmpty.value = "";
+  donationEmpty.textContent = "Select funding";
+  donationFundingSelect.appendChild(donationEmpty);
+
+  const expenseEmpty = document.createElement("option");
+  expenseEmpty.value = "";
+  expenseEmpty.textContent = "Select funding";
+  expenseFundingSelect.appendChild(expenseEmpty);
+
+  for (const funding of fundings) {
+    const label = `${funding.info || "Funding entry"} (${formatAmount(funding.amount)})`;
+
+    const donationOption = document.createElement("option");
+    donationOption.value = funding.funding_id;
+    donationOption.textContent = label;
+    donationFundingSelect.appendChild(donationOption);
+
+    const expenseOption = document.createElement("option");
+    expenseOption.value = funding.funding_id;
+    expenseOption.textContent = label;
+    expenseFundingSelect.appendChild(expenseOption);
+  }
+}
+
+function renderActivities(activities = []) {
+  groupActivitiesList.innerHTML = "";
+
+  if (!activities.length) {
+    const empty = document.createElement("li");
+    empty.className = "member-item";
+    empty.innerHTML = "<p class=\"meta\">No activities yet.</p>";
+    groupActivitiesList.appendChild(empty);
+    return;
+  }
+
+  for (const activity of activities) {
+    const item = document.createElement("li");
+    item.className = "member-item";
+    item.innerHTML = `
+      <div>
+        <p class="member-name">${activity.info || "Untitled activity"}</p>
+        <p class="meta">Date: ${formatDate(activity.date)}</p>
+        <p class="meta">Created: ${formatDate(activity.created_at)}</p>
+      </div>
+    `;
+    groupActivitiesList.appendChild(item);
+  }
+}
+
+function renderFundings(fundings = []) {
+  groupFundingsList.innerHTML = "";
+
+  if (!fundings.length) {
+    const empty = document.createElement("li");
+    empty.className = "member-item";
+    empty.innerHTML = "<p class=\"meta\">No fundings yet.</p>";
+    groupFundingsList.appendChild(empty);
+    return;
+  }
+
+  for (const funding of fundings) {
+    const item = document.createElement("li");
+    item.className = "member-item funding-item";
+    if (funding.funding_id === selectedFundingId) {
+      item.classList.add("is-active");
+    }
+
+    item.innerHTML = `
+      <div>
+        <p class="member-name">${funding.info || "Funding entry"}</p>
+        <p class="meta">Current balance: ${formatAmount(funding.amount)}</p>
+        <p class="meta">Total donated: ${formatAmount(funding.total_donated)}</p>
+        <p class="meta">Created: ${formatDate(funding.created_at)}</p>
+      </div>
+      <button type="button" class="select-funding-button" data-funding-id="${funding.funding_id}">Open details</button>
+    `;
+    groupFundingsList.appendChild(item);
+  }
+}
+
+function renderFundingDetail(detail) {
+  const fundings = detail?.fundings || [];
+  const selectedFunding = fundings.find((funding) => funding.funding_id === selectedFundingId) || null;
+
+  if (!selectedFunding) {
+    fundingDetailEmpty.hidden = false;
+    fundingDetailContent.hidden = true;
+    groupExpensesList.innerHTML = "";
+    fundingTransactionsList.innerHTML = "";
+    return;
+  }
+
+  const linkedActivity = selectedFunding.linked_activity
+    ? formatActivityOption(selectedFunding.linked_activity)
+    : "No linked activity";
+  const contributions = (selectedFunding.contributions || [])
+    .map((entry) => `${entry.username}: ${formatAmount(entry.amount)}`)
+    .join(", ");
+
+  fundingDetailEmpty.hidden = true;
+  fundingDetailContent.hidden = false;
+  fundingDetailTitle.textContent = selectedFunding.info || "Funding entry";
+  fundingDetailMeta.textContent = `Balance: ${formatAmount(selectedFunding.amount)} | Linked activity: ${linkedActivity} | Donors: ${contributions || "No donations yet"}`;
+
+  const selectedExpenses = (detail.expenses || [])
+    .filter((expense) => expense.group_funding_id === selectedFunding.funding_id);
+  const selectedTransactions = (detail.funding_transactions || [])
+    .filter((transaction) => transaction.group_funding_id === selectedFunding.funding_id);
+
+  renderExpenses(selectedExpenses);
+  renderFundingTransactions(selectedTransactions);
+}
+
+function renderExpenses(expenses = []) {
+  groupExpensesList.innerHTML = "";
+
+  if (!expenses.length) {
+    const empty = document.createElement("li");
+    empty.className = "member-item";
+    empty.innerHTML = "<p class=\"meta\">No expenses paid from fundings yet.</p>";
+    groupExpensesList.appendChild(empty);
+    return;
+  }
+
+  for (const expense of expenses) {
+    const item = document.createElement("li");
+    item.className = "member-item";
+    item.innerHTML = `
+      <div>
+        <p class="member-name">${expense.info || "Group expense"}</p>
+        <p class="meta">Funding: ${expense.funding_info || "n/a"}</p>
+        <p class="meta">Amount: ${formatAmount(expense.amount)}</p>
+        <p class="meta">State: ${expense.state || "n/a"}</p>
+        <p class="meta">Due date: ${formatDate(expense.due_date)}</p>
+        <p class="meta">Created: ${formatDate(expense.created_at)}</p>
+      </div>
+    `;
+    groupExpensesList.appendChild(item);
+  }
+}
+
+function renderFundingTransactions(transactions = []) {
+  fundingTransactionsList.innerHTML = "";
+
+  if (!transactions.length) {
+    const empty = document.createElement("li");
+    empty.className = "member-item";
+    empty.innerHTML = "<p class=\"meta\">No funding payments yet.</p>";
+    fundingTransactionsList.appendChild(empty);
+    return;
+  }
+
+  for (const transaction of transactions) {
+    const item = document.createElement("li");
+    item.className = "member-item";
+    item.innerHTML = `
+      <div>
+        <p class="member-name">${transaction.expense_info || "Funding payment"}</p>
+        <p class="meta">Funding: ${transaction.funding_info || "n/a"}</p>
+        <p class="meta">Paid amount: ${formatAmount(transaction.amount)}</p>
+        <p class="meta">Transaction date: ${formatDate(transaction.created_at)}</p>
+      </div>
+    `;
+    fundingTransactionsList.appendChild(item);
   }
 }
 
@@ -121,7 +371,7 @@ function renderInvitations(invitations) {
   if (!invitations.length) {
     const empty = document.createElement("li");
     empty.className = "member-item";
-    empty.innerHTML = `<p class="meta">No pending invitations.</p>`;
+    empty.innerHTML = "<p class=\"meta\">No pending invitations.</p>";
     inboxInvitations.appendChild(empty);
     return;
   }
@@ -150,7 +400,14 @@ function renderGroupDetail(detail) {
   if (!detail) {
     groupDetailEmpty.hidden = false;
     groupDetailContent.hidden = true;
+    openInviteWindowButton.hidden = true;
+    selectedFundingId = null;
+    groupActivitiesList.innerHTML = "";
+    groupFundingsList.innerHTML = "";
+    fundingDetailEmpty.hidden = false;
+    fundingDetailContent.hidden = true;
     renderFundingActivityOptions([]);
+    renderFundingSelects([]);
     return;
   }
 
@@ -159,9 +416,21 @@ function renderGroupDetail(detail) {
   groupDetailName.textContent = detail.group.name;
   groupDetailAddress.textContent = `Address: ${detail.group.address || "n/a"}`;
   groupDetailCreated.textContent = `Created: ${formatDate(detail.group.created_at)}`;
+
   memberActionsPanel.hidden = false;
   adminPanel.hidden = !detail.is_admin;
+  expensePanel.hidden = !detail.is_admin;
+  openInviteWindowButton.hidden = !detail.is_admin;
+
   renderFundingActivityOptions(detail.activities || []);
+  renderFundingSelects(detail.fundings || []);
+  renderActivities(detail.activities || []);
+  if (selectedFundingId && !(detail.fundings || []).some((funding) => funding.funding_id === selectedFundingId)) {
+    selectedFundingId = null;
+  }
+  renderFundings(detail.fundings || []);
+  renderFundingDetail(detail);
+
   membersList.innerHTML = "";
 
   for (const member of detail.members) {
@@ -169,10 +438,8 @@ function renderGroupDetail(detail) {
     item.className = "member-item";
     const isSessionUser = member.user_id === detail.session_user_id;
     const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
+    const identity = fullName ? `${member.username} (${fullName})` : member.username;
 
-    const identity = fullName
-      ? `${member.username} (${fullName})`
-      : member.username;
     item.innerHTML = `
       <div>
         <p class="member-name">${identity}${isSessionUser ? " (you)" : ""}</p>
@@ -240,12 +507,9 @@ async function loadGroups(preferredGroupId = selectedGroupId) {
 
   if (preferredGroupId && groupsState.some((group) => group.group_id === preferredGroupId)) {
     selectedGroupId = preferredGroupId;
-  } else {
-    selectedGroupId = groupsState[0].group_id;
   }
 
   renderGroups(groupsState);
-  await loadGroupDetail(selectedGroupId);
 }
 
 async function loadInvitations() {
@@ -322,6 +586,35 @@ async function createGroupFunding(groupId, info, amount, groupActivityId) {
   }
 }
 
+async function donateToFunding(groupId, fundingId, amount) {
+  const response = await fetch(`/api/groups/${groupId}/funding/${fundingId}/donate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount })
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not process donation");
+  }
+}
+
+async function createGroupExpense(groupId, groupFundingId, amount, info, dueDate) {
+  const response = await fetch(`/api/groups/${groupId}/expenses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      group_funding_id: groupFundingId,
+      amount,
+      info: info || null,
+      due_date: dueDate || null
+    })
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not create paid expense");
+  }
+}
+
 async function acceptInvitation(groupId) {
   const response = await fetch(`/api/inbox/invitations/${groupId}/accept`, {
     method: "POST"
@@ -352,6 +645,62 @@ async function deleteGroup(groupId) {
   }
 }
 
+async function openGroupDetail(groupId) {
+  selectedGroupId = groupId;
+  selectedFundingId = null;
+  renderGroups(groupsState);
+  setDetailStatus("");
+  switchDetailTab("members");
+  showDetailView();
+  await loadGroupDetail(groupId);
+}
+
+for (const button of detailTabButtons) {
+  button.addEventListener("click", () => {
+    const tabName = button.dataset.detailTabTarget;
+    if (!tabName || tabName === activeDetailTab) return;
+    switchDetailTab(tabName);
+  });
+}
+
+openInboxButton.addEventListener("click", async () => {
+  try {
+    await loadInvitations();
+    setInboxStatus("");
+    openModal(inboxModal);
+  } catch (error) {
+    setInboxStatus(error.message, "error");
+    openModal(inboxModal);
+  }
+});
+
+openCreateGroupButton.addEventListener("click", () => {
+  formStatus.className = "form-status";
+  formStatus.textContent = "";
+  openModal(createGroupModal);
+});
+
+backToGroupsButton.addEventListener("click", () => {
+  showMainView();
+});
+
+openInviteWindowButton.addEventListener("click", () => {
+  if (!selectedGroupDetail || !selectedGroupDetail.is_admin) return;
+  openModal(inviteModal);
+});
+
+closeInboxButton.addEventListener("click", () => closeModal(inboxModal));
+closeCreateGroupButton.addEventListener("click", () => closeModal(createGroupModal));
+closeInviteButton.addEventListener("click", () => closeModal(inviteModal));
+
+for (const modal of [inboxModal, createGroupModal, inviteModal]) {
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) {
+      closeModal(modal);
+    }
+  });
+}
+
 groupsList.addEventListener("click", async (event) => {
   const button = event.target.closest(".select-group-button");
   if (!button) return;
@@ -359,15 +708,22 @@ groupsList.addEventListener("click", async (event) => {
   const groupId = button.dataset.groupId;
   if (!groupId) return;
 
-  selectedGroupId = groupId;
-  renderGroups(groupsState);
-  setDetailStatus("");
-
   try {
-    await loadGroupDetail(groupId);
+    await openGroupDetail(groupId);
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
+});
+
+groupFundingsList.addEventListener("click", (event) => {
+  const button = event.target.closest(".select-funding-button");
+  if (!button || !selectedGroupDetail) return;
+  const fundingId = button.dataset.fundingId;
+  if (!fundingId) return;
+
+  selectedFundingId = fundingId;
+  renderFundings(selectedGroupDetail.fundings || []);
+  renderFundingDetail(selectedGroupDetail);
 });
 
 inboxInvitations.addEventListener("click", async (event) => {
@@ -421,6 +777,7 @@ inviteForm.addEventListener("submit", async (event) => {
   try {
     await inviteUserToGroup(selectedGroupId, inviteUsernameInput.value);
     inviteForm.reset();
+    closeModal(inviteModal);
     await Promise.all([loadGroupDetail(selectedGroupId), loadInvitations()]);
     setDetailStatus("User invited successfully.", "ok");
   } catch (error) {
@@ -463,6 +820,42 @@ fundingForm.addEventListener("submit", async (event) => {
   }
 });
 
+donationForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedGroupId) return;
+
+  setDetailStatus("Saving donation...");
+  try {
+    await donateToFunding(selectedGroupId, donationFundingSelect.value, donationAmountInput.value.trim());
+    donationForm.reset();
+    await loadGroupDetail(selectedGroupId);
+    setDetailStatus("Donation was added to the funding.", "ok");
+  } catch (error) {
+    setDetailStatus(error.message, "error");
+  }
+});
+
+expenseForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedGroupId) return;
+
+  setDetailStatus("Creating paid group expense...");
+  try {
+    await createGroupExpense(
+      selectedGroupId,
+      expenseFundingSelect.value,
+      expenseAmountInput.value.trim(),
+      expenseInfoInput.value.trim(),
+      expenseDueDateInput.value
+    );
+    expenseForm.reset();
+    await loadGroupDetail(selectedGroupId);
+    setDetailStatus("Group expense created and booked as funding payment.", "ok");
+  } catch (error) {
+    setDetailStatus(error.message, "error");
+  }
+});
+
 deleteGroupButton.addEventListener("click", async () => {
   if (!selectedGroupId) return;
 
@@ -473,8 +866,9 @@ deleteGroupButton.addEventListener("click", async () => {
   try {
     await deleteGroup(selectedGroupId);
     selectedGroupId = null;
+    renderGroupDetail(null);
     await loadGroups();
-    setDetailStatus("Group deleted.", "ok");
+    showMainView();
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
@@ -487,15 +881,20 @@ groupForm.addEventListener("submit", async (event) => {
 
   try {
     const created = await createGroup(nameInput.value, addressInput.value);
+    groupForm.reset();
+    closeModal(createGroupModal);
+    await loadGroups(created.group_id);
+    await openGroupDetail(created.group_id);
     formStatus.classList.add("ok");
     formStatus.textContent = "Group created and you were added as admin.";
-    groupForm.reset();
-    await loadGroups(created.group_id);
   } catch (error) {
     formStatus.classList.add("error");
     formStatus.textContent = error.message;
   }
 });
+
+switchDetailTab(activeDetailTab);
+showMainView();
 
 Promise.all([loadSession(), loadGroups(), loadInvitations()]).catch((error) => {
   formStatus.className = "form-status error";

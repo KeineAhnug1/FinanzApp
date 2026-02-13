@@ -36,91 +36,184 @@
         </div>
       </header>
 
-      <section class="panel">
-        <h1 class="panel-title">Your Groups</h1>
-        <p class="panel-copy">
-          Click a group to open its detail view.
-        </p>
+      <section id="mainView" class="panel">
+        <div class="main-headline">
+          <div>
+            <h1 class="panel-title">Your Groups</h1>
+            <p class="panel-copy">Select one group to open the detail view.</p>
+          </div>
+          <div class="main-actions">
+            <button id="openInboxButton" type="button" class="ghost-button">Inbox</button>
+            <button id="openCreateGroupButton" type="button">Create Group</button>
+          </div>
+        </div>
         <div id="groupsList" class="groups-list"></div>
       </section>
 
-      <section class="panel">
-        <h2 class="panel-title">Inbox</h2>
-        <p class="panel-copy">Pending group invitations for your user.</p>
-        <ul id="inboxInvitations" class="members-list"></ul>
-        <p id="inboxStatus" class="form-status" aria-live="polite"></p>
-      </section>
-
-      <section class="panel">
-        <h2 class="panel-title">Group Detail</h2>
+      <section id="detailView" class="panel" hidden>
         <div id="groupDetailEmpty" class="empty-state">
-          Select one of your groups to see participants and admin actions.
+          Select one of your groups to see participants and group data.
         </div>
 
         <div id="groupDetailContent" class="detail-content" hidden>
-          <p id="groupDetailName" class="detail-name"></p>
-          <p id="groupDetailAddress" class="meta"></p>
-          <p id="groupDetailCreated" class="meta"></p>
-
-          <h3 class="sub-title">Participants</h3>
-          <ul id="membersList" class="members-list"></ul>
-
-          <div id="memberActionsPanel" class="member-panel">
-            <h3 class="sub-title">Member Actions</h3>
-
-            <form id="activityForm" class="group-form">
-              <label class="field">
-                <span>New group activity</span>
-                <input id="activityInfoInput" type="text" required maxlength="180" placeholder="e.g. Saturday cooking event" />
-              </label>
-              <label class="field">
-                <span>Date (optional)</span>
-                <input id="activityDateInput" type="datetime-local" />
-              </label>
-              <button type="submit">Create activity</button>
-            </form>
-
-            <form id="fundingForm" class="group-form">
-              <label class="field">
-                <span>Funding info (optional)</span>
-                <input id="fundingInfoInput" type="text" maxlength="180" placeholder="e.g. Shared groceries budget" />
-              </label>
-              <label class="field">
-                <span>Funding amount (optional)</span>
-                <input id="fundingAmountInput" type="number" min="0" step="0.01" inputmode="decimal" />
-              </label>
-              <label class="field">
-                <span>Link to existing activity (optional)</span>
-                <select id="fundingActivitySelect">
-                  <option value="">No linked activity</option>
-                </select>
-              </label>
-              <button type="submit">Create funding</button>
-            </form>
+          <div class="detail-headline">
+            <div>
+              <p id="groupDetailName" class="detail-name"></p>
+              <p id="groupDetailAddress" class="meta"></p>
+              <p id="groupDetailCreated" class="meta"></p>
+            </div>
+            <div class="detail-actions">
+              <button id="backToGroupsButton" type="button" class="ghost-button">Back</button>
+              <button id="openInviteWindowButton" type="button" hidden>Invite User</button>
+            </div>
           </div>
 
-          <div id="adminPanel" class="admin-panel" hidden>
-            <h3 class="sub-title">Admin Actions</h3>
+          <nav class="detail-tabs-nav" aria-label="Group detail tabs">
+            <button type="button" class="detail-tab-button is-active" data-detail-tab-target="members">Members</button>
+            <button type="button" class="detail-tab-button" data-detail-tab-target="activities">Group Activities</button>
+            <button type="button" class="detail-tab-button" data-detail-tab-target="fundings">Fundings</button>
+          </nav>
 
-            <form id="inviteForm" class="invite-form">
-              <label class="field">
-                <span>Invite by username</span>
-                <input id="inviteUsernameInput" type="text" required maxlength="80" />
-              </label>
-              <button type="submit">Invite user</button>
-            </form>
+          <section class="detail-tab-panel is-active" data-detail-tab-content="members">
+            <h3 class="sub-title">Participants</h3>
+            <ul id="membersList" class="members-list"></ul>
 
-            <button id="deleteGroupButton" type="button" class="danger-button">
-              Delete this group
-            </button>
-          </div>
+            <div id="adminPanel" class="admin-panel" hidden>
+              <h3 class="sub-title">Admin Actions</h3>
+              <button id="deleteGroupButton" type="button" class="danger-button">Delete this group</button>
+            </div>
+          </section>
+
+          <section class="detail-tab-panel" data-detail-tab-content="activities">
+            <h3 class="sub-title">Activities</h3>
+            <ul id="groupActivitiesList" class="members-list"></ul>
+
+            <div id="memberActionsPanel" class="member-panel">
+              <h3 class="sub-title">Create activity</h3>
+              <form id="activityForm" class="group-form">
+                <label class="field">
+                  <span>New group activity</span>
+                  <input id="activityInfoInput" type="text" required maxlength="180" placeholder="e.g. Saturday cooking event" />
+                </label>
+                <label class="field">
+                  <span>Date (optional)</span>
+                  <input id="activityDateInput" type="datetime-local" />
+                </label>
+                <button type="submit">Create activity</button>
+              </form>
+            </div>
+          </section>
+
+          <section class="detail-tab-panel" data-detail-tab-content="fundings">
+            <div class="funding-split">
+              <div>
+                <h3 class="sub-title">Fundings</h3>
+                <ul id="groupFundingsList" class="members-list"></ul>
+              </div>
+              <div class="funding-detail-panel">
+                <div id="fundingDetailEmpty" class="empty-state">
+                  Select a funding to open its detail view.
+                </div>
+                <div id="fundingDetailContent" hidden>
+                  <p id="fundingDetailTitle" class="detail-name"></p>
+                  <p id="fundingDetailMeta" class="meta"></p>
+
+                  <h3 class="sub-title">Funding Expenses</h3>
+                  <ul id="groupExpensesList" class="members-list"></ul>
+
+                  <h3 class="sub-title">Funding Transactions</h3>
+                  <ul id="fundingTransactionsList" class="members-list"></ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="member-panel">
+              <h3 class="sub-title">Create funding</h3>
+              <form id="fundingForm" class="group-form">
+                <label class="field">
+                  <span>Funding info (optional)</span>
+                  <input id="fundingInfoInput" type="text" maxlength="180" placeholder="e.g. Shared groceries budget" />
+                </label>
+                <label class="field">
+                  <span>Funding amount (optional)</span>
+                  <input id="fundingAmountInput" type="number" min="0" step="0.01" inputmode="decimal" />
+                </label>
+                <label class="field">
+                  <span>Link to existing activity (optional)</span>
+                  <select id="fundingActivitySelect">
+                    <option value="">No linked activity</option>
+                  </select>
+                </label>
+                <button type="submit">Create funding</button>
+              </form>
+            </div>
+
+            <div class="member-panel">
+              <h3 class="sub-title">Donate</h3>
+              <form id="donationForm" class="group-form">
+                <label class="field">
+                  <span>Donate to funding</span>
+                  <select id="donationFundingSelect" required>
+                    <option value="">Select funding</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Donation amount</span>
+                  <input id="donationAmountInput" type="number" min="0.01" step="0.01" inputmode="decimal" required />
+                </label>
+                <button type="submit">Donate</button>
+              </form>
+            </div>
+
+            <div id="expensePanel" class="admin-panel" hidden>
+              <h3 class="sub-title">Create paid expense (Admin)</h3>
+              <form id="expenseForm" class="group-form">
+                <label class="field">
+                  <span>Funding for expense</span>
+                  <select id="expenseFundingSelect" required>
+                    <option value="">Select funding</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Expense amount</span>
+                  <input id="expenseAmountInput" type="number" min="0.01" step="0.01" inputmode="decimal" required />
+                </label>
+                <label class="field">
+                  <span>Expense info (optional)</span>
+                  <input id="expenseInfoInput" type="text" maxlength="180" placeholder="e.g. New kitchen equipment" />
+                </label>
+                <label class="field">
+                  <span>Due date (optional)</span>
+                  <input id="expenseDueDateInput" type="datetime-local" />
+                </label>
+                <button type="submit">Create paid expense</button>
+              </form>
+            </div>
+          </section>
 
           <p id="detailStatus" class="form-status" aria-live="polite"></p>
         </div>
       </section>
+    </main>
 
-      <section class="panel">
-        <h2 class="panel-title">Create New Group</h2>
+    <div id="inboxModal" class="modal" hidden>
+      <div class="modal-content panel">
+        <div class="modal-headline">
+          <h2 class="panel-title">Inbox</h2>
+          <button id="closeInboxButton" type="button" class="ghost-button">Close</button>
+        </div>
+        <p class="panel-copy">Pending group invitations for your user.</p>
+        <ul id="inboxInvitations" class="members-list"></ul>
+        <p id="inboxStatus" class="form-status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div id="createGroupModal" class="modal" hidden>
+      <div class="modal-content panel">
+        <div class="modal-headline">
+          <h2 class="panel-title">Create New Group</h2>
+          <button id="closeCreateGroupButton" type="button" class="ghost-button">Close</button>
+        </div>
         <form id="groupForm" class="group-form">
           <label class="field">
             <span>Group name</span>
@@ -133,8 +226,24 @@
           <button type="submit">Create group</button>
           <p id="formStatus" class="form-status" aria-live="polite"></p>
         </form>
-      </section>
-    </main>
+      </div>
+    </div>
+
+    <div id="inviteModal" class="modal" hidden>
+      <div class="modal-content panel">
+        <div class="modal-headline">
+          <h2 class="panel-title">Invite User</h2>
+          <button id="closeInviteButton" type="button" class="ghost-button">Close</button>
+        </div>
+        <form id="inviteForm" class="invite-form">
+          <label class="field">
+            <span>Invite by username</span>
+            <input id="inviteUsernameInput" type="text" required maxlength="80" />
+          </label>
+          <button type="submit">Invite user</button>
+        </form>
+      </div>
+    </div>
 
     <script src="/shared/js/theme-utils.js" defer></script>
     <script src="/shared/js/session-utils.js" defer></script>
