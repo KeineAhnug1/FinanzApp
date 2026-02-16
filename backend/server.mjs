@@ -181,7 +181,9 @@ function parseIncome(value) {
 function parsePositiveAmount(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
-  return Number(numeric.toFixed(2));
+  const normalized = Number(numeric.toFixed(2));
+  if (normalized <= 0) return null;
+  return normalized;
 }
 
 function toDecimal(value) {
@@ -1188,6 +1190,11 @@ function toNullableDate(value) {
   return parsed;
 }
 
+function toNullableNumber(value) {
+  const parsed = toNumber(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 async function getGroupContext(groupIdRaw, sessionUserId) {
   const groupId = parseObjectId(groupIdRaw);
   if (!groupId) return { ok: false, status: 400, message: "Invalid group id" };
@@ -1242,6 +1249,70 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
     .sort({ date: -1, created_at: -1 })
     .toArray();
 
+  const fundings = await db.collection(COLLECTIONS.groupFunding)
+    .find({ group_id: context.groupId }, { projection: { _id: 1, group_activity_id: 1, amount: 1, info: 1, created_at: 1 } })
+    .sort({ created_at: -1 })
+    .toArray();
+
+  const activityById = new Map(activities.map((activity) => [String(activity._id), activity]));
+  const fundingIds = fundings.map((funding) => funding._id);
+
+  let participants = [];
+  let expenses = [];
+  let transactions = [];
+  if (fundingIds.length) {
+    participants = await db.collection(COLLECTIONS.fundingParticipants).aggregate([
+      { $match: { group_funding_id: { $in: fundingIds } } },
+      { $lookup: { from: COLLECTIONS.groupMembers, localField: "group_member_id", foreignField: "_id", as: "member" } },
+      { $unwind: "$member" },
+      { $match: { "member.group_id": context.groupId } },
+      { $lookup: { from: COLLECTIONS.users, localField: "member.user_id", foreignField: "_id", as: "user" } },
+      { $unwind: "$user" },
+      { $sort: { created_at: -1 } },
+      {
+        $project: {
+          _id: 0,
+          group_funding_id: 1,
+          amount: 1,
+          created_at: 1,
+          user_id: "$user._id",
+          username: "$user.username",
+          first_name: "$user.first_name",
+          last_name: "$user.last_name"
+        }
+      }
+    ]).toArray();
+
+    expenses = await db.collection(COLLECTIONS.groupExpenses)
+      .find(
+        { group_funding_id: { $in: fundingIds } },
+        { projection: { _id: 1, group_funding_id: 1, amount: 1, info: 1, state: 1, due_date: 1, created_at: 1 } }
+      )
+      .sort({ created_at: -1 })
+      .toArray();
+
+    const expenseIds = expenses.map((expense) => expense._id);
+    if (expenseIds.length) {
+      transactions = await db.collection(COLLECTIONS.transactions)
+        .find(
+          { group_expense_id: { $in: expenseIds } },
+          { projection: { _id: 1, group_expense_id: 1, amount: 1, created_at: 1 } }
+        )
+        .sort({ created_at: -1 })
+        .toArray();
+    }
+  }
+
+  const participantsByFunding = new Map();
+  for (const participant of participants) {
+    const fundingKey = String(participant.group_funding_id);
+    if (!participantsByFunding.has(fundingKey)) participantsByFunding.set(fundingKey, []);
+    participantsByFunding.get(fundingKey).push(participant);
+  }
+
+  const expensesById = new Map(expenses.map((expense) => [String(expense._id), expense]));
+  const fundingById = new Map(fundings.map((funding) => [String(funding._id), funding]));
+
   return sendJson(res, 200, {
     ok: true,
     group: {
@@ -1265,7 +1336,60 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
       info: activity.info ?? null,
       date: activity.date ?? null,
       created_at: activity.created_at ?? null
-    }))
+    })),
+    fundings: fundings.map((funding) => {
+      const linkedActivity = funding.group_activity_id ? activityById.get(String(funding.group_activity_id)) : null;
+      const contributions = participantsByFunding.get(String(funding._id)) ?? [];
+      return {
+        funding_id: String(funding._id),
+        group_activity_id: funding.group_activity_id ? String(funding.group_activity_id) : null,
+        amount: toNullableNumber(funding.amount),
+        info: funding.info ?? null,
+        created_at: funding.created_at ?? null,
+        contributions: contributions.map((entry) => ({
+          user_id: String(entry.user_id),
+          username: entry.username,
+          first_name: entry.first_name ?? null,
+          last_name: entry.last_name ?? null,
+          amount: toNullableNumber(entry.amount),
+          created_at: entry.created_at ?? null
+        })),
+        total_donated: Number(contributions.reduce((sum, entry) => sum + (toNullableNumber(entry.amount) ?? 0), 0).toFixed(2)),
+        linked_activity: linkedActivity
+          ? {
+            activity_id: String(linkedActivity._id),
+            info: linkedActivity.info ?? null,
+            date: linkedActivity.date ?? null
+          }
+          : null
+      };
+    }),
+    expenses: expenses.map((expense) => {
+      const funding = fundingById.get(String(expense.group_funding_id));
+      return {
+        group_expense_id: String(expense._id),
+        group_funding_id: String(expense.group_funding_id),
+        funding_info: funding?.info ?? null,
+        amount: toNullableNumber(expense.amount),
+        info: expense.info ?? null,
+        state: expense.state ?? null,
+        due_date: expense.due_date ?? null,
+        created_at: expense.created_at ?? null
+      };
+    }),
+    funding_transactions: transactions.map((transaction) => {
+      const expense = expensesById.get(String(transaction.group_expense_id));
+      const funding = expense ? fundingById.get(String(expense.group_funding_id)) : null;
+      return {
+        transaction_id: String(transaction._id),
+        group_expense_id: String(transaction.group_expense_id),
+        group_funding_id: expense ? String(expense.group_funding_id) : null,
+        amount: toNullableNumber(transaction.amount),
+        created_at: transaction.created_at ?? null,
+        expense_info: expense?.info ?? null,
+        funding_info: funding?.info ?? null
+      };
+    })
   });
 }
 
@@ -1319,12 +1443,6 @@ async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
   }
 
   const info = String(payload.info || "").trim() || null;
-  const amountRaw = String(payload.amount ?? "").trim();
-  const amountNumber = amountRaw ? Number(amountRaw) : null;
-  if (amountRaw && (!Number.isFinite(amountNumber) || amountNumber < 0)) {
-    return sendJson(res, 400, { ok: false, message: "Funding amount must be a non-negative number" });
-  }
-  const amount = amountNumber == null ? null : Decimal128.fromString(amountNumber.toFixed(2));
 
   let groupActivityId = null;
   const activityIdRaw = String(payload.group_activity_id || "").trim();
@@ -1335,11 +1453,12 @@ async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
     if (!linkedActivity) return sendJson(res, 400, { ok: false, message: "Linked activity does not exist in this group" });
   }
 
-  if (!info && amount == null && !groupActivityId) {
-    return sendJson(res, 400, { ok: false, message: "Funding needs at least amount, info or a linked activity" });
+  if (!info && !groupActivityId) {
+    return sendJson(res, 400, { ok: false, message: "Funding needs info or a linked activity" });
   }
 
   const createdAt = new Date();
+  const amount = Decimal128.fromString("0.00");
   const insertResult = await db.collection(COLLECTIONS.groupFunding).insertOne({
     group_id: context.groupId,
     group_activity_id: groupActivityId,
@@ -1353,9 +1472,183 @@ async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
     funding: {
       funding_id: String(insertResult.insertedId),
       group_activity_id: groupActivityId ? String(groupActivityId) : null,
-      amount: amountNumber,
+      amount: 0,
       info,
       created_at: createdAt
+    }
+  });
+}
+
+async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw, session.user.id);
+  if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
+
+  const fundingId = parseObjectId(fundingIdRaw);
+  if (!fundingId) return sendJson(res, 400, { ok: false, message: "Invalid funding id" });
+
+  const funding = await db.collection(COLLECTIONS.groupFunding).findOne(
+    { _id: fundingId, group_id: context.groupId },
+    { projection: { _id: 1, amount: 1 } }
+  );
+  if (!funding) return sendJson(res, 404, { ok: false, message: "Funding not found for this group" });
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const normalizedAmount = parsePositiveAmount(payload.amount);
+  if (normalizedAmount == null) {
+    return sendJson(res, 400, { ok: false, message: "Donation amount must be a positive number" });
+  }
+  const amount = toDecimal(normalizedAmount);
+
+  const bankAccounts = await db.collection(COLLECTIONS.bankAccounts)
+    .find({ user_id: context.user._id }, { projection: { _id: 1, balance: 1 } })
+    .toArray();
+
+  let bankAccount = null;
+  let currentBalance = null;
+  for (const account of bankAccounts) {
+    const balance = toNullableNumber(account.balance);
+    if (balance == null) continue;
+    if (bankAccount == null || balance > currentBalance) {
+      bankAccount = account;
+      currentBalance = balance;
+    }
+  }
+
+  if (currentBalance != null && normalizedAmount > currentBalance) {
+    return sendJson(res, 400, { ok: false, message: "Not enough money on your bank account for this donation" });
+  }
+
+  const existingParticipant = await db.collection(COLLECTIONS.fundingParticipants).findOne({
+    group_funding_id: fundingId,
+    group_member_id: context.membership._id
+  });
+
+  if (existingParticipant) {
+    const currentAmount = toNullableNumber(existingParticipant.amount) ?? 0;
+    const nextAmount = Number((currentAmount + normalizedAmount).toFixed(2));
+    await db.collection(COLLECTIONS.fundingParticipants).updateOne(
+      { _id: existingParticipant._id },
+      { $set: { amount: toDecimal(nextAmount) } }
+    );
+  } else {
+    await db.collection(COLLECTIONS.fundingParticipants).insertOne({
+      group_funding_id: fundingId,
+      group_member_id: context.membership._id,
+      amount,
+      created_at: new Date()
+    });
+  }
+
+  const currentFundingAmount = toNullableNumber(funding.amount) ?? 0;
+  const updatedFundingAmount = Number((currentFundingAmount + normalizedAmount).toFixed(2));
+  await db.collection(COLLECTIONS.groupFunding).updateOne(
+    { _id: fundingId },
+    { $set: { amount: toDecimal(updatedFundingAmount) } }
+  );
+
+  let updatedBankBalance = null;
+  if (bankAccount && currentBalance != null) {
+    updatedBankBalance = Number((currentBalance - normalizedAmount).toFixed(2));
+    await db.collection(COLLECTIONS.bankAccounts).updateOne(
+      { _id: bankAccount._id },
+      { $set: { balance: toDecimal(updatedBankBalance) } }
+    );
+  }
+
+  return sendJson(res, 201, {
+    ok: true,
+    donation: {
+      funding_id: String(fundingId),
+      amount: normalizedAmount,
+      funding_total: updatedFundingAmount,
+      bank_balance: updatedBankBalance
+    }
+  });
+}
+
+async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw, session.user.id);
+  if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
+  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can create group expenses" });
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const fundingId = parseObjectId(payload.group_funding_id);
+  if (!fundingId) return sendJson(res, 400, { ok: false, message: "A valid funding is required" });
+
+  const funding = await db.collection(COLLECTIONS.groupFunding).findOne(
+    { _id: fundingId, group_id: context.groupId },
+    { projection: { _id: 1, amount: 1 } }
+  );
+  if (!funding) return sendJson(res, 404, { ok: false, message: "Funding not found in this group" });
+
+  const normalizedAmount = parsePositiveAmount(payload.amount);
+  if (normalizedAmount == null) return sendJson(res, 400, { ok: false, message: "Expense amount must be a positive number" });
+
+  const dueDate = toNullableDate(payload.due_date);
+  if (payload.due_date && !dueDate) return sendJson(res, 400, { ok: false, message: "Expense due date is invalid" });
+
+  const info = String(payload.info || "").trim() || null;
+  const fundingBalance = toNullableNumber(funding.amount) ?? 0;
+  if (normalizedAmount > fundingBalance) return sendJson(res, 400, { ok: false, message: "Funding balance is too low for this expense" });
+
+  const createdAt = new Date();
+  const amountDecimal = toDecimal(normalizedAmount);
+  const expenseResult = await db.collection(COLLECTIONS.groupExpenses).insertOne({
+    group_funding_id: fundingId,
+    amount: amountDecimal,
+    info,
+    state: "paid",
+    due_date: dueDate,
+    created_at: createdAt
+  });
+
+  await db.collection(COLLECTIONS.transactions).insertOne({
+    group_expense_id: expenseResult.insertedId,
+    amount: amountDecimal,
+    created_at: createdAt
+  });
+
+  const updatedFundingBalance = Number((fundingBalance - normalizedAmount).toFixed(2));
+  await db.collection(COLLECTIONS.groupFunding).updateOne(
+    { _id: fundingId },
+    { $set: { amount: toDecimal(updatedFundingBalance) } }
+  );
+
+  return sendJson(res, 201, {
+    ok: true,
+    expense: {
+      group_expense_id: String(expenseResult.insertedId),
+      group_funding_id: String(fundingId),
+      amount: normalizedAmount,
+      info,
+      state: "paid",
+      due_date: dueDate,
+      created_at: createdAt,
+      funding_balance: updatedFundingBalance
     }
   });
 }
@@ -1519,17 +1812,38 @@ async function handleRemoveMember(req, res, groupIdRaw, userIdRaw, session) {
   return sendJson(res, 200, { ok: true });
 }
 
-async function handleDeleteGroup(req, res, groupIdRaw, session) {
-  if (req.method !== "DELETE") {
-    res.setHeader("Allow", "DELETE");
+async function handlePromoteMemberToAdmin(req, res, groupIdRaw, userIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
   const context = await getGroupContext(groupIdRaw, session.user.id);
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can delete groups" });
+  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can assign admin role" });
 
-  const groupFunding = await db.collection(COLLECTIONS.groupFunding).find({ group_id: context.groupId }, { projection: { _id: 1 } }).toArray();
+  const targetUserId = parseObjectId(userIdRaw);
+  if (!targetUserId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
+  if (String(targetUserId) === String(context.user._id)) return sendJson(res, 400, { ok: false, message: "You are already an admin" });
+
+  const targetMembership = await db.collection(COLLECTIONS.groupMembers).findOne({
+    group_id: context.groupId,
+    user_id: targetUserId,
+    ...activeMembershipFilter()
+  });
+  if (!targetMembership) return sendJson(res, 404, { ok: false, message: "Participant not found in this group" });
+  if (targetMembership.role === "admin") return sendJson(res, 409, { ok: false, message: "User is already admin" });
+
+  await db.collection(COLLECTIONS.groupMembers).updateOne(
+    { _id: targetMembership._id },
+    { $set: { role: "admin" } }
+  );
+
+  return sendJson(res, 200, { ok: true, role: "admin" });
+}
+
+async function deleteGroupCascade(groupId) {
+  const groupFunding = await db.collection(COLLECTIONS.groupFunding).find({ group_id: groupId }, { projection: { _id: 1 } }).toArray();
   const fundingIds = groupFunding.map((funding) => funding._id);
 
   let groupExpenseIds = [];
@@ -1547,9 +1861,70 @@ async function handleDeleteGroup(req, res, groupIdRaw, session) {
     await db.collection(COLLECTIONS.groupFunding).deleteMany({ _id: { $in: fundingIds } });
   }
 
-  await db.collection(COLLECTIONS.groupActivities).deleteMany({ group_id: context.groupId });
-  await db.collection(COLLECTIONS.groupMembers).deleteMany({ group_id: context.groupId });
-  await db.collection(COLLECTIONS.groups).deleteOne({ _id: context.groupId });
+  await db.collection(COLLECTIONS.groupActivities).deleteMany({ group_id: groupId });
+  await db.collection(COLLECTIONS.groupMembers).deleteMany({ group_id: groupId });
+  await db.collection(COLLECTIONS.groups).deleteOne({ _id: groupId });
+}
+
+async function handleLeaveGroup(req, res, groupIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw, session.user.id);
+  if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
+
+  const leaveResult = await db.collection(COLLECTIONS.groupMembers).deleteOne({ _id: context.membership._id });
+  if (leaveResult.deletedCount === 0) {
+    return sendJson(res, 404, { ok: false, message: "Membership not found" });
+  }
+
+  if (context.membership.role === "admin") {
+    const activeAdmins = await db.collection(COLLECTIONS.groupMembers).countDocuments({
+      group_id: context.groupId,
+      role: "admin",
+      ...activeMembershipFilter()
+    });
+
+    if (activeAdmins === 0) {
+      const replacementAdmin = await db.collection(COLLECTIONS.groupMembers).findOne(
+        { group_id: context.groupId, ...activeMembershipFilter() },
+        { sort: { _id: 1 } }
+      );
+      if (replacementAdmin) {
+        await db.collection(COLLECTIONS.groupMembers).updateOne(
+          { _id: replacementAdmin._id },
+          { $set: { role: "admin" } }
+        );
+      }
+    }
+  }
+
+  const remainingMembers = await db.collection(COLLECTIONS.groupMembers).countDocuments({
+    group_id: context.groupId,
+    ...activeMembershipFilter()
+  });
+
+  if (remainingMembers === 0) {
+    await deleteGroupCascade(context.groupId);
+    return sendJson(res, 200, { ok: true, left: true, deleted_group: true });
+  }
+
+  return sendJson(res, 200, { ok: true, left: true, deleted_group: false });
+}
+
+async function handleDeleteGroup(req, res, groupIdRaw, session) {
+  if (req.method !== "DELETE") {
+    res.setHeader("Allow", "DELETE");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw, session.user.id);
+  if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
+  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can delete groups" });
+
+  await deleteGroupCascade(context.groupId);
 
   return sendJson(res, 200, { ok: true });
 }
@@ -1892,6 +2267,18 @@ const server = http.createServer(async (req, res) => {
 
       const createFundingMatch = pathname.match(/^\/api\/groups\/([^/]+)\/funding$/);
       if (createFundingMatch) return await handleCreateGroupFunding(req, res, createFundingMatch[1], session);
+
+      const donateMatch = pathname.match(/^\/api\/groups\/([^/]+)\/funding\/([^/]+)\/donate$/);
+      if (donateMatch) return await handleDonateToFunding(req, res, donateMatch[1], donateMatch[2], session);
+
+      const createExpenseMatch = pathname.match(/^\/api\/groups\/([^/]+)\/expenses$/);
+      if (createExpenseMatch) return await handleCreateGroupExpense(req, res, createExpenseMatch[1], session);
+
+      const promoteAdminMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)\/promote-admin$/);
+      if (promoteAdminMatch) return await handlePromoteMemberToAdmin(req, res, promoteAdminMatch[1], promoteAdminMatch[2], session);
+
+      const leaveGroupMatch = pathname.match(/^\/api\/groups\/([^/]+)\/leave$/);
+      if (leaveGroupMatch) return await handleLeaveGroup(req, res, leaveGroupMatch[1], session);
 
       const removeMemberMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)$/);
       if (removeMemberMatch) return await handleRemoveMember(req, res, removeMemberMatch[1], removeMemberMatch[2], session);

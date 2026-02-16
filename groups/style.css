@@ -474,6 +474,27 @@ button {
   color: var(--text-muted);
 }
 
+.inbox-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inbox-indicator {
+  min-width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  padding: 0 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #cb4c4c;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.small-secondary-button,
 .small-danger-button,
 .danger-button {
   border: 0;
@@ -481,6 +502,11 @@ button {
   color: #fff;
   cursor: pointer;
   font: inherit;
+}
+
+.small-secondary-button {
+  padding: 8px 10px;
+  background: linear-gradient(160deg, var(--primary), var(--primary-dark));
 }
 
 .small-danger-button {

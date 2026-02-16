@@ -4,8 +4,10 @@ const mainView = document.getElementById("mainView");
 const detailView = document.getElementById("detailView");
 
 const openInboxButton = document.getElementById("openInboxButton");
+const inboxIndicator = document.getElementById("inboxIndicator");
 const openCreateGroupButton = document.getElementById("openCreateGroupButton");
 const backToGroupsButton = document.getElementById("backToGroupsButton");
+const leaveGroupButton = document.getElementById("leaveGroupButton");
 const openInviteWindowButton = document.getElementById("openInviteWindowButton");
 
 const inboxModal = document.getElementById("inboxModal");
@@ -51,7 +53,6 @@ const activityDateInput = document.getElementById("activityDateInput");
 
 const fundingForm = document.getElementById("fundingForm");
 const fundingInfoInput = document.getElementById("fundingInfoInput");
-const fundingAmountInput = document.getElementById("fundingAmountInput");
 const fundingActivitySelect = document.getElementById("fundingActivitySelect");
 
 const donationForm = document.getElementById("donationForm");
@@ -113,6 +114,18 @@ function setInboxStatus(message, type = "") {
     inboxStatus.classList.add(type);
   }
   inboxStatus.textContent = message || "";
+}
+
+function updateInboxIndicator(invitations = []) {
+  const count = invitations.length;
+  const hasInvitations = count > 0;
+
+  openInboxButton.classList.toggle("has-pending", hasInvitations);
+  openInboxButton.setAttribute("aria-label", hasInvitations ? `Inbox with ${count} pending invitations` : "Inbox");
+
+  if (!inboxIndicator) return;
+  inboxIndicator.hidden = !hasInvitations;
+  inboxIndicator.textContent = count > 9 ? "9+" : String(count);
 }
 
 function switchDetailTab(tabName) {
@@ -402,6 +415,7 @@ function renderGroupDetail(detail) {
     groupDetailEmpty.hidden = false;
     groupDetailContent.hidden = true;
     openInviteWindowButton.hidden = true;
+    leaveGroupButton.hidden = true;
     selectedFundingId = null;
     groupActivitiesList.innerHTML = "";
     groupFundingsList.innerHTML = "";
@@ -417,6 +431,7 @@ function renderGroupDetail(detail) {
   groupDetailName.textContent = detail.group.name;
   groupDetailAddress.textContent = `Address: ${detail.group.address || "n/a"}`;
   groupDetailCreated.textContent = `Created: ${formatDate(detail.group.created_at)}`;
+  leaveGroupButton.hidden = false;
 
   memberActionsPanel.hidden = false;
   adminPanel.hidden = !detail.is_admin;
@@ -449,9 +464,18 @@ function renderGroupDetail(detail) {
     `;
 
     if (detail.is_admin && !isSessionUser) {
+      if (member.role !== "admin" && normalizeMemberStatus(member.status) === "accepted") {
+        const promoteButton = document.createElement("button");
+        promoteButton.type = "button";
+        promoteButton.className = "small-secondary-button promote-admin-button";
+        promoteButton.dataset.userId = member.user_id;
+        promoteButton.textContent = "Make admin";
+        item.appendChild(promoteButton);
+      }
+
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "small-danger-button";
+      button.className = "small-danger-button remove-member-button";
       button.dataset.userId = member.user_id;
       button.textContent = "Kick out";
       item.appendChild(button);
@@ -523,6 +547,7 @@ async function loadInvitations() {
   }
 
   invitationsState = payload.invitations || [];
+  updateInboxIndicator(invitationsState);
   renderInvitations(invitationsState);
 }
 
@@ -573,19 +598,28 @@ async function createGroupActivity(groupId, info, date) {
   }
 }
 
-async function createGroupFunding(groupId, info, amount, groupActivityId) {
+async function createGroupFunding(groupId, info, groupActivityId) {
   const response = await fetch(`/api/groups/${groupId}/funding`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       info: info || null,
-      amount: amount || null,
       group_activity_id: groupActivityId || null
     })
   });
   const payload = await response.json();
   if (!response.ok || !payload.ok) {
     throw new Error(payload.message || "Could not create funding");
+  }
+}
+
+async function promoteMemberToAdmin(groupId, userId) {
+  const response = await fetch(`/api/groups/${groupId}/members/${userId}/promote-admin`, {
+    method: "POST"
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not promote participant to admin");
   }
 }
 
@@ -645,6 +679,16 @@ async function deleteGroup(groupId) {
   const payload = await response.json();
   if (!response.ok || !payload.ok) {
     throw new Error(payload.message || "Could not delete group");
+  }
+}
+
+async function leaveGroup(groupId) {
+  const response = await fetch(`/api/groups/${groupId}/leave`, {
+    method: "POST"
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "Could not leave group");
   }
 }
 
@@ -756,17 +800,24 @@ inboxInvitations.addEventListener("click", async (event) => {
 });
 
 membersList.addEventListener("click", async (event) => {
-  const button = event.target.closest(".small-danger-button");
+  const removeButton = event.target.closest(".remove-member-button");
+  const promoteButton = event.target.closest(".promote-admin-button");
+  const button = removeButton || promoteButton;
   if (!button || !selectedGroupDetail || !selectedGroupId) return;
 
   const userId = button.dataset.userId;
   if (!userId) return;
 
-  setDetailStatus("Removing participant...");
+  const isPromote = button.classList.contains("promote-admin-button");
+  setDetailStatus(isPromote ? "Promoting participant to admin..." : "Removing participant...");
   try {
-    await removeMember(selectedGroupId, userId);
+    if (isPromote) {
+      await promoteMemberToAdmin(selectedGroupId, userId);
+    } else {
+      await removeMember(selectedGroupId, userId);
+    }
     await loadGroupDetail(selectedGroupId);
-    setDetailStatus("Participant removed from group.", "ok");
+    setDetailStatus(isPromote ? "Participant is now admin." : "Participant removed from group.", "ok");
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
@@ -812,7 +863,6 @@ fundingForm.addEventListener("submit", async (event) => {
     await createGroupFunding(
       selectedGroupId,
       fundingInfoInput.value.trim(),
-      fundingAmountInput.value.trim(),
       fundingActivitySelect.value
     );
     fundingForm.reset();
@@ -841,6 +891,10 @@ donationForm.addEventListener("submit", async (event) => {
 expenseForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedGroupId) return;
+  if (!selectedGroupDetail?.is_admin) {
+    setDetailStatus("Only admins can create group expenses.", "error");
+    return;
+  }
 
   setDetailStatus("Creating paid group expense...");
   try {
@@ -861,6 +915,10 @@ expenseForm.addEventListener("submit", async (event) => {
 
 deleteGroupButton.addEventListener("click", async () => {
   if (!selectedGroupId) return;
+  if (!selectedGroupDetail?.is_admin) {
+    setDetailStatus("Only admins can delete groups.", "error");
+    return;
+  }
 
   const confirmed = window.confirm("Delete this group and all linked group data?");
   if (!confirmed) return;
@@ -868,6 +926,24 @@ deleteGroupButton.addEventListener("click", async () => {
   setDetailStatus("Deleting group...");
   try {
     await deleteGroup(selectedGroupId);
+    selectedGroupId = null;
+    renderGroupDetail(null);
+    await loadGroups();
+    showMainView();
+  } catch (error) {
+    setDetailStatus(error.message, "error");
+  }
+});
+
+leaveGroupButton.addEventListener("click", async () => {
+  if (!selectedGroupId) return;
+
+  const confirmed = window.confirm("Leave this group?");
+  if (!confirmed) return;
+
+  setDetailStatus("Leaving group...");
+  try {
+    await leaveGroup(selectedGroupId);
     selectedGroupId = null;
     renderGroupDetail(null);
     await loadGroups();

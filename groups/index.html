@@ -43,7 +43,10 @@
             <p class="panel-copy">Select one group to open the detail view.</p>
           </div>
           <div class="main-actions">
-            <button id="openInboxButton" type="button" class="ghost-button">Inbox</button>
+            <button id="openInboxButton" type="button" class="ghost-button inbox-button">
+              Inbox
+              <span id="inboxIndicator" class="inbox-indicator" hidden></span>
+            </button>
             <button id="openCreateGroupButton" type="button">Create Group</button>
           </div>
         </div>
@@ -64,6 +67,7 @@
             </div>
             <div class="detail-actions">
               <button id="backToGroupsButton" type="button" class="ghost-button">Back</button>
+              <button id="leaveGroupButton" type="button" class="small-danger-button">Leave Group</button>
               <button id="openInviteWindowButton" type="button" hidden>Invite User</button>
             </div>
           </div>
@@ -133,10 +137,6 @@
                 <label class="field">
                   <span>Funding info (optional)</span>
                   <input id="fundingInfoInput" type="text" maxlength="180" placeholder="e.g. Shared groceries budget" />
-                </label>
-                <label class="field">
-                  <span>Funding amount (optional)</span>
-                  <input id="fundingAmountInput" type="number" min="0" step="0.01" inputmode="decimal" />
                 </label>
                 <label class="field">
                   <span>Link to existing activity (optional)</span>
