@@ -36,7 +36,7 @@ npm run web:start
 Danach ist die App unter `http://localhost:3000` erreichbar.
 
 Hinweis zur Datenbank:
-- `backend/server.mjs` verwendet standardmaessig `MONGODB_DB_V2` (oder `${MONGODB_DB}_v2`).
+- `backend/server.mjs` verwendet standardmaessig `MONGODB_DB_V3` (oder `${MONGODB_DB}_v3`).
 
 ## Struktur
 

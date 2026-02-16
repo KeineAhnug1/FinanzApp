@@ -13,7 +13,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 const PORT = Number(process.env.PORT || 3000);
 const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
-const DB_NAME = process.env.MONGODB_DB_V2 || `${BASE_DB_NAME}_v2`;
+const DB_NAME = process.env.MONGODB_DB_V3 || `${BASE_DB_NAME}_v3`;
 const MONGO_URI = process.env.MONGODB_URI;
 const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
 const DEV_EXPOSE_VERIFICATION_CODE = process.env.DEV_EXPOSE_VERIFICATION_CODE === "true";
@@ -43,7 +43,7 @@ const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utilities", 
 const COLLECTIONS = {
   users: "users",
   emailVerifications: "email_verifications",
-  incomeEntries: "income_entries",
+  incomeEntries: "income",
   expenseEntries: "private_expenses",
   userCategories: "user_categories",
   groups: "groups",
@@ -54,6 +54,7 @@ const COLLECTIONS = {
   fundingParticipants: "funding_participants",
   transactions: "transactions",
   bankAccounts: "bank_accounts",
+  depots: "depots",
   shares: "shares"
 };
 
@@ -338,26 +339,37 @@ async function requireSessionUser(req, res) {
   return session;
 }
 
-function serializeIncomeEntry(entry) {
+function serializeIncomeEntry(entry, userId = null) {
+  const receivedAtDate =
+    entry.received_at instanceof Date
+      ? entry.received_at
+      : entry.pay_date instanceof Date
+        ? entry.pay_date
+        : entry.created_at instanceof Date
+          ? entry.created_at
+          : null;
+
   return {
     id: String(entry._id),
-    user_id: String(entry.user_id),
-    source: entry.source,
+    user_id: String(userId || entry.user_id || ""),
+    source: entry.source || entry.info || "",
     category: entry.category || "",
     amount: toNumber(entry.amount),
-    recurrence: entry.recurrence || "once",
-    is_active: typeof entry.is_active === "boolean" ? entry.is_active : true,
-    received_at: entry.received_at instanceof Date ? entry.received_at.toISOString() : null,
-    note: entry.note || "",
+    recurrence: entry.recurrence || entry.cycle || "once",
+    is_active: typeof entry.is_active === "boolean" ? entry.is_active : entry.state !== "paused",
+    received_at: receivedAtDate ? receivedAtDate.toISOString() : null,
+    note: entry.note || entry.info || "",
     created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : null,
     updated_at: entry.updated_at instanceof Date ? entry.updated_at.toISOString() : null
   };
 }
 
-function serializeExpenseEntry(entry) {
+function serializeExpenseEntry(entry, userId = null) {
   const spentAtDate =
     entry.spent_at instanceof Date
       ? entry.spent_at
+      : entry.pay_date instanceof Date
+        ? entry.pay_date
       : entry.due_date instanceof Date
         ? entry.due_date
         : entry.created_at instanceof Date
@@ -366,17 +378,44 @@ function serializeExpenseEntry(entry) {
 
   return {
     id: String(entry._id),
-    user_id: String(entry.user_id),
+    user_id: String(userId || entry.user_id || ""),
     source: entry.source || entry.info || "",
     category: entry.category || "other",
     amount: toNumber(entry.amount),
-    recurrence: entry.recurrence || "once",
+    recurrence: entry.recurrence || entry.cycle || "once",
     is_active: typeof entry.is_active === "boolean" ? entry.is_active : entry.state !== "paused",
     spent_at: spentAtDate ? spentAtDate.toISOString() : null,
-    note: entry.note || "",
+    note: entry.note || entry.info || "",
     created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : null,
     updated_at: entry.updated_at instanceof Date ? entry.updated_at.toISOString() : null
   };
+}
+
+async function listUserBankAccounts(userId) {
+  return await db.collection(COLLECTIONS.bankAccounts)
+    .find({ user_id: userId }, { projection: { _id: 1, balance: 1, created_at: 1 } })
+    .sort({ created_at: 1, _id: 1 })
+    .toArray();
+}
+
+async function ensureUserFinanceRoots(userId) {
+  let bankAccounts = await listUserBankAccounts(userId);
+  if (bankAccounts.length === 0) {
+    const createdAt = new Date();
+    const insert = await db.collection(COLLECTIONS.bankAccounts).insertOne({
+      user_id: userId,
+      balance: toDecimal(0),
+      created_at: createdAt
+    });
+    bankAccounts = [{ _id: insert.insertedId, balance: toDecimal(0), created_at: createdAt }];
+  }
+
+  const existingDepot = await db.collection(COLLECTIONS.depots).findOne({ user_id: userId }, { projection: { _id: 1 } });
+  if (!existingDepot) {
+    await db.collection(COLLECTIONS.depots).insertOne({ user_id: userId, created_at: new Date() });
+  }
+
+  return bankAccounts;
 }
 
 function getMailer() {
@@ -415,66 +454,9 @@ async function sendVerificationEmail(toEmail, firstName, code) {
   return true;
 }
 
-async function migrateLegacyExpenseEntriesToV2() {
-  const legacyCollectionName = "expense_entries";
-  const legacyExists = await db.listCollections({ name: legacyCollectionName }, { nameOnly: true }).hasNext();
-  if (!legacyExists) return;
-
-  const legacyEntries = await db.collection(legacyCollectionName).find({}).toArray();
-  if (!legacyEntries.length) return;
-
-  const operations = [];
-  for (const legacyEntry of legacyEntries) {
-    if (!legacyEntry.user_id) continue;
-
-    const amount = toNumber(legacyEntry.amount);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
-
-    const normalizedRecurrence = normalizeRecurrence(legacyEntry.recurrence) || "once";
-    const isActive = parseBoolean(legacyEntry.is_active, true);
-    const normalizedCategory = normalizeCategoryValue(legacyEntry.category) || "other";
-    const source = String(legacyEntry.source || legacyEntry.info || "Legacy-Ausgabe").trim();
-    const note = String(legacyEntry.note || "").trim();
-    const spentAt =
-      legacyEntry.spent_at instanceof Date
-        ? legacyEntry.spent_at
-        : legacyEntry.created_at instanceof Date
-          ? legacyEntry.created_at
-          : new Date();
-    const legacyId = String(legacyEntry._id);
-
-    operations.push({
-      updateOne: {
-        filter: { legacy_expense_entry_id: legacyId },
-        update: {
-          $setOnInsert: {
-            user_id: legacyEntry.user_id,
-            source,
-            category: normalizedCategory,
-            amount: toDecimal(amount),
-            theo_amount: toDecimal(amount),
-            spent_at: spentAt,
-            due_date: spentAt,
-            info: source || note || null,
-            state: normalizedRecurrence === "once" ? "open" : (isActive ? "open" : "paused"),
-            note,
-            recurrence: normalizedRecurrence,
-            is_active: normalizedRecurrence === "once" ? true : isActive,
-            legacy_expense_entry_id: legacyId,
-            created_at: legacyEntry.created_at instanceof Date ? legacyEntry.created_at : new Date(),
-            updated_at: new Date()
-          }
-        },
-        upsert: true
-      }
-    });
-  }
-
-  if (!operations.length) return;
-  const migrationResult = await db.collection(COLLECTIONS.expenseEntries).bulkWrite(operations, { ordered: false });
-  if (migrationResult.upsertedCount > 0) {
-    console.log(`[migration] ${migrationResult.upsertedCount} legacy expense entries in private_expenses uebernommen.`);
-  }
+async function migrateLegacyExpenseEntriesToV3() {
+  // Legacy v2 expense migrations are intentionally disabled for v3.
+  // v3 private_expenses require bank_account_id, so the old migration would create invalid docs.
 }
 
 async function migratePlaintextPasswords() {
@@ -774,6 +756,7 @@ async function handleRegisterVerify(req, res) {
 
   try {
     const insert = await db.collection(COLLECTIONS.users).insertOne(userDoc);
+    await ensureUserFinanceRoots(insert.insertedId);
     await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
     return sendJson(res, 201, {
       ok: true,
@@ -789,12 +772,18 @@ async function handleRegisterVerify(req, res) {
 async function handleCategories(req, res, session) {
   const userId = parseObjectId(session.user.id);
   if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  const userAccounts = await listUserBankAccounts(userId);
+  const accountIds = userAccounts.map((account) => account._id);
 
   if (req.method === "GET") {
     const [stored, incomeDistinct, expenseDistinct] = await Promise.all([
       db.collection(COLLECTIONS.userCategories).find({ user_id: userId }).project({ _id: 0, kind: 1, value: 1 }).toArray(),
-      db.collection(COLLECTIONS.incomeEntries).distinct("category", { user_id: userId }),
-      db.collection(COLLECTIONS.expenseEntries).distinct("category", { user_id: userId })
+      accountIds.length
+        ? db.collection(COLLECTIONS.incomeEntries).distinct("category", { bank_account_id: { $in: accountIds } })
+        : Promise.resolve([]),
+      accountIds.length
+        ? db.collection(COLLECTIONS.expenseEntries).distinct("category", { bank_account_id: { $in: accountIds } })
+        : Promise.resolve([])
     ]);
 
     const incomeValues = [];
@@ -841,8 +830,9 @@ async function handleCategories(req, res, session) {
   if (!fallbackCategory) return sendJson(res, 400, { ok: false, message: "replace_with ist ungueltig" });
 
   const collectionName = kind === "income" ? COLLECTIONS.incomeEntries : COLLECTIONS.expenseEntries;
+  const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
   const updateResult = await db.collection(collectionName).updateMany(
-    { user_id: userId, category: new RegExp(`^${escapeRegex(category)}$`, "i") },
+    { ...accountFilter, category: new RegExp(`^${escapeRegex(category)}$`, "i") },
     { $set: { category: fallbackCategory, updated_at: new Date() } }
   );
 
@@ -864,15 +854,17 @@ async function handleCategories(req, res, session) {
 async function handleIncomeEntries(req, res, session) {
   const userId = parseObjectId(session.user.id);
   if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  const userAccounts = await ensureUserFinanceRoots(userId);
+  const accountIds = userAccounts.map((account) => account._id);
 
   if (req.method === "GET") {
     const entries = await db.collection(COLLECTIONS.incomeEntries)
-      .find({ user_id: userId })
-      .sort({ received_at: -1, created_at: -1 })
+      .find({ bank_account_id: { $in: accountIds } })
+      .sort({ received_at: -1, pay_date: -1, created_at: -1 })
       .limit(200)
       .toArray();
 
-    return sendJson(res, 200, { ok: true, entries: entries.map(serializeIncomeEntry) });
+    return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeIncomeEntry(entry, userId)) });
   }
 
   if (req.method !== "POST") {
@@ -903,23 +895,31 @@ async function handleIncomeEntries(req, res, session) {
   if (!recurrence) return sendJson(res, 400, { ok: false, message: "Wiederholung muss once, weekly oder monthly sein" });
 
   await rememberUserCategory(userId, "income", category);
+  const selectedBankAccountId = parseObjectId(payload.bank_account_id);
+  const bankAccountId = selectedBankAccountId && accountIds.some((id) => String(id) === String(selectedBankAccountId))
+    ? selectedBankAccountId
+    : accountIds[0];
 
   const doc = {
-    user_id: userId,
+    bank_account_id: bankAccountId,
     source,
     category,
     amount: toDecimal(amountNumber),
     received_at: receivedAt,
+    pay_date: receivedAt,
     note,
     recurrence,
+    cycle: recurrence,
     is_active: recurrence === "once" ? true : isActive,
+    state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
+    info: source || note || null,
     created_at: new Date(),
     updated_at: new Date()
   };
 
   const insert = await db.collection(COLLECTIONS.incomeEntries).insertOne(doc);
   const inserted = await db.collection(COLLECTIONS.incomeEntries).findOne({ _id: insert.insertedId });
-  return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(inserted) });
+  return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(inserted, userId) });
 }
 
 async function handleIncomeEntryById(req, res, entryIdRaw, session) {
@@ -928,9 +928,12 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
 
   const userId = parseObjectId(session.user.id);
   if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  const accountIds = (await listUserBankAccounts(userId)).map((account) => account._id);
+  if (accountIds.length === 0) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  const accountFilter = { bank_account_id: { $in: accountIds } };
 
   if (req.method === "DELETE") {
-    const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({ _id: entryId, user_id: userId });
+    const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({ _id: entryId, ...accountFilter });
     if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
     return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
   }
@@ -965,7 +968,7 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   await rememberUserCategory(userId, "income", category);
 
   const updated = await db.collection(COLLECTIONS.incomeEntries).findOneAndUpdate(
-    { _id: entryId, user_id: userId },
+    { _id: entryId, ...accountFilter },
     {
       $set: {
         source,
@@ -973,7 +976,11 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
         note,
         amount: toDecimal(amountNumber),
         received_at: receivedAt,
+        pay_date: receivedAt,
         recurrence,
+        cycle: recurrence,
+        state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
+        info: source || note || null,
         is_active: recurrence === "once" ? true : isActive,
         updated_at: new Date()
       }
@@ -982,21 +989,23 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   );
 
   if (!updated) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
-  return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated) });
+  return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated, userId) });
 }
 
 async function handleExpenseEntries(req, res, session) {
   const userId = parseObjectId(session.user.id);
   if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  const userAccounts = await ensureUserFinanceRoots(userId);
+  const accountIds = userAccounts.map((account) => account._id);
 
   if (req.method === "GET") {
     const entries = await db.collection(COLLECTIONS.expenseEntries)
-      .find({ user_id: userId })
-      .sort({ spent_at: -1, due_date: -1, created_at: -1 })
+      .find({ bank_account_id: { $in: accountIds } })
+      .sort({ spent_at: -1, pay_date: -1, due_date: -1, created_at: -1 })
       .limit(200)
       .toArray();
 
-    return sendJson(res, 200, { ok: true, entries: entries.map(serializeExpenseEntry) });
+    return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeExpenseEntry(entry, userId)) });
   }
 
   if (req.method !== "POST") {
@@ -1027,19 +1036,25 @@ async function handleExpenseEntries(req, res, session) {
   if (!recurrence) return sendJson(res, 400, { ok: false, message: "Wiederholung muss once, weekly oder monthly sein" });
 
   await rememberUserCategory(userId, "expense", category);
+  const selectedBankAccountId = parseObjectId(payload.bank_account_id);
+  const bankAccountId = selectedBankAccountId && accountIds.some((id) => String(id) === String(selectedBankAccountId))
+    ? selectedBankAccountId
+    : accountIds[0];
 
   const doc = {
-    user_id: userId,
+    bank_account_id: bankAccountId,
     source,
     category,
     amount: toDecimal(amountNumber),
     theo_amount: toDecimal(amountNumber),
     spent_at: spentAt,
     due_date: spentAt,
+    pay_date: spentAt,
     info: source || note || null,
     state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
     note,
     recurrence,
+    cycle: recurrence,
     is_active: recurrence === "once" ? true : isActive,
     created_at: new Date(),
     updated_at: new Date()
@@ -1047,7 +1062,7 @@ async function handleExpenseEntries(req, res, session) {
 
   const insert = await db.collection(COLLECTIONS.expenseEntries).insertOne(doc);
   const inserted = await db.collection(COLLECTIONS.expenseEntries).findOne({ _id: insert.insertedId });
-  return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(inserted) });
+  return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(inserted, userId) });
 }
 
 async function handleExpenseEntryById(req, res, entryIdRaw, session) {
@@ -1056,9 +1071,12 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
 
   const userId = parseObjectId(session.user.id);
   if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  const accountIds = (await listUserBankAccounts(userId)).map((account) => account._id);
+  if (accountIds.length === 0) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  const accountFilter = { bank_account_id: { $in: accountIds } };
 
   if (req.method === "DELETE") {
-    const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({ _id: entryId, user_id: userId });
+    const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({ _id: entryId, ...accountFilter });
     if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
     return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
   }
@@ -1093,7 +1111,7 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   await rememberUserCategory(userId, "expense", category);
 
   const updated = await db.collection(COLLECTIONS.expenseEntries).findOneAndUpdate(
-    { _id: entryId, user_id: userId },
+    { _id: entryId, ...accountFilter },
     {
       $set: {
         source,
@@ -1103,9 +1121,11 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
         theo_amount: toDecimal(amountNumber),
         spent_at: spentAt,
         due_date: spentAt,
+        pay_date: spentAt,
         info: source || note || null,
         state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
         recurrence,
+        cycle: recurrence,
         is_active: recurrence === "once" ? true : isActive,
         updated_at: new Date()
       }
@@ -1114,7 +1134,7 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   );
 
   if (!updated) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
-  return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated) });
+  return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated, userId) });
 }
 
 async function handleUserIncome(req, res, session) {
@@ -1263,11 +1283,21 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
   if (fundingIds.length) {
     participants = await db.collection(COLLECTIONS.fundingParticipants).aggregate([
       { $match: { group_funding_id: { $in: fundingIds } } },
-      { $lookup: { from: COLLECTIONS.groupMembers, localField: "group_member_id", foreignField: "_id", as: "member" } },
-      { $unwind: "$member" },
-      { $match: { "member.group_id": context.groupId } },
-      { $lookup: { from: COLLECTIONS.users, localField: "member.user_id", foreignField: "_id", as: "user" } },
+      { $lookup: { from: COLLECTIONS.bankAccounts, localField: "bank_account_id", foreignField: "_id", as: "bank_account" } },
+      { $unwind: "$bank_account" },
+      { $lookup: { from: COLLECTIONS.users, localField: "bank_account.user_id", foreignField: "_id", as: "user" } },
       { $unwind: "$user" },
+      { $lookup: { from: COLLECTIONS.groupMembers, localField: "user._id", foreignField: "user_id", as: "membership" } },
+      {
+        $match: {
+          membership: {
+            $elemMatch: {
+              group_id: context.groupId,
+              $or: [{ status: "accepted" }, { status: "active" }, { status: null }, { status: { $exists: false } }]
+            }
+          }
+        }
+      },
       { $sort: { created_at: -1 } },
       {
         $project: {
@@ -1286,7 +1316,7 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
     expenses = await db.collection(COLLECTIONS.groupExpenses)
       .find(
         { group_funding_id: { $in: fundingIds } },
-        { projection: { _id: 1, group_funding_id: 1, amount: 1, info: 1, state: 1, due_date: 1, created_at: 1 } }
+        { projection: { _id: 1, group_funding_id: 1, amount: 1, info: 1, state: 1, cycle: 1, pay_date: 1, due_date: 1, created_at: 1 } }
       )
       .sort({ created_at: -1 })
       .toArray();
@@ -1296,7 +1326,7 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
       transactions = await db.collection(COLLECTIONS.transactions)
         .find(
           { group_expense_id: { $in: expenseIds } },
-          { projection: { _id: 1, group_expense_id: 1, amount: 1, created_at: 1 } }
+          { projection: { _id: 1, group_expense_id: 1, created_at: 1 } }
         )
         .sort({ created_at: -1 })
         .toArray();
@@ -1373,7 +1403,9 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
         amount: toNullableNumber(expense.amount),
         info: expense.info ?? null,
         state: expense.state ?? null,
-        due_date: expense.due_date ?? null,
+        cycle: expense.cycle ?? null,
+        due_date: expense.due_date ?? expense.pay_date ?? null,
+        pay_date: expense.pay_date ?? expense.due_date ?? null,
         created_at: expense.created_at ?? null
       };
     }),
@@ -1384,7 +1416,7 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
         transaction_id: String(transaction._id),
         group_expense_id: String(transaction.group_expense_id),
         group_funding_id: expense ? String(expense.group_funding_id) : null,
-        amount: toNullableNumber(transaction.amount),
+        amount: expense ? toNullableNumber(expense.amount) : null,
         created_at: transaction.created_at ?? null,
         expense_info: expense?.info ?? null,
         funding_info: funding?.info ?? null
@@ -1453,8 +1485,15 @@ async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
     if (!linkedActivity) return sendJson(res, 400, { ok: false, message: "Linked activity does not exist in this group" });
   }
 
-  if (!info && !groupActivityId) {
-    return sendJson(res, 400, { ok: false, message: "Funding needs info or a linked activity" });
+  if (!groupActivityId) {
+    const createdAt = new Date();
+    const activityInsert = await db.collection(COLLECTIONS.groupActivities).insertOne({
+      group_id: context.groupId,
+      info: info || "Funding activity",
+      date: null,
+      created_at: createdAt
+    });
+    groupActivityId = activityInsert.insertedId;
   }
 
   const createdAt = new Date();
@@ -1530,9 +1569,13 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
     return sendJson(res, 400, { ok: false, message: "Not enough money on your bank account for this donation" });
   }
 
+  if (!bankAccount?._id) {
+    return sendJson(res, 400, { ok: false, message: "No bank account available for this user" });
+  }
+
   const existingParticipant = await db.collection(COLLECTIONS.fundingParticipants).findOne({
     group_funding_id: fundingId,
-    group_member_id: context.membership._id
+    bank_account_id: bankAccount._id
   });
 
   if (existingParticipant) {
@@ -1545,7 +1588,7 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
   } else {
     await db.collection(COLLECTIONS.fundingParticipants).insertOne({
       group_funding_id: fundingId,
-      group_member_id: context.membership._id,
+      bank_account_id: bankAccount._id,
       amount,
       created_at: new Date()
     });
@@ -1608,8 +1651,10 @@ async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
   const normalizedAmount = parsePositiveAmount(payload.amount);
   if (normalizedAmount == null) return sendJson(res, 400, { ok: false, message: "Expense amount must be a positive number" });
 
-  const dueDate = toNullableDate(payload.due_date);
-  if (payload.due_date && !dueDate) return sendJson(res, 400, { ok: false, message: "Expense due date is invalid" });
+  const payDate = toNullableDate(payload.due_date || payload.pay_date);
+  if ((payload.due_date || payload.pay_date) && !payDate) {
+    return sendJson(res, 400, { ok: false, message: "Expense due date is invalid" });
+  }
 
   const info = String(payload.info || "").trim() || null;
   const fundingBalance = toNullableNumber(funding.amount) ?? 0;
@@ -1622,13 +1667,14 @@ async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
     amount: amountDecimal,
     info,
     state: "paid",
-    due_date: dueDate,
+    cycle: null,
+    pay_date: payDate,
+    due_date: payDate,
     created_at: createdAt
   });
 
   await db.collection(COLLECTIONS.transactions).insertOne({
     group_expense_id: expenseResult.insertedId,
-    amount: amountDecimal,
     created_at: createdAt
   });
 
@@ -1646,7 +1692,8 @@ async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
       amount: normalizedAmount,
       info,
       state: "paid",
-      due_date: dueDate,
+      due_date: payDate,
+      pay_date: payDate,
       created_at: createdAt,
       funding_balance: updatedFundingBalance
     }
@@ -2031,9 +2078,15 @@ async function loadUserPositions(userId, bankAccountIdRaw = "") {
   const bankAccounts = await db.collection(COLLECTIONS.bankAccounts).find(accountFilter).project({ _id: 1 }).toArray();
   if (!bankAccounts.length) return [];
 
-  const accountIds = bankAccounts.map((acc) => acc._id);
+  const depots = await db.collection(COLLECTIONS.depots)
+    .find({ user_id: userObjectId })
+    .project({ _id: 1 })
+    .toArray();
+  if (!depots.length) return [];
+
+  const depotIds = depots.map((depot) => depot._id);
   const shares = await db.collection(COLLECTIONS.shares)
-    .find({ bank_account_id: { $in: accountIds } })
+    .find({ depot_id: { $in: depotIds } })
     .sort({ bought_at: 1 })
     .limit(500)
     .toArray();
@@ -2321,20 +2374,20 @@ async function ensureIndexes() {
     { expireAfterSeconds: 0, name: "email_verifications_expires_ttl" }
   );
   await db.collection(COLLECTIONS.incomeEntries).createIndex(
-    { user_id: 1, received_at: -1 },
-    { name: "income_entries_user_date_idx" }
+    { bank_account_id: 1, pay_date: -1, created_at: -1 },
+    { name: "income_bank_account_date_idx" }
   );
   await db.collection(COLLECTIONS.incomeEntries).createIndex(
-    { user_id: 1, recurrence: 1, is_active: 1 },
-    { name: "income_entries_user_recurrence_idx" }
+    { bank_account_id: 1, cycle: 1, state: 1 },
+    { name: "income_bank_account_cycle_state_idx" }
   );
   await db.collection(COLLECTIONS.expenseEntries).createIndex(
-    { user_id: 1, spent_at: -1, due_date: -1 },
-    { name: "private_expenses_dashboard_user_date_idx" }
+    { bank_account_id: 1, pay_date: -1, created_at: -1 },
+    { name: "private_expenses_bank_account_date_idx" }
   );
   await db.collection(COLLECTIONS.expenseEntries).createIndex(
-    { user_id: 1, recurrence: 1, is_active: 1 },
-    { name: "private_expenses_dashboard_user_recurrence_idx" }
+    { bank_account_id: 1, cycle: 1, state: 1 },
+    { name: "private_expenses_bank_account_cycle_state_idx" }
   );
   await db.collection(COLLECTIONS.expenseEntries).createIndex(
     { legacy_expense_entry_id: 1 },
@@ -2351,7 +2404,7 @@ async function start() {
   db = client.db(DB_NAME);
 
   await migratePlaintextPasswords();
-  await migrateLegacyExpenseEntriesToV2();
+  await migrateLegacyExpenseEntriesToV3();
   await ensureIndexes();
 
   server.listen(PORT, () => {

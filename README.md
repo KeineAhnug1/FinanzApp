@@ -50,8 +50,8 @@ MONGODB_DB="finanzapp"
 Empfohlen/optional:
 
 ```env
-# v2 ist Standard-Datenbankname im Projekt
-MONGODB_DB_V2="finanzapp_v2"
+# v3 ist Standard-Datenbankname im Projekt
+MONGODB_DB_V3="finanzapp_v3"
 
 # Sessiondauer in Minuten (Default: 180)
 SESSION_TTL_MINUTES="180"
@@ -136,7 +136,7 @@ Login:
 
 - `npm run backend:start` -> Startet den zentralen Server
 - `npm run schema:setup` -> Erstellt Collections/Validatoren/Indizes
-- `npm run seed:reset` -> Setzt v2-Testdaten neu
+- `npm run seed:reset` -> Setzt v3-Testdaten neu
 - `npm run db:check` -> Testet DB-Verbindung
 - `npm run db:wipe` -> Leert App-Daten (Struktur bleibt)
 - `npm run data:prepare` -> Gibt aufbereitete Daten aus
@@ -181,7 +181,7 @@ FinanzApp/
     unified-ui.css
     topbar.js
   database/
-    dataset-v2/
+    dataset-v3/
       schema-setup.js
       seed-reset.mjs
   package.json

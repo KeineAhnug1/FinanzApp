@@ -25,8 +25,8 @@ The app provides:
 - Start command (from repo root): `npm run groups:start`
 
 Database target:
-- Uses `MONGODB_DB_V2` if set.
-- Otherwise uses `${MONGODB_DB}_v2`.
+- Uses `MONGODB_DB_V3` if set.
+- Otherwise uses `${MONGODB_DB}_v3`.
 - Requires `MONGODB_URI`.
 
 ## Session Model (Current State)
@@ -64,7 +64,7 @@ Group cleanup additionally touches:
 - `group_activities`
 - `transactions` (via `group_expense_id`)
 
-This means the app is designed for the v2 dataset shape.
+This means the app is designed for the v3 dataset shape.
 
 ## Membership Status Handling
 
@@ -73,4 +73,4 @@ Primary statuses:
 - `denied`
 - `accepted`
 
-Compatibility fallbacks still exist in code for legacy values (for example `active` or missing status), but the v2 schema expects the three statuses above.
+Compatibility fallbacks still exist in code for legacy values (for example `active` or missing status), but the v3 schema expects the three statuses above.
