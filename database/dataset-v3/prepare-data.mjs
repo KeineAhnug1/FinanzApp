@@ -15,7 +15,7 @@ async function run() {
     const prepared = await withDb((db) => getPreparedData(db, { username }));
     console.log(JSON.stringify(prepared, null, 2));
   } catch (err) {
-    console.error("Preparing v2 data failed:", err);
+    console.error("Preparing v3 data failed:", err);
     process.exitCode = 1;
   }
 }

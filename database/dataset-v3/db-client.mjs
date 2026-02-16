@@ -7,7 +7,7 @@ if (!uri) {
 }
 
 const baseDbName = process.env.MONGODB_DB || "finanzapp";
-const dbName = process.env.MONGODB_DB_V2 || `${baseDbName}_v2`;
+const dbName = process.env.MONGODB_DB_V3 || `${baseDbName}_v3`;
 
 let client;
 

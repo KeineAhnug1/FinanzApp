@@ -3,12 +3,14 @@ import { dbName, withDb } from "./db-client.mjs";
 import {
   createBankAccountEntity,
   createBudgetEntity,
+  createDepotEntity,
   createFundingParticipantEntity,
   createGroupActivityEntity,
   createGroupEntity,
   createGroupExpenseEntity,
   createGroupFundingEntity,
   createGroupMemberEntity,
+  createIncomeEntity,
   createPrivateExpenseEntity,
   createRequestEntity,
   createShareEntity,
@@ -18,52 +20,69 @@ import {
 
 const ids = {
   users: {
-    anna: new ObjectId("66a100000000000000000001"),
-    ben: new ObjectId("66a100000000000000000002"),
-    clara: new ObjectId("66a100000000000000000003"),
-    emre: new ObjectId("66a100000000000000000004"),
-    farah: new ObjectId("66a100000000000000000005")
+    anna: new ObjectId("76a100000000000000000001"),
+    ben: new ObjectId("76a100000000000000000002"),
+    clara: new ObjectId("76a100000000000000000003"),
+    emre: new ObjectId("76a100000000000000000004"),
+    farah: new ObjectId("76a100000000000000000005")
   },
   groups: {
-    sonnenallee: new ObjectId("66a200000000000000000001"),
-    neckarstadt: new ObjectId("66a200000000000000000002")
+    sonnenallee: new ObjectId("76a200000000000000000001"),
+    neckarstadt: new ObjectId("76a200000000000000000002")
   },
   group_members: {
-    annaSonnenallee: new ObjectId("66a210000000000000000001"),
-    benSonnenallee: new ObjectId("66a210000000000000000002"),
-    claraSonnenallee: new ObjectId("66a210000000000000000003"),
-    emreNeckarstadt: new ObjectId("66a210000000000000000004"),
-    farahNeckarstadt: new ObjectId("66a210000000000000000005")
+    annaSonnenallee: new ObjectId("76a210000000000000000001"),
+    benSonnenallee: new ObjectId("76a210000000000000000002"),
+    claraSonnenallee: new ObjectId("76a210000000000000000003"),
+    emreNeckarstadt: new ObjectId("76a210000000000000000004"),
+    farahNeckarstadt: new ObjectId("76a210000000000000000005")
   },
   bank_accounts: {
-    anna: new ObjectId("66a220000000000000000001"),
-    ben: new ObjectId("66a220000000000000000002"),
-    clara: new ObjectId("66a220000000000000000003"),
-    emre: new ObjectId("66a220000000000000000004"),
-    farah: new ObjectId("66a220000000000000000005")
+    anna: new ObjectId("76a220000000000000000001"),
+    ben: new ObjectId("76a220000000000000000002"),
+    clara: new ObjectId("76a220000000000000000003"),
+    emre: new ObjectId("76a220000000000000000004"),
+    farah: new ObjectId("76a220000000000000000005")
+  },
+  depots: {
+    anna: new ObjectId("76a230000000000000000001"),
+    ben: new ObjectId("76a230000000000000000002"),
+    emre: new ObjectId("76a230000000000000000003")
   },
   private_expenses: {
-    annaPhone: new ObjectId("66a300000000000000000001"),
-    benInsurance: new ObjectId("66a300000000000000000002"),
-    claraLaptop: new ObjectId("66a300000000000000000003")
-  },
-  group_funding: {
-    sonnenalleeFeb: new ObjectId("66a400000000000000000001"),
-    neckarstadtTrip: new ObjectId("66a400000000000000000002")
+    annaPhone: new ObjectId("76a300000000000000000001"),
+    benInsurance: new ObjectId("76a300000000000000000002"),
+    claraLaptop: new ObjectId("76a300000000000000000003")
   },
   group_activities: {
-    sonnenalleeCleanup: new ObjectId("66a600000000000000000001"),
-    neckarstadtGameNight: new ObjectId("66a600000000000000000002")
+    sonnenalleeCleanup: new ObjectId("76a600000000000000000001"),
+    neckarstadtGameNight: new ObjectId("76a600000000000000000002")
+  },
+  group_funding: {
+    sonnenalleeFeb: new ObjectId("76a400000000000000000001"),
+    neckarstadtTrip: new ObjectId("76a400000000000000000002")
+  },
+  funding_participants: {
+    annaSonnenallee: new ObjectId("76a700000000000000000001"),
+    benSonnenallee: new ObjectId("76a700000000000000000002"),
+    claraSonnenallee: new ObjectId("76a700000000000000000003"),
+    emreNeckarstadt: new ObjectId("76a700000000000000000004"),
+    farahNeckarstadt: new ObjectId("76a700000000000000000005")
   },
   group_expenses: {
-    sonnenalleeGroceries: new ObjectId("66a410000000000000000001"),
-    sonnenalleeInternet: new ObjectId("66a410000000000000000002"),
-    neckarstadtTrain: new ObjectId("66a410000000000000000003")
+    sonnenalleeGroceries: new ObjectId("76a410000000000000000001"),
+    sonnenalleeInternet: new ObjectId("76a410000000000000000002"),
+    neckarstadtTrain: new ObjectId("76a410000000000000000003")
+  },
+  income: {
+    annaSalary: new ObjectId("76a800000000000000000001"),
+    benSalary: new ObjectId("76a800000000000000000002"),
+    emreSalary: new ObjectId("76a800000000000000000003")
   },
   requests: {
-    annaToBenPhone: new ObjectId("66a500000000000000000001"),
-    emreToFarahTrip: new ObjectId("66a500000000000000000002"),
-    claraToAnnaBorrowed: new ObjectId("66a500000000000000000003")
+    annaToBenPhone: new ObjectId("76a500000000000000000001"),
+    emreToFarahTrip: new ObjectId("76a500000000000000000002"),
+    claraToAnnaBorrowed: new ObjectId("76a500000000000000000003")
   }
 };
 
@@ -79,7 +98,7 @@ const data = {
       first_name: "Anna",
       last_name: "Schmidt",
       age: 24,
-      income: 2800,
+      verification_code: 112233,
       created_at: createdAt
     }),
     createUserEntity({
@@ -90,7 +109,7 @@ const data = {
       first_name: "Ben",
       last_name: "Keller",
       age: 26,
-      income: 3100,
+      verification_code: 223344,
       created_at: createdAt
     }),
     createUserEntity({
@@ -101,7 +120,7 @@ const data = {
       first_name: "Clara",
       last_name: "Weber",
       age: 23,
-      income: 2250,
+      verification_code: null,
       created_at: createdAt
     }),
     createUserEntity({
@@ -112,7 +131,7 @@ const data = {
       first_name: "Emre",
       last_name: "Yilmaz",
       age: 27,
-      income: 3400,
+      verification_code: 445566,
       created_at: createdAt
     }),
     createUserEntity({
@@ -123,7 +142,7 @@ const data = {
       first_name: "Farah",
       last_name: "Ali",
       age: 25,
-      income: 2100,
+      verification_code: null,
       created_at: createdAt
     })
   ],
@@ -187,42 +206,67 @@ const data = {
     createBankAccountEntity({ _id: ids.bank_accounts.emre, user_id: ids.users.emre, balance: 2120, created_at: createdAt }),
     createBankAccountEntity({ _id: ids.bank_accounts.farah, user_id: ids.users.farah, balance: 980, created_at: createdAt })
   ],
+  depots: [
+    createDepotEntity({ _id: ids.depots.anna, user_id: ids.users.anna, created_at: createdAt }),
+    createDepotEntity({ _id: ids.depots.ben, user_id: ids.users.ben, created_at: createdAt }),
+    createDepotEntity({ _id: ids.depots.emre, user_id: ids.users.emre, created_at: createdAt })
+  ],
   private_expenses: [
     createPrivateExpenseEntity({
       _id: ids.private_expenses.annaPhone,
-      user_id: ids.users.anna,
+      bank_account_id: ids.bank_accounts.anna,
       amount: 65,
       theo_amount: 65,
       info: "Phone bill January",
       state: "open",
-      due_date: "2026-02-14T00:00:00.000Z",
+      cycle: "monthly",
+      pay_date: "2026-02-14T00:00:00.000Z",
       created_at: "2026-01-31T10:20:00.000Z"
     }),
     createPrivateExpenseEntity({
       _id: ids.private_expenses.benInsurance,
-      user_id: ids.users.ben,
+      bank_account_id: ids.bank_accounts.ben,
       amount: 120,
       theo_amount: 120,
       info: "Bike insurance",
       state: "paid",
-      due_date: "2026-02-05T00:00:00.000Z",
+      cycle: "monthly",
+      pay_date: "2026-02-05T00:00:00.000Z",
       created_at: "2026-01-20T08:10:00.000Z"
     }),
     createPrivateExpenseEntity({
       _id: ids.private_expenses.claraLaptop,
-      user_id: ids.users.clara,
+      bank_account_id: ids.bank_accounts.clara,
       amount: 840,
       theo_amount: 420,
       info: "Laptop repair shared with Anna",
       state: "partially_paid",
-      due_date: "2026-02-28T00:00:00.000Z",
+      cycle: null,
+      pay_date: "2026-02-28T00:00:00.000Z",
       created_at: "2026-02-02T13:30:00.000Z"
+    })
+  ],
+  group_activities: [
+    createGroupActivityEntity({
+      _id: ids.group_activities.sonnenalleeCleanup,
+      group_id: ids.groups.sonnenallee,
+      info: "Common kitchen cleanup plan",
+      date: "2026-02-02T18:00:00.000Z",
+      created_at: "2026-02-01T19:01:00.000Z"
+    }),
+    createGroupActivityEntity({
+      _id: ids.group_activities.neckarstadtGameNight,
+      group_id: ids.groups.neckarstadt,
+      info: "Board game night organization",
+      date: "2026-02-06T19:30:00.000Z",
+      created_at: "2026-02-03T09:01:00.000Z"
     })
   ],
   group_funding: [
     createGroupFundingEntity({
       _id: ids.group_funding.sonnenalleeFeb,
       group_id: ids.groups.sonnenallee,
+      group_activity_id: ids.group_activities.sonnenalleeCleanup,
       amount: 750,
       info: "Monthly funding February",
       created_at: "2026-02-01T08:00:00.000Z"
@@ -238,32 +282,37 @@ const data = {
   ],
   funding_participants: [
     createFundingParticipantEntity({
+      _id: ids.funding_participants.annaSonnenallee,
       group_funding_id: ids.group_funding.sonnenalleeFeb,
-      group_member_id: ids.group_members.annaSonnenallee,
+      bank_account_id: ids.bank_accounts.anna,
       amount: 250,
       created_at: "2026-02-01T08:05:00.000Z"
     }),
     createFundingParticipantEntity({
+      _id: ids.funding_participants.benSonnenallee,
       group_funding_id: ids.group_funding.sonnenalleeFeb,
-      group_member_id: ids.group_members.benSonnenallee,
+      bank_account_id: ids.bank_accounts.ben,
       amount: 250,
       created_at: "2026-02-01T08:06:00.000Z"
     }),
     createFundingParticipantEntity({
+      _id: ids.funding_participants.claraSonnenallee,
       group_funding_id: ids.group_funding.sonnenalleeFeb,
-      group_member_id: ids.group_members.claraSonnenallee,
+      bank_account_id: ids.bank_accounts.clara,
       amount: 250,
       created_at: "2026-02-01T08:07:00.000Z"
     }),
     createFundingParticipantEntity({
+      _id: ids.funding_participants.emreNeckarstadt,
       group_funding_id: ids.group_funding.neckarstadtTrip,
-      group_member_id: ids.group_members.emreNeckarstadt,
+      bank_account_id: ids.bank_accounts.emre,
       amount: 180,
       created_at: "2026-02-03T09:10:00.000Z"
     }),
     createFundingParticipantEntity({
+      _id: ids.funding_participants.farahNeckarstadt,
       group_funding_id: ids.group_funding.neckarstadtTrip,
-      group_member_id: ids.group_members.farahNeckarstadt,
+      bank_account_id: ids.bank_accounts.farah,
       amount: 180,
       created_at: "2026-02-03T09:12:00.000Z"
     })
@@ -275,7 +324,8 @@ const data = {
       amount: 132,
       info: "WG grocery run",
       state: "paid",
-      due_date: "2026-02-12T00:00:00.000Z",
+      cycle: "monthly",
+      pay_date: "2026-02-12T00:00:00.000Z",
       created_at: "2026-02-08T17:00:00.000Z"
     }),
     createGroupExpenseEntity({
@@ -284,7 +334,8 @@ const data = {
       amount: 45,
       info: "Internet February",
       state: "open",
-      due_date: "2026-02-20T00:00:00.000Z",
+      cycle: "monthly",
+      pay_date: "2026-02-20T00:00:00.000Z",
       created_at: "2026-02-10T09:00:00.000Z"
     }),
     createGroupExpenseEntity({
@@ -293,81 +344,125 @@ const data = {
       amount: 96,
       info: "Train tickets",
       state: "paid",
-      due_date: "2026-02-09T00:00:00.000Z",
+      cycle: null,
+      pay_date: "2026-02-09T00:00:00.000Z",
       created_at: "2026-02-05T14:00:00.000Z"
+    })
+  ],
+  income: [
+    createIncomeEntity({
+      _id: ids.income.annaSalary,
+      bank_account_id: ids.bank_accounts.anna,
+      amount: 2800,
+      info: "Salary January",
+      state: "received",
+      cycle: "monthly",
+      pay_date: "2026-01-31T00:00:00.000Z",
+      created_at: "2026-01-31T07:00:00.000Z"
+    }),
+    createIncomeEntity({
+      _id: ids.income.benSalary,
+      bank_account_id: ids.bank_accounts.ben,
+      amount: 3100,
+      info: "Salary January",
+      state: "received",
+      cycle: "monthly",
+      pay_date: "2026-01-31T00:00:00.000Z",
+      created_at: "2026-01-31T07:10:00.000Z"
+    }),
+    createIncomeEntity({
+      _id: ids.income.emreSalary,
+      bank_account_id: ids.bank_accounts.emre,
+      amount: 3400,
+      info: "Salary January",
+      state: "received",
+      cycle: "monthly",
+      pay_date: "2026-01-31T00:00:00.000Z",
+      created_at: "2026-01-31T07:20:00.000Z"
     })
   ],
   requests: [
     createRequestEntity({
       _id: ids.requests.annaToBenPhone,
-      from_user_id: ids.users.anna,
-      to_user_id: ids.users.ben,
+      from_bank_account_id: ids.bank_accounts.anna,
+      to_bank_account_id: ids.bank_accounts.ben,
       private_expense_id: ids.private_expenses.annaPhone,
       amount: 32.5,
       due_date: "2026-02-16T00:00:00.000Z",
       info: "Half phone bill",
       category: "utilities",
       status: "pending",
+      cycle: null,
+      pay_date: null,
       created_at: "2026-02-01T10:00:00.000Z"
     }),
     createRequestEntity({
       _id: ids.requests.emreToFarahTrip,
-      from_user_id: ids.users.emre,
-      to_user_id: ids.users.farah,
+      from_bank_account_id: ids.bank_accounts.emre,
+      to_bank_account_id: ids.bank_accounts.farah,
       amount: 48,
       due_date: "2026-02-11T00:00:00.000Z",
       info: "Trip train split",
       category: "travel",
       status: "paid",
+      cycle: null,
+      pay_date: "2026-02-06T10:00:00.000Z",
       created_at: "2026-02-05T15:00:00.000Z"
     }),
     createRequestEntity({
       _id: ids.requests.claraToAnnaBorrowed,
-      from_user_id: ids.users.clara,
-      to_user_id: ids.users.anna,
+      from_bank_account_id: ids.bank_accounts.clara,
+      to_bank_account_id: ids.bank_accounts.anna,
       private_expense_id: ids.private_expenses.claraLaptop,
       amount: 120,
       due_date: "2026-02-26T00:00:00.000Z",
       info: "Laptop repair partial",
       category: "tech",
       status: "accepted",
+      cycle: null,
+      pay_date: null,
       created_at: "2026-02-04T16:45:00.000Z"
     })
   ],
   transactions: [
     createTransactionEntity({
-      amount: 48,
       request_id: ids.requests.emreToFarahTrip,
       created_at: "2026-02-06T10:00:00.000Z"
     }),
     createTransactionEntity({
-      amount: 96,
       group_expense_id: ids.group_expenses.neckarstadtTrain,
       created_at: "2026-02-06T11:00:00.000Z"
     }),
     createTransactionEntity({
-      amount: 120,
       private_expense_id: ids.private_expenses.claraLaptop,
       created_at: "2026-02-07T09:30:00.000Z"
+    }),
+    createTransactionEntity({
+      funding_participant_id: ids.funding_participants.annaSonnenallee,
+      created_at: "2026-02-01T08:08:00.000Z"
+    }),
+    createTransactionEntity({
+      income_id: ids.income.annaSalary,
+      created_at: "2026-01-31T07:01:00.000Z"
     })
   ],
   shares: [
     createShareEntity({
-      bank_account_id: ids.bank_accounts.anna,
+      depot_id: ids.depots.anna,
       symbol: "AAPL",
       units: 12.25,
       bought_at: "2025-11-15T09:30:00.000Z",
       bought_for: 1875
     }),
     createShareEntity({
-      bank_account_id: ids.bank_accounts.ben,
+      depot_id: ids.depots.ben,
       symbol: "MSFT",
       units: 8,
       bought_at: "2025-10-20T09:30:00.000Z",
       bought_for: 2520
     }),
     createShareEntity({
-      bank_account_id: ids.bank_accounts.emre,
+      depot_id: ids.depots.emre,
       symbol: "SAP",
       units: 14,
       bought_at: "2025-09-13T09:30:00.000Z",
@@ -399,22 +494,6 @@ const data = {
       reset_date: "2026-03-01T00:00:00.000Z",
       created_at: createdAt
     })
-  ],
-  group_activities: [
-    createGroupActivityEntity({
-      _id: ids.group_activities.sonnenalleeCleanup,
-      group_id: ids.groups.sonnenallee,
-      info: "Common kitchen cleanup plan",
-      date: "2026-02-02T18:00:00.000Z",
-      created_at: "2026-02-01T19:01:00.000Z"
-    }),
-    createGroupActivityEntity({
-      _id: ids.group_activities.neckarstadtGameNight,
-      group_id: ids.groups.neckarstadt,
-      info: "Board game night organization",
-      date: "2026-02-06T19:30:00.000Z",
-      created_at: "2026-02-03T09:01:00.000Z"
-    })
   ]
 };
 
@@ -423,15 +502,17 @@ const collectionOrder = [
   "groups",
   "group_members",
   "bank_accounts",
+  "depots",
   "private_expenses",
+  "group_activities",
   "group_funding",
   "funding_participants",
   "group_expenses",
+  "income",
   "requests",
   "transactions",
   "shares",
-  "budgets",
-  "group_activities"
+  "budgets"
 ];
 
 async function assertSchemaIsUpToDate(db) {
@@ -442,15 +523,15 @@ async function assertSchemaIsUpToDate(db) {
   if (missing.length > 0) {
     const details = missing.map((name) => `- Missing collection "${name}"`).join("\n");
     throw new Error(
-      `Database schema is not compatible with this seed file.\n${details}\nRun \"npm run schema:setup:v2\" and retry.`
+      `Database schema is not compatible with this seed file.\n${details}\nRun "npm run schema:setup:v3" and retry.`
     );
   }
 
   const tx = byName.get("transactions");
   const txOneOf = tx?.options?.validator?.$jsonSchema?.oneOf;
-  if (!Array.isArray(txOneOf) || txOneOf.length < 3) {
+  if (!Array.isArray(txOneOf) || txOneOf.length < 5) {
     throw new Error(
-      "Database schema is not compatible with this seed file. Transactions validator does not enforce the v2 one-of source rule."
+      "Database schema is not compatible with this seed file. Transactions validator does not enforce the v3 source one-of rule."
     );
   }
 }
@@ -477,7 +558,7 @@ async function insertCollections(db) {
 async function run() {
   try {
     await withDb(async (db) => {
-      console.log("Checking schema compatibility for v2...");
+      console.log("Checking schema compatibility for v3...");
       await assertSchemaIsUpToDate(db);
       console.log("Schema check passed.");
 

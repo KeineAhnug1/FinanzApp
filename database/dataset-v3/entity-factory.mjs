@@ -62,7 +62,7 @@ export function createUserEntity({
   first_name,
   last_name,
   age = null,
-  income,
+  verification_code = null,
   created_at = new Date()
 }) {
   return {
@@ -73,8 +73,38 @@ export function createUserEntity({
     first_name,
     last_name,
     age: age == null ? null : new Int32(Number(age)),
-    income: toDecimal128(income),
+    verification_code: verification_code == null ? null : new Int32(Number(verification_code)),
     created_at: toDate(created_at)
+  };
+}
+
+export function createIncomeEntity({
+  _id,
+  bank_account_id,
+  amount,
+  info = null,
+  state = null,
+  cycle = null,
+  pay_date = null,
+  created_at = new Date()
+}) {
+  return {
+    ...(_id ? { _id: toObjectId(_id) } : {}),
+    bank_account_id: toObjectId(bank_account_id),
+    amount: toDecimal128(amount),
+    info,
+    state,
+    cycle,
+    pay_date: pay_date == null ? null : toDate(pay_date),
+    created_at: toDate(created_at)
+  };
+}
+
+export function createDepotEntity({ _id, user_id, created_at = null }) {
+  return {
+    ...(_id ? { _id: toObjectId(_id) } : {}),
+    user_id: toObjectId(user_id),
+    created_at: created_at == null ? null : toDate(created_at)
   };
 }
 
@@ -126,22 +156,40 @@ export function createBankAccountEntity({
 
 export function createPrivateExpenseEntity({
   _id,
-  user_id,
+  bank_account_id,
   amount,
   theo_amount,
   info = null,
   state = null,
-  due_date = null,
+  cycle = null,
+  pay_date = null,
   created_at = new Date()
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
-    user_id: toObjectId(user_id),
+    bank_account_id: toObjectId(bank_account_id),
     amount: toDecimal128(amount),
     theo_amount: toDecimal128(theo_amount),
     info,
     state,
-    due_date: due_date == null ? null : toDate(due_date),
+    cycle,
+    pay_date: pay_date == null ? null : toDate(pay_date),
+    created_at: toDate(created_at)
+  };
+}
+
+export function createGroupActivityEntity({
+  _id,
+  group_id,
+  info = null,
+  date = null,
+  created_at = new Date()
+}) {
+  return {
+    ...(_id ? { _id: toObjectId(_id) } : {}),
+    group_id: toObjectId(group_id),
+    info,
+    date: date == null ? null : toDate(date),
     created_at: toDate(created_at)
   };
 }
@@ -149,7 +197,7 @@ export function createPrivateExpenseEntity({
 export function createGroupFundingEntity({
   _id,
   group_id,
-  group_activity_id = null,
+  group_activity_id,
   amount = null,
   info = null,
   created_at = new Date()
@@ -157,7 +205,7 @@ export function createGroupFundingEntity({
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
     group_id: toObjectId(group_id),
-    group_activity_id: group_activity_id == null ? null : toObjectId(group_activity_id),
+    group_activity_id: toObjectId(group_activity_id),
     amount: amount == null ? null : toDecimal128(amount),
     info,
     created_at: toDate(created_at)
@@ -166,15 +214,15 @@ export function createGroupFundingEntity({
 
 export function createFundingParticipantEntity({
   _id,
+  bank_account_id,
   group_funding_id,
-  group_member_id,
   amount = null,
   created_at = new Date()
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
+    bank_account_id: toObjectId(bank_account_id),
     group_funding_id: toObjectId(group_funding_id),
-    group_member_id: toObjectId(group_member_id),
     amount: amount == null ? null : toDecimal128(amount),
     created_at: toDate(created_at)
   };
@@ -186,7 +234,8 @@ export function createGroupExpenseEntity({
   amount,
   info = null,
   state = null,
-  due_date = null,
+  cycle = null,
+  pay_date = null,
   created_at = new Date()
 }) {
   return {
@@ -195,65 +244,78 @@ export function createGroupExpenseEntity({
     amount: toDecimal128(amount),
     info,
     state,
-    due_date: due_date == null ? null : toDate(due_date),
+    cycle,
+    pay_date: pay_date == null ? null : toDate(pay_date),
     created_at: toDate(created_at)
   };
 }
 
 export function createRequestEntity({
   _id,
-  from_user_id,
-  to_user_id,
+  from_bank_account_id,
+  to_bank_account_id,
   private_expense_id = null,
   amount,
   due_date = null,
   info = null,
   category = null,
   status,
+  cycle = null,
+  pay_date = null,
   created_at = new Date()
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
-    from_user_id: toObjectId(from_user_id),
-    to_user_id: toObjectId(to_user_id),
+    from_bank_account_id: toObjectId(from_bank_account_id),
+    to_bank_account_id: toObjectId(to_bank_account_id),
     private_expense_id: private_expense_id == null ? null : toObjectId(private_expense_id),
     amount: toDecimal128(amount),
     due_date: due_date == null ? null : toDate(due_date),
     info,
     category,
     status,
+    cycle,
+    pay_date: pay_date == null ? null : toDate(pay_date),
     created_at: toDate(created_at)
   };
 }
 
 export function createTransactionEntity({
   _id,
-  amount,
   request_id = null,
-  group_expense_id = null,
   private_expense_id = null,
+  group_expense_id = null,
+  funding_participant_id = null,
+  income_id = null,
   created_at = new Date()
 }) {
-  const sourceCount = Number(request_id != null) + Number(group_expense_id != null) + Number(private_expense_id != null);
+  const sourceCount =
+    Number(request_id != null) +
+    Number(private_expense_id != null) +
+    Number(group_expense_id != null) +
+    Number(funding_participant_id != null) +
+    Number(income_id != null);
+
   if (sourceCount !== 1) {
     throw new TypeError(
-      "Transaction must contain exactly one source: request_id, group_expense_id, or private_expense_id."
+      "Transaction must contain exactly one source: request_id, private_expense_id, group_expense_id, funding_participant_id, or income_id."
     );
   }
 
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
-    amount: toDecimal128(amount),
     ...(request_id != null ? { request_id: toObjectId(request_id) } : {}),
-    ...(group_expense_id != null ? { group_expense_id: toObjectId(group_expense_id) } : {}),
     ...(private_expense_id != null ? { private_expense_id: toObjectId(private_expense_id) } : {}),
+    ...(group_expense_id != null ? { group_expense_id: toObjectId(group_expense_id) } : {}),
+    ...(funding_participant_id != null ? { funding_participant_id: toObjectId(funding_participant_id) } : {}),
+    ...(income_id != null ? { income_id: toObjectId(income_id) } : {}),
     created_at: toDate(created_at)
   };
 }
 
 export function createShareEntity({
   _id,
-  bank_account_id,
+  depot_id,
   symbol,
   units,
   bought_at,
@@ -261,7 +323,7 @@ export function createShareEntity({
 }) {
   return {
     ...(_id ? { _id: toObjectId(_id) } : {}),
-    bank_account_id: toObjectId(bank_account_id),
+    depot_id: toObjectId(depot_id),
     symbol,
     units: toDecimal128(units, 4),
     bought_at: toDate(bought_at),
@@ -285,22 +347,6 @@ export function createBudgetEntity({
     target_amount: toDecimal128(target_amount),
     current_amount: toDecimal128(current_amount),
     reset_date: reset_date == null ? null : toDate(reset_date),
-    created_at: toDate(created_at)
-  };
-}
-
-export function createGroupActivityEntity({
-  _id,
-  group_id,
-  info = null,
-  date = null,
-  created_at = new Date()
-}) {
-  return {
-    ...(_id ? { _id: toObjectId(_id) } : {}),
-    group_id: toObjectId(group_id),
-    info,
-    date: date == null ? null : toDate(date),
     created_at: toDate(created_at)
   };
 }
