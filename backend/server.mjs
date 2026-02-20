@@ -1215,6 +1215,87 @@ function toNullableNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function recurrenceMonthlyContribution(entry) {
+  const amount = toNullableNumber(entry?.amount) ?? 0;
+  if (amount <= 0) return 0;
+
+  const recurrence = normalizeRecurrence(entry?.recurrence ?? entry?.cycle ?? "once") ?? "once";
+  const isActive = typeof entry?.is_active === "boolean" ? entry.is_active : entry?.state !== "paused";
+
+  if (recurrence === "monthly") return isActive ? amount : 0;
+  if (recurrence === "weekly") return isActive ? amount * 4.33 : 0;
+  return 0;
+}
+
+function resolveEntryDate(entry, dateField) {
+  if (dateField === "received_at") return entry?.received_at ?? entry?.pay_date ?? entry?.created_at ?? null;
+  if (dateField === "spent_at") return entry?.spent_at ?? entry?.pay_date ?? entry?.due_date ?? entry?.created_at ?? null;
+  return entry?.[dateField] ?? null;
+}
+
+function isDateInCurrentMonth(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+}
+
+function calculateCurrentMonthTotal(entries, dateField) {
+  const oneTime = entries
+    .filter((entry) => (normalizeRecurrence(entry?.recurrence ?? entry?.cycle ?? "once") ?? "once") === "once")
+    .filter((entry) => isDateInCurrentMonth(resolveEntryDate(entry, dateField)))
+    .reduce((sum, entry) => sum + (toNullableNumber(entry?.amount) ?? 0), 0);
+
+  const recurring = entries.reduce((sum, entry) => sum + recurrenceMonthlyContribution(entry), 0);
+  return Number((oneTime + recurring).toFixed(2));
+}
+
+async function calculateDashboardStyleDonationBalance(userId) {
+  const [user, userAccounts] = await Promise.all([
+    db.collection(COLLECTIONS.users).findOne({ _id: userId }, { projection: { _id: 1, income: 1 } }),
+    ensureUserFinanceRoots(userId)
+  ]);
+
+  const accountIds = userAccounts.map((account) => account._id);
+  const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
+
+  const [incomeEntries, expenseEntries, fundingParticipants] = await Promise.all([
+    db.collection(COLLECTIONS.incomeEntries).find(
+      accountFilter,
+      { projection: { amount: 1, recurrence: 1, cycle: 1, is_active: 1, state: 1, received_at: 1, pay_date: 1, created_at: 1 } }
+    ).toArray(),
+    db.collection(COLLECTIONS.expenseEntries).find(
+      accountFilter,
+      { projection: { amount: 1, recurrence: 1, cycle: 1, is_active: 1, state: 1, spent_at: 1, pay_date: 1, due_date: 1, created_at: 1 } }
+    ).toArray(),
+    db.collection(COLLECTIONS.fundingParticipants).find(
+      accountFilter,
+      { projection: { amount: 1 } }
+    ).toArray()
+  ]);
+
+  const baseIncome = toNullableNumber(user?.income) ?? 0;
+  const monthlyIncomeFromEntries = calculateCurrentMonthTotal(incomeEntries, "received_at");
+  const monthlyIncome = Number(((incomeEntries.length > 0 ? monthlyIncomeFromEntries : (baseIncome > 0 ? baseIncome : 0))).toFixed(2));
+  const monthlyExpense = calculateCurrentMonthTotal(expenseEntries, "spent_at");
+  const dashboardNetLiquidity = Number((monthlyIncome - monthlyExpense).toFixed(2));
+  const alreadyDonated = Number(
+    fundingParticipants.reduce((sum, participant) => sum + (toNullableNumber(participant.amount) ?? 0), 0).toFixed(2)
+  );
+  const availableDonationBalance = Number((dashboardNetLiquidity - alreadyDonated).toFixed(2));
+
+  return {
+    availableDonationBalance,
+    dashboardNetLiquidity,
+    monthlyIncome,
+    monthlyExpense,
+    alreadyDonated,
+    userAccounts
+  };
+}
+
 async function getGroupContext(groupIdRaw, sessionUserId) {
   const groupId = parseObjectId(groupIdRaw);
   if (!groupId) return { ok: false, status: 400, message: "Invalid group id" };
@@ -1550,24 +1631,13 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
   }
   const amount = toDecimal(normalizedAmount);
 
-  const bankAccounts = await db.collection(COLLECTIONS.bankAccounts)
-    .find({ user_id: context.user._id }, { projection: { _id: 1, balance: 1 } })
-    .toArray();
-
-  let bankAccount = null;
-  let currentBalance = null;
-  for (const account of bankAccounts) {
-    const balance = toNullableNumber(account.balance);
-    if (balance == null) continue;
-    if (bankAccount == null || balance > currentBalance) {
-      bankAccount = account;
-      currentBalance = balance;
-    }
+  const donationBalance = await calculateDashboardStyleDonationBalance(context.user._id);
+  const currentBalance = Math.max(0, donationBalance.availableDonationBalance);
+  if (normalizedAmount > currentBalance) {
+    return sendJson(res, 400, { ok: false, message: "Not enough available balance based on your dashboard entries for this donation" });
   }
 
-  if (currentBalance != null && normalizedAmount > currentBalance) {
-    return sendJson(res, 400, { ok: false, message: "Not enough money on your bank account for this donation" });
-  }
+  const bankAccount = donationBalance.userAccounts[0] ?? null;
 
   if (!bankAccount?._id) {
     return sendJson(res, 400, { ok: false, message: "No bank account available for this user" });
@@ -1601,14 +1671,7 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
     { $set: { amount: toDecimal(updatedFundingAmount) } }
   );
 
-  let updatedBankBalance = null;
-  if (bankAccount && currentBalance != null) {
-    updatedBankBalance = Number((currentBalance - normalizedAmount).toFixed(2));
-    await db.collection(COLLECTIONS.bankAccounts).updateOne(
-      { _id: bankAccount._id },
-      { $set: { balance: toDecimal(updatedBankBalance) } }
-    );
-  }
+  const updatedAvailableBalance = Number((currentBalance - normalizedAmount).toFixed(2));
 
   return sendJson(res, 201, {
     ok: true,
@@ -1616,7 +1679,7 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
       funding_id: String(fundingId),
       amount: normalizedAmount,
       funding_total: updatedFundingAmount,
-      bank_balance: updatedBankBalance
+      bank_balance: updatedAvailableBalance
     }
   });
 }
