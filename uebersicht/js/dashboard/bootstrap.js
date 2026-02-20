@@ -19,6 +19,9 @@ async function bootstrap() {
 
   setCurrentUser(sessionUser);
   appState.settings = loadDashboardSettings(sessionUser.id);
+  if (window.FinanzAppLanguage?.getLocale) {
+    appState.settings.locale = window.FinanzAppLanguage.getLocale(sessionUser.id);
+  }
 
   initThemeSwitcher();
   initSectionTabs();

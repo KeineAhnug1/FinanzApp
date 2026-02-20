@@ -62,6 +62,9 @@ function saveDashboardSettings(userId, settings) {
 }
 
 function getLocale() {
+  if (window.FinanzAppLanguage?.getLocale) {
+    return window.FinanzAppLanguage.getLocale(appState.user?.id);
+  }
   return appState.settings?.locale || DEFAULT_DASHBOARD_SETTINGS.locale;
 }
 
