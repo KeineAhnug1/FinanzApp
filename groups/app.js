@@ -395,7 +395,7 @@ function renderFundingTransactions(transactions = []) {
   if (!transactions.length) {
     const empty = document.createElement("li");
     empty.className = "member-item";
-    empty.innerHTML = "<p class=\"meta\">Noch keine Spenden.</p>";
+    empty.innerHTML = "<p class=\"meta\">Noch keine Finanzierungszahlungen.</p>";
     fundingTransactionsList.appendChild(empty);
     return;
   }
@@ -405,10 +405,10 @@ function renderFundingTransactions(transactions = []) {
     item.className = "member-item";
     item.innerHTML = `
       <div>
-        <p class="member-name">${transaction.expense_info || "Spende"}</p>
+        <p class="member-name">${transaction.expense_info || "Finanzierungszahlung"}</p>
         <p class="meta">Finanzierung: ${transaction.funding_info || "k. A."}</p>
-        <p class="meta">Spendenbetrag: ${formatAmount(transaction.amount)}</p>
-        <p class="meta">Spendendatum: ${formatDate(transaction.created_at)}</p>
+        <p class="meta">Gezahlter Betrag: ${formatAmount(transaction.amount)}</p>
+        <p class="meta">Transaktionsdatum: ${formatDate(transaction.created_at)}</p>
       </div>
     `;
     fundingTransactionsList.appendChild(item);
