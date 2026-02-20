@@ -42,12 +42,13 @@ function initSettingsMenu() {
   settingsForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(settingsForm);
+    const pick = (name, fallback) => formData.get(name) ?? fallback;
     const nextSettings = normalizeDashboardSettings({
-      currency: formData.get("currency"),
-      locale: formData.get("locale"),
-      startView: formData.get("start_view"),
-      defaultIncomeRecurrence: formData.get("default_income_recurrence"),
-      defaultExpenseRecurrence: formData.get("default_expense_recurrence")
+      currency: pick("currency", appState.settings.currency),
+      locale: pick("locale", appState.settings.locale),
+      startView: pick("start_view", appState.settings.startView),
+      defaultIncomeRecurrence: pick("default_income_recurrence", appState.settings.defaultIncomeRecurrence),
+      defaultExpenseRecurrence: pick("default_expense_recurrence", appState.settings.defaultExpenseRecurrence)
     });
 
     applyDashboardSettings(nextSettings, { persist: true, rerender: true });
