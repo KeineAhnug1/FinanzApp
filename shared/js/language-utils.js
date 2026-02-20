@@ -29,6 +29,12 @@
       "en-GB": "Language updated.",
       "fr-FR": "Langue mise a jour."
     },
+    "settings.reset_done": {
+      "de-DE": "Einstellungen zurueckgesetzt.",
+      "en-US": "Settings reset.",
+      "en-GB": "Settings reset.",
+      "fr-FR": "Parametres reinitialises."
+    },
     "locale.de-DE": { "de-DE": "Deutsch (Deutschland)", "en-US": "German (Germany)", "en-GB": "German (Germany)", "fr-FR": "Allemand (Allemagne)" },
     "locale.en-US": { "de-DE": "Englisch (USA)", "en-US": "English (US)", "en-GB": "English (US)", "fr-FR": "Anglais (USA)" },
     "locale.en-GB": { "de-DE": "Englisch (UK)", "en-US": "English (UK)", "en-GB": "English (UK)", "fr-FR": "Anglais (UK)" },
@@ -51,10 +57,13 @@
 
   const PHRASES = {
     nav_app: { "de-DE": "App-Navigation", "en-US": "App navigation", "en-GB": "App navigation", "fr-FR": "Navigation de l'application" },
+    nav_dashboard: { "de-DE": "Dashboard", "en-US": "Dashboard", "en-GB": "Dashboard", "fr-FR": "Tableau de bord" },
     nav_groups: { "de-DE": "Gruppen", "en-US": "Groups", "en-GB": "Groups", "fr-FR": "Groupes" },
+    nav_stocks: { "de-DE": "Aktien", "en-US": "Stocks", "en-GB": "Stocks", "fr-FR": "Actions" },
     theme_mode: { "de-DE": "Farbmodus", "en-US": "Color mode", "en-GB": "Colour mode", "fr-FR": "Mode couleur" },
     theme_light: { "de-DE": "Hell", "en-US": "Light", "en-GB": "Light", "fr-FR": "Clair" },
     theme_dark: { "de-DE": "Dunkel", "en-US": "Dark", "en-GB": "Dark", "fr-FR": "Sombre" },
+    theme_auto: { "de-DE": "Auto", "en-US": "Auto", "en-GB": "Auto", "fr-FR": "Auto" },
     profile: { "de-DE": "Profil", "en-US": "Profile", "en-GB": "Profile", "fr-FR": "Profil" },
     logout: { "de-DE": "Abmelden", "en-US": "Logout", "en-GB": "Logout", "fr-FR": "Deconnexion" },
     groups_title: { "de-DE": "Gruppen | FinanzApp", "en-US": "Groups | FinanzApp", "en-GB": "Groups | FinanzApp", "fr-FR": "Groupes | FinanzApp" },
@@ -79,17 +88,43 @@
     display_currency: { "de-DE": "Anzeige-Waehrung", "en-US": "Display currency", "en-GB": "Display currency", "fr-FR": "Devise d'affichage" },
     stock_view_title: { "de-DE": "Aktienansicht", "en-US": "Stock View", "en-GB": "Stock View", "fr-FR": "Vue des actions" },
     stock_view_page_title: { "de-DE": "Aktienansicht | FinanzApp", "en-US": "Stock View | FinanzApp", "en-GB": "Stock View | FinanzApp", "fr-FR": "Vue des actions | FinanzApp" },
+    depot: { "de-DE": "Depot", "en-US": "Portfolio", "en-GB": "Portfolio", "fr-FR": "Portefeuille" },
+    total_portfolio: { "de-DE": "Gesamtsdepot", "en-US": "Total Portfolio", "en-GB": "Total Portfolio", "fr-FR": "Portefeuille total" },
+    single_analysis: { "de-DE": "Einzelanalyse", "en-US": "Single Analysis", "en-GB": "Single Analysis", "fr-FR": "Analyse individuelle" },
+    outlook: { "de-DE": "Zukunftsaussicht", "en-US": "Outlook", "en-GB": "Outlook", "fr-FR": "Perspectives" },
+    groupings: { "de-DE": "Gruppierungen", "en-US": "Groupings", "en-GB": "Groupings", "fr-FR": "Regroupements" },
+    common_stock: { "de-DE": "Stammaktie", "en-US": "Common Stock", "en-GB": "Common Stock", "fr-FR": "Action ordinaire" },
+    preferred_stock: { "de-DE": "Vorzugsaktie", "en-US": "Preferred Stock", "en-GB": "Preferred Stock", "fr-FR": "Action privilegiee" },
+    all_accounts: { "de-DE": "Alle Konten", "en-US": "All Accounts", "en-GB": "All Accounts", "fr-FR": "Tous les comptes" },
     real_estate: { "de-DE": "Immobilien", "en-US": "Real Estate", "en-GB": "Real Estate", "fr-FR": "Immobilier" },
     depositary_receipts: { "de-DE": "Hinterlegungsscheine", "en-US": "Depositary Receipts", "en-GB": "Depositary Receipts", "fr-FR": "Certificats de depot" },
     partnerships: { "de-DE": "Personengesellschaften", "en-US": "Partnerships", "en-GB": "Partnerships", "fr-FR": "Partenariats" },
     closed_end_funds: { "de-DE": "Geschlossene Fonds", "en-US": "Closed-end Funds", "en-GB": "Closed-end Funds", "fr-FR": "Fonds fermes" },
+    etns: { "de-DE": "ETNs", "en-US": "ETNs", "en-GB": "ETNs", "fr-FR": "ETNs" },
+    bank_account: { "de-DE": "Bankkonto", "en-US": "Bank account", "en-GB": "Bank account", "fr-FR": "Compte bancaire" },
+    bank_account_select_aria: {
+      "de-DE": "Bankkonto auswaehlen",
+      "en-US": "Select bank account",
+      "en-GB": "Select bank account",
+      "fr-FR": "Selectionner un compte bancaire"
+    },
     login_loading: { "de-DE": "Login wird geladen...", "en-US": "Loading login...", "en-GB": "Loading login...", "fr-FR": "Chargement de la connexion..." }
   };
 
-  const phraseLookup = new Map();
+  const tokenLookup = new Map();
+  function registerToken(rawValue, key) {
+    const normalized = String(rawValue || "").trim();
+    if (!normalized) return;
+    tokenLookup.set(normalized, key);
+  }
+
   for (const [key, locales] of Object.entries(PHRASES)) {
+    for (const value of Object.values(locales)) registerToken(value, key);
+  }
+  for (const [key, locales] of Object.entries(MESSAGES)) {
     for (const value of Object.values(locales)) {
-      phraseLookup.set(String(value).trim(), key);
+      if (String(value).includes("{")) continue;
+      registerToken(value, key);
     }
   }
 
@@ -159,9 +194,14 @@
     const source = String(raw || "");
     const trimmed = source.trim();
     if (!trimmed) return source;
-    const key = phraseLookup.get(trimmed);
+    const key = tokenLookup.get(trimmed);
     if (!key) return source;
-    const replacement = PHRASES[key]?.[locale] || PHRASES[key]?.[DEFAULT_LOCALE] || trimmed;
+    const replacement =
+      PHRASES[key]?.[locale] ||
+      PHRASES[key]?.[DEFAULT_LOCALE] ||
+      MESSAGES[key]?.[locale] ||
+      MESSAGES[key]?.[DEFAULT_LOCALE] ||
+      trimmed;
     return source.replace(trimmed, replacement);
   }
 

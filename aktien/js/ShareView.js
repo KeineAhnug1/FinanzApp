@@ -27,7 +27,7 @@
 	const sLocalBuyStorageKey = "shareview_positions_buys_v1";
 	const sLocalSellStorageKey = "shareview_positions_sells_v1";
 	const iCacheTtlMs = 5 * 60 * 1000;
-	const sLocale = "de-DE";
+	let sLocale = window.FinanzAppLanguage?.getLocale?.() || "de-DE";
 
 	// =====================================================
 	// [SHARED] 1) DOM-Referenzen + globaler Zustand
@@ -115,6 +115,15 @@
 	}
 
 	/**
+	 * Liefert die aktuell ausgewaehlte Laufzeit-Locale.
+	 * Scope: [SHARED]
+	 * @returns {string}
+	 */
+	function fnGetLocale() {
+		return window.FinanzAppLanguage?.getLocale?.() || sLocale || "de-DE";
+	}
+
+	/**
 	 * Formatiert einen numerischen Wert als Währung.
 	 * Scope: [SHARED]
 	 * @param {number} nValue
@@ -123,7 +132,7 @@
 	 */
 	function fnFmtMoney(nValue, sCurrency = "EUR") {
 		if (!Number.isFinite(nValue)) return "—";
-		return new Intl.NumberFormat(sLocale, {
+		return new Intl.NumberFormat(fnGetLocale(), {
 			style: "currency",
 			currency: sCurrency,
 			maximumFractionDigits: 2,
@@ -140,7 +149,7 @@
 	 */
 	function fnFmtNumber(nValue, iDigits = 4) {
 		if (!Number.isFinite(nValue)) return "—";
-		return new Intl.NumberFormat(sLocale, { maximumFractionDigits: iDigits }).format(nValue);
+		return new Intl.NumberFormat(fnGetLocale(), { maximumFractionDigits: iDigits }).format(nValue);
 	}
 
 	/**
@@ -153,7 +162,7 @@
 		const iTimestampMs = fnToMsFromTimestamp(nTimestampRaw);
 		if (!Number.isFinite(iTimestampMs)) return "—";
 		const dDate = new Date(iTimestampMs);
-		return new Intl.DateTimeFormat(sLocale, { dateStyle: "medium" }).format(dDate);
+		return new Intl.DateTimeFormat(fnGetLocale(), { dateStyle: "medium" }).format(dDate);
 	}
 
 	// =====================================================
@@ -3070,6 +3079,11 @@
 		fnSetActiveNav(sActiveView);
 		fnRenderView(sActiveView);
 	}
+
+	window.addEventListener("finanzapp:locale-changed", () => {
+		sLocale = fnGetLocale();
+		fnRenderView(sActiveView);
+	});
 
 	fnInitApp();
 })();
