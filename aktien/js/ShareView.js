@@ -2584,10 +2584,10 @@
 		if (sCategoryView === "category_common_stock") return { sTitle: "Stammaktie" };
 		if (sCategoryView === "category_preferred_stock") return { sTitle: "Vorzugsaktie" };
 		if (sCategoryView === "category_etf") return { sTitle: "ETF" };
-		if (sCategoryView === "category_real_estate") return { sTitle: "Real Estate" };
-		if (sCategoryView === "category_depositary_receipts") return { sTitle: "Depositary Receipts" };
-		if (sCategoryView === "category_partnerships") return { sTitle: "Partnerships" };
-		if (sCategoryView === "category_closed_end_funds") return { sTitle: "Closed-end Funds" };
+		if (sCategoryView === "category_real_estate") return { sTitle: "Immobilien" };
+		if (sCategoryView === "category_depositary_receipts") return { sTitle: "Hinterlegungsscheine" };
+		if (sCategoryView === "category_partnerships") return { sTitle: "Personengesellschaften" };
+		if (sCategoryView === "category_closed_end_funds") return { sTitle: "Geschlossene Fonds" };
 		if (sCategoryView === "category_etn") return { sTitle: "ETNs" };
 		return { sTitle: "Kategorie" };
 	}
