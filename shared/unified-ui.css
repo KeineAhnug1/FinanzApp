@@ -100,6 +100,60 @@ body {
   background: var(--ui-surface-soft);
 }
 
+.settings-wrap {
+  position: relative;
+}
+
+.settings-btn {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  border-radius: 999px;
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--ui-text);
+  cursor: pointer;
+  box-shadow: var(--ui-shadow-soft);
+  font: inherit;
+}
+
+.settings-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.settings-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(340px, 92vw);
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-soft);
+  z-index: 20;
+}
+
+.settings-title {
+  margin: 0 0 10px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--ui-text);
+}
+
+.settings-form {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 720px) {
   .dash-topbar,
   .layout-toolbar,

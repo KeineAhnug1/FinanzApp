@@ -84,6 +84,11 @@ const DEFAULT_GROUP_LOCALE_SETTINGS = {
 };
 let groupLocaleSettings = { ...DEFAULT_GROUP_LOCALE_SETTINGS };
 
+function t(key, params = {}) {
+  if (window.FinanzAppLanguage?.t) return window.FinanzAppLanguage.t(key, params);
+  return key;
+}
+
 function sanitizeSettingChoice(value, allowedValues, fallback) {
   const normalized = String(value || "").trim();
   return allowedValues.has(normalized) ? normalized : fallback;
@@ -113,6 +118,9 @@ function loadGroupLocaleSettings(userId) {
 
 function applyGroupLocaleSettings(userId) {
   groupLocaleSettings = loadGroupLocaleSettings(userId);
+  if (window.FinanzAppLanguage?.getLocale) {
+    groupLocaleSettings.locale = window.FinanzAppLanguage.getLocale(userId);
+  }
   document.documentElement.lang = groupLocaleSettings.locale;
 }
 
@@ -132,16 +140,16 @@ function normalizeMemberStatus(status) {
 
 function formatMemberStatus(status) {
   const normalized = normalizeMemberStatus(status);
-  if (normalized === "accepted") return "akzeptiert";
-  if (normalized === "denied") return "abgelehnt";
-  if (normalized === "pending") return "ausstehend";
+  if (normalized === "accepted") return t("groups.status.accepted");
+  if (normalized === "denied") return t("groups.status.denied");
+  if (normalized === "pending") return t("groups.status.pending");
   return normalized;
 }
 
 function formatDate(value) {
-  if (!value) return "k. A.";
+  if (!value) return t("groups.na");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "k. A.";
+  if (Number.isNaN(date.getTime())) return t("groups.na");
   return new Intl.DateTimeFormat(groupLocaleSettings.locale, {
     dateStyle: "medium",
     timeStyle: "short"
@@ -149,7 +157,7 @@ function formatDate(value) {
 }
 
 function formatAmount(value) {
-  if (value == null || Number.isNaN(Number(value))) return "k. A.";
+  if (value == null || Number.isNaN(Number(value))) return t("groups.na");
   return new Intl.NumberFormat(groupLocaleSettings.locale, {
     style: "currency",
     currency: groupLocaleSettings.currency
@@ -177,7 +185,7 @@ function updateInboxIndicator(invitations = []) {
   const hasInvitations = count > 0;
 
   openInboxButton.classList.toggle("has-pending", hasInvitations);
-  openInboxButton.setAttribute("aria-label", hasInvitations ? `Posteingang mit ${count} offenen Einladungen` : "Posteingang");
+  openInboxButton.setAttribute("aria-label", hasInvitations ? t("groups.inbox.aria", { count }) : t("groups.inbox.default"));
 
   if (!inboxIndicator) return;
   inboxIndicator.hidden = !hasInvitations;
@@ -485,8 +493,8 @@ function renderGroupDetail(detail) {
   groupDetailEmpty.hidden = true;
   groupDetailContent.hidden = false;
   groupDetailName.textContent = detail.group.name;
-  groupDetailAddress.textContent = `Adresse: ${detail.group.address || "k. A."}`;
-  groupDetailCreated.textContent = `Erstellt: ${formatDate(detail.group.created_at)}`;
+  groupDetailAddress.textContent = t("groups.address", { value: detail.group.address || t("groups.na") });
+  groupDetailCreated.textContent = t("groups.created", { value: formatDate(detail.group.created_at) });
   leaveGroupButton.hidden = false;
 
   memberActionsPanel.hidden = false;
@@ -514,7 +522,7 @@ function renderGroupDetail(detail) {
 
     item.innerHTML = `
       <div>
-        <p class="member-name">${identity}${isSessionUser ? " (du)" : ""}</p>
+        <p class="member-name">${identity}${isSessionUser ? ` ${t("groups.you")}` : ""}</p>
         <p class="meta">Rolle: ${member.role} | Status: ${formatMemberStatus(member.status)}</p>
       </div>
     `;
@@ -1033,6 +1041,11 @@ groupForm.addEventListener("submit", async (event) => {
 switchDetailTab(activeDetailTab);
 showMainView();
 applyGroupLocaleSettings(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
+
+window.addEventListener("finanzapp:locale-changed", () => {
+  applyGroupLocaleSettings(sessionUser?.id || window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
+  rerenderAfterLocaleChange();
+});
 
 Promise.all([loadSession(), loadGroups(), loadInvitations()]).catch((error) => {
   formStatus.className = "form-status error";

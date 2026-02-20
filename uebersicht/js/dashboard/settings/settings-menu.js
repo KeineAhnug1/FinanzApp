@@ -51,6 +51,9 @@ function initSettingsMenu() {
     });
 
     applyDashboardSettings(nextSettings, { persist: true, rerender: true });
+    if (window.FinanzAppLanguage?.setLocale) {
+      window.FinanzAppLanguage.setLocale(nextSettings.locale, { userId: appState.user?.id, silent: true });
+    }
     setIncomeFormModeCreate();
     setExpenseFormModeCreate();
     setStatus("settings-status", "success", "Einstellungen gespeichert.");
@@ -58,6 +61,9 @@ function initSettingsMenu() {
 
   resetBtn.addEventListener("click", () => {
     applyDashboardSettings({ ...DEFAULT_DASHBOARD_SETTINGS }, { persist: true, rerender: true });
+    if (window.FinanzAppLanguage?.setLocale) {
+      window.FinanzAppLanguage.setLocale(DEFAULT_DASHBOARD_SETTINGS.locale, { userId: appState.user?.id, silent: true });
+    }
     populateSettingsForm();
     setIncomeFormModeCreate();
     setExpenseFormModeCreate();
@@ -74,6 +80,13 @@ function initSettingsMenu() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeSettings();
+  });
+
+  window.addEventListener("finanzapp:locale-changed", (event) => {
+    const nextLocale = event?.detail?.locale;
+    if (!nextLocale || appState.settings.locale === nextLocale) return;
+    applyDashboardSettings({ ...appState.settings, locale: nextLocale }, { persist: true, rerender: true });
+    populateSettingsForm();
   });
 
   populateSettingsForm();
