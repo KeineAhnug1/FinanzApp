@@ -75,6 +75,54 @@ let selectedGroupDetail = null;
 let selectedFundingId = null;
 let activeDetailTab = "members";
 let sessionUser = null;
+const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
+const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR"]);
+const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
+const DEFAULT_GROUP_LOCALE_SETTINGS = {
+  locale: "de-DE",
+  currency: "EUR"
+};
+let groupLocaleSettings = { ...DEFAULT_GROUP_LOCALE_SETTINGS };
+
+function sanitizeSettingChoice(value, allowedValues, fallback) {
+  const normalized = String(value || "").trim();
+  return allowedValues.has(normalized) ? normalized : fallback;
+}
+
+function normalizeGroupLocaleSettings(raw) {
+  const base = raw && typeof raw === "object" ? raw : {};
+  return {
+    locale: sanitizeSettingChoice(base.locale, SETTINGS_LOCALE_OPTIONS, DEFAULT_GROUP_LOCALE_SETTINGS.locale),
+    currency: sanitizeSettingChoice(base.currency, SETTINGS_CURRENCY_OPTIONS, DEFAULT_GROUP_LOCALE_SETTINGS.currency)
+  };
+}
+
+function settingsStorageKey(userId) {
+  return `${SETTINGS_STORAGE_PREFIX}.${userId || "anonymous"}`;
+}
+
+function loadGroupLocaleSettings(userId) {
+  const raw = window.localStorage.getItem(settingsStorageKey(userId));
+  if (!raw) return { ...DEFAULT_GROUP_LOCALE_SETTINGS };
+  try {
+    return normalizeGroupLocaleSettings(JSON.parse(raw));
+  } catch {
+    return { ...DEFAULT_GROUP_LOCALE_SETTINGS };
+  }
+}
+
+function applyGroupLocaleSettings(userId) {
+  groupLocaleSettings = loadGroupLocaleSettings(userId);
+  document.documentElement.lang = groupLocaleSettings.locale;
+}
+
+function rerenderAfterLocaleChange() {
+  renderGroups(groupsState);
+  renderInvitations(invitationsState);
+  if (selectedGroupDetail) {
+    renderGroupDetail(selectedGroupDetail);
+  }
+}
 
 function normalizeMemberStatus(status) {
   if (status === "active") return "accepted";
@@ -86,7 +134,7 @@ function formatDate(value) {
   if (!value) return "n/a";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "n/a";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(groupLocaleSettings.locale, {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(date);
@@ -94,9 +142,9 @@ function formatDate(value) {
 
 function formatAmount(value) {
   if (value == null || Number.isNaN(Number(value))) return "n/a";
-  return new Intl.NumberFormat("de-DE", {
+  return new Intl.NumberFormat(groupLocaleSettings.locale, {
     style: "currency",
-    currency: "EUR"
+    currency: groupLocaleSettings.currency
   }).format(Number(value));
 }
 
@@ -492,6 +540,8 @@ async function loadSession() {
     throw new Error(payload.message || "Could not load session");
   }
   sessionUser = payload.session_user || null;
+  applyGroupLocaleSettings(sessionUser?.id);
+  rerenderAfterLocaleChange();
   if (sessionUserBadge) {
     const username = sessionUser?.username || "unknown";
     sessionUserBadge.textContent = `Session: ${username}`;
@@ -974,6 +1024,7 @@ groupForm.addEventListener("submit", async (event) => {
 
 switchDetailTab(activeDetailTab);
 showMainView();
+applyGroupLocaleSettings(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
 
 Promise.all([loadSession(), loadGroups(), loadInvitations()]).catch((error) => {
   formStatus.className = "form-status error";
