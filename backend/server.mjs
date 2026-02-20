@@ -1261,7 +1261,7 @@ async function calculateDashboardStyleDonationBalance(userId) {
   const accountIds = userAccounts.map((account) => account._id);
   const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
 
-  const [incomeEntries, expenseEntries, fundingParticipants] = await Promise.all([
+  const [incomeEntries, expenseEntries] = await Promise.all([
     db.collection(COLLECTIONS.incomeEntries).find(
       accountFilter,
       { projection: { amount: 1, recurrence: 1, cycle: 1, is_active: 1, state: 1, received_at: 1, pay_date: 1, created_at: 1 } }
@@ -1269,10 +1269,6 @@ async function calculateDashboardStyleDonationBalance(userId) {
     db.collection(COLLECTIONS.expenseEntries).find(
       accountFilter,
       { projection: { amount: 1, recurrence: 1, cycle: 1, is_active: 1, state: 1, spent_at: 1, pay_date: 1, due_date: 1, created_at: 1 } }
-    ).toArray(),
-    db.collection(COLLECTIONS.fundingParticipants).find(
-      accountFilter,
-      { projection: { amount: 1 } }
     ).toArray()
   ]);
 
@@ -1281,17 +1277,13 @@ async function calculateDashboardStyleDonationBalance(userId) {
   const monthlyIncome = Number(((incomeEntries.length > 0 ? monthlyIncomeFromEntries : (baseIncome > 0 ? baseIncome : 0))).toFixed(2));
   const monthlyExpense = calculateCurrentMonthTotal(expenseEntries, "spent_at");
   const dashboardNetLiquidity = Number((monthlyIncome - monthlyExpense).toFixed(2));
-  const alreadyDonated = Number(
-    fundingParticipants.reduce((sum, participant) => sum + (toNullableNumber(participant.amount) ?? 0), 0).toFixed(2)
-  );
-  const availableDonationBalance = Number((dashboardNetLiquidity - alreadyDonated).toFixed(2));
+  const availableDonationBalance = dashboardNetLiquidity;
 
   return {
     availableDonationBalance,
     dashboardNetLiquidity,
     monthlyIncome,
     monthlyExpense,
-    alreadyDonated,
     userAccounts
   };
 }
@@ -1613,7 +1605,7 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
 
   const funding = await db.collection(COLLECTIONS.groupFunding).findOne(
     { _id: fundingId, group_id: context.groupId },
-    { projection: { _id: 1, amount: 1 } }
+    { projection: { _id: 1, amount: 1, info: 1 } }
   );
   if (!funding) return sendJson(res, 404, { ok: false, message: "Funding not found for this group" });
 
@@ -1648,7 +1640,10 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
     bank_account_id: bankAccount._id
   });
 
+  const createdAt = new Date();
+  let fundingParticipantId = null;
   if (existingParticipant) {
+    fundingParticipantId = existingParticipant._id;
     const currentAmount = toNullableNumber(existingParticipant.amount) ?? 0;
     const nextAmount = Number((currentAmount + normalizedAmount).toFixed(2));
     await db.collection(COLLECTIONS.fundingParticipants).updateOne(
@@ -1656,12 +1651,13 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
       { $set: { amount: toDecimal(nextAmount) } }
     );
   } else {
-    await db.collection(COLLECTIONS.fundingParticipants).insertOne({
+    const insertParticipant = await db.collection(COLLECTIONS.fundingParticipants).insertOne({
       group_funding_id: fundingId,
       bank_account_id: bankAccount._id,
       amount,
-      created_at: new Date()
+      created_at: createdAt
     });
+    fundingParticipantId = insertParticipant.insertedId;
   }
 
   const currentFundingAmount = toNullableNumber(funding.amount) ?? 0;
@@ -1670,6 +1666,33 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
     { _id: fundingId },
     { $set: { amount: toDecimal(updatedFundingAmount) } }
   );
+
+  const donationLabel = funding.info ? `Funding donation: ${funding.info}` : "Funding donation";
+  const donationExpense = await db.collection(COLLECTIONS.expenseEntries).insertOne({
+    bank_account_id: bankAccount._id,
+    source: donationLabel,
+    category: "other",
+    amount,
+    theo_amount: amount,
+    spent_at: createdAt,
+    due_date: createdAt,
+    pay_date: createdAt,
+    info: donationLabel,
+    note: donationLabel,
+    state: "open",
+    recurrence: "once",
+    cycle: "once",
+    is_active: true,
+    created_at: createdAt,
+    updated_at: createdAt,
+    group_funding_id: fundingId,
+    funding_participant_id: fundingParticipantId
+  });
+
+  await db.collection(COLLECTIONS.transactions).insertOne({
+    private_expense_id: donationExpense.insertedId,
+    created_at: createdAt
+  });
 
   const updatedAvailableBalance = Number((currentBalance - normalizedAmount).toFixed(2));
 
