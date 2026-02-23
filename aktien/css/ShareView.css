@@ -512,6 +512,23 @@ select:focus {
   font-size: 13px;
 }
 
+.accounts-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.account-name-input {
+  min-height: 40px;
+}
+
 /* ======================================================
    7) Controls + KPIs
    Beschreibung:
@@ -897,6 +914,10 @@ select:focus {
   .analysis-top-row select,
   .future-top-row label {
     min-width: 100%;
+  }
+
+  .account-row {
+    grid-template-columns: 1fr;
   }
 
   input,

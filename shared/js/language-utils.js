@@ -58,6 +58,7 @@
   const PHRASES = {
     nav_app: { "de-DE": "App-Navigation", "en-US": "App navigation", "en-GB": "App navigation", "fr-FR": "Navigation de l'application" },
     nav_dashboard: { "de-DE": "Dashboard", "en-US": "Dashboard", "en-GB": "Dashboard", "fr-FR": "Tableau de bord" },
+    nav_accounts: { "de-DE": "Kontenverwaltung", "en-US": "Account Management", "en-GB": "Account Management", "fr-FR": "Gestion des comptes" },
     nav_groups: { "de-DE": "Gruppen", "en-US": "Groups", "en-GB": "Groups", "fr-FR": "Groupes" },
     nav_stocks: { "de-DE": "Aktien", "en-US": "Stocks", "en-GB": "Stocks", "fr-FR": "Actions" },
     theme_mode: { "de-DE": "Farbmodus", "en-US": "Color mode", "en-GB": "Colour mode", "fr-FR": "Mode couleur" },

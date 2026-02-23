@@ -54,6 +54,7 @@ const COLLECTIONS = {
   fundingParticipants: "funding_participants",
   transactions: "transactions",
   bankAccounts: "bank_accounts",
+  shareAccounts: "share_accounts",
   depots: "depots",
   shares: "shares"
 };
@@ -393,9 +394,28 @@ function serializeExpenseEntry(entry, userId = null) {
 
 async function listUserBankAccounts(userId) {
   return await db.collection(COLLECTIONS.bankAccounts)
-    .find({ user_id: userId }, { projection: { _id: 1, balance: 1, created_at: 1 } })
+    .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, balance: 1, created_at: 1 } })
     .sort({ created_at: 1, _id: 1 })
     .toArray();
+}
+
+async function listUserShareAccounts(userId) {
+  const shareAccounts = await db.collection(COLLECTIONS.shareAccounts)
+    .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
+    .sort({ created_at: 1, _id: 1 })
+    .toArray();
+  const depots = await db.collection(COLLECTIONS.depots)
+    .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
+    .sort({ created_at: 1, _id: 1 })
+    .toArray();
+
+  const merged = new Map();
+  for (const account of [...shareAccounts, ...depots]) {
+    const key = String(account?._id || "");
+    if (!key || merged.has(key)) continue;
+    merged.set(key, account);
+  }
+  return Array.from(merged.values());
 }
 
 async function ensureUserFinanceRoots(userId) {
@@ -404,15 +424,21 @@ async function ensureUserFinanceRoots(userId) {
     const createdAt = new Date();
     const insert = await db.collection(COLLECTIONS.bankAccounts).insertOne({
       user_id: userId,
+      label: "Bankkonto 1",
       balance: toDecimal(0),
       created_at: createdAt
     });
-    bankAccounts = [{ _id: insert.insertedId, balance: toDecimal(0), created_at: createdAt }];
+    bankAccounts = [{ _id: insert.insertedId, label: "Bankkonto 1", balance: toDecimal(0), created_at: createdAt }];
   }
 
-  const existingDepot = await db.collection(COLLECTIONS.depots).findOne({ user_id: userId }, { projection: { _id: 1 } });
-  if (!existingDepot) {
-    await db.collection(COLLECTIONS.depots).insertOne({ user_id: userId, created_at: new Date() });
+  const shareAccounts = await listUserShareAccounts(userId);
+  if (shareAccounts.length === 0) {
+    const createdAt = new Date();
+    await db.collection(COLLECTIONS.shareAccounts).insertOne({
+      user_id: userId,
+      label: "Aktienkonto 1",
+      created_at: createdAt
+    });
   }
 
   return bankAccounts;
@@ -2145,34 +2171,53 @@ async function loadUserBankAccounts(userId) {
 
   const accounts = await db.collection(COLLECTIONS.bankAccounts)
     .find({ user_id: userObjectId })
-    .project({ _id: 1, created_at: 1 })
+    .project({ _id: 1, label: 1, name: 1, created_at: 1 })
     .sort({ created_at: 1 })
     .toArray();
 
-  return accounts.map((account, index) => ({ id: String(account._id), label: `Konto ${index + 1}` }));
+  return accounts.map((account, index) => ({
+    id: String(account._id),
+    label: String(account?.label || account?.name || `Bankkonto ${index + 1}`)
+  }));
 }
 
-async function loadUserPositions(userId, bankAccountIdRaw = "") {
+async function loadUserShareAccounts(userId) {
   const userObjectId = parseObjectId(userId);
   if (!userObjectId) return [];
 
-  const accountFilter = { user_id: userObjectId };
-  const selectedAccountId = parseObjectId(bankAccountIdRaw);
-  if (bankAccountIdRaw && !selectedAccountId) return [];
-  if (selectedAccountId) accountFilter._id = selectedAccountId;
+  const shareAccounts = await listUserShareAccounts(userObjectId);
+  return shareAccounts.map((account, index) => ({
+    id: String(account._id),
+    label: String(account?.label || account?.name || `Aktienkonto ${index + 1}`)
+  }));
+}
 
-  const bankAccounts = await db.collection(COLLECTIONS.bankAccounts).find(accountFilter).project({ _id: 1 }).toArray();
-  if (!bankAccounts.length) return [];
+async function loadUserPositions(userId, shareAccountIdRaw = "") {
+  const userObjectId = parseObjectId(userId);
+  if (!userObjectId) return [];
 
-  const depots = await db.collection(COLLECTIONS.depots)
-    .find({ user_id: userObjectId })
-    .project({ _id: 1 })
-    .toArray();
-  if (!depots.length) return [];
+  const shareAccounts = await listUserShareAccounts(userObjectId);
+  if (!shareAccounts.length) return [];
 
-  const depotIds = depots.map((depot) => depot._id);
+  const shareAccountIds = shareAccounts.map((account) => account._id);
+  let filteredShareAccountIds = shareAccountIds;
+  const selectedAccountId = parseObjectId(shareAccountIdRaw);
+  if (shareAccountIdRaw && !selectedAccountId) return [];
+  if (selectedAccountId) {
+    const isAllowed = shareAccountIds.some((id) => String(id) === String(selectedAccountId));
+    if (!isAllowed) return [];
+    filteredShareAccountIds = [selectedAccountId];
+  }
+
+  const accountIdFilter = { $in: filteredShareAccountIds };
   const shares = await db.collection(COLLECTIONS.shares)
-    .find({ depot_id: { $in: depotIds } })
+    .find({
+      $or: [
+        { share_account_id: accountIdFilter },
+        { depot_id: accountIdFilter },
+        { bank_account_id: accountIdFilter }
+      ]
+    })
     .sort({ bought_at: 1 })
     .limit(500)
     .toArray();
@@ -2207,19 +2252,225 @@ async function handlePositions(req, res, url, session) {
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
-  const bankAccountId = String(url.searchParams.get("bank_account_id") || "").trim();
-  const positions = await loadUserPositions(session.user.id, bankAccountId);
+  const shareAccountId = String(
+    url.searchParams.get("share_account_id") ||
+    url.searchParams.get("bank_account_id") ||
+    ""
+  ).trim();
+  const positions = await loadUserPositions(session.user.id, shareAccountId);
   return sendJson(res, 200, positions);
 }
 
 async function handleBankAccounts(req, res, session) {
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  if (req.method === "GET") {
+    const accounts = await loadUserBankAccounts(session.user.id);
+    return sendJson(res, 200, { accounts });
+  }
+
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
-  const accounts = await loadUserBankAccounts(session.user.id);
-  return sendJson(res, 200, { accounts });
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const label = String(payload?.label || payload?.name || "").trim();
+  if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+
+  const createdAt = new Date();
+  const insert = await db.collection(COLLECTIONS.bankAccounts).insertOne({
+    user_id: userId,
+    label,
+    balance: toDecimal(0),
+    created_at: createdAt
+  });
+
+  return sendJson(res, 201, {
+    ok: true,
+    account: { id: String(insert.insertedId), label }
+  });
+}
+
+async function handleBankAccountById(req, res, accountIdRaw, session) {
+  const accountId = parseObjectId(accountIdRaw);
+  if (!accountId) return sendJson(res, 400, { ok: false, message: "bank_account_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  if (req.method === "PATCH") {
+    let payload;
+    try {
+      payload = await readBody(req);
+    } catch (error) {
+      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+      return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    }
+
+    const label = String(payload?.label || payload?.name || "").trim();
+    if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+
+    const updated = await db.collection(COLLECTIONS.bankAccounts).findOneAndUpdate(
+      { _id: accountId, user_id: userId },
+      { $set: { label } },
+      { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } }
+    );
+    if (!updated) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
+
+    return sendJson(res, 200, {
+      ok: true,
+      account: {
+        id: String(updated._id),
+        label: String(updated?.label || updated?.name || "Bankkonto")
+      }
+    });
+  }
+
+  if (req.method === "DELETE") {
+    const usageChecks = await Promise.all([
+      db.collection(COLLECTIONS.incomeEntries).countDocuments({ bank_account_id: accountId }, { limit: 1 }),
+      db.collection(COLLECTIONS.expenseEntries).countDocuments({ bank_account_id: accountId }, { limit: 1 }),
+      db.collection(COLLECTIONS.fundingParticipants).countDocuments({ bank_account_id: accountId }, { limit: 1 }),
+      db.collection("requests").countDocuments(
+        { $or: [{ from_bank_account_id: accountId }, { to_bank_account_id: accountId }] },
+        { limit: 1 }
+      )
+    ]);
+    const isUsed = usageChecks.some((count) => count > 0);
+    if (isUsed) {
+      return sendJson(res, 409, {
+        ok: false,
+        message: "Bankkonto kann nicht geloescht werden, solange es in Buchungen/Anfragen verwendet wird"
+      });
+    }
+
+    const deletion = await db.collection(COLLECTIONS.bankAccounts).deleteOne({ _id: accountId, user_id: userId });
+    if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
+    return sendJson(res, 200, { ok: true, message: "Bankkonto geloescht" });
+  }
+
+  res.setHeader("Allow", "PATCH, DELETE");
+  return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+}
+
+async function handleShareAccounts(req, res, session) {
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  if (req.method === "GET") {
+    const accounts = await loadUserShareAccounts(session.user.id);
+    return sendJson(res, 200, { accounts });
+  }
+
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const label = String(payload?.label || payload?.name || "").trim();
+  if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+
+  const createdAt = new Date();
+  const insert = await db.collection(COLLECTIONS.shareAccounts).insertOne({
+    user_id: userId,
+    label,
+    created_at: createdAt
+  });
+
+  return sendJson(res, 201, {
+    ok: true,
+    account: { id: String(insert.insertedId), label }
+  });
+}
+
+async function handleShareAccountById(req, res, accountIdRaw, session) {
+  const accountId = parseObjectId(accountIdRaw);
+  if (!accountId) return sendJson(res, 400, { ok: false, message: "share_account_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  if (req.method === "PATCH") {
+    let payload;
+    try {
+      payload = await readBody(req);
+    } catch (error) {
+      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+      return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    }
+
+    const label = String(payload?.label || payload?.name || "").trim();
+    if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+
+    const updated = await db.collection(COLLECTIONS.shareAccounts).findOneAndUpdate(
+      { _id: accountId, user_id: userId },
+      { $set: { label } },
+      { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } }
+    );
+    let updatedDoc = updated;
+    if (!updatedDoc) {
+      updatedDoc = await db.collection(COLLECTIONS.depots).findOneAndUpdate(
+        { _id: accountId, user_id: userId },
+        { $set: { label } },
+        { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } }
+      );
+    }
+    if (!updatedDoc) return sendJson(res, 404, { ok: false, message: "Aktienkonto nicht gefunden" });
+
+    return sendJson(res, 200, {
+      ok: true,
+      account: {
+        id: String(updatedDoc._id),
+        label: String(updatedDoc?.label || updatedDoc?.name || "Aktienkonto")
+      }
+    });
+  }
+
+  if (req.method === "DELETE") {
+    const shareCount = await db.collection(COLLECTIONS.shares).countDocuments(
+      {
+        $or: [
+          { share_account_id: accountId },
+          { depot_id: accountId },
+          { bank_account_id: accountId }
+        ]
+      },
+      { limit: 1 }
+    );
+    if (shareCount > 0) {
+      return sendJson(res, 409, {
+        ok: false,
+        message: "Aktienkonto kann nur geloescht werden, wenn keine Shares mehr darauf liegen"
+      });
+    }
+
+    let deletion = await db.collection(COLLECTIONS.shareAccounts).deleteOne({ _id: accountId, user_id: userId });
+    if (!deletion || deletion.deletedCount !== 1) {
+      deletion = await db.collection(COLLECTIONS.depots).deleteOne({ _id: accountId, user_id: userId });
+    }
+    if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Aktienkonto nicht gefunden" });
+    return sendJson(res, 200, { ok: true, message: "Aktienkonto geloescht" });
+  }
+
+  res.setHeader("Allow", "PATCH, DELETE");
+  return sendJson(res, 405, { ok: false, message: "Method not allowed" });
 }
 
 async function handleDebugPositions(req, res, url, session) {
@@ -2228,7 +2479,7 @@ async function handleDebugPositions(req, res, url, session) {
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
-  const bankAccountId = String(url.searchParams.get("bank_account_id") || "").trim();
+  const bankAccountId = String(url.searchParams.get("bank_account_id") || url.searchParams.get("share_account_id") || "").trim();
   const accounts = await loadUserBankAccounts(session.user.id);
   const positions = await loadUserPositions(session.user.id, bankAccountId);
 
@@ -2297,6 +2548,12 @@ function resolveStaticPath(pathname) {
     return path.join(PROJECT_ROOT, "aktien", relative);
   }
 
+  if (pathname === "/konten/") return path.join(PROJECT_ROOT, "konten", "index.html");
+  if (pathname.startsWith("/konten/")) {
+    const relative = pathname.replace(/^\/konten\//, "");
+    return path.join(PROJECT_ROOT, "konten", relative);
+  }
+
   return path.join(PROJECT_ROOT, pathname.slice(1));
 }
 
@@ -2349,6 +2606,8 @@ const server = http.createServer(async (req, res) => {
       pathname === "/dashboard.html" ||
       pathname === "/groups" ||
       pathname.startsWith("/groups/") ||
+      pathname === "/konten" ||
+      pathname.startsWith("/konten/") ||
       pathname === "/aktien" ||
       pathname.startsWith("/aktien/") ||
       pathname.startsWith("/js/dashboard/");
@@ -2369,6 +2628,11 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === "/aktien") {
       res.writeHead(302, { Location: "/aktien/" });
+      res.end();
+      return;
+    }
+    if (pathname === "/konten") {
+      res.writeHead(302, { Location: "/konten/" });
       res.end();
       return;
     }
@@ -2432,6 +2696,15 @@ const server = http.createServer(async (req, res) => {
 
       if (pathname === "/api/positions") return await handlePositions(req, res, url, session);
       if (pathname === "/api/bank-accounts") return await handleBankAccounts(req, res, session);
+      if (pathname.startsWith("/api/bank-accounts/")) {
+        const accountId = decodeURIComponent(pathname.replace("/api/bank-accounts/", ""));
+        return await handleBankAccountById(req, res, accountId, session);
+      }
+      if (pathname === "/api/share-accounts") return await handleShareAccounts(req, res, session);
+      if (pathname.startsWith("/api/share-accounts/")) {
+        const accountId = decodeURIComponent(pathname.replace("/api/share-accounts/", ""));
+        return await handleShareAccountById(req, res, accountId, session);
+      }
       if (pathname === "/api/debug/positions") return await handleDebugPositions(req, res, url, session);
       if (pathname.startsWith("/api/twelvedata")) return await handleTwelveDataProxy(req, res, pathname, url, session);
 
@@ -2478,6 +2751,10 @@ async function ensureIndexes() {
   await db.collection(COLLECTIONS.expenseEntries).createIndex(
     { legacy_expense_entry_id: 1 },
     { unique: true, sparse: true, name: "private_expenses_legacy_expense_entry_unique" }
+  );
+  await db.collection(COLLECTIONS.shareAccounts).createIndex(
+    { user_id: 1, created_at: 1 },
+    { name: "share_accounts_user_created_idx" }
   );
   await db.collection(COLLECTIONS.userCategories).createIndex(
     { user_id: 1, kind: 1, key: 1 },

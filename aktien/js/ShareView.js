@@ -8,6 +8,14 @@
 		"http://127.0.0.1:5588/api/positions",
 		"http://localhost:5588/api/positions",
 	].filter(Boolean);
+	const aShareAccountsEndpoints = [
+		window.SHAREVIEW_SHARE_ACCOUNTS_ENDPOINT,
+		"/api/share-accounts",
+		"/api/bank-accounts",
+		"http://127.0.0.1:5588/api/share-accounts",
+		"http://localhost:5588/api/share-accounts",
+	].filter(Boolean);
+	const aShareAccountsCrudEndpoints = aShareAccountsEndpoints.filter((sEndpoint) => !String(sEndpoint).includes("/api/bank-accounts"));
 	const aBankAccountsEndpoints = [
 		window.SHAREVIEW_BANK_ACCOUNTS_ENDPOINT,
 		"/api/bank-accounts",
@@ -24,8 +32,8 @@
 		return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
 	});
 	const sAllStocksDataPath = "testdata/Allstocks.json";
-	const sLocalBuyStorageKey = "shareview_positions_buys_v1";
-	const sLocalSellStorageKey = "shareview_positions_sells_v1";
+	const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
+	const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 	const iCacheTtlMs = 5 * 60 * 1000;
 	let sLocale = window.FinanzAppLanguage?.getLocale?.() || "de-DE";
 
@@ -34,11 +42,17 @@
 	// =====================================================
 	const aElNavButtons = [...document.querySelectorAll(".navbtn")];
 	const elViewHost = document.getElementById("viewHost");
-	const elGlobalBankAccountSelect = document.getElementById("globalBankAccountSelect");
+	const elGlobalShareAccountSelect = document.getElementById("globalShareAccountSelect");
 
 	let sActiveView = "depot";
+	let aShareAccounts = [];
 	let aBankAccounts = [];
-	let sSelectedBankAccountId = "";
+	let sSelectedShareAccountId = "";
+
+	const sInitialRequestedView = String(new URLSearchParams(window.location.search).get("view") || "").trim().toLowerCase();
+	if (sInitialRequestedView === "accounts") {
+		window.location.replace("/konten/");
+	}
 
 	/**
 	 * Normalisiert eine Konto-ID als String.
@@ -46,8 +60,17 @@
 	 * @param {any} xValue
 	 * @returns {string}
 	 */
-	function fnNormalizeBankAccountId(xValue) {
+	function fnNormalizeAccountId(xValue) {
 		return String(xValue || "").trim();
+	}
+
+	function fnGetCurrentSessionUserId() {
+		const oUser = window.FinanzAppSession?.getCurrentUserFromStorage?.();
+		return String(oUser?.id || "anonymous").trim();
+	}
+
+	function fnGetScopedStorageKey(sBaseKey) {
+		return `${sBaseKey}:${fnGetCurrentSessionUserId()}`;
 	}
 
 	/**
@@ -56,7 +79,7 @@
 	 * @returns {boolean}
 	 */
 	function fnIsAllAccountsSelected() {
-		return !fnNormalizeBankAccountId(sSelectedBankAccountId);
+		return !fnNormalizeAccountId(sSelectedShareAccountId);
 	}
 
 	/**
@@ -65,40 +88,10 @@
 	 * @param {string} sBankAccountId
 	 * @returns {string}
 	 */
-	function fnGetBankAccountLabel(sBankAccountId) {
-		const sId = fnNormalizeBankAccountId(sBankAccountId);
-		const oMatch = aBankAccounts.find((oAccount) => fnNormalizeBankAccountId(oAccount?.id) === sId);
+	function fnGetShareAccountLabel(sShareAccountId) {
+		const sId = fnNormalizeAccountId(sShareAccountId);
+		const oMatch = aShareAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
 		return String(oMatch?.label || sId || "Unbekanntes Konto");
-	}
-
-	/**
-	 * Fragt bei Gesamtansicht ein Zielkonto für Käufe per kleinem Popup ab.
-	 * Scope: [SHARED]
-	 * @returns {string | null} Ausgewählte Konto-ID, leer bei ungültiger Auswahl, null bei Abbruch.
-	 */
-	function fnPromptBuyTargetAccountId() {
-		if (!aBankAccounts.length) return "";
-		const sOptions = aBankAccounts
-			.map((oAccount, iIndex) => `${iIndex + 1}) ${oAccount.label} (${oAccount.id})`)
-			.join("\n");
-		const sInput = window.prompt(
-			`Gesamtkonto ist aktiv.\nAuf welches Konto soll gekauft werden?\n${sOptions}\n\nBitte Nummer oder Konto-ID eingeben:`,
-			"1"
-		);
-		if (sInput == null) return null;
-
-		const sTrimmedInput = String(sInput).trim();
-		if (!sTrimmedInput) return "";
-
-		const iNumber = Number(sTrimmedInput);
-		if (Number.isInteger(iNumber) && iNumber >= 1 && iNumber <= aBankAccounts.length) {
-			return fnNormalizeBankAccountId(aBankAccounts[iNumber - 1]?.id);
-		}
-
-		const sMatchedId = fnNormalizeBankAccountId(
-			aBankAccounts.find((oAccount) => fnNormalizeBankAccountId(oAccount?.id) === sTrimmedInput)?.id
-		);
-		return sMatchedId || "";
 	}
 
 	// =====================================================
@@ -307,93 +300,100 @@
 		return oUrl;
 	}
 
-	/**
-	 * Rendert Optionen im globalen Bankkonto-Dropdown.
-	 * Scope: [SHARED]
-	 */
-	function fnRenderBankAccountOptions() {
-		if (!elGlobalBankAccountSelect) return;
+	function fnMapApiAccounts(aRawAccounts, sFallbackPrefix) {
+		return (Array.isArray(aRawAccounts) ? aRawAccounts : [])
+			.map((oAccount, iIndex) => {
+				const sId = String(oAccount?.id || "").trim();
+				if (!sId) return null;
+				const sLabelRaw = String(oAccount?.label || oAccount?.name || "").trim();
+				return {
+					id: sId,
+					label: sLabelRaw || `${sFallbackPrefix} ${iIndex + 1}`,
+				};
+			})
+			.filter(Boolean);
+	}
 
-		const sCurrent = String(sSelectedBankAccountId || "").trim();
+	function fnRenderShareAccountOptions() {
+		if (!elGlobalShareAccountSelect) return;
+
+		const sCurrent = String(sSelectedShareAccountId || "").trim();
 		const sOptions = [
 			`<option value="">Alle Konten</option>`,
-			...aBankAccounts.map((oAccount) => {
+			...aShareAccounts.map((oAccount) => {
 				const sId = fnEscapeHtml(String(oAccount?.id || ""));
-				const sLabel = fnEscapeHtml(String(oAccount?.label || sId || "Konto"));
+				const sLabel = fnEscapeHtml(String(oAccount?.label || sId || "Aktienkonto"));
 				return `<option value="${sId}">${sLabel}</option>`;
 			}),
 		].join("");
 
-		elGlobalBankAccountSelect.innerHTML = sOptions;
-		const bSelectionExists = aBankAccounts.some((oAccount) => String(oAccount?.id || "") === sCurrent);
-		elGlobalBankAccountSelect.value = bSelectionExists ? sCurrent : "";
-		sSelectedBankAccountId = elGlobalBankAccountSelect.value;
+		elGlobalShareAccountSelect.innerHTML = sOptions;
+		const bSelectionExists = aShareAccounts.some((oAccount) => String(oAccount?.id || "") === sCurrent);
+		elGlobalShareAccountSelect.value = bSelectionExists ? sCurrent : "";
+		sSelectedShareAccountId = elGlobalShareAccountSelect.value;
 	}
 
-	/**
-	 * Lädt die verfügbaren Bankkonten aus dem Backend.
-	 * Scope: [SHARED]
-	 * @returns {Promise<void>}
-	 */
-	async function fnLoadBankAccounts() {
-		if (!elGlobalBankAccountSelect) return;
+	async function fnLoadShareAccounts() {
+		if (!elGlobalShareAccountSelect) return;
 
-		for (const sEndpoint of aBankAccountsEndpoints) {
+		for (const sEndpoint of aShareAccountsEndpoints) {
 			try {
 				const oUrl = fnBuildUrlWithQuery(sEndpoint);
 				const oResponse = await fetch(oUrl.toString());
 				if (!oResponse.ok) {
-					console.warn(`Bankkonto-Backend Fehler (${sEndpoint}): HTTP ${oResponse.status}.`);
+					console.warn(`Aktienkonto-Backend Fehler (${sEndpoint}): HTTP ${oResponse.status}.`);
 					continue;
 				}
 
 				const oData = await oResponse.json();
-				const aAccounts = Array.isArray(oData?.accounts) ? oData.accounts : [];
-				aBankAccounts = aAccounts
-					.map((oAccount, iIndex) => {
-						const sId = String(oAccount?.id || "").trim();
-						if (!sId) return null;
-						const sLabelRaw = String(oAccount?.label || "").trim();
-						return {
-							id: sId,
-							label: sLabelRaw || `Konto ${iIndex + 1}`,
-						};
-					})
-					.filter(Boolean);
-				fnRenderBankAccountOptions();
+				aShareAccounts = fnMapApiAccounts(oData?.accounts, "Aktienkonto");
+				fnRenderShareAccountOptions();
 				return;
 			} catch (oError) {
-				console.warn(`Bankkonto-Backend nicht erreichbar (${sEndpoint}).`, oError);
+				console.warn(`Aktienkonto-Backend nicht erreichbar (${sEndpoint}).`, oError);
 			}
 		}
 
+		aShareAccounts = [];
+		fnRenderShareAccountOptions();
+	}
+
+	async function fnLoadBankAccounts() {
+		for (const sEndpoint of aBankAccountsEndpoints) {
+			try {
+				const oUrl = fnBuildUrlWithQuery(sEndpoint);
+				const oResponse = await fetch(oUrl.toString());
+				if (!oResponse.ok) continue;
+				const oData = await oResponse.json();
+				aBankAccounts = fnMapApiAccounts(oData?.accounts, "Bankkonto");
+				return;
+			} catch {
+				// intentionally empty: try next endpoint
+			}
+		}
 		aBankAccounts = [];
-		fnRenderBankAccountOptions();
 	}
 
 	/**
-	 * Lädt Positionen aus `window.POSITIONS` oder Backend-Endpoint.
+	 * Lädt Positionen aus dem Backend und ergänzt lokale Trades des aktuellen Users.
 	 * Scope: [SHARED]
 	 * @returns {Promise<Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>>}
 	 */
 	async function fnLoadPositions() {
-		const sActiveAccountId = fnNormalizeBankAccountId(sSelectedBankAccountId);
+		const sActiveAccountId = fnNormalizeAccountId(sSelectedShareAccountId);
 		const aLocalBoughtPositionsAll = fnReadLocalBoughtPositions();
 		const aLocalSoldPositionsAll = fnReadLocalSoldPositions();
 		const aLocalBoughtPositions = sActiveAccountId
-			? aLocalBoughtPositionsAll.filter((oPosition) => fnNormalizeBankAccountId(oPosition?.bank_account_id) === sActiveAccountId)
+			? aLocalBoughtPositionsAll.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sActiveAccountId)
 			: aLocalBoughtPositionsAll;
 		const aLocalSoldPositions = sActiveAccountId
-			? aLocalSoldPositionsAll.filter((oPosition) => fnNormalizeBankAccountId(oPosition?.bank_account_id) === sActiveAccountId)
+			? aLocalSoldPositionsAll.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sActiveAccountId)
 			: aLocalSoldPositionsAll;
-		if (Array.isArray(window.POSITIONS)) {
-			return fnApplySoldPositions([...window.POSITIONS, ...aLocalBoughtPositions], aLocalSoldPositions);
-		}
 
 		for (const sPositionsEndpoint of aPositionsEndpoints) {
 			try {
 				const oUrl = fnBuildUrlWithQuery(sPositionsEndpoint, {
-					bank_account_id: sSelectedBankAccountId,
+					share_account_id: sSelectedShareAccountId,
 				});
 				const oResponse = await fetch(oUrl.toString());
 				if (oResponse.ok) {
@@ -418,7 +418,7 @@
 	 * @returns {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>}
 	 */
 	function fnReadLocalBoughtPositions() {
-		const sRaw = localStorage.getItem(sLocalBuyStorageKey);
+		const sRaw = localStorage.getItem(fnGetScopedStorageKey(sLocalBuyStorageBaseKey));
 		if (!sRaw) return [];
 
 		try {
@@ -436,7 +436,7 @@
 	 * @param {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>} aPositions
 	 */
 	function fnWriteLocalBoughtPositions(aPositions) {
-		localStorage.setItem(sLocalBuyStorageKey, JSON.stringify(aPositions));
+		localStorage.setItem(fnGetScopedStorageKey(sLocalBuyStorageBaseKey), JSON.stringify(aPositions));
 	}
 
 	/**
@@ -445,7 +445,7 @@
 	 * @returns {Array<{symbol: string, amount: number, created_at: number}>}
 	 */
 	function fnReadLocalSoldPositions() {
-		const sRaw = localStorage.getItem(sLocalSellStorageKey);
+		const sRaw = localStorage.getItem(fnGetScopedStorageKey(sLocalSellStorageBaseKey));
 		if (!sRaw) return [];
 
 		try {
@@ -456,7 +456,8 @@
 					symbol: oPosition.symbol,
 					amount: Number(oPosition.amount),
 					created_at: Number(oPosition.created_at),
-					bank_account_id: fnNormalizeBankAccountId(oPosition?.bank_account_id),
+					share_account_id: fnNormalizeAccountId(oPosition?.share_account_id || oPosition?.bank_account_id),
+					bank_account_id: fnNormalizeAccountId(oPosition?.bank_account_id),
 				}))
 				.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
 		} catch {
@@ -470,11 +471,11 @@
 	 * @param {Array<{symbol: string, amount: number, created_at: number}>} aPositions
 	 */
 	function fnWriteLocalSoldPositions(aPositions) {
-		localStorage.setItem(sLocalSellStorageKey, JSON.stringify(aPositions));
+		localStorage.setItem(fnGetScopedStorageKey(sLocalSellStorageBaseKey), JSON.stringify(aPositions));
 	}
 
 	/**
-	 * Speichert einen Kauf lokal und ergänzt optional `window.POSITIONS`.
+	 * Speichert einen Kauf lokal.
 	 * Scope: [SHARED]
 	 * @param {{symbol: string, amount: number, created_at: number, worthwhenbought: number}} oPosition
 	 */
@@ -482,10 +483,6 @@
 		const aLocalPositions = fnReadLocalBoughtPositions();
 		aLocalPositions.push(oPosition);
 		fnWriteLocalBoughtPositions(aLocalPositions);
-
-		if (Array.isArray(window.POSITIONS)) {
-			window.POSITIONS.push(oPosition);
-		}
 	}
 
 	/**
@@ -513,6 +510,8 @@
 				amount: Number(oPosition.amount),
 				created_at: Number(oPosition.created_at),
 				worthwhenbought: Number(oPosition.worthwhenbought),
+				share_account_id: fnGetPositionShareAccountId(oPosition),
+				bank_account_id: fnNormalizeAccountId(oPosition?.bank_account_id),
 			}))
 			.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
 
@@ -531,13 +530,17 @@
 				symbol: oSell.symbol,
 				amount: Number(oSell.amount),
 				created_at: Number(oSell.created_at),
+				share_account_id: fnGetPositionShareAccountId(oSell),
 			}))
 			.filter((oSell) => Number.isFinite(oSell.amount) && oSell.amount > 0)
 			.sort((oA, oB) => Number(oA.created_at) - Number(oB.created_at));
 
 		for (const oSell of aSells) {
 			let nAmountLeft = oSell.amount;
-			const aSymbolPositions = mPositionsBySymbol.get(oSell.symbol) || [];
+			const aSymbolPositions = (mPositionsBySymbol.get(oSell.symbol) || []).filter((oPosition) => {
+				if (!oSell.share_account_id) return true;
+				return fnNormalizeAccountId(oPosition?.share_account_id) === oSell.share_account_id;
+			});
 			for (const oPosition of aSymbolPositions) {
 				if (nAmountLeft <= 0) break;
 				if (!Number.isFinite(oPosition.amount) || oPosition.amount <= 0) continue;
@@ -566,6 +569,10 @@
 				return { ...oPosition, symbol: sSymbol };
 			})
 			.filter(Boolean);
+	}
+
+	function fnGetPositionShareAccountId(oPosition) {
+		return fnNormalizeAccountId(oPosition?.share_account_id || oPosition?.bank_account_id);
 	}
 
 	/**
@@ -742,6 +749,11 @@
                 <input id="analysisTradeAmountInput" type="number" min="0.0001" step="0.0001" value="1">
               </label>
 
+              <label>
+                Aktienkonto
+                <select id="analysisTradeShareAccountSelect"></select>
+              </label>
+
               <button class="action primary" id="analysisBuyBtn" type="button">Kaufen</button>
               <button class="action primary" id="analysisSellBtn" type="button">Verkaufen</button>
             </div>
@@ -793,6 +805,11 @@
       `;
 
 			fnInitAnalysisView();
+			return;
+		}
+
+		if (sViewName === "accounts") {
+			window.location.assign("/konten/");
 			return;
 		}
 
@@ -2200,6 +2217,7 @@
 		const elOwnedSymbolSelect = document.getElementById("analysisOwnedSymbolSelect");
 		const elUseOwnedBtn = document.getElementById("analysisUseOwnedBtn");
 		const elTradeAmountInput = document.getElementById("analysisTradeAmountInput");
+		const elTradeShareAccountSelect = document.getElementById("analysisTradeShareAccountSelect");
 		const elBuyBtn = document.getElementById("analysisBuyBtn");
 		const elSellBtn = document.getElementById("analysisSellBtn");
 		const elBuyFeedback = document.getElementById("analysisBuyFeedback");
@@ -2212,7 +2230,7 @@
 		const elCanvas = document.getElementById("analysisChart");
 		const oCtx = elCanvas?.getContext("2d");
 
-		if (!elInfo || !elCatalogSearchInput || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
+		if (!elInfo || !elCatalogSearchInput || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elTradeShareAccountSelect || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
 			fnShowError("Einzelanalyse konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
 			return;
 		}
@@ -2234,6 +2252,7 @@
 		let sSelectedSymbol = aOwnedRows[0]?.sSymbol || "";
 		let aCurrentSearchResults = [];
 		let nLastKnownClose = Number.NaN;
+		let sSelectedTradeShareAccountId = fnNormalizeAccountId(sSelectedShareAccountId || aShareAccounts[0]?.id);
 
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 
@@ -2268,6 +2287,19 @@
 			if (sSelectedSymbol && aOwnedRows.some((oRow) => oRow.sSymbol === sSelectedSymbol)) {
 				elOwnedSymbolSelect.value = sSelectedSymbol;
 			}
+		};
+
+		const fnRenderTradeShareAccountOptions = () => {
+			elTradeShareAccountSelect.innerHTML = aShareAccounts
+				.map((oAccount) => `<option value="${fnEscapeHtml(oAccount.id)}">${fnEscapeHtml(oAccount.label)}</option>`)
+				.join("");
+			if (aShareAccounts.some((oAccount) => oAccount.id === sSelectedTradeShareAccountId)) {
+				elTradeShareAccountSelect.value = sSelectedTradeShareAccountId;
+			} else {
+				sSelectedTradeShareAccountId = fnNormalizeAccountId(sSelectedShareAccountId || aShareAccounts[0]?.id);
+				elTradeShareAccountSelect.value = sSelectedTradeShareAccountId;
+			}
+			elTradeShareAccountSelect.disabled = aShareAccounts.length === 0;
 		};
 
 		const fnRenderSearchResults = () => {
@@ -2365,6 +2397,10 @@
 			await fnRefreshAnalysisChart();
 		});
 
+		elTradeShareAccountSelect.addEventListener("change", () => {
+			sSelectedTradeShareAccountId = fnNormalizeAccountId(elTradeShareAccountSelect.value);
+		});
+
 		aElRangeButtons.forEach((elButton) => {
 			elButton.addEventListener("click", async () => {
 				aElRangeButtons.forEach((elOtherButton) => elOtherButton.classList.remove("active"));
@@ -2388,18 +2424,10 @@
 				return;
 			}
 
-			let sTargetBankAccountId = fnNormalizeBankAccountId(sSelectedBankAccountId);
-			if (!sTargetBankAccountId) {
-				const sPromptResult = fnPromptBuyTargetAccountId();
-				if (sPromptResult == null) {
-					elBuyFeedback.textContent = "Kauf abgebrochen.";
-					return;
-				}
-				sTargetBankAccountId = fnNormalizeBankAccountId(sPromptResult);
-				if (!sTargetBankAccountId) {
-					elBuyFeedback.textContent = "Kauf nicht möglich: Bitte ein gültiges Zielkonto wählen.";
-					return;
-				}
+			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
+			if (!sTargetShareAccountId) {
+				elBuyFeedback.textContent = "Kauf nicht möglich: Bitte ein Aktienkonto auswählen.";
+				return;
 			}
 
 			let nBuyPrice = await fnGetLatestPriceBySymbol(sSymbol);
@@ -2417,18 +2445,18 @@
 				amount: nAmount,
 				created_at: iNowUnixSeconds,
 				worthwhenbought: nBuyPrice,
-				bank_account_id: sTargetBankAccountId,
+				share_account_id: sTargetShareAccountId,
 			};
 
 			fnPersistBoughtPosition(oNewPosition);
-			if (fnIsAllAccountsSelected() || fnNormalizeBankAccountId(sSelectedBankAccountId) === sTargetBankAccountId) {
+			if (fnIsAllAccountsSelected() || fnNormalizeAccountId(sSelectedShareAccountId) === sTargetShareAccountId) {
 				aPositions.push(oNewPosition);
 			}
 			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
-			const sTargetLabel = fnGetBankAccountLabel(sTargetBankAccountId);
-			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")} auf ${sTargetLabel}.`;
+			const sTargetShareLabel = fnGetShareAccountLabel(sTargetShareAccountId);
+			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")} auf ${sTargetShareLabel}.`;
 			await fnRefreshAnalysisChart();
 		});
 
@@ -2457,11 +2485,27 @@
 				return;
 			}
 
+			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
+			if (!sTargetShareAccountId) {
+				elBuyFeedback.textContent = "Verkauf nicht möglich: Bitte ein Aktienkonto auswählen.";
+				return;
+			}
+
+			const nOwnedAmountOnTargetAccount = aPositions
+				.filter((oPosition) => String(oPosition?.symbol || "").trim().toUpperCase() === sSymbol)
+				.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sTargetShareAccountId)
+				.reduce((nSum, oPosition) => nSum + Number(oPosition?.amount || 0), 0);
+			if (nAmount > nOwnedAmountOnTargetAccount) {
+				elBuyFeedback.textContent = `Verkauf nicht möglich: Bestand auf ${fnGetShareAccountLabel(sTargetShareAccountId)} ist ${fnFmtNumber(nOwnedAmountOnTargetAccount, 4)} ${sSymbol}.`;
+				return;
+			}
+
 			const iNowUnixSeconds = Math.floor(Date.now() / 1000);
 			const oSoldPosition = {
 				symbol: sSymbol,
 				amount: nAmount,
 				created_at: iNowUnixSeconds,
+				share_account_id: sTargetShareAccountId,
 			};
 
 			fnPersistSoldPosition(oSoldPosition);
@@ -2470,12 +2514,13 @@
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 
-			elBuyFeedback.textContent = `Verkauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol}.`;
+			elBuyFeedback.textContent = `Verkauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} von ${fnGetShareAccountLabel(sTargetShareAccountId)}.`;
 			await fnRefreshAnalysisChart();
 		});
 
 		fnRenderOwnedRows();
 		fnRenderOwnedSelectOptions();
+		fnRenderTradeShareAccountOptions();
 		fnRenderSearchResults();
 
 		if (!sSelectedSymbol) {
@@ -3042,6 +3087,174 @@
 		await fnRefreshFuture();
 	}
 
+	async function fnApiRequestWithEndpoints(aEndpoints, oRequestInit = {}) {
+		let sLastError = "Kein Endpoint erreichbar";
+		for (const sEndpoint of aEndpoints || []) {
+			try {
+				const oResponse = await fetch(sEndpoint, oRequestInit);
+				if (!oResponse.ok) {
+					let sMessage = `HTTP ${oResponse.status}`;
+					try {
+						const oErrorData = await oResponse.json();
+						sMessage = String(oErrorData?.message || sMessage);
+					} catch {
+						// noop
+					}
+					sLastError = sMessage;
+					continue;
+				}
+				return await oResponse.json();
+			} catch (oError) {
+				sLastError = String(oError?.message || oError);
+			}
+		}
+
+		throw new Error(sLastError);
+	}
+
+	async function fnApiUpdateAccount(aBaseEndpoints, sAccountId, oPayload, sMethod) {
+		const aEndpoints = (aBaseEndpoints || []).map((sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`);
+		return await fnApiRequestWithEndpoints(aEndpoints, {
+			method: sMethod,
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(oPayload),
+		});
+	}
+
+	async function fnApiDeleteAccount(aBaseEndpoints, sAccountId) {
+		const aEndpoints = (aBaseEndpoints || []).map((sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`);
+		return await fnApiRequestWithEndpoints(aEndpoints, { method: "DELETE" });
+	}
+
+	async function fnInitAccountsView() {
+		const elShareAccountNameInput = document.getElementById("shareAccountNameInput");
+		const elCreateShareAccountBtn = document.getElementById("createShareAccountBtn");
+		const elShareAccountsList = document.getElementById("shareAccountsList");
+		const elBankAccountNameInput = document.getElementById("bankAccountNameInput");
+		const elCreateBankAccountBtn = document.getElementById("createBankAccountBtn");
+		const elBankAccountsList = document.getElementById("bankAccountsList");
+		const elFeedback = document.getElementById("accountsFeedback");
+
+		if (!elShareAccountNameInput || !elCreateShareAccountBtn || !elShareAccountsList || !elBankAccountNameInput || !elCreateBankAccountBtn || !elBankAccountsList || !elFeedback) {
+			return;
+		}
+
+		const fnRenderAccountList = (elContainer, aAccounts, sKind) => {
+			if (!aAccounts.length) {
+				elContainer.innerHTML = `<p class="muted">Keine ${sKind} vorhanden.</p>`;
+				return;
+			}
+
+			elContainer.innerHTML = aAccounts
+				.map((oAccount) => `
+          <div class="account-row" data-kind="${fnEscapeHtml(sKind)}" data-account-id="${fnEscapeHtml(oAccount.id)}">
+            <input class="account-name-input" type="text" value="${fnEscapeHtml(oAccount.label)}" aria-label="${fnEscapeHtml(sKind)} Name">
+            <button class="action" data-action="rename">Umbenennen</button>
+            <button class="action" data-action="delete">Löschen</button>
+          </div>
+        `)
+				.join("");
+		};
+
+		const fnRefresh = async () => {
+			await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
+			fnRenderAccountList(elShareAccountsList, aShareAccounts, "Aktienkonto");
+			fnRenderAccountList(elBankAccountsList, aBankAccounts, "Bankkonto");
+		};
+
+		elCreateShareAccountBtn.addEventListener("click", async () => {
+			const sLabel = String(elShareAccountNameInput.value || "").trim();
+			if (!sLabel) {
+				elFeedback.textContent = "Bitte einen Namen für das Aktienkonto eingeben.";
+				return;
+			}
+			try {
+				await fnApiRequestWithEndpoints(aShareAccountsCrudEndpoints, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ label: sLabel }),
+				});
+				elShareAccountNameInput.value = "";
+				await fnRefresh();
+				elFeedback.textContent = "Aktienkonto erstellt.";
+			} catch (oError) {
+				elFeedback.textContent = `Aktienkonto konnte nicht erstellt werden: ${String(oError?.message || oError)}`;
+			}
+		});
+
+		elCreateBankAccountBtn.addEventListener("click", async () => {
+			const sLabel = String(elBankAccountNameInput.value || "").trim();
+			if (!sLabel) {
+				elFeedback.textContent = "Bitte einen Namen für das Bankkonto eingeben.";
+				return;
+			}
+			try {
+				await fnApiRequestWithEndpoints(aBankAccountsEndpoints, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ label: sLabel }),
+				});
+				elBankAccountNameInput.value = "";
+				await fnRefresh();
+				elFeedback.textContent = "Bankkonto erstellt.";
+			} catch (oError) {
+				elFeedback.textContent = `Bankkonto konnte nicht erstellt werden: ${String(oError?.message || oError)}`;
+			}
+		});
+
+		elShareAccountsList.addEventListener("click", async (oEvent) => {
+			const elButton = oEvent.target instanceof Element ? oEvent.target.closest("button[data-action]") : null;
+			if (!elButton) return;
+			const elRow = elButton.closest(".account-row");
+			if (!elRow) return;
+
+			const sAccountId = String(elRow.dataset.accountId || "").trim();
+			const sAction = String(elButton.dataset.action || "");
+			const sLabel = String(elRow.querySelector(".account-name-input")?.value || "").trim();
+			if (!sAccountId) return;
+
+			try {
+				if (sAction === "rename") {
+					await fnApiUpdateAccount(aShareAccountsCrudEndpoints, sAccountId, { label: sLabel }, "PATCH");
+					elFeedback.textContent = "Aktienkonto umbenannt.";
+				} else if (sAction === "delete") {
+					await fnApiDeleteAccount(aShareAccountsCrudEndpoints, sAccountId);
+					elFeedback.textContent = "Aktienkonto gelöscht.";
+				}
+				await fnRefresh();
+			} catch (oError) {
+				elFeedback.textContent = `Aktion fehlgeschlagen: ${String(oError?.message || oError)}`;
+			}
+		});
+
+		elBankAccountsList.addEventListener("click", async (oEvent) => {
+			const elButton = oEvent.target instanceof Element ? oEvent.target.closest("button[data-action]") : null;
+			if (!elButton) return;
+			const elRow = elButton.closest(".account-row");
+			if (!elRow) return;
+
+			const sAccountId = String(elRow.dataset.accountId || "").trim();
+			const sAction = String(elButton.dataset.action || "");
+			const sLabel = String(elRow.querySelector(".account-name-input")?.value || "").trim();
+			if (!sAccountId) return;
+
+			try {
+				if (sAction === "rename") {
+					await fnApiUpdateAccount(aBankAccountsEndpoints, sAccountId, { label: sLabel }, "PATCH");
+					elFeedback.textContent = "Bankkonto umbenannt.";
+				} else if (sAction === "delete") {
+					await fnApiDeleteAccount(aBankAccountsEndpoints, sAccountId);
+					elFeedback.textContent = "Bankkonto gelöscht.";
+				}
+				await fnRefresh();
+			} catch (oError) {
+				elFeedback.textContent = `Aktion fehlgeschlagen: ${String(oError?.message || oError)}`;
+			}
+		});
+
+		await fnRefresh();
+	}
+
 	// =====================================================
 	// [SHARED] 13) Navigation + App-Start
 	// =====================================================
@@ -3059,29 +3272,46 @@
 		});
 	}
 
+	function fnSetActiveTopNavLink() {
+		const aTopLinks = [...document.querySelectorAll(".app-nav-links .app-nav-link")];
+		aTopLinks.forEach((elLink) => {
+			const sHref = String(elLink.getAttribute("href") || "");
+			const bIsAccountsLink = sHref.startsWith("/konten/");
+			const bIsStocksLink = sHref.startsWith("/aktien/");
+			const bShouldBeActive = sActiveView === "accounts" ? bIsAccountsLink : bIsStocksLink;
+			if (bIsAccountsLink || bIsStocksLink) {
+				elLink.classList.toggle("is-active", bShouldBeActive);
+			}
+		});
+	}
+
 	aElNavButtons.forEach((elButton) => {
 		elButton.addEventListener("click", () => {
 			sActiveView = elButton.dataset.view;
 			fnSetActiveNav(sActiveView);
+			fnSetActiveTopNavLink();
 			fnRenderView(sActiveView);
 		});
 	});
 
-	if (elGlobalBankAccountSelect) {
-		elGlobalBankAccountSelect.addEventListener("change", () => {
-			sSelectedBankAccountId = String(elGlobalBankAccountSelect.value || "").trim();
+	if (elGlobalShareAccountSelect) {
+		elGlobalShareAccountSelect.addEventListener("change", () => {
+			sSelectedShareAccountId = String(elGlobalShareAccountSelect.value || "").trim();
+			fnSetActiveTopNavLink();
 			fnRenderView(sActiveView);
 		});
 	}
 
 	async function fnInitApp() {
-		await fnLoadBankAccounts();
+		await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
 		fnSetActiveNav(sActiveView);
+		fnSetActiveTopNavLink();
 		fnRenderView(sActiveView);
 	}
 
 	window.addEventListener("finanzapp:locale-changed", () => {
 		sLocale = fnGetLocale();
+		fnSetActiveTopNavLink();
 		fnRenderView(sActiveView);
 	});
 
