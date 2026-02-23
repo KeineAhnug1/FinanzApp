@@ -47,7 +47,7 @@
 		const sNormalized = String(sValue ?? "").trim();
 		return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
 	});
-	const sAllStocksDataPath = "testdata/Allstocks.json";
+	const sAllStocksDataPath = "/global-information/Allstocks.json";
 	const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 	const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 	const iCacheTtlMs = 5 * 60 * 1000;
@@ -737,7 +737,7 @@
 	}
 
 	/**
-	 * Lädt den lokalen Aktienkatalog aus `testdata/Allstocks.json`.
+	 * Lädt den lokalen Aktienkatalog aus `/global-information/Allstocks.json`.
 	 * Scope: [SHARED]
 	 * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCurrency: string, sType: string}>>}
 	 */
