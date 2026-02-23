@@ -1,80 +1,10 @@
-:root {
-  --bg-c1: #f0f2ef;
-  --bg-c2: #e7ebe8;
-  --bg-c3: #f6f5f2;
-  --bg-stripe-a: rgba(50, 86, 70, 0.06);
-  --bg-stripe-b: rgba(29, 122, 91, 0.045);
-  --bg-grid: rgba(16, 40, 30, 0.035);
-  --bg-surface: #ffffff;
-  --bg-soft: #f3f4f1;
-  --text-strong: #1d2522;
-  --text-muted: #5d6763;
-  --border: #d2d8d4;
-  --primary: #1d7a5b;
-  --primary-dark: #145a43;
-  --primary-ring: rgba(29, 122, 91, 0.22);
-  --success: #1f8f61;
-  --shadow: 0 20px 48px rgba(22, 33, 28, 0.12);
-}
-
-:root[data-theme="dark"] {
-  --bg-c1: #121614;
-  --bg-c2: #171f1c;
-  --bg-c3: #101412;
-  --bg-stripe-a: rgba(255, 255, 255, 0.02);
-  --bg-stripe-b: rgba(255, 255, 255, 0.015);
-  --bg-grid: rgba(255, 255, 255, 0.014);
-  --bg-surface: #1a2320;
-  --bg-soft: #22302b;
-  --text-strong: #e7eee9;
-  --text-muted: #a0b0a8;
-  --border: #33423c;
-  --primary: #58be97;
-  --primary-dark: #2f8d6b;
-  --primary-ring: rgba(88, 190, 151, 0.26);
-  --success: #68c89f;
-  --shadow: 0 26px 54px rgba(3, 8, 6, 0.5);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-}
-
-body {
-  font-family: "Sora", "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
-  color: var(--text-strong);
-  background:
-    repeating-linear-gradient(
-      128deg,
-      var(--bg-stripe-a) 0,
-      var(--bg-stripe-a) 1px,
-      transparent 1px,
-      transparent 24px
-    ),
-    repeating-linear-gradient(
-      38deg,
-      var(--bg-stripe-b) 0,
-      var(--bg-stripe-b) 1px,
-      transparent 1px,
-      transparent 31px
-    ),
-    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px),
-    linear-gradient(0deg, var(--bg-grid) 1px, transparent 1px),
-    linear-gradient(180deg, var(--bg-c1) 0%, var(--bg-c2) 52%, var(--bg-c3) 100%);
-  background-size: auto, auto, 42px 42px, 42px 42px, auto;
-}
+/* Gemeinsame Farben/Basis aus shared/unified-ui.css */
 
 .dash-shell {
   min-height: 100vh;
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 24px;
+  width: min(1320px, calc(100% - 32px));
+  margin: 0 auto 24px;
+  padding: 0;
 }
 
 .dash-topbar {
@@ -83,24 +13,6 @@ body {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
-}
-
-.topbar-left {
-  display: flex;
-  flex-direction: column;
-}
-
-.brand-mark {
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-.brand-sub {
-  font-size: 1.15rem;
-  font-weight: 700;
 }
 
 .topbar-right {
@@ -1152,7 +1064,8 @@ body {
 
 @media (max-width: 720px) {
   .dash-shell {
-    padding: 14px;
+    width: calc(100% - 24px);
+    margin-bottom: 18px;
   }
 
   .dash-topbar {
@@ -1162,7 +1075,7 @@ body {
 
   .topbar-right {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-end;
     flex-wrap: wrap;
   }
 

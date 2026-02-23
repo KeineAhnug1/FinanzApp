@@ -22,6 +22,22 @@
 		"http://127.0.0.1:5588/api/bank-accounts",
 		"http://localhost:5588/api/bank-accounts",
 	].filter(Boolean);
+	const aIncomeEntriesEndpoints = [
+		window.SHAREVIEW_INCOME_ENTRIES_ENDPOINT,
+		"/api/income-entries",
+		"http://127.0.0.1:3000/api/income-entries",
+		"http://localhost:3000/api/income-entries",
+		"http://127.0.0.1:5588/api/income-entries",
+		"http://localhost:5588/api/income-entries",
+	].filter(Boolean);
+	const aExpenseEntriesEndpoints = [
+		window.SHAREVIEW_EXPENSE_ENTRIES_ENDPOINT,
+		"/api/expense-entries",
+		"http://127.0.0.1:3000/api/expense-entries",
+		"http://localhost:3000/api/expense-entries",
+		"http://127.0.0.1:5588/api/expense-entries",
+		"http://localhost:5588/api/expense-entries",
+	].filter(Boolean);
 	const aBackendBaseUrls = [
 		window.SHAREVIEW_BACKEND_BASE_URL,
 		window.location.origin,
@@ -42,7 +58,6 @@
 	// =====================================================
 	const aElNavButtons = [...document.querySelectorAll(".navbtn")];
 	const elViewHost = document.getElementById("viewHost");
-	const elGlobalShareAccountSelect = document.getElementById("globalShareAccountSelect");
 
 	let sActiveView = "depot";
 	let aShareAccounts = [];
@@ -92,6 +107,147 @@
 		const sId = fnNormalizeAccountId(sShareAccountId);
 		const oMatch = aShareAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
 		return String(oMatch?.label || sId || "Unbekanntes Konto");
+	}
+
+	function fnGetBankAccountLabel(sBankAccountId) {
+		const sId = fnNormalizeAccountId(sBankAccountId);
+		const oMatch = aBankAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
+		return String(oMatch?.label || sId || "Unbekanntes Konto");
+	}
+
+	function fnFmtTradeAmountRaw(nAmount) {
+		if (!Number.isFinite(nAmount)) return "0";
+		return String(Number(nAmount.toFixed(4)));
+	}
+
+	function fnBuildTradeSource(sSymbol, nAmount, sDirection) {
+		const sCleanSymbol = String(sSymbol || "").trim().toUpperCase();
+		const sSign = sDirection === "in" ? "+" : "-";
+		return `${sCleanSymbol} ${sSign} ${fnFmtTradeAmountRaw(nAmount)}`;
+	}
+
+	function fnBuildEndpointsWithUserId(aEndpoints, sUserId) {
+		const aUnique = [];
+		for (const sEndpoint of aEndpoints || []) {
+			const oUrl = new URL(String(sEndpoint || ""), window.location.origin);
+			oUrl.searchParams.set("user_id", sUserId);
+			const sUrl = oUrl.toString();
+			if (!aUnique.includes(sUrl)) aUnique.push(sUrl);
+		}
+		return aUnique;
+	}
+
+	async function fnCreateDashboardTradeEntry({
+		sType,
+		sSymbol,
+		nAmount,
+		nTotalValue,
+		sBankAccountId,
+	}) {
+		const sUserId = fnGetCurrentSessionUserId();
+		if (!/^[a-fA-F0-9]{24}$/.test(sUserId)) {
+			throw new Error("Kein gueltiger Nutzer gefunden. Bitte neu einloggen.");
+		}
+
+		const nRoundedAmount = Number(Number(nTotalValue).toFixed(2));
+		if (!Number.isFinite(nRoundedAmount) || nRoundedAmount <= 0) {
+			throw new Error("Betrag fuer Einnahme/Ausgabe ist ungueltig.");
+		}
+
+		const sSource = fnBuildTradeSource(sSymbol, nAmount, sType === "income" ? "in" : "out");
+		const sBankLabel = fnGetBankAccountLabel(sBankAccountId);
+		const sNowIso = new Date().toISOString();
+
+		const oBasePayload = {
+			user_id: sUserId,
+			source: sSource,
+			amount: nRoundedAmount,
+			category: sType === "income" ? "investment" : "other",
+			note: `Aktientrade ueber Bankkonto: ${sBankLabel}`,
+			recurrence: "once",
+			is_active: true,
+			bank_account_id: fnNormalizeAccountId(sBankAccountId),
+		};
+
+		const bIsIncome = sType === "income";
+		const aTargetEndpoints = fnBuildEndpointsWithUserId(
+			bIsIncome ? aIncomeEntriesEndpoints : aExpenseEntriesEndpoints,
+			sUserId,
+		);
+
+		await fnApiRequestWithEndpoints(aTargetEndpoints, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				...oBasePayload,
+				...(bIsIncome ? { received_at: sNowIso } : { spent_at: sNowIso }),
+			}),
+		});
+	}
+
+	async function fnPromptBankAccountSelection({
+		sActionLabel,
+		sSymbol,
+		nAmount,
+		nTotalValue,
+	}) {
+		await fnLoadBankAccounts();
+		if (!aBankAccounts.length) {
+			throw new Error("Kein Bankkonto vorhanden. Bitte zuerst in der Kontenverwaltung ein Bankkonto anlegen.");
+		}
+
+		return await new Promise((fnResolve) => {
+			const elBackdrop = document.createElement("div");
+			elBackdrop.className = "trade-account-modal";
+			const sDefaultId = fnNormalizeAccountId(aBankAccounts[0]?.id);
+			elBackdrop.innerHTML = `
+        <div class="trade-account-modal-card" role="dialog" aria-modal="true" aria-label="Bankkonto auswaehlen">
+          <h3>${fnEscapeHtml(sActionLabel)}: Bankkonto auswaehlen</h3>
+          <p class="muted">${fnEscapeHtml(fnBuildTradeSource(sSymbol, nAmount, sActionLabel === "Verkauf" ? "in" : "out"))}</p>
+          <p class="muted">Betrag: ${fnEscapeHtml(fnFmtMoney(nTotalValue, "USD"))}</p>
+          <label>
+            Bankkonto
+            <select id="tradeBankAccountSelect">
+              ${aBankAccounts.map((oAccount) => `<option value="${fnEscapeHtml(oAccount.id)}">${fnEscapeHtml(oAccount.label)}</option>`).join("")}
+            </select>
+          </label>
+          <div class="trade-account-modal-actions">
+            <button type="button" class="action" data-action="cancel">Abbrechen</button>
+            <button type="button" class="action primary" data-action="confirm">Bestaetigen</button>
+          </div>
+        </div>
+      `;
+
+			document.body.appendChild(elBackdrop);
+			const elSelect = elBackdrop.querySelector("#tradeBankAccountSelect");
+			if (elSelect) elSelect.value = sDefaultId;
+
+			const fnCleanup = () => {
+				elBackdrop.remove();
+			};
+
+			elBackdrop.addEventListener("click", (oEvent) => {
+				if (oEvent.target === elBackdrop) {
+					fnCleanup();
+					fnResolve(null);
+				}
+			});
+
+			elBackdrop.querySelector('[data-action="cancel"]')?.addEventListener("click", () => {
+				fnCleanup();
+				fnResolve(null);
+			});
+
+			elBackdrop.querySelector('[data-action="confirm"]')?.addEventListener("click", () => {
+				const sSelectedId = fnNormalizeAccountId(elSelect?.value || "");
+				if (!sSelectedId) return;
+				fnCleanup();
+				fnResolve({
+					id: sSelectedId,
+					label: fnGetBankAccountLabel(sSelectedId),
+				});
+			});
+		});
 	}
 
 	// =====================================================
@@ -314,12 +470,11 @@
 			.filter(Boolean);
 	}
 
-	function fnRenderShareAccountOptions() {
-		if (!elGlobalShareAccountSelect) return;
-
+	function fnRenderShareAccountOptions(elSelect, bIncludeAllOption = false) {
+		if (!elSelect) return;
 		const sCurrent = String(sSelectedShareAccountId || "").trim();
 		const sOptions = [
-			`<option value="">Alle Konten</option>`,
+			...(bIncludeAllOption ? [`<option value="">Alle Konten</option>`] : []),
 			...aShareAccounts.map((oAccount) => {
 				const sId = fnEscapeHtml(String(oAccount?.id || ""));
 				const sLabel = fnEscapeHtml(String(oAccount?.label || sId || "Aktienkonto"));
@@ -327,15 +482,13 @@
 			}),
 		].join("");
 
-		elGlobalShareAccountSelect.innerHTML = sOptions;
+		elSelect.innerHTML = sOptions;
 		const bSelectionExists = aShareAccounts.some((oAccount) => String(oAccount?.id || "") === sCurrent);
-		elGlobalShareAccountSelect.value = bSelectionExists ? sCurrent : "";
-		sSelectedShareAccountId = elGlobalShareAccountSelect.value;
+		elSelect.value = bSelectionExists ? sCurrent : (bIncludeAllOption ? "" : String(aShareAccounts[0]?.id || ""));
+		sSelectedShareAccountId = String(elSelect.value || "").trim();
 	}
 
 	async function fnLoadShareAccounts() {
-		if (!elGlobalShareAccountSelect) return;
-
 		for (const sEndpoint of aShareAccountsEndpoints) {
 			try {
 				const oUrl = fnBuildUrlWithQuery(sEndpoint);
@@ -347,7 +500,6 @@
 
 				const oData = await oResponse.json();
 				aShareAccounts = fnMapApiAccounts(oData?.accounts, "Aktienkonto");
-				fnRenderShareAccountOptions();
 				return;
 			} catch (oError) {
 				console.warn(`Aktienkonto-Backend nicht erreichbar (${sEndpoint}).`, oError);
@@ -355,7 +507,6 @@
 		}
 
 		aShareAccounts = [];
-		fnRenderShareAccountOptions();
 	}
 
 	async function fnLoadBankAccounts() {
@@ -638,6 +789,17 @@
 			elViewHost.innerHTML = `
         <section class="depot-page">
           <h2 class="view-title">Gesamtsdepot</h2>
+
+          <div class="card">
+            <div class="row">
+              <label class="depot-account-picker">
+                Aktienkonto
+                <select id="depotShareAccountSelect" aria-label="Aktienkonto auswählen">
+                  <option value="">Alle Konten</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
           <div class="range-bar">
             <button class="range-btn active" data-range="1D">Tag</button>
@@ -1948,6 +2110,7 @@
 	async function fnInitDepotView() {
 		const elDepotInfo = document.getElementById("depotInfo");
 		const elHoldingsTbody = document.querySelector("#holdingsTable tbody");
+		const elDepotShareAccountSelect = document.getElementById("depotShareAccountSelect");
 
 		const elKTotal = document.getElementById("k_total");
 		const elKTotalLabel = document.getElementById("k_total_label");
@@ -1963,10 +2126,16 @@
 		const elPiePanel = document.getElementById("depotPiePanel");
 		const elChartLayout = document.querySelector(".depot-chart-layout");
 
-		if (!elDepotInfo || !elHoldingsTbody || !elKTotal || !elKTotalLabel || !elKChange || !elPnlOnly || !elShowPie || !elCanvas || !oCtx || !elPieCanvas || !oPieCtx || !elPieLegend || !elPiePanel || !elChartLayout) {
+		if (!elDepotInfo || !elHoldingsTbody || !elDepotShareAccountSelect || !elKTotal || !elKTotalLabel || !elKChange || !elPnlOnly || !elShowPie || !elCanvas || !oCtx || !elPieCanvas || !oPieCtx || !elPieLegend || !elPiePanel || !elChartLayout) {
 			fnShowError("Depot-Ansicht konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
 			return;
 		}
+
+		fnRenderShareAccountOptions(elDepotShareAccountSelect, true);
+		elDepotShareAccountSelect.addEventListener("change", () => {
+			sSelectedShareAccountId = String(elDepotShareAccountSelect.value || "").trim();
+			fnRenderView(sActiveView);
+		});
 
 		let aPieItemsCurrent = [];
 		let iSelectedPieIndex = -1;
@@ -2439,6 +2608,38 @@
 				return;
 			}
 
+			const nTradeTotalValue = nAmount * nBuyPrice;
+			let oSelectedBankAccount = null;
+			try {
+				oSelectedBankAccount = await fnPromptBankAccountSelection({
+					sActionLabel: "Kauf",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `Kauf nicht möglich: ${String(oError?.message || oError)}`;
+				return;
+			}
+
+			if (!oSelectedBankAccount?.id) {
+				elBuyFeedback.textContent = "Kauf abgebrochen.";
+				return;
+			}
+
+			try {
+				await fnCreateDashboardTradeEntry({
+					sType: "expense",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+					sBankAccountId: oSelectedBankAccount.id,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `Kauf nicht gespeichert: ${String(oError?.message || oError)}`;
+				return;
+			}
+
 			const iNowUnixSeconds = Math.floor(Date.now() / 1000);
 			const oNewPosition = {
 				symbol: sSymbol,
@@ -2456,7 +2657,7 @@
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 			const sTargetShareLabel = fnGetShareAccountLabel(sTargetShareAccountId);
-			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")} auf ${sTargetShareLabel}.`;
+			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")} auf ${sTargetShareLabel}, abgebucht von ${oSelectedBankAccount.label}.`;
 			await fnRefreshAnalysisChart();
 		});
 
@@ -2500,6 +2701,47 @@
 				return;
 			}
 
+			let nSellPrice = await fnGetLatestPriceBySymbol(sSymbol);
+			if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
+				nSellPrice = nLastKnownClose;
+			}
+			if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
+				elBuyFeedback.textContent = "Verkauf nicht möglich: aktueller Kurs konnte nicht geladen werden.";
+				return;
+			}
+
+			const nTradeTotalValue = nAmount * nSellPrice;
+			let oSelectedBankAccount = null;
+			try {
+				oSelectedBankAccount = await fnPromptBankAccountSelection({
+					sActionLabel: "Verkauf",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `Verkauf nicht möglich: ${String(oError?.message || oError)}`;
+				return;
+			}
+
+			if (!oSelectedBankAccount?.id) {
+				elBuyFeedback.textContent = "Verkauf abgebrochen.";
+				return;
+			}
+
+			try {
+				await fnCreateDashboardTradeEntry({
+					sType: "income",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+					sBankAccountId: oSelectedBankAccount.id,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `Verkauf nicht gespeichert: ${String(oError?.message || oError)}`;
+				return;
+			}
+
 			const iNowUnixSeconds = Math.floor(Date.now() / 1000);
 			const oSoldPosition = {
 				symbol: sSymbol,
@@ -2514,7 +2756,7 @@
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 
-			elBuyFeedback.textContent = `Verkauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} von ${fnGetShareAccountLabel(sTargetShareAccountId)}.`;
+			elBuyFeedback.textContent = `Verkauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} von ${fnGetShareAccountLabel(sTargetShareAccountId)}, gutgeschrieben auf ${oSelectedBankAccount.label}.`;
 			await fnRefreshAnalysisChart();
 		});
 
@@ -3293,14 +3535,6 @@
 			fnRenderView(sActiveView);
 		});
 	});
-
-	if (elGlobalShareAccountSelect) {
-		elGlobalShareAccountSelect.addEventListener("change", () => {
-			sSelectedShareAccountId = String(elGlobalShareAccountSelect.value || "").trim();
-			fnSetActiveTopNavLink();
-			fnRenderView(sActiveView);
-		});
-	}
 
 	async function fnInitApp() {
 		await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);

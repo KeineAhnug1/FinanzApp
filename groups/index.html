@@ -8,34 +8,38 @@
     <link rel="stylesheet" href="/shared/unified-ui.css" />
   </head>
   <body>
-    <main class="groups-layout">
-      <header class="layout-toolbar">
-        <p class="toolbar-brand">FinanzApp Gruppen</p>
-        <div class="toolbar-actions">
-          <nav class="app-nav-links" aria-label="App-Navigation">
-            <a class="app-nav-link" href="/dashboard.html">Dashboard</a>
-            <a class="app-nav-link" href="/konten/">Kontenverwaltung</a>
-            <a class="app-nav-link is-active" href="/groups/">Gruppen</a>
-            <a class="app-nav-link" href="/aktien/">Aktien</a>
-          </nav>
-          <div class="theme-switch" role="group" aria-label="Farbmodus">
-            <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
-            <button type="button" class="theme-option" data-theme-choice="dark">Dunkel</button>
-            <button type="button" class="theme-option" data-theme-choice="auto">Auto</button>
-          </div>
-          <div class="profile-wrap">
-            <button class="profile-btn" type="button" aria-expanded="false">
-              <span class="profile-avatar" data-profile-avatar>U</span>
-              <span class="profile-name" data-profile-name>Profil</span>
-            </button>
-            <div class="profile-menu" hidden>
-              <p class="menu-name" data-profile-menu-name>-</p>
-              <p class="menu-mail" data-profile-menu-mail>-</p>
-              <button class="logout-btn" type="button">Abmelden</button>
-            </div>
+    <header class="page-topbar">
+      <div class="topbar-left">
+        <span class="brand-mark">FinanzApp</span>
+        <span class="brand-sub">Gruppen</span>
+      </div>
+      <div class="header-controls">
+        <nav class="app-nav-links" aria-label="App-Navigation">
+          <a class="app-nav-link" href="/dashboard.html">Dashboard</a>
+          <a class="app-nav-link" href="/konten/">Kontenverwaltung</a>
+          <a class="app-nav-link is-active" href="/groups/">Gruppen</a>
+          <a class="app-nav-link" href="/aktien/">Aktien</a>
+        </nav>
+        <div class="theme-switch" role="group" aria-label="Farbmodus">
+          <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
+          <button type="button" class="theme-option" data-theme-choice="dark">Dunkel</button>
+          <button type="button" class="theme-option" data-theme-choice="auto">Auto</button>
+        </div>
+        <div class="profile-wrap">
+          <button class="profile-btn" type="button" aria-expanded="false">
+            <span class="profile-avatar" data-profile-avatar>U</span>
+            <span class="profile-name" data-profile-name>Profil</span>
+          </button>
+          <div class="profile-menu" hidden>
+            <p class="menu-name" data-profile-menu-name>-</p>
+            <p class="menu-mail" data-profile-menu-mail>-</p>
+            <button class="logout-btn" type="button">Abmelden</button>
           </div>
         </div>
-      </header>
+      </div>
+    </header>
+
+    <main class="groups-layout">
 
       <section id="mainView" class="panel">
         <div class="main-headline">

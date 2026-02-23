@@ -31,7 +31,7 @@
     <header class="dash-topbar">
       <div class="topbar-left">
         <span class="brand-mark">FinanzApp</span>
-        <span class="brand-sub">Uebersicht</span>
+        <span class="brand-sub">Dashboard</span>
       </div>
 
       <div class="topbar-right">
@@ -46,6 +46,18 @@
           <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
           <button type="button" class="theme-option" data-theme-choice="dark">Dunkel</button>
           <button type="button" class="theme-option" data-theme-choice="auto">Auto</button>
+        </div>
+
+        <div class="profile-wrap">
+          <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
+            <span class="profile-avatar" id="profile-avatar">U</span>
+            <span class="profile-name" id="profile-name">Profil</span>
+          </button>
+          <div id="profile-menu" class="profile-menu" hidden>
+            <p class="menu-name" id="menu-name">-</p>
+            <p class="menu-mail" id="menu-mail">-</p>
+            <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
+          </div>
         </div>
 
         <div class="settings-wrap">
@@ -79,18 +91,6 @@
               </div>
             </form>
             <p id="settings-status" class="form-status"></p>
-          </div>
-        </div>
-
-        <div class="profile-wrap">
-          <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
-            <span class="profile-avatar" id="profile-avatar">U</span>
-            <span class="profile-name" id="profile-name">Profil</span>
-          </button>
-          <div id="profile-menu" class="profile-menu" hidden>
-            <p class="menu-name" id="menu-name">-</p>
-            <p class="menu-mail" id="menu-mail">-</p>
-            <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
           </div>
         </div>
       </div>

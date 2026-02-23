@@ -5,40 +5,20 @@
    - Anpassungen zuerst hier vornehmen
    ====================================================== */
 :root {
-  --clr-bg: #f0f2ef;
-  --clr-bg-2: #e7ebe8;
-  --clr-bg-3: #f6f5f2;
-  --clr-grid: rgba(16, 40, 30, 0.035);
-  --clr-stripe-a: rgba(50, 86, 70, 0.06);
-  --clr-stripe-b: rgba(29, 122, 91, 0.045);
-  --clr-surface: #ffffff;
-  --clr-surface-soft: #f3f4f1;
-
-  --clr-text: #1d2522;
-  --clr-text-muted: #5d6763;
-  --clr-text-soft: #75817c;
-
-  --clr-primary: #1d7a5b;
-  --clr-primary-soft: rgba(29, 122, 91, 0.12);
-  --clr-primary-strong: #145a43;
-
-  --clr-border: #d2d8d4;
-  --clr-border-strong: #b5c0ba;
-  --clr-header-bg: #f6f8f6;
-  --clr-sidebar-bg: #f5f8f6;
-  --clr-nav-active-from: #f6faf8;
-  --clr-nav-active-to: #eef5f1;
-  --clr-switch-track: #263043;
-  --clr-switch-knob: #e8edf8;
-  --clr-chart-from: #f7faf8;
-  --clr-chart-to: #f0f4f1;
-  --clr-chart-alt-from: #f9fcfa;
-  --clr-chart-alt-to: #eef4f0;
-  --clr-table-head-bg: #f8faf8;
-  --clr-legend-active-bg: #f4faf7;
-  --clr-legend-active-ring: rgba(29, 122, 91, 0.2);
-
-  --shadow-soft: 0 18px 44px rgba(22, 33, 28, 0.12);
+  --clr-text-soft: color-mix(in srgb, var(--clr-text-muted) 84%, var(--clr-text) 16%);
+  --clr-primary-soft: color-mix(in srgb, var(--clr-primary) 20%, transparent);
+  --clr-sidebar-bg: var(--clr-surface-soft);
+  --clr-nav-active-from: color-mix(in srgb, var(--clr-primary) 6%, var(--clr-surface) 94%);
+  --clr-nav-active-to: color-mix(in srgb, var(--clr-primary) 10%, var(--clr-surface) 90%);
+  --clr-switch-track: color-mix(in srgb, var(--clr-text-muted) 34%, var(--clr-surface) 66%);
+  --clr-switch-knob: color-mix(in srgb, var(--clr-surface) 82%, #eff6ff 18%);
+  --clr-chart-from: color-mix(in srgb, var(--clr-surface) 78%, var(--clr-primary) 22%);
+  --clr-chart-to: color-mix(in srgb, var(--clr-surface-soft) 90%, var(--clr-primary) 10%);
+  --clr-chart-alt-from: color-mix(in srgb, var(--clr-surface) 82%, var(--clr-primary) 18%);
+  --clr-chart-alt-to: color-mix(in srgb, var(--clr-surface-soft) 92%, var(--clr-primary) 8%);
+  --clr-table-head-bg: color-mix(in srgb, var(--clr-surface) 88%, var(--clr-primary) 12%);
+  --clr-legend-active-bg: color-mix(in srgb, var(--clr-surface-soft) 84%, var(--clr-primary) 16%);
+  --clr-legend-active-ring: color-mix(in srgb, var(--clr-primary) 22%, transparent);
 
   /* Geometrie */
   --radius-sm: 11px;
@@ -51,73 +31,11 @@
   --space-5: 24px;
 }
 
-:root[data-theme="dark"] {
-  --clr-bg: #121614;
-  --clr-bg-2: #171f1c;
-  --clr-bg-3: #101412;
-  --clr-grid: rgba(255, 255, 255, 0.014);
-  --clr-stripe-a: rgba(255, 255, 255, 0.02);
-  --clr-stripe-b: rgba(255, 255, 255, 0.015);
-  --clr-surface: #1a2320;
-  --clr-surface-soft: #22302b;
-  --clr-text: #e7eee9;
-  --clr-text-muted: #a0b0a8;
-  --clr-text-soft: #a0b0a8;
-  --clr-primary: #58be97;
-  --clr-primary-soft: rgba(88, 190, 151, 0.2);
-  --clr-primary-strong: #2f8d6b;
-  --clr-border: #33423c;
-  --clr-border-strong: #3f4e47;
-  --clr-header-bg: #19221f;
-  --clr-sidebar-bg: #18211e;
-  --clr-nav-active-from: #20312b;
-  --clr-nav-active-to: #1b2924;
-  --clr-switch-track: #32403a;
-  --clr-switch-knob: #c9d6d0;
-  --clr-chart-from: #1f2d27;
-  --clr-chart-to: #1a2622;
-  --clr-chart-alt-from: #223229;
-  --clr-chart-alt-to: #1a2822;
-  --clr-table-head-bg: #1f2b26;
-  --clr-legend-active-bg: #20342b;
-  --clr-legend-active-ring: rgba(88, 190, 151, 0.26);
-  --shadow-soft: 0 18px 44px rgba(3, 8, 6, 0.5);
-}
-
 /* ======================================================
    2) Base
    Beschreibung:
    - Grundtypografie, Hintergrund und Reset
    ====================================================== */
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: "Sora", "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
-  color: var(--clr-text);
-  background:
-    repeating-linear-gradient(
-      128deg,
-      var(--clr-stripe-a) 0,
-      var(--clr-stripe-a) 1px,
-      transparent 1px,
-      transparent 24px
-    ),
-    repeating-linear-gradient(
-      38deg,
-      var(--clr-stripe-b) 0,
-      var(--clr-stripe-b) 1px,
-      transparent 1px,
-      transparent 31px
-    ),
-    linear-gradient(90deg, var(--clr-grid) 1px, transparent 1px),
-    linear-gradient(0deg, var(--clr-grid) 1px, transparent 1px),
-    linear-gradient(180deg, var(--clr-bg) 0%, var(--clr-bg-2) 52%, var(--clr-bg-3) 100%);
-  background-size: auto, auto, 42px 42px, 42px 42px, auto;
-  -webkit-text-size-adjust: 100%;
-}
 
 h1,
 h2,
@@ -287,19 +205,8 @@ header h1 {
   cursor: pointer;
 }
 
-.header-account-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 220px;
-  font-size: 12px;
-  color: var(--clr-text-muted);
-}
-
-.header-account-picker select {
-  min-height: 38px;
-  padding: 8px 10px;
-  font-size: 13px;
+.depot-account-picker {
+  min-width: 280px;
 }
 
 /* ======================================================
@@ -792,6 +699,37 @@ select:focus {
   font-size: 14px;
 }
 
+.trade-account-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(10, 18, 14, 0.42);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.trade-account-modal-card {
+  width: min(460px, 100%);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.trade-account-modal-card h3 {
+  margin: 0;
+}
+
+.trade-account-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ======================================================
    9) Tabellen + JSON
    Beschreibung:
@@ -881,11 +819,6 @@ select:focus {
 
   header h1 {
     font-size: 18px;
-  }
-
-  .header-account-picker {
-    min-width: 0;
-    width: 100%;
   }
 
   main {
