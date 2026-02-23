@@ -364,15 +364,7 @@ function niceStep(range, targetTicks = 5) {
 }
 
 function formatAxisMoney(value) {
-  try {
-    return new Intl.NumberFormat(getLocale(), {
-      style: "currency",
-      currency: getCurrency(),
-      maximumFractionDigits: 0
-    }).format(value);
-  } catch {
-    return `${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(value)} EUR`;
-  }
+  return formatMoney(value, { maximumFractionDigits: 0, minimumFractionDigits: 0 });
 }
 
 function buildMonthlyTotals(entries, keys, dateField) {

@@ -158,6 +158,12 @@ function formatDate(value) {
 
 function formatAmount(value) {
   if (value == null || Number.isNaN(Number(value))) return t("groups.na");
+  if (window.FinanzAppCurrency?.formatFromEur) {
+    return window.FinanzAppCurrency.formatFromEur(Number(value), {
+      locale: groupLocaleSettings.locale,
+      currency: groupLocaleSettings.currency
+    });
+  }
   return new Intl.NumberFormat(groupLocaleSettings.locale, {
     style: "currency",
     currency: groupLocaleSettings.currency
@@ -1047,7 +1053,14 @@ window.addEventListener("finanzapp:locale-changed", () => {
   rerenderAfterLocaleChange();
 });
 
-Promise.all([loadSession(), loadGroups(), loadInvitations()]).catch((error) => {
+async function bootstrap() {
+  if (window.FinanzAppCurrency?.preloadRates) {
+    await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
+  }
+  await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
+}
+
+bootstrap().catch((error) => {
   formStatus.className = "form-status error";
   formStatus.textContent = error.message;
 });

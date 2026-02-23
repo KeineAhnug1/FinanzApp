@@ -22,6 +22,9 @@ async function bootstrap() {
   if (window.FinanzAppLanguage?.getLocale) {
     appState.settings.locale = window.FinanzAppLanguage.getLocale(sessionUser.id);
   }
+  if (window.FinanzAppCurrency?.preloadRates) {
+    await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
+  }
 
   initThemeSwitcher();
   initSectionTabs();

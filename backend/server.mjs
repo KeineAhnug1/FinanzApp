@@ -21,6 +21,10 @@ const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
 const SESSION_COOKIE_NAME = "finanzapp_session";
 const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
+const EXCHANGE_RATE_BASE_URL = "https://v6.exchangerate-api.com/v6";
+const EXCHANGE_RATE_API_KEY = String(
+  process.env.EXCHANGE_RATE_API_KEY || process.env.EXCHANGERATE_API_KEY || process.env.EXCHANGE_API_KEY || ""
+).trim();
 const PASSWORD_HASH_PREFIX = "scrypt$";
 const PASSWORD_HASH_SHA256_PREFIX = "sha256$";
 const PASSWORD_SALT_BYTES = 16;
@@ -2526,6 +2530,54 @@ async function handleTwelveDataProxy(req, res, pathname, requestUrl, session) {
   }
 }
 
+async function handleExchangeRates(req, res, requestUrl, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!EXCHANGE_RATE_API_KEY) {
+    return sendJson(res, 500, {
+      ok: false,
+      message: "EXCHANGE_RATE_API_KEY fehlt im Backend."
+    });
+  }
+
+  const requestedBase = String(requestUrl.searchParams.get("base") || "EUR")
+    .trim()
+    .toUpperCase();
+  const base = /^[A-Z]{3}$/.test(requestedBase) ? requestedBase : "EUR";
+  const upstreamUrl = `${EXCHANGE_RATE_BASE_URL}/${encodeURIComponent(EXCHANGE_RATE_API_KEY)}/latest/${encodeURIComponent(base)}`;
+
+  try {
+    const upstreamResponse = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
+    const payload = await upstreamResponse.json().catch(() => null);
+    if (!upstreamResponse.ok || !payload || payload.result !== "success") {
+      return sendJson(res, 502, {
+        ok: false,
+        message: payload?.["error-type"] || payload?.message || "Wechselkurse konnten nicht geladen werden."
+      });
+    }
+
+    const conversionRates = payload.conversion_rates && typeof payload.conversion_rates === "object"
+      ? payload.conversion_rates
+      : {};
+
+    return sendJson(res, 200, {
+      ok: true,
+      base_code: String(payload.base_code || base).toUpperCase(),
+      time_last_update_unix: Number(payload.time_last_update_unix) || null,
+      rates: conversionRates
+    });
+  } catch (error) {
+    return sendJson(res, 502, {
+      ok: false,
+      message: "Wechselkurs-Anfrage fehlgeschlagen.",
+      detail: String(error?.message || error)
+    });
+  }
+}
+
 function resolveStaticPath(pathname) {
   if (pathname === "/") return path.join(PROJECT_ROOT, "uebersicht", "index.html");
   if (pathname === "/dashboard.html") return path.join(PROJECT_ROOT, "uebersicht", "dashboard.html");
@@ -2707,6 +2759,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (pathname === "/api/debug/positions") return await handleDebugPositions(req, res, url, session);
       if (pathname.startsWith("/api/twelvedata")) return await handleTwelveDataProxy(req, res, pathname, url, session);
+      if (pathname === "/api/exchange-rates/latest") return await handleExchangeRates(req, res, url, session);
 
       return sendJson(res, 404, { ok: false, message: "API route not found" });
     }

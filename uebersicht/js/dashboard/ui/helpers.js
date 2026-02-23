@@ -1,12 +1,30 @@
 // UI-Helfer: Formatierung und kleine DOM-Werkzeuge fuer wiederverwendbare Aufgaben.
-function formatMoney(value) {
+function formatMoney(value, options = {}) {
   const amount = Number(value) || 0;
+  const locale = options.locale || getLocale();
+  const currency = options.currency || getCurrency();
+  const maxFractionDigits = Number.isFinite(options.maximumFractionDigits) ? options.maximumFractionDigits : 2;
+  const minFractionDigits = Number.isFinite(options.minimumFractionDigits) ? options.minimumFractionDigits : undefined;
+
+  if (window.FinanzAppCurrency?.formatFromEur) {
+    return window.FinanzAppCurrency.formatFromEur(amount, {
+      locale,
+      currency,
+      maximumFractionDigits: maxFractionDigits,
+      minimumFractionDigits: minFractionDigits
+    });
+  }
+
   try {
-    return new Intl.NumberFormat(getLocale(), {
+    const formatOptions = {
       style: "currency",
-      currency: getCurrency(),
-      maximumFractionDigits: 2
-    }).format(amount);
+      currency,
+      maximumFractionDigits: maxFractionDigits
+    };
+    if (Number.isFinite(minFractionDigits)) {
+      formatOptions.minimumFractionDigits = minFractionDigits;
+    }
+    return new Intl.NumberFormat(locale, formatOptions).format(amount);
   } catch {
     return new Intl.NumberFormat("de-DE", {
       style: "currency",

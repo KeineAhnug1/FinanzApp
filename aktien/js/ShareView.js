@@ -281,9 +281,19 @@
 	 */
 	function fnFmtMoney(nValue, sCurrency = "EUR") {
 		if (!Number.isFinite(nValue)) return "—";
+		const sSourceCurrency = String(sCurrency || "EUR").trim().toUpperCase();
+		const sTargetCurrency = window.FinanzAppCurrency?.getPreferredCurrency?.(fnGetCurrentSessionUserId?.()) || "EUR";
+		if (window.FinanzAppCurrency?.formatAmount) {
+			return window.FinanzAppCurrency.formatAmount(nValue, {
+				locale: fnGetLocale(),
+				sourceCurrency: sSourceCurrency,
+				currency: sTargetCurrency,
+				maximumFractionDigits: 2,
+			});
+		}
 		return new Intl.NumberFormat(fnGetLocale(), {
 			style: "currency",
-			currency: sCurrency,
+			currency: sSourceCurrency,
 			maximumFractionDigits: 2,
 		}).format(nValue);
 	}
@@ -1471,6 +1481,120 @@
 	}
 
 	/**
+	 * Formatiert ein Datum passend zum Twelve-Data-Zeitformat des Referenzwerts.
+	 * Scope: [SHARED]
+	 * @param {Date} dDate
+	 * @param {string} sReferenceTime
+	 * @returns {string}
+	 */
+	function fnFormatTimeLikeReference(dDate, sReferenceTime) {
+		if (!(dDate instanceof Date) || !Number.isFinite(dDate.getTime())) return String(sReferenceTime || "");
+		const sRef = String(sReferenceTime || "");
+		if (sRef.includes(" ")) {
+			const sHours = String(dDate.getHours()).padStart(2, "0");
+			const sMinutes = String(dDate.getMinutes()).padStart(2, "0");
+			const sSeconds = String(dDate.getSeconds()).padStart(2, "0");
+			return `${fnFmtYmd(dDate)} ${sHours}:${sMinutes}:${sSeconds}`;
+		}
+		return fnFmtYmd(dDate);
+	}
+
+	/**
+	 * Erzeugt bei frischem Kauf einen Startpunkt mit 0-Wert, damit ein sichtbarer Sprung entsteht.
+	 * Scope: [SHARED]
+	 * @param {Array<{t: string, total: number, invested: number, pnl: number, y: number}>} aPoints
+	 * @returns {Array<{t: string, total: number, invested: number, pnl: number, y: number}>}
+	 */
+	function fnEnsureInitialPortfolioJump(aPoints) {
+		if (!Array.isArray(aPoints) || !aPoints.length) return aPoints;
+		const oFirstPoint = aPoints[0];
+		const nFirstValue = Number(oFirstPoint?.y);
+		if (!Number.isFinite(nFirstValue) || nFirstValue <= 0) return aPoints;
+
+		const iFirstMs = fnToMsFromTdDatetime(oFirstPoint?.t);
+		let dBefore = null;
+		if (Number.isFinite(iFirstMs)) {
+			const iOffsetMs = String(oFirstPoint?.t || "").includes(" ") ? 60 * 1000 : 24 * 60 * 60 * 1000;
+			dBefore = new Date(iFirstMs - iOffsetMs);
+		}
+
+		const oSyntheticPoint = {
+			t: dBefore ? fnFormatTimeLikeReference(dBefore, oFirstPoint?.t) : `vor_${String(oFirstPoint?.t || "").trim()}`,
+			total: 0,
+			invested: 0,
+			pnl: 0,
+			y: 0,
+		};
+
+		return [oSyntheticPoint, ...aPoints];
+	}
+
+	/**
+	 * Leitet aus einem Interval-String die Schrittweite in Millisekunden ab.
+	 * Scope: [SHARED]
+	 * @param {string} sInterval
+	 * @returns {number}
+	 */
+	function fnIntervalToStepMs(sInterval) {
+		const sValue = String(sInterval || "").trim().toLowerCase();
+		const oMatch = sValue.match(/^(\d+)\s*(min|day|week|month)$/);
+		if (!oMatch) return 24 * 60 * 60 * 1000;
+		const nValue = Number(oMatch[1]);
+		if (!Number.isFinite(nValue) || nValue <= 0) return 24 * 60 * 60 * 1000;
+		if (oMatch[2] === "min") return nValue * 60 * 1000;
+		if (oMatch[2] === "day") return nValue * 24 * 60 * 60 * 1000;
+		if (oMatch[2] === "week") return nValue * 7 * 24 * 60 * 60 * 1000;
+		if (oMatch[2] === "month") return nValue * 30 * 24 * 60 * 60 * 1000;
+		return 24 * 60 * 60 * 1000;
+	}
+
+	/**
+	 * Erzeugt eine Fallback-Serie: alle Punkte 0, letzter Punkt = aktueller Wert.
+	 * Scope: [SHARED]
+	 * @param {object} oQuery
+	 * @param {number} nLastValue
+	 * @param {string} sReferenceTime
+	 * @returns {Array<{t: string, total: number, invested: number, pnl: number, y: number}>}
+	 */
+	function fnBuildZeroFallbackSeries(oQuery, nLastValue, sReferenceTime) {
+		const nSafeLastValue = Number.isFinite(Number(nLastValue)) ? Number(nLastValue) : 0;
+		const nStepMs = fnIntervalToStepMs(oQuery?.interval);
+		const nNowMs = Date.now();
+		const iDefaultPointCount = nStepMs < 24 * 60 * 60 * 1000 ? 24 : 30;
+
+		let iPointCount = iDefaultPointCount;
+		const dStart = oQuery?.start_date ? new Date(`${oQuery.start_date}T00:00:00`) : null;
+		const dEnd = oQuery?.end_date ? new Date(`${oQuery.end_date}T00:00:00`) : null;
+		if (dStart instanceof Date && dEnd instanceof Date && Number.isFinite(dStart.getTime()) && Number.isFinite(dEnd.getTime()) && dEnd >= dStart) {
+			const nRangeDays = Math.floor((dEnd.getTime() - dStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+			if (Number.isFinite(nRangeDays) && nRangeDays > 1) {
+				iPointCount = Math.min(180, Math.max(2, nRangeDays));
+			}
+		}
+
+		const iEndMs = Number.isFinite(dEnd?.getTime()) ? dEnd.getTime() : nNowMs;
+		const iStartMs = iEndMs - (iPointCount - 1) * nStepMs;
+		const aSeries = [];
+		for (let iIndex = 0; iIndex < iPointCount; iIndex += 1) {
+			const iCurrentMs = iStartMs + iIndex * nStepMs;
+			const dCurrent = new Date(iCurrentMs);
+			aSeries.push({
+				t: fnFormatTimeLikeReference(dCurrent, sReferenceTime),
+				total: 0,
+				invested: 0,
+				pnl: 0,
+				y: 0,
+			});
+		}
+		aSeries[aSeries.length - 1] = {
+			...aSeries[aSeries.length - 1],
+			total: nSafeLastValue,
+			y: nSafeLastValue,
+		};
+		return aSeries;
+	}
+
+	/**
 	 * Erzeugt Kurzlabel für die X-Achse.
 	 * Scope: [SHARED]
 	 * @param {string} sValue
@@ -2329,13 +2453,29 @@
 		}
 
 		const aRawPoints = fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, oArgs.bPnlOnly);
-		const aPoints = fnWithFixedDateRange(aRawPoints, oQuery, oArgs.bPnlOnly);
+		const aPointsWithRange = fnWithFixedDateRange(aRawPoints, oQuery, oArgs.bPnlOnly);
+		let aPoints = oArgs.bPnlOnly ? aPointsWithRange : fnEnsureInitialPortfolioJump(aPointsWithRange);
 
 		if (aPoints.length < 2) {
-			oArgs.elInfo.textContent = "Zu wenige Datenpunkte für Chart.";
-			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
-			oArgs.fnOnCompositionChange?.([]);
-			return;
+			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
+			if (!Number.isFinite(nLastValue) || nLastValue === 0) {
+				const aCurrentComposition = fnBuildDepotComposition(aPositions, mSeriesBySymbol);
+				const nCurrentTotal = aCurrentComposition.reduce((nSum, oRow) => nSum + Number(oRow?.nValue || 0), 0);
+				if (oArgs.bPnlOnly) {
+					const nInvestedTotal = aPositions.reduce((nSum, oPosition) => {
+						const nAmount = Number(oPosition?.amount);
+						const nBuyPrice = Number(oPosition?.worthwhenbought);
+						if (!Number.isFinite(nAmount) || nAmount <= 0) return nSum;
+						if (!Number.isFinite(nBuyPrice) || nBuyPrice < 0) return nSum;
+						return nSum + nAmount * nBuyPrice;
+					}, 0);
+					nLastValue = nCurrentTotal - nInvestedTotal;
+				} else {
+					nLastValue = nCurrentTotal;
+				}
+			}
+			const sReferenceTime = String(aPoints[0]?.t || "");
+			aPoints = fnBuildZeroFallbackSeries(oQuery, Number.isFinite(nLastValue) ? nLastValue : 0, sReferenceTime);
 		}
 
 		const oFirstPoint = aPoints[0];
@@ -2836,12 +2976,18 @@
 			})
 			.filter(Boolean);
 
-		const aPoints = fnWithFixedDateRange(aRawPoints, oQuery, false);
+		let aPoints = fnWithFixedDateRange(aRawPoints, oQuery, false);
 
 		if (aPoints.length < 2) {
-			oArgs.elInfo.textContent = `Zu wenige Datenpunkte für ${sSymbol}.`;
-			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
-			return { nLastClose: Number.NaN };
+			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
+			if (!Number.isFinite(nLastValue) || nLastValue === 0) {
+				const nLatestSeriesClose = Number(aSeriesValues[aSeriesValues.length - 1]?.close);
+				if (Number.isFinite(nLatestSeriesClose)) {
+					nLastValue = nLatestSeriesClose;
+				}
+			}
+			const sReferenceTime = String(aPoints[0]?.t || "");
+			aPoints = fnBuildZeroFallbackSeries(oQuery, Number.isFinite(nLastValue) ? nLastValue : 0, sReferenceTime);
 		}
 
 		const nFirst = aPoints[0].y;
@@ -3537,6 +3683,9 @@
 	});
 
 	async function fnInitApp() {
+		if (window.FinanzAppCurrency?.preloadRates) {
+			await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
+		}
 		await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
 		fnSetActiveNav(sActiveView);
 		fnSetActiveTopNavLink();
