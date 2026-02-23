@@ -76,7 +76,7 @@ let selectedFundingId = null;
 let activeDetailTab = "members";
 let sessionUser = null;
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
-const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR"]);
+const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
 const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
 const DEFAULT_GROUP_LOCALE_SETTINGS = {
   locale: "de-DE",

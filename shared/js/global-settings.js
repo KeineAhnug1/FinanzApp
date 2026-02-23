@@ -4,7 +4,7 @@
     select.className = "field-input";
     select.id = "global-locale-select";
 
-    const locales = ["de-DE", "en-US", "en-GB", "fr-FR"];
+    const locales = Array.from(window.FinanzAppLanguage?.LOCALES || ["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
     for (const locale of locales) {
       const option = document.createElement("option");
       option.value = locale;

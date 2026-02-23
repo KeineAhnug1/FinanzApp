@@ -2,7 +2,7 @@
 const VIEW_STORAGE_KEY = "finanzapp.dashboardView";
 const VIEW_OPTIONS = new Set(["overview", "income", "expense"]);
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
-const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR"]);
+const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
 const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
 const SETTINGS_RECURRENCE_OPTIONS = new Set(["once", "weekly", "monthly"]);
 const DEFAULT_DASHBOARD_SETTINGS = {
