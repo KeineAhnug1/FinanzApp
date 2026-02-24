@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FinanzApp Uebersicht</title>
+  <title>FinanzApp Übersicht</title>
   <script>
     (function () {
       try {
@@ -69,7 +69,7 @@
             <p class="settings-title">Einstellungen</p>
             <form id="settings-form" class="settings-form">
               <div>
-                <label class="field-label" for="settings-currency">Anzeige-Waehrung</label>
+                <label class="field-label" for="settings-currency">Anzeige-Währung</label>
                 <select class="field-input" id="settings-currency" name="currency">
                   <option value="EUR">Euro (EUR)</option>
                   <option value="USD">US-Dollar (USD)</option>
@@ -89,7 +89,7 @@
               </div>
               <div class="settings-actions">
                 <button class="submit-income" type="submit">Speichern</button>
-                <button id="settings-reset-btn" class="settings-reset-btn" type="button">Zuruecksetzen</button>
+                <button id="settings-reset-btn" class="settings-reset-btn" type="button">Zurücksetzen</button>
               </div>
             </form>
             <p id="settings-status" class="form-status"></p>
@@ -100,9 +100,9 @@
 
     <main class="dash-main">
       <nav class="section-switch" role="tablist" aria-label="Bereiche">
-        <button type="button" class="section-tab is-active" data-view-tab="overview" aria-selected="true">Uebersicht</button>
-        <button type="button" class="section-tab" data-view-tab="income" aria-selected="false">Einnahmen</button>
-        <button type="button" class="section-tab" data-view-tab="expense" aria-selected="false">Ausgaben</button>
+        <button type="button" class="section-tab btn-important is-active" data-view-tab="overview" aria-selected="true">Übersicht</button>
+        <button type="button" class="section-tab btn-important" data-view-tab="income" aria-selected="false">Einnahmen</button>
+        <button type="button" class="section-tab btn-important" data-view-tab="expense" aria-selected="false">Ausgaben</button>
       </nav>
 
       <section class="view-panel" data-view-panel="overview">
@@ -158,7 +158,7 @@
         <section class="income-grid">
           <article class="panel">
             <h2 class="panel-title">Monatliche Basiseinnahme</h2>
-            <p class="panel-subtitle">Wird fuer die Uebersicht genutzt und kann jederzeit angepasst werden.</p>
+            <p class="panel-subtitle">Wird für die Übersicht genutzt und kann jederzeit angepasst werden.</p>
             <form id="base-income-form" class="income-form">
               <div>
                 <label class="field-label" for="base-income">Betrag (EUR)</label>

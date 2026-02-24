@@ -1,5 +1,12 @@
 // Login/Registrierung: Formular-Modi und API-Kommunikation.
 
+function tr(key, fallback, params = {}) {
+  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  if (translated && translated !== key) return translated;
+  if (!params || !Object.keys(params).length) return fallback;
+  return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
 class UsersLogin extends HTMLElement {
   constructor() {
     super();
@@ -49,16 +56,16 @@ class UsersLogin extends HTMLElement {
 
       try {
         if (this.mode === "login") {
-          setStatus(status, "idle", "Pruefe Login...");
+          setStatus(status, "idle", tr("auth.checking_login", "Prüfe Login..."));
           await this.submitLogin(form, status);
           return;
         }
         if (this.mode === "register") {
-          setStatus(status, "idle", "Konto wird vorbereitet...");
+          setStatus(status, "idle", tr("auth.preparing_account", "Konto wird vorbereitet..."));
           await this.submitRegister(form, status);
           return;
         }
-        setStatus(status, "idle", "Code wird geprueft...");
+        setStatus(status, "idle", tr("auth.verifying_code", "Code wird geprüft..."));
         await this.submitVerify(form, status);
       } finally {
         submitButton.disabled = false;
@@ -73,11 +80,11 @@ class UsersLogin extends HTMLElement {
 
     const result = await postJson("/api/login", { email, password });
     if (!result.ok) {
-      setStatus(status, "error", result.message || "E-Mail oder Passwort ist falsch.");
+      setStatus(status, "error", result.message || tr("auth.login_failed", "E-Mail oder Passwort ist falsch."));
       return;
     }
 
-    setStatus(status, "success", `Login erfolgreich: ${result.user.email}`);
+    setStatus(status, "success", tr("auth.login_success", "Login erfolgreich: {email}", { email: result.user.email }));
     window.FinanzAppSession.setCurrentUserInStorage({
       ...result.user,
       logged_in_at: new Date().toISOString()
@@ -99,7 +106,7 @@ class UsersLogin extends HTMLElement {
     const income = incomeRaw === "" ? 0 : Number(incomeRaw.replace(",", "."));
 
     if (password !== confirmPassword) {
-      setStatus(status, "error", "Passwort und Passwort-Wiederholung stimmen nicht ueberein.");
+      setStatus(status, "error", tr("auth.password_mismatch", "Passwort und Passwort-Wiederholung stimmen nicht überein."));
       return;
     }
 
@@ -113,7 +120,7 @@ class UsersLogin extends HTMLElement {
     });
 
     if (!result.ok) {
-      setStatus(status, "error", result.message || "Konto konnte nicht erstellt werden.");
+      setStatus(status, "error", result.message || tr("auth.register_failed", "Konto konnte nicht erstellt werden."));
       return;
     }
 
@@ -121,7 +128,7 @@ class UsersLogin extends HTMLElement {
     this.mode = "verify";
     this.flash = {
       type: "success",
-      text: result.message || "Verifizierungscode wurde versendet."
+      text: result.message || tr("auth.verify_sent", "Verifizierungscode wurde versendet.")
     };
 
     this.render();
@@ -135,7 +142,7 @@ class UsersLogin extends HTMLElement {
 
     const result = await postJson("/api/register/verify", { email, code });
     if (!result.ok) {
-      setStatus(status, "error", result.message || "Code konnte nicht verifiziert werden.");
+      setStatus(status, "error", result.message || tr("auth.verify_failed", "Code konnte nicht verifiziert werden."));
       return;
     }
 
@@ -143,7 +150,7 @@ class UsersLogin extends HTMLElement {
     this.mode = "login";
     this.flash = {
       type: "success",
-      text: "Konto erstellt und verifiziert. Bitte jetzt einloggen."
+      text: tr("auth.account_verified", "Konto erstellt und verifiziert. Bitte jetzt einloggen.")
     };
     this.render();
     this.bindEvents();
@@ -157,22 +164,22 @@ class UsersLogin extends HTMLElement {
       <section class="login-card">
         <span class="login-badge">FinanzApp Access</span>
         <h1 class="login-title">
-          ${isLogin ? "Willkommen zur FinanzApp" : isRegister ? "Neues Konto erstellen" : "E-Mail verifizieren"}
+          ${isLogin ? tr("auth.title_login", "Willkommen zur FinanzApp") : isRegister ? tr("auth.title_register", "Neues Konto erstellen") : tr("auth.title_verify", "E-Mail verifizieren")}
         </h1>
         <p class="login-subtitle">
           ${
             isLogin
-              ? "Melde dich mit deinen Zugangsdaten an und oeffne deine Finanzuebersicht."
+              ? tr("auth.subtitle_login", "Melde dich mit deinen Zugangsdaten an und öffne deine Finanzübersicht.")
               : isRegister
-                ? "Lege deinen Account an. Danach bestaetigst du ihn mit einem Code per E-Mail."
-                : "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben."
+                ? tr("auth.subtitle_register", "Lege deinen Account an. Danach bestätigst du ihn mit einem Code per E-Mail.")
+                : tr("auth.subtitle_verify", "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben.")
           }
         </p>
 
         <form class="login-form">
           ${isLogin ? this.renderLoginFields() : isRegister ? this.renderRegisterFields() : this.renderVerifyFields()}
           <button class="login-button" type="submit">
-            ${isLogin ? "Einloggen" : isRegister ? "Konto erstellen" : "Code bestaetigen"}
+            ${isLogin ? tr("auth.submit_login", "Einloggen") : isRegister ? tr("auth.submit_register", "Konto erstellen") : tr("auth.submit_verify", "Code bestätigen")}
           </button>
         </form>
 
@@ -185,12 +192,12 @@ class UsersLogin extends HTMLElement {
   renderLoginFields() {
     return `
       <div>
-        <label class="login-label" for="email">E-Mail</label>
+        <label class="login-label" for="email">${tr("auth.email", "E-Mail")}</label>
         <input class="login-input" id="email" name="email" type="email" required autocomplete="email" placeholder="name@beispiel.de" />
       </div>
       <div>
-        <label class="login-label" for="password">Passwort</label>
-        <input class="login-input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="Passwort eingeben" />
+        <label class="login-label" for="password">${tr("auth.password", "Passwort")}</label>
+        <input class="login-input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="${tr("auth.password_placeholder", "Passwort eingeben")}" />
       </div>
     `;
   }
@@ -199,34 +206,34 @@ class UsersLogin extends HTMLElement {
     return `
       <div class="form-row">
         <div>
-          <label class="login-label" for="first_name">Vorname</label>
+          <label class="login-label" for="first_name">${tr("auth.first_name", "Vorname")}</label>
           <input class="login-input" id="first_name" name="first_name" type="text" required placeholder="Anna" />
         </div>
         <div>
-          <label class="login-label" for="last_name">Nachname</label>
+          <label class="login-label" for="last_name">${tr("auth.last_name", "Nachname")}</label>
           <input class="login-input" id="last_name" name="last_name" type="text" required placeholder="Schmidt" />
         </div>
       </div>
       <div>
-        <label class="login-label" for="username">Username</label>
+        <label class="login-label" for="username">${tr("auth.username", "Username")}</label>
         <input class="login-input" id="username" name="username" type="text" required placeholder="anna" />
       </div>
       <div>
-        <label class="login-label" for="email">E-Mail</label>
+        <label class="login-label" for="email">${tr("auth.email", "E-Mail")}</label>
         <input class="login-input" id="email" name="email" type="email" required placeholder="name@beispiel.de" />
       </div>
       <div class="form-row">
         <div>
-          <label class="login-label" for="password">Passwort</label>
-          <input class="login-input" id="password" name="password" type="password" required minlength="6" placeholder="mind. 6 Zeichen" />
+          <label class="login-label" for="password">${tr("auth.password", "Passwort")}</label>
+          <input class="login-input" id="password" name="password" type="password" required minlength="6" placeholder="${tr("auth.password_min", "mind. 6 Zeichen")}" />
         </div>
         <div>
-          <label class="login-label" for="confirm_password">Passwort wiederholen</label>
-          <input class="login-input" id="confirm_password" name="confirm_password" type="password" required minlength="6" placeholder="wiederholen" />
+          <label class="login-label" for="confirm_password">${tr("auth.password_repeat", "Passwort wiederholen")}</label>
+          <input class="login-input" id="confirm_password" name="confirm_password" type="password" required minlength="6" placeholder="${tr("auth.password_repeat_placeholder", "wiederholen")}" />
         </div>
       </div>
       <div>
-        <label class="login-label" for="income">Monatliches Einkommen (optional)</label>
+        <label class="login-label" for="income">${tr("auth.monthly_income_optional", "Monatliches Einkommen (optional)")}</label>
         <input class="login-input" id="income" name="income" type="number" min="0" step="0.01" placeholder="0.00" />
       </div>
     `;
@@ -235,11 +242,11 @@ class UsersLogin extends HTMLElement {
   renderVerifyFields() {
     return `
       <div>
-        <label class="login-label" for="email">E-Mail</label>
+        <label class="login-label" for="email">${tr("auth.email", "E-Mail")}</label>
         <input class="login-input" id="email" name="email" type="email" required readonly value="${escapeAttribute(this.pendingEmail)}" />
       </div>
       <div>
-        <label class="login-label" for="code">Verifizierungscode</label>
+        <label class="login-label" for="code">${tr("auth.verification_code", "Verifizierungscode")}</label>
         <input class="login-input verify-code-input" id="code" name="code" type="text" inputmode="numeric" maxlength="6" required placeholder="123456" />
       </div>
     `;
@@ -247,15 +254,15 @@ class UsersLogin extends HTMLElement {
 
   renderModeActions() {
     if (this.mode === "login") {
-      return '<button class="auth-mode-link" type="button" data-auth-mode="register">Kein Konto? Jetzt registrieren</button>';
+      return `<button class="auth-mode-link" type="button" data-auth-mode="register">${tr("auth.switch_to_register", "Kein Konto? Jetzt registrieren")}</button>`;
     }
     if (this.mode === "register") {
-      return '<button class="auth-mode-link" type="button" data-auth-mode="login">Schon ein Konto? Zum Login</button>';
+      return `<button class="auth-mode-link" type="button" data-auth-mode="login">${tr("auth.switch_to_login", "Schon ein Konto? Zum Login")}</button>`;
     }
     return `
       <div class="auth-mode-row">
-        <button class="auth-mode-link" type="button" data-auth-mode="register">Code nicht erhalten? Neu registrieren</button>
-        <button class="auth-mode-link" type="button" data-auth-mode="login">Zurueck zum Login</button>
+        <button class="auth-mode-link" type="button" data-auth-mode="register">${tr("auth.verify_not_received", "Code nicht erhalten? Neu registrieren")}</button>
+        <button class="auth-mode-link" type="button" data-auth-mode="login">${tr("auth.back_to_login", "Zurück zum Login")}</button>
       </div>
     `;
   }
@@ -282,7 +289,7 @@ async function postJson(url, payload) {
       ...data
     };
   } catch {
-    return { ok: false, status: 0, message: "Server nicht erreichbar." };
+    return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
   }
 }
 

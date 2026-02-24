@@ -1239,6 +1239,167 @@
 	}
 
 	/**
+	 * Erzeugt moegliche Twelve-Data-Symbolvarianten fuer ein lokales Symbol.
+	 * Scope: [SHARED]
+	 * @param {string} sSymbolRaw
+	 * @returns {string[]}
+	 */
+	function fnBuildTdSymbolCandidates(sSymbolRaw) {
+		const sSymbol = String(sSymbolRaw || "").trim().toUpperCase();
+		if (!sSymbol) return [];
+
+		const aCandidates = [];
+		const fnPushUnique = (sCandidateRaw) => {
+			const sCandidate = String(sCandidateRaw || "").trim().toUpperCase();
+			if (!sCandidate) return;
+			if (!aCandidates.includes(sCandidate)) aCandidates.push(sCandidate);
+		};
+
+		fnPushUnique(sSymbol);
+		fnPushUnique(sSymbol.replace("/", "."));
+		fnPushUnique(sSymbol.replace("/", "-"));
+
+		if (sSymbol.includes(":")) {
+			const sWithoutPrefix = sSymbol.split(":").pop();
+			fnPushUnique(sWithoutPrefix);
+		}
+
+		if (sSymbol.includes(".")) {
+			const [sBaseRaw, sSuffixRaw] = sSymbol.split(".");
+			const sBase = String(sBaseRaw || "").trim();
+			const sSuffix = String(sSuffixRaw || "").trim();
+			fnPushUnique(sBase);
+
+			const oSuffixToExchangePrefix = {
+				DE: ["XETR", "FWB"],
+				L: ["LSE"],
+				TO: ["TSX"],
+				AX: ["ASX"],
+				SW: ["SIX"],
+				PA: ["EPA"],
+				MI: ["MIL"],
+				MC: ["BME"],
+			};
+			for (const sExchangePrefix of oSuffixToExchangePrefix[sSuffix] || []) {
+				fnPushUnique(`${sExchangePrefix}:${sBase}`);
+			}
+		}
+
+		return aCandidates;
+	}
+
+	/**
+	 * Baut ein Fallback-Query fuer Tagesdaten, falls Intraday fehlt.
+	 * Scope: [SHARED]
+	 * @param {object} oQuery
+	 * @returns {object}
+	 */
+	function fnBuildDailyFallbackQuery(oQuery) {
+		const oBase = { ...(oQuery || {}) };
+		return {
+			...oBase,
+			interval: "1day",
+			outputsize: Math.max(Number(oBase.outputsize) || 0, 60),
+		};
+	}
+
+	/**
+	 * Extrahiert einen gueltigen Kurs aus einem Twelve-Data-Quote-Objekt.
+	 * Scope: [SHARED]
+	 * @param {any} oData
+	 * @returns {number}
+	 */
+	function fnExtractPositiveQuotePrice(oData) {
+		const nClose = Number(oData?.close);
+		if (Number.isFinite(nClose) && nClose > 0) return nClose;
+
+		const nPrice = Number(oData?.price);
+		if (Number.isFinite(nPrice) && nPrice > 0) return nPrice;
+
+		const nPreviousClose = Number(oData?.previous_close);
+		if (Number.isFinite(nPreviousClose) && nPreviousClose > 0) return nPreviousClose;
+
+		return Number.NaN;
+	}
+
+	/**
+	 * Laedt den letzten verfuegbaren Kurs inkl. Symbol-Fallback.
+	 * Scope: [SHARED]
+	 * @param {string} sSymbol
+	 * @returns {Promise<{nPrice: number, sourceSymbol: string, fromCache: boolean}>}
+	 */
+	async function fnGetLatestPriceBySymbolWithFallback(sSymbol) {
+		const aSymbolCandidates = fnBuildTdSymbolCandidates(sSymbol);
+		let sLastError = "Kein Quote verfuegbar.";
+
+		for (const sCandidate of aSymbolCandidates) {
+			try {
+				const oFetchResult = await fnTdFetch("/quote", { symbol: sCandidate });
+				const nPrice = fnExtractPositiveQuotePrice(oFetchResult?.data);
+				if (Number.isFinite(nPrice) && nPrice > 0) {
+					return {
+						nPrice,
+						sourceSymbol: sCandidate,
+						fromCache: Boolean(oFetchResult?.fromCache),
+					};
+				}
+				sLastError = `Quote ohne Kurs fuer ${sCandidate}.`;
+			} catch (oError) {
+				sLastError = String(oError?.message || oError);
+			}
+		}
+
+		throw new Error(sLastError);
+	}
+
+	/**
+	 * Laedt Time-Series fuer ein Symbol inkl. Symbol- und Intervall-Fallback.
+	 * Scope: [SHARED]
+	 * @param {string} sSymbol
+	 * @param {object} oQuery
+	 * @returns {Promise<{values: Array<object>, fromCache: boolean, sourceSymbol: string, interval: string}>}
+	 */
+	async function fnLoadSeriesForSymbolWithFallback(sSymbol, oQuery) {
+		const aSymbolCandidates = fnBuildTdSymbolCandidates(sSymbol);
+		const aQueries = [oQuery];
+		if (String(oQuery?.interval || "").toLowerCase() === "5min") {
+			aQueries.push(fnBuildDailyFallbackQuery(oQuery));
+		}
+
+		let sLastError = "Keine Zeitreihe verfuegbar.";
+
+		for (const oCandidateQuery of aQueries) {
+			for (const sCandidate of aSymbolCandidates) {
+				try {
+					const oFetchResult = await fnTdFetch("/time_series", {
+						symbol: sCandidate,
+						...oCandidateQuery,
+					});
+
+					const aValues = Array.isArray(oFetchResult.data?.values)
+						? [...oFetchResult.data.values].reverse()
+						: [];
+
+					if (aValues.length) {
+						return {
+							values: aValues,
+							fromCache: oFetchResult.fromCache,
+							sourceSymbol: sCandidate,
+							interval: String(oCandidateQuery?.interval || ""),
+						};
+					}
+
+					sLastError = `Leere Zeitreihe fuer ${sCandidate}.`;
+				} catch (oError) {
+					sLastError = String(oError?.message || oError);
+				}
+			}
+		}
+
+		throw new Error(sLastError);
+	}
+
+	/**
 	 * Lädt Time-Series Daten für die übergebenen Symbole sequenziell.
 	 * Scope: [SHARED]
 	 * @param {string[]} aSymbols
@@ -1247,27 +1408,27 @@
 	 */
 	async function fnLoadSeriesForSymbols(aSymbols, oQuery) {
 		const mSeriesBySymbol = new Map();
+		const mErrorsBySymbol = new Map();
 
 		for (const sSymbolRaw of aSymbols) {
 			const sSymbol = String(sSymbolRaw || "").trim().toUpperCase();
 			if (!sSymbol) continue;
 
 			try {
-				const oFetchResult = await fnTdFetch("/time_series", {
-					symbol: sSymbol,
-					...oQuery,
+				const oSeriesResult = await fnLoadSeriesForSymbolWithFallback(sSymbol, oQuery);
+				mSeriesBySymbol.set(sSymbol, {
+					values: oSeriesResult.values,
+					fromCache: oSeriesResult.fromCache,
+					sourceSymbol: oSeriesResult.sourceSymbol,
+					interval: oSeriesResult.interval,
 				});
-
-				const aValues = Array.isArray(oFetchResult.data?.values)
-					? [...oFetchResult.data.values].reverse()
-					: [];
-
-				mSeriesBySymbol.set(sSymbol, { values: aValues, fromCache: oFetchResult.fromCache });
 			} catch (oError) {
+				mErrorsBySymbol.set(sSymbol, String(oError?.message || oError));
 				console.warn("Time series failed for", sSymbol, oError);
 			}
 		}
 
+		mSeriesBySymbol.mErrorsBySymbol = mErrorsBySymbol;
 		return mSeriesBySymbol;
 	}
 
@@ -1834,8 +1995,8 @@
 		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
 		oCtx.clearRect(0, 0, iWidth, iHeight);
 		const oStyles = getComputedStyle(document.documentElement);
-		const sPrimary = oStyles.getPropertyValue("--clr-primary").trim() || "#1d7a5b";
-		const sPrimarySoft = oStyles.getPropertyValue("--clr-primary-soft").trim() || "rgba(29, 122, 91, 0.12)";
+		const sPrimary = oStyles.getPropertyValue("--clr-primary").trim() || "#0a6ed1";
+		const sPrimarySoft = oStyles.getPropertyValue("--clr-primary-soft").trim() || "rgba(10, 110, 209, 0.12)";
 		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
 		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
 		const sBorderStrong = oStyles.getPropertyValue("--clr-border-strong").trim() || "#b5c0ba";
@@ -1887,8 +2048,8 @@
 		}));
 
 		const oGradient = oCtx.createLinearGradient(0, iPadT, 0, iPadT + iInnerHeight);
-		oGradient.addColorStop(0, "rgba(29, 122, 91, 0.30)");
-		oGradient.addColorStop(1, sPrimarySoft || "rgba(29, 122, 91, 0.08)");
+		oGradient.addColorStop(0, "rgba(10, 110, 209, 0.30)");
+		oGradient.addColorStop(1, sPrimarySoft || "rgba(10, 110, 209, 0.08)");
 
 		oCtx.beginPath();
 		oCtx.moveTo(aCanvasPoints[0].nX, iPadT + iInnerHeight);
@@ -1930,7 +2091,7 @@
 
 		oCtx.beginPath();
 		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 8, 0, Math.PI * 2);
-		oCtx.fillStyle = "rgba(29, 122, 91, 0.23)";
+		oCtx.fillStyle = "rgba(10, 110, 209, 0.23)";
 		oCtx.fill();
 
 		const iHoverIndex = Number.isInteger(oHoverState.iHoverIndex) ? oHoverState.iHoverIndex : -1;
@@ -1950,7 +2111,7 @@
 
 			oCtx.beginPath();
 			oCtx.arc(oHoverPoint.nX, oHoverPoint.nY, 6.5, 0, Math.PI * 2);
-			oCtx.fillStyle = "rgba(29, 122, 91, 0.18)";
+			oCtx.fillStyle = "rgba(10, 110, 209, 0.18)";
 			oCtx.fill();
 
 			oCtx.beginPath();
@@ -2046,16 +2207,16 @@
 	 */
 	function fnPieColorAt(iIndex) {
 		const aPalette = [
-			"#1d7a5b",
-			"#2f8d6b",
-			"#58be97",
-			"#4ea57e",
-			"#7bc9ab",
-			"#3f7f68",
-			"#76b495",
-			"#2d6c57",
-			"#6fae90",
-			"#245846",
+			"#0a6ed1",
+			"#2c7ddd",
+			"#3b8eea",
+			"#539df2",
+			"#69abff",
+			"#2a62a7",
+			"#356fba",
+			"#447fcb",
+			"#6b95d6",
+			"#8aaee0",
 		];
 		return aPalette[iIndex % aPalette.length];
 	}
@@ -2634,19 +2795,8 @@
 
 		const fnGetLatestPriceBySymbol = async (sSymbol) => {
 			try {
-				const oFetchResult = await fnTdFetch("/quote", {
-					symbol: sSymbol,
-				});
-
-				const nClose = Number(oFetchResult?.data?.close);
-				if (Number.isFinite(nClose) && nClose > 0) return nClose;
-
-				const nPrice = Number(oFetchResult?.data?.price);
-				if (Number.isFinite(nPrice) && nPrice > 0) return nPrice;
-
-				const nPreviousClose = Number(oFetchResult?.data?.previous_close);
-				if (Number.isFinite(nPreviousClose) && nPreviousClose > 0) return nPreviousClose;
-
+				const oQuoteResult = await fnGetLatestPriceBySymbolWithFallback(sSymbol);
+				if (Number.isFinite(oQuoteResult?.nPrice) && oQuoteResult.nPrice > 0) return oQuoteResult.nPrice;
 				return Number.NaN;
 			} catch {
 				return Number.NaN;
@@ -2961,9 +3111,32 @@
 
 		const mSeriesBySymbol = await fnLoadSeriesForSymbols([sSymbol], oQuery);
 		if (!mSeriesBySymbol.size) {
-			oArgs.elInfo.textContent = `Keine Kursdaten für ${sSymbol} erhalten.`;
-			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
-			return;
+			try {
+				const oQuoteResult = await fnGetLatestPriceBySymbolWithFallback(sSymbol);
+				const nLast = Number(oQuoteResult?.nPrice);
+				if (!Number.isFinite(nLast) || nLast <= 0) throw new Error("Quote ohne gueltigen Kurs.");
+
+				const aQuoteFallbackPoints = fnBuildZeroFallbackSeries(oQuery, nLast, "");
+				const nFirst = Number(aQuoteFallbackPoints[0]?.y);
+				const nChangeAbs = nLast - nFirst;
+				const nChangePct = nFirst !== 0 ? (nChangeAbs / nFirst) * 100 : Number.NaN;
+
+				oArgs.elTotalLabel.textContent = `Kurs ${sSymbol} (letzter Punkt)`;
+				oArgs.elTotal.textContent = fnFmtMoney(nLast, "USD");
+				oArgs.elChange.textContent = `${fnFmtMoney(nChangeAbs, "USD")} (${Number.isFinite(nChangePct) ? nChangePct.toFixed(2) : "—"}%)`;
+				fnDrawLineChart(oArgs.oCtx, oArgs.elCanvas, aQuoteFallbackPoints, false);
+				oArgs.elInfo.textContent = `Keine Historie fuer ${sSymbol}; Fallback auf Live-Quote (${oQuoteResult.sourceSymbol}${oQuoteResult.fromCache ? ", Cache" : ""}).`;
+				return { nLastClose: nLast };
+			} catch (oQuoteError) {
+				const sSeriesError = String(mSeriesBySymbol?.mErrorsBySymbol?.get?.(sSymbol) || "").trim();
+				const sQuoteError = String(oQuoteError?.message || oQuoteError || "").trim();
+				const sDetail = [sSeriesError, sQuoteError].filter(Boolean).join(" | ");
+				oArgs.elInfo.textContent = sDetail
+					? `Keine Kursdaten fuer ${sSymbol}. Detail: ${sDetail}`
+					: `Keine Kursdaten fuer ${sSymbol} erhalten.`;
+				fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
+				return;
+			}
 		}
 
 		const aSeriesValues = mSeriesBySymbol.get(sSymbol)?.values || [];

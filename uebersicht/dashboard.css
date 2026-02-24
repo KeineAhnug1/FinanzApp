@@ -396,19 +396,19 @@
 
 .cashflow-line-income {
   fill: none;
-  stroke: #2f8f69;
+  stroke: #4a9dff;
   stroke-width: 2.6;
 }
 
 .cashflow-line-expense {
   fill: none;
-  stroke: #c25d5d;
+  stroke: #ff8a65;
   stroke-width: 2.6;
 }
 
 .cashflow-line-savings {
   fill: none;
-  stroke: #2e6fa8;
+  stroke: #7c83ff;
   stroke-width: 2.6;
 }
 
@@ -430,15 +430,15 @@
 }
 
 .cashflow-point-income {
-  fill: #2f8f69;
+  fill: #4a9dff;
 }
 
 .cashflow-point-expense {
-  fill: #c25d5d;
+  fill: #ff8a65;
 }
 
 .cashflow-point-savings {
-  fill: #2e6fa8;
+  fill: #7c83ff;
 }
 
 .cashflow-point-income,
@@ -489,15 +489,15 @@
 }
 
 .cashflow-legend-dot.income {
-  background: #2f8f69;
+  background: #4a9dff;
 }
 
 .cashflow-legend-dot.expense {
-  background: #c25d5d;
+  background: #ff8a65;
 }
 
 .cashflow-legend-dot.savings {
-  background: #2e6fa8;
+  background: #7c83ff;
 }
 
 .cashflow-tooltip {

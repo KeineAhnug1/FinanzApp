@@ -35,6 +35,7 @@
 
     "schema:setup:v4": "node database/dataset-v4/schema-setup.js",
     "seed:reset:v4": "node database/dataset-v4/seed-reset.mjs",
+    "seed:test-user:v4": "node database/dataset-v4/seed-test-user.mjs",
     "import:testdata:v4": "node database/dataset-v4/seed-reset.mjs",
     "db:wipe:v4": "node database/dataset-v4/wipe-data.mjs",
     "db:check:v4": "node database/dataset-v4/check-connection.mjs",

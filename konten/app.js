@@ -9,6 +9,13 @@
   let aShareAccounts = [];
   let aBankAccounts = [];
 
+  function t(key, fallback, params = {}) {
+    const translated = window.FinanzAppLanguage?.t?.(key, params);
+    if (translated && translated !== key) return translated;
+    if (!params || !Object.keys(params).length) return fallback;
+    return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+  }
+
   function fnEscapeHtml(sValue) {
     return String(sValue || "")
       .replaceAll("&", "&amp;")
@@ -30,7 +37,7 @@
   }
 
   async function fnApiRequest(aEndpoints, oInit = {}) {
-    let sLastError = "Kein Endpoint erreichbar";
+    let sLastError = t("accounts.endpoint_unreachable", "Kein Endpoint erreichbar");
     for (const sEndpoint of aEndpoints) {
       try {
         const oResponse = await fetch(sEndpoint, oInit);
@@ -60,26 +67,26 @@
   function fnRenderList(elContainer, aAccounts, sType) {
     if (!elContainer) return;
     if (!aAccounts.length) {
-      elContainer.innerHTML = `<p class="muted">Keine ${fnEscapeHtml(sType)} vorhanden.</p>`;
+      elContainer.innerHTML = `<p class="muted">${t("accounts.none_for_type", "Keine {type} vorhanden.", { type: fnEscapeHtml(sType) })}</p>`;
       return;
     }
     elContainer.innerHTML = aAccounts.map((oAccount) => `
       <div class="account-row" data-account-id="${fnEscapeHtml(oAccount.id)}" data-type="${fnEscapeHtml(sType)}">
         <input class="account-name-input" type="text" value="${fnEscapeHtml(oAccount.label)}" />
-        <button class="action" data-action="rename">Umbenennen</button>
-        <button class="action" data-action="delete">Löschen</button>
+        <button class="action" data-action="rename">${t("accounts.rename", "Umbenennen")}</button>
+        <button class="action" data-action="delete">${t("accounts.delete", "Löschen")}</button>
       </div>
     `).join("");
   }
 
   async function fnLoadShareAccounts() {
     const oData = await fnApiRequest(aShareAccountsEndpoints);
-    aShareAccounts = fnMapAccounts(oData?.accounts, "Aktienkonto");
+    aShareAccounts = fnMapAccounts(oData?.accounts, t("accounts.share_account_fallback", "Aktienkonto"));
   }
 
   async function fnLoadBankAccounts() {
     const oData = await fnApiRequest(aBankAccountsEndpoints);
-    aBankAccounts = fnMapAccounts(oData?.accounts, "Bankkonto");
+    aBankAccounts = fnMapAccounts(oData?.accounts, t("accounts.bank_account_fallback", "Bankkonto"));
   }
 
   async function fnCreateAccount(aEndpoints, sLabel) {
@@ -120,39 +127,39 @@
 
     const fnRefresh = async () => {
       await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
-      fnRenderList(elShareList, aShareAccounts, "Aktienkonten");
-      fnRenderList(elBankList, aBankAccounts, "Bankkonten");
+      fnRenderList(elShareList, aShareAccounts, t("accounts.share_accounts", "Aktienkonten"));
+      fnRenderList(elBankList, aBankAccounts, t("accounts.bank_accounts", "Bankkonten"));
     };
 
     elCreateShareBtn.addEventListener("click", async () => {
       const sLabel = String(elShareNameInput.value || "").trim();
       if (!sLabel) {
-        elFeedback.textContent = "Bitte einen Namen für das Aktienkonto eingeben.";
+        elFeedback.textContent = t("accounts.enter_share_name", "Bitte einen Namen für das Aktienkonto eingeben.");
         return;
       }
       try {
         await fnCreateAccount(aShareAccountsEndpoints, sLabel);
         elShareNameInput.value = "";
         await fnRefresh();
-        elFeedback.textContent = "Aktienkonto erstellt.";
+        elFeedback.textContent = t("accounts.share_created", "Aktienkonto erstellt.");
       } catch (oError) {
-        elFeedback.textContent = `Aktienkonto konnte nicht erstellt werden: ${String(oError?.message || oError)}`;
+        elFeedback.textContent = t("accounts.share_create_failed", "Aktienkonto konnte nicht erstellt werden: {error}", { error: String(oError?.message || oError) });
       }
     });
 
     elCreateBankBtn.addEventListener("click", async () => {
       const sLabel = String(elBankNameInput.value || "").trim();
       if (!sLabel) {
-        elFeedback.textContent = "Bitte einen Namen für das Bankkonto eingeben.";
+        elFeedback.textContent = t("accounts.enter_bank_name", "Bitte einen Namen für das Bankkonto eingeben.");
         return;
       }
       try {
         await fnCreateAccount(aBankAccountsEndpoints, sLabel);
         elBankNameInput.value = "";
         await fnRefresh();
-        elFeedback.textContent = "Bankkonto erstellt.";
+        elFeedback.textContent = t("accounts.bank_created", "Bankkonto erstellt.");
       } catch (oError) {
-        elFeedback.textContent = `Bankkonto konnte nicht erstellt werden: ${String(oError?.message || oError)}`;
+        elFeedback.textContent = t("accounts.bank_create_failed", "Bankkonto konnte nicht erstellt werden: {error}", { error: String(oError?.message || oError) });
       }
     });
 
@@ -170,18 +177,18 @@
       try {
         if (sAction === "rename") {
           if (!sLabel) {
-            elFeedback.textContent = "Bitte einen gültigen Kontonamen eingeben.";
+            elFeedback.textContent = t("accounts.enter_valid_name", "Bitte einen gültigen Kontonamen eingeben.");
             return;
           }
           await fnRenameAccount(aShareAccountsEndpoints, sId, sLabel);
-          elFeedback.textContent = "Aktienkonto umbenannt.";
+          elFeedback.textContent = t("accounts.share_renamed", "Aktienkonto umbenannt.");
         } else if (sAction === "delete") {
           await fnDeleteAccount(aShareAccountsEndpoints, sId);
-          elFeedback.textContent = "Aktienkonto gelöscht.";
+          elFeedback.textContent = t("accounts.share_deleted", "Aktienkonto gelöscht.");
         }
         await fnRefresh();
       } catch (oError) {
-        elFeedback.textContent = `Aktion fehlgeschlagen: ${String(oError?.message || oError)}`;
+        elFeedback.textContent = t("accounts.action_failed", "Aktion fehlgeschlagen: {error}", { error: String(oError?.message || oError) });
       }
     });
 
@@ -199,25 +206,25 @@
       try {
         if (sAction === "rename") {
           if (!sLabel) {
-            elFeedback.textContent = "Bitte einen gültigen Kontonamen eingeben.";
+            elFeedback.textContent = t("accounts.enter_valid_name", "Bitte einen gültigen Kontonamen eingeben.");
             return;
           }
           await fnRenameAccount(aBankAccountsEndpoints, sId, sLabel);
-          elFeedback.textContent = "Bankkonto umbenannt.";
+          elFeedback.textContent = t("accounts.bank_renamed", "Bankkonto umbenannt.");
         } else if (sAction === "delete") {
           await fnDeleteAccount(aBankAccountsEndpoints, sId);
-          elFeedback.textContent = "Bankkonto gelöscht.";
+          elFeedback.textContent = t("accounts.bank_deleted", "Bankkonto gelöscht.");
         }
         await fnRefresh();
       } catch (oError) {
-        elFeedback.textContent = `Aktion fehlgeschlagen: ${String(oError?.message || oError)}`;
+        elFeedback.textContent = t("accounts.action_failed", "Aktion fehlgeschlagen: {error}", { error: String(oError?.message || oError) });
       }
     });
 
     try {
       await fnRefresh();
     } catch (oError) {
-      elFeedback.textContent = `Konten konnten nicht geladen werden: ${String(oError?.message || oError)}`;
+      elFeedback.textContent = t("accounts.load_failed", "Konten konnten nicht geladen werden: {error}", { error: String(oError?.message || oError) });
     }
   }
 

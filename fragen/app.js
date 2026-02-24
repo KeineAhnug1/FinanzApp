@@ -7,6 +7,13 @@ const state = {
   editingQuestionId: null
 };
 
+function t(key, fallback, params = {}) {
+  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  if (translated && translated !== key) return translated;
+  if (!params || !Object.keys(params).length) return fallback;
+  return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -18,7 +25,8 @@ function escapeHtml(value) {
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  const locale = window.FinanzAppLanguage?.getLocale?.() || "de-DE";
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function setStatus(type, text) {
@@ -42,7 +50,7 @@ async function requestJson(url, options) {
     }
     return { ok: response.ok && Boolean(data.ok), status: response.status, ...data };
   } catch {
-    return { ok: false, status: 0, message: "Server nicht erreichbar." };
+    return { ok: false, status: 0, message: t("questions.server_unreachable", "Server nicht erreichbar.") };
   }
 }
 
@@ -67,7 +75,7 @@ function setCreateMode() {
   const cancelBtn = document.getElementById("question-cancel-btn");
   if (form) form.reset();
   updateTopicCounter();
-  if (submitBtn) submitBtn.textContent = "Frage erstellen";
+  if (submitBtn) submitBtn.textContent = t("questions.submit_create", "Frage erstellen");
   if (cancelBtn) cancelBtn.hidden = true;
 }
 
@@ -80,7 +88,7 @@ function setEditMode(question) {
   if (topic) topic.value = question.thema || "";
   if (message) message.value = question.message || "";
   updateTopicCounter();
-  if (submitBtn) submitBtn.textContent = "Frage speichern";
+  if (submitBtn) submitBtn.textContent = t("questions.submit_save", "Frage speichern");
   if (cancelBtn) cancelBtn.hidden = false;
 }
 
@@ -89,15 +97,15 @@ function renderAnswer(questionId, answer) {
     <li class="answer-item">
       <p class="answer-text">${escapeHtml(answer.message)}</p>
       <p class="meta">
-        ${escapeHtml(answer.author_username || answer.author_first_name || "Unbekannt")} • ${formatDate(answer.created_at)}
-        ${answer.edited ? " • Bearbeitet" : ""}
+        ${escapeHtml(answer.author_username || answer.author_first_name || t("questions.author_unknown", "Unbekannt"))} • ${formatDate(answer.created_at)}
+        ${answer.edited ? ` • ${t("questions.edited", "Bearbeitet")}` : ""}
       </p>
       <div class="inline-actions">
         <button class="inline-btn" type="button" data-action="like-answer" data-answer-id="${answer.id}">
-          ${answer.liked_by_me ? "Unlike" : "Like"} (${answer.likes_count || 0})
+          ${answer.liked_by_me ? t("questions.unlike", "Unlike") : t("questions.like", "Like")} (${answer.likes_count || 0})
         </button>
-        ${answer.can_edit ? `<button class="inline-btn" type="button" data-action="edit-answer" data-question-id="${questionId}" data-answer-id="${answer.id}">Bearbeiten</button>` : ""}
-        ${answer.can_edit ? `<button class="inline-btn" type="button" data-action="delete-answer" data-answer-id="${answer.id}">Loeschen</button>` : ""}
+        ${answer.can_edit ? `<button class="inline-btn" type="button" data-action="edit-answer" data-question-id="${questionId}" data-answer-id="${answer.id}">${t("questions.edit", "Bearbeiten")}</button>` : ""}
+        ${answer.can_edit ? `<button class="inline-btn" type="button" data-action="delete-answer" data-answer-id="${answer.id}">${t("questions.delete", "Löschen")}</button>` : ""}
       </div>
     </li>
   `;
@@ -110,29 +118,29 @@ function renderQuestion(question) {
         <div>
           <p class="question-topic">${escapeHtml(question.thema)}</p>
           <p class="meta">
-            ${escapeHtml(question.author_username || question.author_first_name || "Unbekannt")} • ${formatDate(question.created_at)}
-            ${question.edited ? " • Bearbeitet" : ""}
+            ${escapeHtml(question.author_username || question.author_first_name || t("questions.author_unknown", "Unbekannt"))} • ${formatDate(question.created_at)}
+            ${question.edited ? ` • ${t("questions.edited", "Bearbeitet")}` : ""}
           </p>
         </div>
-        <span class="badge ${question.answered ? "is-answered" : "is-open"}">${question.answered ? "Beantwortet" : "Neu"}</span>
+        <span class="badge ${question.answered ? "is-answered" : "is-open"}">${question.answered ? t("questions.status_answered", "Beantwortet") : t("questions.status_new", "Neu")}</span>
       </div>
       <p class="question-text">${escapeHtml(question.message)}</p>
       <div class="inline-actions">
         <button class="inline-btn" type="button" data-action="like-question" data-question-id="${question.id}">
-          ${question.liked_by_me ? "Unlike" : "Like"} (${question.likes_count || 0})
+          ${question.liked_by_me ? t("questions.unlike", "Unlike") : t("questions.like", "Like")} (${question.likes_count || 0})
         </button>
-        ${question.can_edit ? `<button class="inline-btn" type="button" data-action="edit-question" data-question-id="${question.id}">Bearbeiten</button>` : ""}
+        ${question.can_edit ? `<button class="inline-btn" type="button" data-action="edit-question" data-question-id="${question.id}">${t("questions.edit", "Bearbeiten")}</button>` : ""}
       </div>
       <div class="answers-wrap">
-        <p class="answers-title">Antworten (${question.answers?.length || 0})</p>
+        <p class="answers-title">${t("questions.answers_title", "Antworten ({count})", { count: question.answers?.length || 0 })}</p>
         <ul class="answer-list">
           ${Array.isArray(question.answers) && question.answers.length
             ? question.answers.map((answer) => renderAnswer(question.id, answer)).join("")
-            : '<li><p class="empty">Noch keine Antworten.</p></li>'}
+            : `<li><p class="empty">${t("questions.no_answers", "Noch keine Antworten.")}</p></li>`}
         </ul>
         <form class="answer-form" data-answer-form="${question.id}">
-          <textarea class="field-input field-textarea" name="message" maxlength="4000" rows="2" required placeholder="Antwort schreiben..."></textarea>
-          <button class="submit-btn" type="submit">Antworten</button>
+          <textarea class="field-input field-textarea" name="message" maxlength="4000" rows="2" required placeholder="${t("questions.answer_placeholder", "Antwort schreiben...")}"></textarea>
+          <button class="submit-btn" type="submit">${t("questions.answer_submit", "Antworten")}</button>
         </form>
       </div>
     </li>
@@ -143,7 +151,7 @@ function renderQuestions() {
   const list = document.getElementById("question-list");
   if (!list) return;
   if (!state.questions.length) {
-    list.innerHTML = `<li><p class="empty">${state.search ? "Keine Fragen gefunden." : "Noch keine Fragen vorhanden."}</p></li>`;
+    list.innerHTML = `<li><p class="empty">${state.search ? t("questions.empty_search", "Keine Fragen gefunden.") : t("questions.empty", "Noch keine Fragen vorhanden.")}</p></li>`;
     return;
   }
   list.innerHTML = state.questions.map((question) => renderQuestion(question)).join("");
@@ -181,14 +189,14 @@ async function handleQuestionSubmit(event) {
     });
 
   if (!result.ok) {
-    setStatus("error", result.message || "Konnte nicht gespeichert werden.");
+    setStatus("error", result.message || t("questions.save_failed", "Konnte nicht gespeichert werden."));
     submitBtn.disabled = false;
     return;
   }
 
   setCreateMode();
   await refreshQuestions();
-  setStatus("success", wasEditing ? "Frage aktualisiert." : "Frage erstellt.");
+  setStatus("success", wasEditing ? t("questions.updated", "Frage aktualisiert.") : t("questions.created", "Frage erstellt."));
   submitBtn.disabled = false;
 }
 
@@ -209,7 +217,7 @@ async function handleListClick(event) {
     const question = state.questions.find((item) => item.id === questionId);
     if (!question) return;
     setEditMode(question);
-    setStatus("", "Bearbeitung aktiv.");
+    setStatus("", t("questions.editing_active", "Bearbeitung aktiv."));
     return;
   }
 
@@ -234,7 +242,7 @@ async function handleListClick(event) {
     const answerId = String(target.dataset.answerId || "");
     const answer = findAnswer(questionId, answerId);
     if (!answer) return;
-    const nextMessage = window.prompt("Antwort bearbeiten:", answer.message || "");
+    const nextMessage = window.prompt(t("questions.answer_edit_prompt", "Antwort bearbeiten:"), answer.message || "");
     if (nextMessage == null) return;
     const message = String(nextMessage).trim();
     if (!message) return;
@@ -244,26 +252,26 @@ async function handleListClick(event) {
       body: JSON.stringify({ message })
     });
     if (!result.ok) {
-      setStatus("error", result.message || "Antwort konnte nicht bearbeitet werden.");
+      setStatus("error", result.message || t("questions.answer_update_failed", "Antwort konnte nicht bearbeitet werden."));
       return;
     }
     await refreshQuestions();
-    setStatus("success", "Antwort aktualisiert.");
+    setStatus("success", t("questions.answer_updated", "Antwort aktualisiert."));
     return;
   }
 
   if (action === "delete-answer") {
     const answerId = String(target.dataset.answerId || "");
     if (!answerId) return;
-    const shouldDelete = window.confirm("Antwort wirklich loeschen?");
+    const shouldDelete = window.confirm(t("questions.answer_delete_confirm", "Antwort wirklich löschen?"));
     if (!shouldDelete) return;
     const result = await requestJson(`/api/answers/${encodeURIComponent(answerId)}`, { method: "DELETE" });
     if (!result.ok) {
-      setStatus("error", result.message || "Antwort konnte nicht geloescht werden.");
+      setStatus("error", result.message || t("questions.answer_delete_failed", "Antwort konnte nicht gelöscht werden."));
       return;
     }
     await refreshQuestions();
-    setStatus("success", "Antwort geloescht.");
+    setStatus("success", t("questions.answer_deleted", "Antwort gelöscht."));
   }
 }
 
@@ -284,12 +292,12 @@ async function handleAnswerSubmit(event) {
     body: JSON.stringify({ message })
   });
   if (!result.ok) {
-    setStatus("error", result.message || "Antwort konnte nicht gespeichert werden.");
+    setStatus("error", result.message || t("questions.answer_save_failed", "Antwort konnte nicht gespeichert werden."));
     return;
   }
   target.reset();
   await refreshQuestions();
-  setStatus("success", "Antwort gespeichert.");
+  setStatus("success", t("questions.answer_saved", "Antwort gespeichert."));
 }
 
 async function bootstrap() {
@@ -311,7 +319,7 @@ async function bootstrap() {
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
       setCreateMode();
-      setStatus("", "Bearbeitung abgebrochen.");
+      setStatus("", t("questions.editing_cancelled", "Bearbeitung abgebrochen."));
     });
   }
   if (search) {
