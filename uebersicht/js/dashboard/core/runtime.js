@@ -97,6 +97,12 @@ function getStoredView(fallbackView = "overview") {
   return VIEW_OPTIONS.has(fallbackView) ? fallbackView : "overview";
 }
 
+function getViewFromHash() {
+  const raw = String(window.location.hash || "").trim().replace(/^#/, "");
+  if (raw && VIEW_OPTIONS.has(raw)) return raw;
+  return null;
+}
+
 function setActiveView(view) {
   const nextView = VIEW_OPTIONS.has(view) ? view : "overview";
 
@@ -116,7 +122,13 @@ function setActiveView(view) {
 }
 
 function initSectionTabs() {
-  setActiveView(appState.settings?.startView || "overview");
+  setActiveView(getViewFromHash() || appState.settings?.startView || "overview");
+
+  window.addEventListener("hashchange", () => {
+    const viewFromHash = getViewFromHash();
+    if (!viewFromHash) return;
+    setActiveView(viewFromHash);
+  });
 
   const tabs = document.querySelectorAll("[data-view-tab]");
   for (const tab of tabs) {

@@ -60,7 +60,11 @@ const COLLECTIONS = {
   bankAccounts: "bank_accounts",
   shareAccounts: "share_accounts",
   depots: "depots",
-  shares: "shares"
+  shares: "shares",
+  globalQuestions: "global_questions",
+  globalAnswers: "global_answers",
+  questionLikes: "question_likes",
+  answerLikes: "answer_likes"
 };
 
 const MIME_BY_EXT = {
@@ -2169,6 +2173,452 @@ async function handleGroups(req, res, session) {
   return sendJson(res, 405, { ok: false, message: "Method not allowed" });
 }
 
+const QUESTION_TOPIC_MAX_LENGTH = 80;
+const QUESTION_MESSAGE_MAX_LENGTH = 4000;
+const ANSWER_MESSAGE_MAX_LENGTH = 4000;
+
+function parseQuestionTopic(value) {
+  const topic = String(value || "").trim().replace(/\s+/g, " ");
+  if (!topic) return null;
+  if (topic.length > QUESTION_TOPIC_MAX_LENGTH) return null;
+  return topic;
+}
+
+function parseLongText(value, maxLength) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (text.length > maxLength) return null;
+  return text;
+}
+
+function buildSearchRegex(rawSearch) {
+  const search = String(rawSearch || "").trim();
+  if (!search) return null;
+  return new RegExp(escapeRegex(search), "i");
+}
+
+function serializeQuestion(question, options = {}) {
+  const {
+    meUserId = null,
+    usersById = new Map(),
+    likesCountByQuestionId = new Map(),
+    likedQuestionIds = new Set(),
+    answersByQuestionId = new Map(),
+    answerLikesCountByAnswerId = new Map(),
+    likedAnswerIds = new Set()
+  } = options;
+
+  const questionId = String(question._id);
+  const authorId = String(question.from_user_id || "");
+  const author = usersById.get(authorId) || {};
+  const answers = answersByQuestionId.get(questionId) || [];
+
+  return {
+    id: questionId,
+    from_user_id: authorId,
+    author_username: author.username || null,
+    author_first_name: author.first_name || null,
+    thema: question.thema || "",
+    message: question.message || "",
+    answered: Boolean(question.answered),
+    edited: Boolean(question.edited),
+    created_at: question.created_at instanceof Date ? question.created_at.toISOString() : null,
+    updated_at: question.updated_at instanceof Date ? question.updated_at.toISOString() : null,
+    can_edit: meUserId ? authorId === String(meUserId) : false,
+    likes_count: likesCountByQuestionId.get(questionId) || 0,
+    liked_by_me: likedQuestionIds.has(questionId),
+    answers: answers.map((answer) => {
+      const answerId = String(answer._id);
+      const answerAuthorId = String(answer.from_user_id || "");
+      const answerAuthor = usersById.get(answerAuthorId) || {};
+      return {
+        id: answerId,
+        question_id: questionId,
+        from_user_id: answerAuthorId,
+        author_username: answerAuthor.username || null,
+        author_first_name: answerAuthor.first_name || null,
+        message: answer.message || "",
+        edited: Boolean(answer.edited),
+        created_at: answer.created_at instanceof Date ? answer.created_at.toISOString() : null,
+        updated_at: answer.updated_at instanceof Date ? answer.updated_at.toISOString() : null,
+        can_edit: meUserId ? answerAuthorId === String(meUserId) : false,
+        likes_count: answerLikesCountByAnswerId.get(answerId) || 0,
+        liked_by_me: likedAnswerIds.has(answerId)
+      };
+    })
+  };
+}
+
+async function listQuestionsWithRelations(userId, searchRaw = "") {
+  const searchRegex = buildSearchRegex(searchRaw);
+  const query = searchRegex
+    ? {
+      $or: [
+        { thema: searchRegex },
+        { message: searchRegex }
+      ]
+    }
+    : {};
+
+  const questions = await db.collection(COLLECTIONS.globalQuestions)
+    .find(query, { projection: { _id: 1, from_user_id: 1, thema: 1, message: 1, answered: 1, edited: 1, created_at: 1, updated_at: 1 } })
+    .sort({ created_at: -1 })
+    .limit(200)
+    .toArray();
+
+  const questionIds = questions.map((question) => question._id);
+  const answers = questionIds.length
+    ? await db.collection(COLLECTIONS.globalAnswers)
+      .find(
+        { question_id: { $in: questionIds } },
+        { projection: { _id: 1, question_id: 1, from_user_id: 1, message: 1, edited: 1, created_at: 1, updated_at: 1 } }
+      )
+      .sort({ created_at: 1 })
+      .toArray()
+    : [];
+
+  const answerIds = answers.map((answer) => answer._id);
+  const userIds = new Map();
+  for (const question of questions) userIds.set(String(question.from_user_id), question.from_user_id);
+  for (const answer of answers) userIds.set(String(answer.from_user_id), answer.from_user_id);
+
+  const users = userIds.size
+    ? await db.collection(COLLECTIONS.users)
+      .find(
+        { _id: { $in: Array.from(userIds.values()) } },
+        { projection: { _id: 1, username: 1, first_name: 1 } }
+      )
+      .toArray()
+    : [];
+  const usersById = new Map(users.map((user) => [String(user._id), user]));
+
+  const questionLikeRows = questionIds.length
+    ? await db.collection(COLLECTIONS.questionLikes).aggregate([
+      { $match: { question_id: { $in: questionIds } } },
+      { $group: { _id: "$question_id", count: { $sum: 1 } } }
+    ]).toArray()
+    : [];
+  const likesCountByQuestionId = new Map(questionLikeRows.map((row) => [String(row._id), Number(row.count) || 0]));
+
+  const answerLikeRows = answerIds.length
+    ? await db.collection(COLLECTIONS.answerLikes).aggregate([
+      { $match: { answer_id: { $in: answerIds } } },
+      { $group: { _id: "$answer_id", count: { $sum: 1 } } }
+    ]).toArray()
+    : [];
+  const answerLikesCountByAnswerId = new Map(answerLikeRows.map((row) => [String(row._id), Number(row.count) || 0]));
+
+  const [likedQuestionsByMe, likedAnswersByMe] = await Promise.all([
+    questionIds.length
+      ? db.collection(COLLECTIONS.questionLikes).find(
+        { user_id: userId, question_id: { $in: questionIds } },
+        { projection: { _id: 0, question_id: 1 } }
+      ).toArray()
+      : Promise.resolve([]),
+    answerIds.length
+      ? db.collection(COLLECTIONS.answerLikes).find(
+        { user_id: userId, answer_id: { $in: answerIds } },
+        { projection: { _id: 0, answer_id: 1 } }
+      ).toArray()
+      : Promise.resolve([])
+  ]);
+
+  const likedQuestionIds = new Set(likedQuestionsByMe.map((item) => String(item.question_id)));
+  const likedAnswerIds = new Set(likedAnswersByMe.map((item) => String(item.answer_id)));
+
+  const answersByQuestionId = new Map();
+  for (const answer of answers) {
+    const key = String(answer.question_id);
+    if (!answersByQuestionId.has(key)) answersByQuestionId.set(key, []);
+    answersByQuestionId.get(key).push(answer);
+  }
+
+  return questions.map((question) => serializeQuestion(question, {
+    meUserId: userId,
+    usersById,
+    likesCountByQuestionId,
+    likedQuestionIds,
+    answersByQuestionId,
+    answerLikesCountByAnswerId,
+    likedAnswerIds
+  }));
+}
+
+async function handleQuestions(req, res, session, url) {
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  if (req.method === "GET") {
+    const search = String(url.searchParams.get("search") || "").trim();
+    const questions = await listQuestionsWithRelations(userId, search);
+    return sendJson(res, 200, { ok: true, questions });
+  }
+
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const thema = parseQuestionTopic(payload.thema);
+  const message = parseLongText(payload.message, QUESTION_MESSAGE_MAX_LENGTH);
+  if (!thema) {
+    return sendJson(res, 400, { ok: false, message: `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).` });
+  }
+  if (!message) {
+    return sendJson(res, 400, { ok: false, message: "Frage ist erforderlich und darf nicht zu lang sein." });
+  }
+
+  const now = new Date();
+  const insert = await db.collection(COLLECTIONS.globalQuestions).insertOne({
+    from_user_id: userId,
+    thema,
+    message,
+    answered: false,
+    edited: false,
+    created_at: now,
+    updated_at: now
+  });
+
+  const inserted = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: insert.insertedId });
+  const [author] = await db.collection(COLLECTIONS.users)
+    .find({ _id: userId }, { projection: { _id: 1, username: 1, first_name: 1 } })
+    .toArray();
+  const serialized = serializeQuestion(inserted, {
+    meUserId: userId,
+    usersById: new Map([[String(userId), author]])
+  });
+  return sendJson(res, 201, { ok: true, question: serialized });
+}
+
+async function handleQuestionById(req, res, questionIdRaw, session) {
+  const questionId = parseObjectId(questionIdRaw);
+  if (!questionId) return sendJson(res, 400, { ok: false, message: "question_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  const existing = await db.collection(COLLECTIONS.globalQuestions).findOne(
+    { _id: questionId },
+    { projection: { _id: 1, from_user_id: 1 } }
+  );
+  if (!existing) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+  if (String(existing.from_user_id) !== String(userId)) {
+    return sendJson(res, 403, { ok: false, message: "Nur der Ersteller darf diese Frage bearbeiten" });
+  }
+
+  if (req.method !== "PATCH") {
+    res.setHeader("Allow", "PATCH");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const thema = parseQuestionTopic(payload.thema);
+  const message = parseLongText(payload.message, QUESTION_MESSAGE_MAX_LENGTH);
+  if (!thema) {
+    return sendJson(res, 400, { ok: false, message: `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).` });
+  }
+  if (!message) {
+    return sendJson(res, 400, { ok: false, message: "Frage ist erforderlich und darf nicht zu lang sein." });
+  }
+
+  const updated = await db.collection(COLLECTIONS.globalQuestions).findOneAndUpdate(
+    { _id: questionId, from_user_id: userId },
+    {
+      $set: {
+        thema,
+        message,
+        edited: true,
+        updated_at: new Date()
+      }
+    },
+    { returnDocument: "after" }
+  );
+
+  if (!updated) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+  const questions = await listQuestionsWithRelations(userId);
+  const question = questions.find((item) => item.id === String(questionId));
+  return sendJson(res, 200, { ok: true, question });
+}
+
+async function handleQuestionAnswerCreate(req, res, questionIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const questionId = parseObjectId(questionIdRaw);
+  if (!questionId) return sendJson(res, 400, { ok: false, message: "question_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
+  if (!question) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
+  if (!message) return sendJson(res, 400, { ok: false, message: "Antwort ist erforderlich und darf nicht zu lang sein." });
+
+  const now = new Date();
+  await db.collection(COLLECTIONS.globalAnswers).insertOne({
+    question_id: questionId,
+    from_user_id: userId,
+    message,
+    edited: false,
+    created_at: now,
+    updated_at: now
+  });
+
+  await db.collection(COLLECTIONS.globalQuestions).updateOne(
+    { _id: questionId },
+    { $set: { answered: true, updated_at: new Date() } }
+  );
+
+  const questions = await listQuestionsWithRelations(userId);
+  const updatedQuestion = questions.find((item) => item.id === String(questionId));
+  return sendJson(res, 201, { ok: true, question: updatedQuestion });
+}
+
+async function handleAnswerById(req, res, answerIdRaw, session) {
+  const answerId = parseObjectId(answerIdRaw);
+  if (!answerId) return sendJson(res, 400, { ok: false, message: "answer_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  const answer = await db.collection(COLLECTIONS.globalAnswers).findOne(
+    { _id: answerId },
+    { projection: { _id: 1, from_user_id: 1, question_id: 1 } }
+  );
+  if (!answer) return sendJson(res, 404, { ok: false, message: "Antwort nicht gefunden" });
+  if (String(answer.from_user_id) !== String(userId)) {
+    return sendJson(res, 403, { ok: false, message: "Nur der Ersteller darf diese Antwort bearbeiten oder loeschen" });
+  }
+
+  if (req.method === "DELETE") {
+    await db.collection(COLLECTIONS.answerLikes).deleteMany({ answer_id: answerId });
+    await db.collection(COLLECTIONS.globalAnswers).deleteOne({ _id: answerId, from_user_id: userId });
+
+    const remainingAnswers = await db.collection(COLLECTIONS.globalAnswers).countDocuments(
+      { question_id: answer.question_id },
+      { limit: 1 }
+    );
+    if (remainingAnswers === 0) {
+      await db.collection(COLLECTIONS.globalQuestions).updateOne(
+        { _id: answer.question_id },
+        { $set: { answered: false, updated_at: new Date() } }
+      );
+    }
+
+    const questions = await listQuestionsWithRelations(userId);
+    const question = questions.find((item) => item.id === String(answer.question_id));
+    return sendJson(res, 200, { ok: true, question, message: "Antwort geloescht" });
+  }
+
+  if (req.method !== "PATCH") {
+    res.setHeader("Allow", "PATCH, DELETE");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
+  if (!message) return sendJson(res, 400, { ok: false, message: "Antwort ist erforderlich und darf nicht zu lang sein." });
+
+  await db.collection(COLLECTIONS.globalAnswers).updateOne(
+    { _id: answerId, from_user_id: userId },
+    { $set: { message, edited: true, updated_at: new Date() } }
+  );
+
+  const questions = await listQuestionsWithRelations(userId);
+  const question = questions.find((item) => item.id === String(answer.question_id));
+  return sendJson(res, 200, { ok: true, question });
+}
+
+async function handleQuestionLike(req, res, questionIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const questionId = parseObjectId(questionIdRaw);
+  if (!questionId) return sendJson(res, 400, { ok: false, message: "question_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
+  if (!question) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+
+  const existing = await db.collection(COLLECTIONS.questionLikes).findOne({ question_id: questionId, user_id: userId }, { projection: { _id: 1 } });
+  let liked = false;
+  if (existing) {
+    await db.collection(COLLECTIONS.questionLikes).deleteOne({ _id: existing._id });
+  } else {
+    liked = true;
+    await db.collection(COLLECTIONS.questionLikes).insertOne({ question_id: questionId, user_id: userId, created_at: new Date() });
+  }
+
+  const likesCount = await db.collection(COLLECTIONS.questionLikes).countDocuments({ question_id: questionId });
+  return sendJson(res, 200, { ok: true, question_id: String(questionId), liked, likes_count: likesCount });
+}
+
+async function handleAnswerLike(req, res, answerIdRaw, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const answerId = parseObjectId(answerIdRaw);
+  if (!answerId) return sendJson(res, 400, { ok: false, message: "answer_id ist ungueltig" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+
+  const answer = await db.collection(COLLECTIONS.globalAnswers).findOne({ _id: answerId }, { projection: { _id: 1 } });
+  if (!answer) return sendJson(res, 404, { ok: false, message: "Antwort nicht gefunden" });
+
+  const existing = await db.collection(COLLECTIONS.answerLikes).findOne({ answer_id: answerId, user_id: userId }, { projection: { _id: 1 } });
+  let liked = false;
+  if (existing) {
+    await db.collection(COLLECTIONS.answerLikes).deleteOne({ _id: existing._id });
+  } else {
+    liked = true;
+    await db.collection(COLLECTIONS.answerLikes).insertOne({ answer_id: answerId, user_id: userId, created_at: new Date() });
+  }
+
+  const likesCount = await db.collection(COLLECTIONS.answerLikes).countDocuments({ answer_id: answerId });
+  return sendJson(res, 200, { ok: true, answer_id: String(answerId), liked, likes_count: likesCount });
+}
+
 async function loadUserBankAccounts(userId) {
   const userObjectId = parseObjectId(userId);
   if (!userObjectId) return [];
@@ -2594,6 +3044,12 @@ function resolveStaticPath(pathname) {
     return path.join(PROJECT_ROOT, "groups", relative);
   }
 
+  if (pathname === "/fragen/") return path.join(PROJECT_ROOT, "fragen", "index.html");
+  if (pathname.startsWith("/fragen/")) {
+    const relative = pathname.replace(/^\/fragen\//, "");
+    return path.join(PROJECT_ROOT, "fragen", relative);
+  }
+
   if (pathname === "/aktien/") return path.join(PROJECT_ROOT, "aktien", "ShareView.html");
   if (pathname.startsWith("/aktien/")) {
     const relative = pathname.replace(/^\/aktien\//, "");
@@ -2656,6 +3112,8 @@ const server = http.createServer(async (req, res) => {
 
     const isProtectedUiPath =
       pathname === "/dashboard.html" ||
+      pathname === "/fragen" ||
+      pathname.startsWith("/fragen/") ||
       pathname === "/groups" ||
       pathname.startsWith("/groups/") ||
       pathname === "/konten" ||
@@ -2675,6 +3133,11 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/groups") {
       res.writeHead(302, { Location: "/groups/" });
+      res.end();
+      return;
+    }
+    if (pathname === "/fragen") {
+      res.writeHead(302, { Location: "/fragen/" });
       res.end();
       return;
     }
@@ -2705,6 +3168,7 @@ const server = http.createServer(async (req, res) => {
         return await handleExpenseEntryById(req, res, entryId, session);
       }
       if (pathname === "/api/user-income") return await handleUserIncome(req, res, session);
+      if (pathname === "/api/questions") return await handleQuestions(req, res, session, url);
 
       if (pathname === "/api/groups") return await handleGroups(req, res, session);
       if (pathname === "/api/inbox/invitations") return await handleGetInvitations(req, res, session);
@@ -2745,6 +3209,21 @@ const server = http.createServer(async (req, res) => {
         res.setHeader("Allow", "GET, DELETE");
         return sendJson(res, 405, { ok: false, message: "Method not allowed" });
       }
+
+      const questionAnswerMatch = pathname.match(/^\/api\/questions\/([^/]+)\/answers$/);
+      if (questionAnswerMatch) return await handleQuestionAnswerCreate(req, res, questionAnswerMatch[1], session);
+
+      const questionLikeMatch = pathname.match(/^\/api\/questions\/([^/]+)\/like$/);
+      if (questionLikeMatch) return await handleQuestionLike(req, res, questionLikeMatch[1], session);
+
+      const questionByIdMatch = pathname.match(/^\/api\/questions\/([^/]+)$/);
+      if (questionByIdMatch) return await handleQuestionById(req, res, questionByIdMatch[1], session);
+
+      const answerLikeMatch = pathname.match(/^\/api\/answers\/([^/]+)\/like$/);
+      if (answerLikeMatch) return await handleAnswerLike(req, res, answerLikeMatch[1], session);
+
+      const answerByIdMatch = pathname.match(/^\/api\/answers\/([^/]+)$/);
+      if (answerByIdMatch) return await handleAnswerById(req, res, answerByIdMatch[1], session);
 
       if (pathname === "/api/positions") return await handlePositions(req, res, url, session);
       if (pathname === "/api/bank-accounts") return await handleBankAccounts(req, res, session);
@@ -2812,6 +3291,30 @@ async function ensureIndexes() {
   await db.collection(COLLECTIONS.userCategories).createIndex(
     { user_id: 1, kind: 1, key: 1 },
     { unique: true, name: "user_categories_user_kind_key_unique" }
+  );
+  await db.collection(COLLECTIONS.globalQuestions).createIndex(
+    { created_at: -1 },
+    { name: "global_questions_created_idx" }
+  );
+  await db.collection(COLLECTIONS.globalQuestions).createIndex(
+    { from_user_id: 1, created_at: -1 },
+    { name: "global_questions_from_user_created_idx" }
+  );
+  await db.collection(COLLECTIONS.globalAnswers).createIndex(
+    { question_id: 1, created_at: -1 },
+    { name: "global_answers_question_created_idx" }
+  );
+  await db.collection(COLLECTIONS.globalAnswers).createIndex(
+    { from_user_id: 1, created_at: -1 },
+    { name: "global_answers_from_user_created_idx" }
+  );
+  await db.collection(COLLECTIONS.questionLikes).createIndex(
+    { user_id: 1, question_id: 1 },
+    { unique: true, name: "question_likes_unique_pair" }
+  );
+  await db.collection(COLLECTIONS.answerLikes).createIndex(
+    { answer_id: 1, user_id: 1 },
+    { unique: true, name: "answer_likes_unique_pair" }
   );
 }
 

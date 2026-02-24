@@ -985,6 +985,146 @@
   color: #c75b5b;
 }
 
+.question-topic-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.question-counter {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.question-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.question-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px;
+  background: var(--bg-soft);
+  display: grid;
+  gap: 8px;
+}
+
+.question-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.question-topic {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.question-meta {
+  margin: 3px 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.question-badge {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+}
+
+.question-badge.is-answered {
+  color: #207457;
+  border-color: #8acdb5;
+  background: #e8f8f1;
+}
+
+.question-badge.is-open {
+  color: #9a6a1c;
+  border-color: #e3c99a;
+  background: #fff7ea;
+}
+
+.question-text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-strong);
+  white-space: pre-wrap;
+}
+
+.question-actions {
+  display: inline-flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.question-answers-wrap {
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.question-answer-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.question-answer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.question-answer-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.question-answer-text {
+  margin: 0;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+.question-answer-meta {
+  margin: 0;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.question-answer-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.question-answer-form {
+  display: grid;
+  gap: 8px;
+}
+
+.question-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

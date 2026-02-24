@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kontenverwaltung | FinanzApp</title>
+  <title>Fragen | FinanzApp</title>
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="/shared/unified-ui.css" />
 </head>
@@ -11,15 +11,15 @@
   <header class="page-topbar">
     <div class="topbar-left">
       <span class="brand-mark">FinanzApp</span>
-      <span class="brand-sub">Kontenverwaltung</span>
+      <span class="brand-sub">Fragen</span>
     </div>
     <div class="header-controls">
       <nav class="app-nav-links" aria-label="App-Navigation">
         <a class="app-nav-link" href="/dashboard.html">Dashboard</a>
-        <a class="app-nav-link is-active" href="/konten/">Kontenverwaltung</a>
+        <a class="app-nav-link" href="/konten/">Kontenverwaltung</a>
         <a class="app-nav-link" href="/groups/">Gruppen</a>
         <a class="app-nav-link" href="/aktien/">Aktien</a>
-        <a class="app-nav-link" href="/fragen/">Fragen</a>
+        <a class="app-nav-link is-active" href="/fragen/">Fragen</a>
       </nav>
       <div class="theme-switch" role="group" aria-label="Farbmodus">
         <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
@@ -40,32 +40,36 @@
     </div>
   </header>
 
-  <main class="accounts-main">
-    <section class="card">
-      <h2>Aktienkonten</h2>
-      <div class="row">
-        <label>
-          Neues Aktienkonto
-          <input id="shareAccountNameInput" type="text" placeholder="z. B. Langfristig" />
-        </label>
-        <button class="action primary" id="createShareAccountBtn" type="button">Erstellen</button>
-      </div>
-      <div id="shareAccountsList" class="accounts-list"></div>
+  <main class="questions-main">
+    <section class="panel">
+      <h2 class="panel-title">Frage erstellen</h2>
+      <form id="question-form" class="form-grid">
+        <div>
+          <div class="field-head">
+            <label class="field-label" for="question-topic">Thema</label>
+            <span id="question-topic-counter" class="counter">0/80</span>
+          </div>
+          <input class="field-input" id="question-topic" name="thema" type="text" maxlength="80" required placeholder="z. B. Wie viele Steuern zahle ich?" />
+        </div>
+        <div>
+          <label class="field-label" for="question-message">Frage</label>
+          <textarea class="field-input field-textarea" id="question-message" name="message" maxlength="4000" rows="4" required placeholder="Beschreibe deine Frage im Detail..."></textarea>
+        </div>
+        <div class="actions">
+          <button id="question-submit-btn" class="submit-btn" type="submit">Frage erstellen</button>
+          <button id="question-cancel-btn" class="ghost-btn" type="button" hidden>Bearbeitung abbrechen</button>
+        </div>
+      </form>
+      <p id="question-form-status" class="status"></p>
     </section>
 
-    <section class="card">
-      <h2>Bankkonten</h2>
-      <div class="row">
-        <label>
-          Neues Bankkonto
-          <input id="bankAccountNameInput" type="text" placeholder="z. B. Girokonto" />
-        </label>
-        <button class="action primary" id="createBankAccountBtn" type="button">Erstellen</button>
+    <section class="panel">
+      <h2 class="panel-title">Fragen suchen</h2>
+      <div class="tools">
+        <input class="field-input" id="question-search" type="search" placeholder="Thema, Frage, Autor, Status..." />
       </div>
-      <div id="bankAccountsList" class="accounts-list"></div>
+      <ul id="question-list" class="question-list"></ul>
     </section>
-
-    <p class="muted" id="accountsFeedback">Bereit.</p>
   </main>
 
   <script src="/shared/js/theme-utils.js"></script>
