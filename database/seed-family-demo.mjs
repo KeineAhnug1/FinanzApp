@@ -9,7 +9,7 @@ if (!uri) {
 }
 
 const baseDbName = process.env.MONGODB_DB || "finanzapp";
-const dbName = process.env.MONGODB_DB_V3 || `${baseDbName}_v3`;
+const dbName = process.env.MONGODB_DB_V4 || `${baseDbName}_v4`;
 const client = new MongoClient(uri);
 
 const DEMO_USER = {
@@ -379,7 +379,7 @@ async function run() {
     );
   }
 
-  console.log("Family demo account created/updated (v3).");
+  console.log("Family demo account created/updated (v4).");
   console.log(`DB: ${dbName}`);
   console.log(`Email: ${DEMO_USER.email}`);
   console.log(`Passwort: ${DEMO_USER.password}`);

@@ -13,7 +13,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 const PORT = Number(process.env.PORT || 3000);
 const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
-const DB_NAME = process.env.MONGODB_DB_V3 || `${BASE_DB_NAME}_v3`;
+const DB_NAME = process.env.MONGODB_DB_V4 || `${BASE_DB_NAME}_v4`;
 const MONGO_URI = process.env.MONGODB_URI;
 const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
 const DEV_EXPOSE_VERIFICATION_CODE = process.env.DEV_EXPOSE_VERIFICATION_CODE === "true";
@@ -485,8 +485,8 @@ async function sendVerificationEmail(toEmail, firstName, code) {
 }
 
 async function migrateLegacyExpenseEntriesToV3() {
-  // Legacy v2 expense migrations are intentionally disabled for v3.
-  // v3 private_expenses require bank_account_id, so the old migration would create invalid docs.
+  // Legacy v2 expense migrations are intentionally disabled for v4.
+  // v4 private_expenses require bank_account_id, so the old migration would create invalid docs.
 }
 
 async function migratePlaintextPasswords() {
