@@ -33,6 +33,13 @@
     "db:check:v3": "node database/dataset-v3/check-connection.mjs",
     "data:prepare:v3": "node database/dataset-v3/prepare-data.mjs",
 
+    "schema:setup:v4": "node database/dataset-v4/schema-setup.js",
+    "seed:reset:v4": "node database/dataset-v4/seed-reset.mjs",
+    "import:testdata:v4": "node database/dataset-v4/seed-reset.mjs",
+    "db:wipe:v4": "node database/dataset-v4/wipe-data.mjs",
+    "db:check:v4": "node database/dataset-v4/check-connection.mjs",
+    "data:prepare:v4": "node database/dataset-v4/prepare-data.mjs",
+
     "backend:start": "node backend/server.mjs",
     "web:start": "node backend/server.mjs",
     "groups:start": "node backend/server.mjs",
