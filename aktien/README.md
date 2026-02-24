@@ -1,9 +1,20 @@
-# Aktien Module
+# Aktien Modul 📉💼📊
 
-The project documentation was unified.
+Dieses Modul zeigt Depot- und Aktienfunktionen im zentralen FinanzApp-Server 🚀
 
-Use the root README for all setup and usage instructions:
-- `../README.md`
+## Einstieg 🎯
+- URL: `/aktien/`
+- Datei: `ShareView.html`
+- Assets: `css/ShareView.css`, `js/ShareView.js`
 
-Direct entry point for this module:
-- `ShareView.html`
+## Starten ▶️
+Vom Projekt-Root:
+```bash
+npm run backend:start
+```
+
+## Datenstruktur (aktueller Stand) 🧭🗃️
+![Aktuelle Datenstruktur](../Datastructure.png)
+
+## Hinweis 💡
+Globale Setup-Infos (MongoDB, `.env`, Seeds, Skripte) stehen in `../README.md` 📘✅

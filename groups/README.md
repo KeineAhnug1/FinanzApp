@@ -1,76 +1,63 @@
-# Groups App
+# Groups App 👥🤝📋
 
-This folder contains the group management frontend for FinanzApp.
+Dieses Verzeichnis enthält das Gruppen-Frontend der FinanzApp.
 
-## Scope
+## Scope 🧩
+- Mitgliedschaften anzeigen
+- Gruppendetails mit Teilnehmern laden
+- Gruppenaktivitäten erstellen
+- Group-Funding anlegen
+- In Funding einzahlen
+- Gruppenausgaben aus Funding erstellen
+- Einladungen annehmen/ablehnen
+- Admin-Funktionen: einladen, entfernen, zu Admin machen, Gruppe löschen
+- Gruppe verlassen
 
-The app provides:
-- list of memberships for the current session user
-- group detail view with participants
-- member actions:
-  - create group activity
-  - create group funding (optional link to existing group activity)
-- invitation inbox (accept/deny)
-- admin actions:
-  - invite user by username
-  - remove participant
-  - delete group (including linked group data)
-- create new group
+## Runtime Setup ⚙️
+- Zentraler Server: `backend/server.mjs`
+- UI: `groups/index.html`, `groups/app.js`, `groups/style.css`
+- Start (vom Root): `npm run groups:start` oder `npm run backend:start`
+- Default Port: `3000`
 
-## Current Runtime Setup
+DB-Ziel:
+- `MONGODB_DB_V4` oder `${MONGODB_DB}_v4` 🗄️
+- `MONGODB_URI` erforderlich ✅
 
-- Entry: `backend/server.mjs` (central server for all apps)
-- UI files: `groups/index.html`, `groups/app.js`, `groups/style.css`
-- Default port: `3000`
-- Start command (from repo root): `npm run groups:start`
+## Session Modell 🍪🔐
+- Nutzer über zentrale Session `finanzapp_session`
+- Alle Gruppenabfragen sind session-scoped
 
-Database target:
-- Uses `MONGODB_DB_V4` if set.
-- Otherwise uses `${MONGODB_DB}_v4`.
-- Requires `MONGODB_URI`.
-
-## Session Model (Current State)
-
-- Session user is resolved from central cookie session (`finanzapp_session`).
-- No hardcoded backend or frontend session user remains.
-- Group data is scoped to the logged-in user session.
-
-## API Endpoints
-
-- `GET /api/session`
+## API (aktueller Stand) 🔌
 - `GET /api/groups`
 - `POST /api/groups`
 - `GET /api/groups/:groupId`
 - `DELETE /api/groups/:groupId`
 - `POST /api/groups/:groupId/activities`
 - `POST /api/groups/:groupId/funding`
+- `POST /api/groups/:groupId/funding/:fundingId/donate`
+- `POST /api/groups/:groupId/expenses`
 - `POST /api/groups/:groupId/invite`
+- `POST /api/groups/:groupId/members/:userId/promote-admin`
+- `POST /api/groups/:groupId/leave`
 - `DELETE /api/groups/:groupId/members/:userId`
 - `GET /api/inbox/invitations`
 - `POST /api/inbox/invitations/:groupId/accept`
 - `POST /api/inbox/invitations/:groupId/deny`
 
-## Data Dependencies
-
-Core collections used:
+## Collections 🗂️
 - `users`
 - `groups`
 - `group_members`
-
-Group cleanup additionally touches:
-- `group_funding`
-- `group_expenses`
-- `funding_participants`
 - `group_activities`
-- `transactions` (via `group_expense_id`)
+- `group_funding`
+- `funding_participants`
+- `group_expenses`
+- `transactions`
 
-This means the app is designed for the v4 dataset shape.
-
-## Membership Status Handling
-
-Primary statuses:
+## Status-Werte 🏷️
 - `invited`
 - `denied`
 - `accepted`
 
-Compatibility fallbacks still exist in code for legacy values (for example `active` or missing status), but the v4 schema expects the three statuses above.
+## Datenstruktur (aktueller Stand) 🧭📐
+![Aktuelle Datenstruktur](../Datastructure.png)
