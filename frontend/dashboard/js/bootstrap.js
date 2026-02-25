@@ -39,9 +39,9 @@ async function bootstrap() {
   expenseState.askConfirm = askConfirm;
 
   await refreshCategoryData();
-  initBaseIncomeForm();
   initIncomeForm();
   initExpenseForm();
+  initDashboardAccountFilter();
   initListSearch();
   initCategoryManagerActions();
   initIncomeListActions();

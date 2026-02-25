@@ -1,4 +1,4 @@
-// Einnahmen-Logik: Listenaktionen, Formularablauf und Basis-Einkommen.
+// Einnahmen-Logik: Listenaktionen und Formularablauf.
 function incomeT(key, fallback, params = {}) {
   const translated = window.FinanzAppLanguage?.t?.(key, params);
   if (translated && translated !== key) return translated;
@@ -87,6 +87,7 @@ function initIncomeForm() {
       category: resolveCategoryFromForm(formData),
       amount: Number(formData.get("amount")),
       received_at: String(formData.get("received_at") || "").trim(),
+      bank_account_id: String(formData.get("bank_account_id") || "").trim(),
       note: String(formData.get("note") || "").trim(),
       recurrence: String(formData.get("recurrence") || "once").trim(),
       is_active: formData.get("is_active") === "on"
@@ -108,44 +109,6 @@ function initIncomeForm() {
     await refreshCategoryData();
     setIncomeFormModeCreate();
     await refreshDashboardData();
-    if (submitBtn) submitBtn.disabled = false;
-  });
-}
-
-// Verarbeitet das monatliche Basis-Einkommen im User-Profil.
-function initBaseIncomeForm() {
-  const form = document.getElementById("base-income-form");
-  const input = document.getElementById("base-income");
-  const submitBtn = document.getElementById("base-income-submit-btn");
-  if (!form || !input) return;
-
-  input.value = Number(appState.user?.income || 0).toFixed(2);
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!appState.user?.id) return;
-
-    const incomeValue = Number(input.value);
-    if (!Number.isFinite(incomeValue) || incomeValue < 0) {
-      setStatus("base-income-status", "error", incomeT("enter_number_gte_zero", "Bitte eine Zahl >= 0 eingeben."));
-      return;
-    }
-
-    if (submitBtn) submitBtn.disabled = true;
-    setStatus("base-income-status", "", incomeT("saving_monthly_income", "Speichere Monatseinnahme..."));
-
-    const result = await handleUpdateBaseIncome(incomeValue);
-    if (!result.ok || !result.user) {
-      setStatus("base-income-status", "error", result.message || incomeT("monthly_income_save_failed", "Monatseinnahme konnte nicht gespeichert werden."));
-      if (submitBtn) submitBtn.disabled = false;
-      return;
-    }
-
-    setCurrentUser(result.user);
-    hydrateProfile(appState.user);
-    input.value = Number(appState.user.income || 0).toFixed(2);
-    setStatus("base-income-status", "success", incomeT("monthly_income_updated", "Monatseinnahme aktualisiert."));
-    updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
     if (submitBtn) submitBtn.disabled = false;
   });
 }

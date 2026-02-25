@@ -63,6 +63,23 @@
     <p class="muted" id="accountsFeedback">Bereit.</p>
   </main>
 
+  <div id="transferModalBackdrop" class="transfer-modal-backdrop" hidden>
+    <div class="transfer-modal-card" role="dialog" aria-modal="true" aria-labelledby="transferModalTitle">
+      <h3 id="transferModalTitle" class="transfer-modal-title">Guthaben übertragen</h3>
+      <p id="transferModalMessage" class="transfer-modal-message">
+        Dieses Konto enthält noch Guthaben oder verknüpfte Buchungen. Bitte wähle ein Zielkonto.
+      </p>
+      <div class="transfer-modal-field">
+        <label class="field-label" for="transferTargetSelect">Zielkonto</label>
+        <select id="transferTargetSelect" class="field-input"></select>
+      </div>
+      <div class="transfer-modal-actions">
+        <button id="transferModalCancelBtn" class="action" type="button">Abbrechen</button>
+        <button id="transferModalConfirmBtn" class="action primary" type="button">Übertragen & löschen</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/shared/js/theme-utils.js"></script>
   <script src="/shared/js/session-utils.js"></script>
   <script src="/shared/js/language-utils.js"></script>

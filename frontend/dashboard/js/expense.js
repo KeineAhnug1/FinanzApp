@@ -87,6 +87,7 @@ function initExpenseForm() {
       category: resolveCategoryFromForm(formData),
       amount: Number(formData.get("amount")),
       spent_at: String(formData.get("spent_at") || "").trim(),
+      bank_account_id: String(formData.get("bank_account_id") || "").trim(),
       note: String(formData.get("note") || "").trim(),
       recurrence: String(formData.get("recurrence") || "once").trim(),
       is_active: formData.get("is_active") === "on"

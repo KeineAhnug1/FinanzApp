@@ -2,330 +2,101 @@ import "dotenv/config";
 import http from "node:http";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { MongoClient, Decimal128, ObjectId } from "mongodb";
+import { MongoClient, Decimal128 } from "mongodb";
 import nodemailer from "nodemailer";
+import {
+  ANSWER_MESSAGE_MAX_LENGTH,
+  COLLECTIONS,
+  DB_NAME,
+  DEV_EXPOSE_VERIFICATION_CODE,
+  EXCHANGE_RATE_API_KEY,
+  EXCHANGE_RATE_BASE_URL,
+  FINZBRO_EMAIL,
+  FINZBRO_MENTION_REGEX,
+  FINZBRO_USERNAME,
+  MIME_BY_EXT,
+  MONGO_URI,
+  OPENROUTER_API_KEY,
+  OPENROUTER_APP_NAME,
+  OPENROUTER_BASE_URL,
+  OPENROUTER_MODEL,
+  OPENROUTER_SITE_URL,
+  PORT,
+  PRESET_EXPENSE_CATEGORY_KEYS,
+  PRESET_INCOME_CATEGORY_KEYS,
+  QUESTION_MESSAGE_MAX_LENGTH,
+  QUESTION_TOPIC_MAX_LENGTH,
+  SESSION_COOKIE_NAME,
+  SESSION_TTL_MINUTES,
+  SMTP_FROM,
+  SMTP_HOST,
+  SMTP_PASS,
+  SMTP_PORT,
+  SMTP_SECURE,
+  SMTP_USER,
+  STOCK_API_KEY,
+  STOCK_SEARCH_BASE_URL,
+  STOCK_SEARCH_DEFAULT_EXCHANGE,
+  TWELVE_DATA_API_KEY,
+  TWELVE_DATA_BASE_URL,
+  VERIFICATION_TTL_MINUTES
+} from "./config/runtime.mjs";
 import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
 import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
+import {
+  categoryKey,
+  escapeRegex,
+  normalizeCategoryValue,
+  normalizeEmail,
+  normalizeRecurrence,
+  parseBoolean,
+  parseIncome,
+  parseObjectId,
+  parsePositiveAmount,
+  toDecimal,
+  toNumber,
+  uniqueCategoryList
+} from "./utils/data.mjs";
+import {
+  parseCookies,
+  readBody,
+  sendJson
+} from "./utils/http.mjs";
+import {
+  hashPassword,
+  hashValue,
+  isSha256PasswordHash,
+  isScryptPasswordHash,
+  PASSWORD_HASH_SHA256_PREFIX,
+  verifyPassword
+} from "./utils/password.mjs";
+import { createSessionStore } from "./utils/session-store.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 
-const PORT = Number(process.env.PORT || 3000);
-const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
-const DB_NAME = process.env.MONGODB_DB_V4 || `${BASE_DB_NAME}_v4`;
-const MONGO_URI = process.env.MONGODB_URI;
-const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
-const DEV_EXPOSE_VERIFICATION_CODE = process.env.DEV_EXPOSE_VERIFICATION_CODE === "true";
-const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
-const SESSION_COOKIE_NAME = "finanzapp_session";
-const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
-const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
-const EXCHANGE_RATE_BASE_URL = "https://v6.exchangerate-api.com/v6";
-const EXCHANGE_RATE_API_KEY = String(
-  process.env.EXCHANGE_RATE_API_KEY || process.env.EXCHANGERATE_API_KEY || process.env.EXCHANGE_API_KEY || ""
-).trim();
-const STOCK_SEARCH_BASE_URL = String(
-  process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || "http://3.225.21.161"
-).trim();
-const STOCK_API_KEY = String(process.env.STOCK_API_KEY || process.env.Hairy_Balls || "Hairy_Balls").trim();
-const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ")
-  .trim()
-  .toUpperCase();
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
-const OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free";
-const OPENROUTER_SITE_URL = String(process.env.OPENROUTER_SITE_URL || "http://localhost:3000").trim();
-const OPENROUTER_APP_NAME = String(process.env.OPENROUTER_APP_NAME || "FinanzApp").trim();
-const FINZBRO_USERNAME = "finzbro";
-const FINZBRO_EMAIL = String(process.env.FINZBRO_BOT_EMAIL || "finzbro@finanzapp.local").trim().toLowerCase();
-const FINZBRO_MENTION_REGEX = /@finzbro\b/i;
-const PASSWORD_HASH_PREFIX = "scrypt$";
-const PASSWORD_HASH_SHA256_PREFIX = "sha256$";
-const PASSWORD_SALT_BYTES = 16;
-const PASSWORD_KEYLEN = 64;
-
 if (!MONGO_URI) {
   throw new Error("MONGODB_URI is not set in the environment");
 }
-
-const SMTP_HOST = process.env.SMTP_HOST || "";
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-const SMTP_SECURE = process.env.SMTP_SECURE === "true";
-const SMTP_USER = process.env.SMTP_USER || "";
-const SMTP_PASS = process.env.SMTP_PASS || "";
-const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
-
-const PRESET_INCOME_CATEGORY_KEYS = new Set(["salary", "freelance", "bonus", "refund", "investment", "other"]);
-const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utilities", "transport", "health", "entertainment", "other"]);
-
-const COLLECTIONS = {
-  users: "users",
-  emailVerifications: "email_verifications",
-  incomeEntries: "income",
-  expenseEntries: "private_expenses",
-  userCategories: "user_categories",
-  groups: "groups",
-  groupMembers: "group_members",
-  groupActivities: "group_activities",
-  groupFunding: "group_funding",
-  groupExpenses: "group_expenses",
-  fundingParticipants: "funding_participants",
-  transactions: "transactions",
-  bankAccounts: "bank_accounts",
-  shareAccounts: "share_accounts",
-  depots: "depots",
-  shares: "shares",
-  globalQuestions: "global_questions",
-  globalAnswers: "global_answers",
-  questionLikes: "question_likes",
-  answerLikes: "answer_likes"
-};
-
-const MIME_BY_EXT = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".png": "image/png",
-  ".svg": "image/svg+xml; charset=utf-8",
-  ".ico": "image/x-icon",
-  ".txt": "text/plain; charset=utf-8"
-};
 
 const client = new MongoClient(MONGO_URI);
 let db;
 let mailTransporter;
 
-const sessions = new Map();
-
-function sendJson(res, statusCode, payload, extraHeaders = {}) {
-  const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(body),
-    ...extraHeaders
-  });
-  res.end(body);
-}
-
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = "";
-    req.on("data", (chunk) => {
-      raw += chunk;
-      if (raw.length > 1_000_000) {
-        reject(new Error("payload_too_large"));
-        req.destroy();
-      }
-    });
-    req.on("end", () => {
-      try {
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch {
-        reject(new Error("invalid_json"));
-      }
-    });
-    req.on("error", reject);
-  });
-}
-
-function parseCookies(req) {
-  const raw = String(req.headers.cookie || "");
-  const out = {};
-  for (const part of raw.split(";")) {
-    const [k, ...rest] = part.trim().split("=");
-    if (!k) continue;
-    out[k] = decodeURIComponent(rest.join("=") || "");
-  }
-  return out;
-}
-
-function hashValue(value) {
-  return createHash("sha256").update(String(value)).digest("hex");
-}
-
-function isScryptPasswordHash(value) {
-  return typeof value === "string" && value.startsWith(PASSWORD_HASH_PREFIX);
-}
-
-function isSha256PasswordHash(value) {
-  return typeof value === "string" && value.startsWith(PASSWORD_HASH_SHA256_PREFIX);
-}
-
-function hashPassword(plainPassword) {
-  const password = String(plainPassword || "");
-  const salt = randomBytes(PASSWORD_SALT_BYTES).toString("hex");
-  const derived = scryptSync(password, salt, PASSWORD_KEYLEN).toString("hex");
-  return `${PASSWORD_HASH_PREFIX}${salt}$${derived}`;
-}
-
-function verifyPassword(plainPassword, storedPassword) {
-  const plain = String(plainPassword || "");
-  const stored = String(storedPassword || "");
-
-  if (!stored) return false;
-
-  if (isScryptPasswordHash(stored)) {
-    const parts = stored.split("$");
-    if (parts.length !== 3) return false;
-
-    const salt = parts[1];
-    const expectedHex = parts[2];
-
-    try {
-      const expected = Buffer.from(expectedHex, "hex");
-      const actual = scryptSync(plain, salt, expected.length);
-      if (actual.length !== expected.length) return false;
-      return timingSafeEqual(actual, expected);
-    } catch {
-      return false;
-    }
-  }
-
-  if (isSha256PasswordHash(stored)) {
-    const expectedHash = stored.slice(PASSWORD_HASH_SHA256_PREFIX.length);
-    return hashValue(plain) === expectedHash;
-  }
-
-  // Legacy-Fallback: Klartext-Passwort (wird nach erfolgreichem Login migriert).
-  return plain === stored;
-}
-
-function normalizeEmail(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function parseIncome(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) return null;
-  return Number(numeric.toFixed(2));
-}
-
-function parsePositiveAmount(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return null;
-  const normalized = Number(numeric.toFixed(2));
-  if (normalized <= 0) return null;
-  return normalized;
-}
-
-function toDecimal(value) {
-  return Decimal128.fromString(Number(value).toFixed(2));
-}
-
-function parseObjectId(value) {
-  if (!value) return null;
-  try {
-    return new ObjectId(String(value));
-  } catch {
-    return null;
-  }
-}
-
-function toNumber(value) {
-  if (value == null) return null;
-  if (typeof value === "number") return value;
-  if (typeof value.toString === "function") return Number(value.toString());
-  return Number(value);
-}
-
-function normalizeRecurrence(value) {
-  const normalized = String(value || "once").trim().toLowerCase();
-  if (normalized === "weekly" || normalized === "monthly" || normalized === "once") return normalized;
-  return null;
-}
-
-function parseBoolean(value, fallback = false) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    if (value.toLowerCase() === "true") return true;
-    if (value.toLowerCase() === "false") return false;
-  }
-  return fallback;
-}
-
-function normalizeCategoryValue(value) {
-  return String(value || "").trim().replace(/\s+/g, " ");
-}
-
-function categoryKey(value) {
-  return normalizeCategoryValue(value).toLowerCase();
-}
-
-function uniqueCategoryList(values) {
-  const map = new Map();
-  for (const value of values || []) {
-    const normalized = normalizeCategoryValue(value);
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (!map.has(key)) map.set(key, normalized);
-  }
-  return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "de"));
-}
-
-function escapeRegex(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function createSessionToken() {
-  return randomBytes(32).toString("hex");
-}
-
-function sessionExpiresAt() {
-  return Date.now() + SESSION_TTL_MINUTES * 60 * 1000;
-}
-
-function createSession(userId) {
-  const token = createSessionToken();
-  sessions.set(token, { userId: String(userId), expiresAt: sessionExpiresAt() });
-  return token;
-}
-
-function destroySession(token) {
-  if (!token) return;
-  sessions.delete(token);
-}
-
-function getSessionRecord(token) {
-  if (!token) return null;
-  const rec = sessions.get(token);
-  if (!rec) return null;
-  if (rec.expiresAt <= Date.now()) {
-    sessions.delete(token);
-    return null;
-  }
-  rec.expiresAt = sessionExpiresAt();
-  return rec;
-}
-
-function gcSessions() {
-  const now = Date.now();
-  for (const [token, rec] of sessions.entries()) {
-    if (!rec || rec.expiresAt <= now) sessions.delete(token);
-  }
-}
-
-function buildSessionCookie(token) {
-  const attrs = [
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
-    "HttpOnly",
-    "Path=/",
-    "SameSite=Lax",
-    `Max-Age=${SESSION_TTL_MINUTES * 60}`
-  ];
-  if (process.env.NODE_ENV === "production") attrs.push("Secure");
-  return attrs.join("; ");
-}
-
-function clearSessionCookie() {
-  const attrs = [`${SESSION_COOKIE_NAME}=`, "HttpOnly", "Path=/", "SameSite=Lax", "Max-Age=0"];
-  if (process.env.NODE_ENV === "production") attrs.push("Secure");
-  return attrs.join("; ");
-}
+const {
+  buildSessionCookie,
+  clearSessionCookie,
+  createSession,
+  destroySession,
+  gcSessions,
+  getSessionRecord
+} = createSessionStore({
+  cookieName: SESSION_COOKIE_NAME,
+  ttlMinutes: SESSION_TTL_MINUTES
+});
 
 async function getSessionUser(req) {
   const cookies = parseCookies(req);
@@ -365,6 +136,51 @@ async function requireSessionUser(req, res) {
   return session;
 }
 
+function getRequestUrl(req) {
+  const host = req.headers.host || "localhost";
+  return new URL(req.url || "/", `http://${host}`);
+}
+
+function resolveRequestedBankAccountFilter(req, accountIds) {
+  const requestUrl = getRequestUrl(req);
+  const rawBankAccountId = String(requestUrl.searchParams.get("bank_account_id") || "").trim();
+  if (!rawBankAccountId) return { ok: true, filter: { bank_account_id: { $in: accountIds } } };
+
+  const selectedId = parseObjectId(rawBankAccountId);
+  if (!selectedId) {
+    return { ok: false, status: 400, message: "bank_account_id ist ungueltig" };
+  }
+
+  const isAllowed = accountIds.some((accountId) => String(accountId) === String(selectedId));
+  if (!isAllowed) {
+    return { ok: false, status: 403, message: "Bankkonto gehoert nicht zum User" };
+  }
+
+  return { ok: true, filter: { bank_account_id: selectedId } };
+}
+
+async function incrementBankAccountBalance(accountId, deltaAmount) {
+  const normalizedDelta = Number(Number(deltaAmount || 0).toFixed(2));
+  if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
+  await db.collection(COLLECTIONS.bankAccounts).updateOne(
+    { _id: accountId },
+    { $inc: { balance: toDecimal(normalizedDelta) } }
+  );
+}
+
+async function deleteBankAccountAssociations(accountId) {
+  await Promise.all([
+    db.collection(COLLECTIONS.incomeEntries).deleteMany({ bank_account_id: accountId }),
+    db.collection(COLLECTIONS.expenseEntries).deleteMany({ bank_account_id: accountId }),
+    db.collection(COLLECTIONS.fundingParticipants).deleteMany({ bank_account_id: accountId }),
+    db.collection(COLLECTIONS.shares).deleteMany({ bank_account_id: accountId }),
+    db.collection(COLLECTIONS.transactions).deleteMany({
+      $or: [{ from_bank_account_id: accountId }, { to_bank_account_id: accountId }, { bank_account_id: accountId }]
+    }),
+    db.collection("requests").deleteMany({ $or: [{ from_bank_account_id: accountId }, { to_bank_account_id: accountId }] })
+  ]);
+}
+
 function serializeIncomeEntry(entry, userId = null) {
   const receivedAtDate =
     entry.received_at instanceof Date
@@ -378,6 +194,7 @@ function serializeIncomeEntry(entry, userId = null) {
   return {
     id: String(entry._id),
     user_id: String(userId || entry.user_id || ""),
+    bank_account_id: entry.bank_account_id ? String(entry.bank_account_id) : null,
     source: entry.source || entry.info || "",
     category: entry.category || "",
     amount: toNumber(entry.amount),
@@ -405,6 +222,7 @@ function serializeExpenseEntry(entry, userId = null) {
   return {
     id: String(entry._id),
     user_id: String(userId || entry.user_id || ""),
+    bank_account_id: entry.bank_account_id ? String(entry.bank_account_id) : null,
     source: entry.source || entry.info || "",
     category: entry.category || "other",
     amount: toNumber(entry.amount),
@@ -909,8 +727,11 @@ async function handleIncomeEntries(req, res, session) {
   const accountIds = userAccounts.map((account) => account._id);
 
   if (req.method === "GET") {
+    const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
+    if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
+
     const entries = await db.collection(COLLECTIONS.incomeEntries)
-      .find({ bank_account_id: { $in: accountIds } })
+      .find(filterResult.filter)
       .sort({ received_at: -1, pay_date: -1, created_at: -1 })
       .limit(200)
       .toArray();
@@ -969,6 +790,7 @@ async function handleIncomeEntries(req, res, session) {
   };
 
   const insert = await db.collection(COLLECTIONS.incomeEntries).insertOne(doc);
+  await incrementBankAccountBalance(bankAccountId, amountNumber);
   const inserted = await db.collection(COLLECTIONS.incomeEntries).findOne({ _id: insert.insertedId });
   return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(inserted, userId) });
 }
@@ -984,8 +806,15 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   const accountFilter = { bank_account_id: { $in: accountIds } };
 
   if (req.method === "DELETE") {
+    const existing = await db.collection(COLLECTIONS.incomeEntries).findOne(
+      { _id: entryId, ...accountFilter },
+      { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+    );
+    if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+
     const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({ _id: entryId, ...accountFilter });
     if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+    await incrementBankAccountBalance(existing.bank_account_id, -Number((toNumber(existing.amount) || 0).toFixed(2)));
     return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
   }
 
@@ -1009,6 +838,7 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   const receivedAt = payload.received_at ? new Date(payload.received_at) : null;
   const recurrence = normalizeRecurrence(payload.recurrence);
   const isActive = parseBoolean(payload.is_active, true);
+  const requestedBankAccountId = parseObjectId(payload.bank_account_id);
 
   if (!source) return sendJson(res, 400, { ok: false, message: "Quelle ist ein Pflichtfeld" });
   if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
@@ -1018,10 +848,21 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
 
   await rememberUserCategory(userId, "income", category);
 
-  const updated = await db.collection(COLLECTIONS.incomeEntries).findOneAndUpdate(
+  const existing = await db.collection(COLLECTIONS.incomeEntries).findOne(
     { _id: entryId, ...accountFilter },
+    { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+  );
+  if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+
+  const nextBankAccountId = requestedBankAccountId && accountIds.some((id) => String(id) === String(requestedBankAccountId))
+    ? requestedBankAccountId
+    : existing.bank_account_id;
+
+  const updated = await db.collection(COLLECTIONS.incomeEntries).findOneAndUpdate(
+    { _id: entryId },
     {
       $set: {
+        bank_account_id: nextBankAccountId,
         source,
         category,
         note,
@@ -1040,6 +881,16 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   );
 
   if (!updated) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+
+  const previousAmount = Number((toNumber(existing.amount) || 0).toFixed(2));
+  const nextAmount = Number(amountNumber.toFixed(2));
+  if (String(existing.bank_account_id) === String(nextBankAccountId)) {
+    await incrementBankAccountBalance(nextBankAccountId, nextAmount - previousAmount);
+  } else {
+    await incrementBankAccountBalance(existing.bank_account_id, -previousAmount);
+    await incrementBankAccountBalance(nextBankAccountId, nextAmount);
+  }
+
   return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated, userId) });
 }
 
@@ -1050,8 +901,11 @@ async function handleExpenseEntries(req, res, session) {
   const accountIds = userAccounts.map((account) => account._id);
 
   if (req.method === "GET") {
+    const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
+    if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
+
     const entries = await db.collection(COLLECTIONS.expenseEntries)
-      .find({ bank_account_id: { $in: accountIds } })
+      .find(filterResult.filter)
       .sort({ spent_at: -1, pay_date: -1, due_date: -1, created_at: -1 })
       .limit(200)
       .toArray();
@@ -1112,6 +966,7 @@ async function handleExpenseEntries(req, res, session) {
   };
 
   const insert = await db.collection(COLLECTIONS.expenseEntries).insertOne(doc);
+  await incrementBankAccountBalance(bankAccountId, -amountNumber);
   const inserted = await db.collection(COLLECTIONS.expenseEntries).findOne({ _id: insert.insertedId });
   return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(inserted, userId) });
 }
@@ -1127,8 +982,15 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   const accountFilter = { bank_account_id: { $in: accountIds } };
 
   if (req.method === "DELETE") {
+    const existing = await db.collection(COLLECTIONS.expenseEntries).findOne(
+      { _id: entryId, ...accountFilter },
+      { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+    );
+    if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+
     const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({ _id: entryId, ...accountFilter });
     if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+    await incrementBankAccountBalance(existing.bank_account_id, Number((toNumber(existing.amount) || 0).toFixed(2)));
     return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
   }
 
@@ -1152,6 +1014,7 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   const spentAt = payload.spent_at ? new Date(payload.spent_at) : null;
   const recurrence = normalizeRecurrence(payload.recurrence);
   const isActive = parseBoolean(payload.is_active, true);
+  const requestedBankAccountId = parseObjectId(payload.bank_account_id);
 
   if (!source) return sendJson(res, 400, { ok: false, message: "Quelle ist ein Pflichtfeld" });
   if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
@@ -1161,10 +1024,21 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
 
   await rememberUserCategory(userId, "expense", category);
 
-  const updated = await db.collection(COLLECTIONS.expenseEntries).findOneAndUpdate(
+  const existing = await db.collection(COLLECTIONS.expenseEntries).findOne(
     { _id: entryId, ...accountFilter },
+    { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+  );
+  if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+
+  const nextBankAccountId = requestedBankAccountId && accountIds.some((id) => String(id) === String(requestedBankAccountId))
+    ? requestedBankAccountId
+    : existing.bank_account_id;
+
+  const updated = await db.collection(COLLECTIONS.expenseEntries).findOneAndUpdate(
+    { _id: entryId },
     {
       $set: {
+        bank_account_id: nextBankAccountId,
         source,
         category,
         note,
@@ -1185,50 +1059,17 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   );
 
   if (!updated) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+
+  const previousAmount = Number((toNumber(existing.amount) || 0).toFixed(2));
+  const nextAmount = Number(amountNumber.toFixed(2));
+  if (String(existing.bank_account_id) === String(nextBankAccountId)) {
+    await incrementBankAccountBalance(nextBankAccountId, previousAmount - nextAmount);
+  } else {
+    await incrementBankAccountBalance(existing.bank_account_id, previousAmount);
+    await incrementBankAccountBalance(nextBankAccountId, -nextAmount);
+  }
+
   return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated, userId) });
-}
-
-async function handleUserIncome(req, res, session) {
-  if (req.method !== "PATCH") {
-    res.setHeader("Allow", "PATCH");
-    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-  }
-
-  let payload;
-  try {
-    payload = await readBody(req);
-  } catch (error) {
-    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
-  }
-
-  const userId = parseObjectId(session.user.id);
-  const income = parseIncome(payload.income);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
-  if (income == null) return sendJson(res, 400, { ok: false, message: "Monatliche Einnahme muss eine Zahl >= 0 sein" });
-
-  const updated = await db.collection(COLLECTIONS.users).findOneAndUpdate(
-    { _id: userId },
-    { $set: { income: toDecimal(income) } },
-    {
-      projection: { _id: 1, username: 1, email: 1, first_name: 1, last_name: 1, income: 1 },
-      returnDocument: "after"
-    }
-  );
-
-  if (!updated) return sendJson(res, 404, { ok: false, message: "User nicht gefunden" });
-
-  return sendJson(res, 200, {
-    ok: true,
-    user: {
-      id: String(updated._id),
-      username: updated.username,
-      email: updated.email,
-      first_name: updated.first_name || null,
-      last_name: updated.last_name || null,
-      income: toNumber(updated.income)
-    }
-  });
 }
 
 function activeMembershipFilter() {
@@ -1304,10 +1145,7 @@ function calculateCurrentMonthTotal(entries, dateField) {
 }
 
 async function calculateDashboardStyleDonationBalance(userId) {
-  const [user, userAccounts] = await Promise.all([
-    db.collection(COLLECTIONS.users).findOne({ _id: userId }, { projection: { _id: 1, income: 1 } }),
-    ensureUserFinanceRoots(userId)
-  ]);
+  const userAccounts = await ensureUserFinanceRoots(userId);
 
   const accountIds = userAccounts.map((account) => account._id);
   const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
@@ -1323,9 +1161,7 @@ async function calculateDashboardStyleDonationBalance(userId) {
     ).toArray()
   ]);
 
-  const baseIncome = toNullableNumber(user?.income) ?? 0;
-  const monthlyIncomeFromEntries = calculateCurrentMonthTotal(incomeEntries, "received_at");
-  const monthlyIncome = Number(((incomeEntries.length > 0 ? monthlyIncomeFromEntries : (baseIncome > 0 ? baseIncome : 0))).toFixed(2));
+  const monthlyIncome = Number(calculateCurrentMonthTotal(incomeEntries, "received_at").toFixed(2));
   const monthlyExpense = calculateCurrentMonthTotal(expenseEntries, "spent_at");
   const dashboardNetLiquidity = Number((monthlyIncome - monthlyExpense).toFixed(2));
   const availableDonationBalance = dashboardNetLiquidity;
@@ -2190,10 +2026,6 @@ async function handleGroups(req, res, session) {
   return sendJson(res, 405, { ok: false, message: "Method not allowed" });
 }
 
-const QUESTION_TOPIC_MAX_LENGTH = 80;
-const QUESTION_MESSAGE_MAX_LENGTH = 4000;
-const ANSWER_MESSAGE_MAX_LENGTH = 4000;
-
 function parseQuestionTopic(value) {
   const topic = String(value || "").trim().replace(/\s+/g, " ");
   if (!topic) return null;
@@ -2766,13 +2598,14 @@ async function loadUserBankAccounts(userId) {
 
   const accounts = await db.collection(COLLECTIONS.bankAccounts)
     .find({ user_id: userObjectId })
-    .project({ _id: 1, label: 1, name: 1, created_at: 1 })
+    .project({ _id: 1, label: 1, name: 1, balance: 1, created_at: 1 })
     .sort({ created_at: 1 })
     .toArray();
 
   return accounts.map((account, index) => ({
     id: String(account._id),
-    label: String(account?.label || account?.name || `Bankkonto ${index + 1}`)
+    label: String(account?.label || account?.name || `Bankkonto ${index + 1}`),
+    balance: Number((toNumber(account?.balance) || 0).toFixed(2))
   }));
 }
 
@@ -2862,7 +2695,7 @@ async function handleBankAccounts(req, res, session) {
 
   if (req.method === "GET") {
     const accounts = await loadUserBankAccounts(session.user.id);
-    return sendJson(res, 200, { accounts });
+    return sendJson(res, 200, { ok: true, accounts });
   }
 
   if (req.method !== "POST") {
@@ -2891,7 +2724,7 @@ async function handleBankAccounts(req, res, session) {
 
   return sendJson(res, 201, {
     ok: true,
-    account: { id: String(insert.insertedId), label }
+    account: { id: String(insert.insertedId), label, balance: 0 }
   });
 }
 
@@ -2917,7 +2750,7 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
     const updated = await db.collection(COLLECTIONS.bankAccounts).findOneAndUpdate(
       { _id: accountId, user_id: userId },
       { $set: { label } },
-      { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } }
+      { returnDocument: "after", projection: { _id: 1, label: 1, name: 1, balance: 1 } }
     );
     if (!updated) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
 
@@ -2925,28 +2758,81 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
       ok: true,
       account: {
         id: String(updated._id),
-        label: String(updated?.label || updated?.name || "Bankkonto")
+        label: String(updated?.label || updated?.name || "Bankkonto"),
+        balance: Number((toNumber(updated?.balance) || 0).toFixed(2))
       }
     });
   }
 
   if (req.method === "DELETE") {
-    const usageChecks = await Promise.all([
-      db.collection(COLLECTIONS.incomeEntries).countDocuments({ bank_account_id: accountId }, { limit: 1 }),
-      db.collection(COLLECTIONS.expenseEntries).countDocuments({ bank_account_id: accountId }, { limit: 1 }),
-      db.collection(COLLECTIONS.fundingParticipants).countDocuments({ bank_account_id: accountId }, { limit: 1 }),
-      db.collection("requests").countDocuments(
-        { $or: [{ from_bank_account_id: accountId }, { to_bank_account_id: accountId }] },
-        { limit: 1 }
-      )
-    ]);
-    const isUsed = usageChecks.some((count) => count > 0);
-    if (isUsed) {
+    const sourceAccount = await db.collection(COLLECTIONS.bankAccounts).findOne(
+      { _id: accountId, user_id: userId },
+      { projection: { _id: 1, label: 1, balance: 1 } }
+    );
+    if (!sourceAccount) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
+
+    let payload = {};
+    try {
+      payload = await readBody(req);
+    } catch (error) {
+      if (error.message !== "invalid_json") {
+        if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+        return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+      }
+      payload = {};
+    }
+
+    const transferTargetId = parseObjectId(payload?.transfer_to_bank_account_id);
+    const transferRequested = Boolean(transferTargetId);
+    const sourceBalance = Number((toNumber(sourceAccount.balance) || 0).toFixed(2));
+    const transferOptions = await db.collection(COLLECTIONS.bankAccounts)
+      .find({ user_id: userId, _id: { $ne: accountId } }, { projection: { _id: 1, label: 1, name: 1, balance: 1 } })
+      .sort({ created_at: 1, _id: 1 })
+      .toArray();
+    const hasAlternativeAccount = transferOptions.length > 0;
+    const needsTransferPrompt = sourceBalance !== 0 && hasAlternativeAccount;
+
+    if (needsTransferPrompt && !transferRequested) {
       return sendJson(res, 409, {
         ok: false,
-        message: "Bankkonto kann nicht geloescht werden, solange es in Buchungen/Anfragen verwendet wird"
+        code: "transfer_required",
+        requires_transfer: true,
+        balance: sourceBalance,
+        message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.",
+        transfer_options: transferOptions.map((account, index) => ({
+          id: String(account._id),
+          label: String(account?.label || account?.name || `Bankkonto ${index + 1}`),
+          balance: Number((toNumber(account?.balance) || 0).toFixed(2))
+        }))
       });
     }
+
+    if (sourceBalance !== 0 && !hasAlternativeAccount) {
+      return sendJson(res, 409, {
+        ok: false,
+        requires_transfer: false,
+        message: "Dieses Konto hat einen Kontostand ungleich 0. Lege zuerst ein weiteres Bankkonto an, um den Betrag zu uebertragen."
+      });
+    }
+
+    if (transferRequested) {
+      if (String(transferTargetId) === String(accountId)) {
+        return sendJson(res, 400, { ok: false, message: "Zielkonto muss ein anderes Konto sein" });
+      }
+      const targetAccount = await db.collection(COLLECTIONS.bankAccounts).findOne(
+        { _id: transferTargetId, user_id: userId },
+        { projection: { _id: 1 } }
+      );
+      if (!targetAccount) {
+        return sendJson(res, 400, { ok: false, message: "Zielkonto wurde nicht gefunden" });
+      }
+
+      if (sourceBalance !== 0) {
+        await incrementBankAccountBalance(transferTargetId, sourceBalance);
+      }
+    }
+
+    await deleteBankAccountAssociations(accountId);
 
     const deletion = await db.collection(COLLECTIONS.bankAccounts).deleteOne({ _id: accountId, user_id: userId });
     if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
@@ -3269,7 +3155,6 @@ const API_HANDLERS = {
   handleIncomeEntryById,
   handleExpenseEntries,
   handleExpenseEntryById,
-  handleUserIncome,
   handleQuestions,
   handleGroups,
   handleGetInvitations,

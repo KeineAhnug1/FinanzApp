@@ -87,6 +87,7 @@ function buildHierarchicalGroups(entries, dateField) {
 }
 
 function renderIncomeItem(entry) {
+  const bankAccountLabel = appState.bankAccounts.find((account) => String(account.id) === String(entry.bank_account_id))?.label || "";
   return `
     <li class="income-item" data-entry-id="${entry.id}">
       <div class="income-topline">
@@ -94,6 +95,7 @@ function renderIncomeItem(entry) {
           <span class="income-source">${escapeHtml(entry.source)}</span>
           <div class="income-tags">
             <span class="income-tag">${escapeHtml(categoryLabel(entry.category))}</span>
+            ${bankAccountLabel ? `<span class="income-tag">${escapeHtml(bankAccountLabel)}</span>` : ""}
             <span class="income-tag">${recurrenceLabel(entry.recurrence)}</span>
             ${
               entry.recurrence !== "once"
@@ -115,6 +117,7 @@ function renderIncomeItem(entry) {
 }
 
 function renderExpenseItem(entry) {
+  const bankAccountLabel = appState.bankAccounts.find((account) => String(account.id) === String(entry.bank_account_id))?.label || "";
   return `
     <li class="income-item" data-entry-id="${entry.id}">
       <div class="income-topline">
@@ -122,6 +125,7 @@ function renderExpenseItem(entry) {
           <span class="income-source">${escapeHtml(entry.source || entry.category || "Ausgabe")}</span>
           <div class="income-tags">
             <span class="income-tag">${escapeHtml(categoryLabel(entry.category))}</span>
+            ${bankAccountLabel ? `<span class="income-tag">${escapeHtml(bankAccountLabel)}</span>` : ""}
             <span class="income-tag">${recurrenceLabel(entry.recurrence)}</span>
             ${
               entry.recurrence !== "once"
@@ -410,14 +414,8 @@ function getMonthlyTotal(entries, dateField) {
   return Number((oneTime + recurring).toFixed(2));
 }
 
-function buildIncomeSeries(keys, incomeEntries, baseIncome) {
-  const totals = buildMonthlyTotals(incomeEntries, keys, "received_at");
-  if (!incomeEntries.length && baseIncome > 0) {
-    for (const key of keys) {
-      totals[key] = baseIncome;
-    }
-  }
-  return totals;
+function buildIncomeSeries(keys, incomeEntries) {
+  return buildMonthlyTotals(incomeEntries, keys, "received_at");
 }
 
 function polylinePoints(values, xForIndex, yForValue) {
@@ -426,12 +424,12 @@ function polylinePoints(values, xForIndex, yForValue) {
     .join(" ");
 }
 
-function renderCashflowBars(incomeEntries, expenseEntries, baseIncome) {
+function renderCashflowBars(incomeEntries, expenseEntries) {
   const container = document.getElementById("cashflow-bars");
   if (!container) return;
 
   const keys = timelineKeysForChart(incomeEntries, expenseEntries);
-  const incomeTotals = buildIncomeSeries(keys, incomeEntries, baseIncome);
+  const incomeTotals = buildIncomeSeries(keys, incomeEntries);
   const expenseTotals = buildMonthlyTotals(expenseEntries, keys, "spent_at");
   const incomeValues = keys.map((key) => Number((incomeTotals[key] || 0).toFixed(2)));
   const expenseValues = keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2)));
@@ -641,10 +639,7 @@ function renderCashflowBars(incomeEntries, expenseEntries, baseIncome) {
 }
 
 function updateFinanceCards(user, incomeEntries, expenseEntries) {
-  const baseIncome = Number(user.income) || 0;
-  const hasIncomeEntries = incomeEntries.length > 0;
-  const monthlyIncomeFromEntries = getMonthlyTotal(incomeEntries, "received_at");
-  const monthlyIncome = Number((hasIncomeEntries ? monthlyIncomeFromEntries : (baseIncome > 0 ? baseIncome : 0)).toFixed(2));
+  const monthlyIncome = Number(getMonthlyTotal(incomeEntries, "received_at").toFixed(2));
   const monthlyExpense = getMonthlyTotal(expenseEntries, "spent_at");
   const netLiquidity = Number((monthlyIncome - monthlyExpense).toFixed(2));
   const savingRate = monthlyIncome > 0
@@ -652,7 +647,7 @@ function updateFinanceCards(user, incomeEntries, expenseEntries) {
     : 0;
 
   const keys = recentMonthKeys(2);
-  const incomeTotals = buildIncomeSeries(keys, incomeEntries, baseIncome);
+  const incomeTotals = buildIncomeSeries(keys, incomeEntries);
   const expenseTotals = buildMonthlyTotals(expenseEntries, keys, "spent_at");
   const currentIncome = Number((incomeTotals[keys[1]] || 0).toFixed(2));
   const previousIncome = Number((incomeTotals[keys[0]] || 0).toFixed(2));
@@ -705,5 +700,5 @@ function updateFinanceCards(user, incomeEntries, expenseEntries) {
       : "Noch keine Buchungen erfasst. Lege Einnahmen oder Ausgaben an."
   );
 
-  renderCashflowBars(incomeEntries, expenseEntries, baseIncome);
+  renderCashflowBars(incomeEntries, expenseEntries);
 }

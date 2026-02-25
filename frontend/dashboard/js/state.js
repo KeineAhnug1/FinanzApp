@@ -15,6 +15,8 @@ const DEFAULT_DASHBOARD_SETTINGS = {
 
 const appState = {
   user: null,
+  bankAccounts: [],
+  selectedBankAccountId: "",
   incomeEntries: [],
   expenseEntries: [],
   settings: { ...DEFAULT_DASHBOARD_SETTINGS }

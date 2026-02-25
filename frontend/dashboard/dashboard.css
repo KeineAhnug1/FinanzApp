@@ -143,6 +143,11 @@
   font-size: 0.8rem;
 }
 
+.account-filter-panel {
+  display: grid;
+  gap: 8px;
+}
+
 .bars {
   min-height: 220px;
   display: flex;

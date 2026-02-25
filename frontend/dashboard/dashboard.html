@@ -109,6 +109,14 @@
       </nav>
 
       <section class="view-panel" data-view-panel="overview">
+        <section class="panel account-filter-panel" id="dashboard-account-filter-wrap" hidden>
+          <h2 class="panel-title">Kontofilter</h2>
+          <div>
+            <label class="field-label" for="dashboard-bank-account-filter">Konto fuer Dashboard</label>
+            <select class="field-input" id="dashboard-bank-account-filter" name="dashboard_bank_account_filter"></select>
+          </div>
+        </section>
+
         <section class="hero-card">
           <p class="hero-label">Monatlicher Netto-Cashflow</p>
           <h1 id="total-assets" class="hero-value">0 EUR</h1>
@@ -159,21 +167,6 @@
 
       <section class="view-panel" data-view-panel="income" hidden>
         <section class="income-grid">
-          <article class="panel">
-            <h2 class="panel-title">Monatliche Basiseinnahme</h2>
-            <p class="panel-subtitle">Wird für die Übersicht genutzt und kann jederzeit angepasst werden.</p>
-            <form id="base-income-form" class="income-form">
-              <div>
-                <label class="field-label" for="base-income">Betrag (EUR)</label>
-                <input class="field-input" id="base-income" name="income" type="number" min="0" step="0.01" placeholder="0.00" required />
-              </div>
-              <div class="income-actions">
-                <button class="submit-income" type="submit" id="base-income-submit-btn">Monatseinnahme speichern</button>
-              </div>
-            </form>
-            <p id="base-income-status" class="form-status"></p>
-          </article>
-
           <article class="panel">
             <h2 class="panel-title">Einnahme erfassen</h2>
             <form id="income-form" class="income-form">
@@ -227,6 +220,10 @@
                 </div>
               </div>
               <div>
+                <label class="field-label" for="income-bank-account">Konto</label>
+                <select class="field-input" id="income-bank-account" name="bank_account_id" required></select>
+              </div>
+              <div>
                 <label class="field-label" for="income-note">Notiz (optional)</label>
                 <textarea class="field-input field-textarea" id="income-note" name="note" rows="2" placeholder="z. B. Bonus fuer Projekt X"></textarea>
               </div>
@@ -243,7 +240,7 @@
             </div>
           </article>
 
-          <article class="panel panel-span-2">
+          <article class="panel">
             <h2 class="panel-title">Letzte Einnahmen</h2>
             <p class="panel-subtitle">Monat aufklappen, Eintraege durchsuchen, dann bearbeiten oder loeschen.</p>
             <div class="list-tools">
@@ -308,6 +305,10 @@
                     <span>Aktiv (nur fuer wiederkehrend)</span>
                   </label>
                 </div>
+              </div>
+              <div>
+                <label class="field-label" for="expense-bank-account">Konto</label>
+                <select class="field-input" id="expense-bank-account" name="bank_account_id" required></select>
               </div>
               <div>
                 <label class="field-label" for="expense-note">Notiz (optional)</label>
