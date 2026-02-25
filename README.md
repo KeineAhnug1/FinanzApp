@@ -78,12 +78,14 @@ Danach:
 ```text
 FinanzApp/
   backend/server.mjs
-  uebersicht/
-  groups/
-  aktien/
-  fragen/
-  konten/
-  shared/
+  frontend/
+    dashboard/
+    groups/
+    stocks/
+    questions/
+    accounts/
+    shared/
+    data/
   database/
     dataset-v2/
     dataset-v3/
