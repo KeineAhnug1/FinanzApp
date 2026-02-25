@@ -2,12 +2,14 @@
 function populateSettingsForm() {
   const currency = document.getElementById("settings-currency");
   const locale = document.getElementById("settings-locale");
+  const themeMode = document.getElementById("settings-theme-mode");
   const startView = document.getElementById("settings-start-view");
   const defaultIncomeRecurrence = document.getElementById("settings-default-income-recurrence");
   const defaultExpenseRecurrence = document.getElementById("settings-default-expense-recurrence");
 
   if (currency) currency.value = appState.settings.currency;
   if (locale) locale.value = appState.settings.locale;
+  if (themeMode) themeMode.value = window.FinanzAppTheme?.getStoredThemeMode?.() || "auto";
   if (startView) startView.value = appState.settings.startView;
   if (defaultIncomeRecurrence) defaultIncomeRecurrence.value = appState.settings.defaultIncomeRecurrence;
   if (defaultExpenseRecurrence) defaultExpenseRecurrence.value = appState.settings.defaultExpenseRecurrence;
@@ -43,6 +45,7 @@ function initSettingsMenu() {
     event.preventDefault();
     const formData = new FormData(settingsForm);
     const pick = (name, fallback) => formData.get(name) ?? fallback;
+    const themeMode = String(pick("theme_mode", "auto"));
     const nextSettings = normalizeDashboardSettings({
       currency: pick("currency", appState.settings.currency),
       locale: pick("locale", appState.settings.locale),
@@ -52,6 +55,9 @@ function initSettingsMenu() {
     });
 
     applyDashboardSettings(nextSettings, { persist: true, rerender: true });
+    if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
+      window.FinanzAppTheme.saveAndApplyThemeMode(themeMode);
+    }
     if (window.FinanzAppLanguage?.setLocale) {
       window.FinanzAppLanguage.setLocale(nextSettings.locale, { userId: appState.user?.id });
     }
@@ -63,6 +69,9 @@ function initSettingsMenu() {
 
   resetBtn.addEventListener("click", () => {
     applyDashboardSettings({ ...DEFAULT_DASHBOARD_SETTINGS }, { persist: true, rerender: true });
+    if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
+      window.FinanzAppTheme.saveAndApplyThemeMode("auto");
+    }
     if (window.FinanzAppLanguage?.setLocale) {
       window.FinanzAppLanguage.setLocale(DEFAULT_DASHBOARD_SETTINGS.locale, { userId: appState.user?.id });
     }

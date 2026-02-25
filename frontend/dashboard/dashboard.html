@@ -43,24 +43,6 @@
           <a class="app-nav-link" href="/fragen/">Fragen</a>
         </nav>
 
-        <div class="theme-switch" role="group" aria-label="Farbmodus">
-          <button type="button" class="theme-option" data-theme-choice="light">Hell</button>
-          <button type="button" class="theme-option" data-theme-choice="dark">Dunkel</button>
-          <button type="button" class="theme-option" data-theme-choice="auto">Auto</button>
-        </div>
-
-        <div class="profile-wrap">
-          <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
-            <span class="profile-avatar" id="profile-avatar">U</span>
-            <span class="profile-name" id="profile-name">Profil</span>
-          </button>
-          <div id="profile-menu" class="profile-menu" hidden>
-            <p class="menu-name" id="menu-name">-</p>
-            <p class="menu-mail" id="menu-mail">-</p>
-            <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
-          </div>
-        </div>
-
         <div class="settings-wrap">
           <button id="settings-btn" class="settings-btn" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="Einstellungen">
             <span class="settings-icon" aria-hidden="true">&#9881;</span>
@@ -87,6 +69,14 @@
                   <option value="es-ES">Spanisch (ES)</option>
                 </select>
               </div>
+              <div>
+                <label class="field-label" for="settings-theme-mode">Farbmodus</label>
+                <select class="field-input" id="settings-theme-mode" name="theme_mode">
+                  <option value="light">Hell</option>
+                  <option value="dark">Dunkel</option>
+                  <option value="auto">Systemdesign</option>
+                </select>
+              </div>
               <div class="settings-actions">
                 <button class="submit-income" type="submit">Speichern</button>
                 <button id="settings-reset-btn" class="settings-reset-btn" type="button">Zurücksetzen</button>
@@ -95,6 +85,19 @@
             <p id="settings-status" class="form-status"></p>
           </div>
         </div>
+
+        <div class="profile-wrap">
+          <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
+            <span class="profile-avatar" id="profile-avatar">U</span>
+            <span class="profile-name" id="profile-name">Profil</span>
+          </button>
+          <div id="profile-menu" class="profile-menu" hidden>
+            <p class="menu-name" id="menu-name">-</p>
+            <p class="menu-mail" id="menu-mail">-</p>
+            <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
+          </div>
+        </div>
+
       </div>
     </header>
 

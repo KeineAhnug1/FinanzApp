@@ -1,4 +1,6 @@
 (function initGlobalSettingsMenu() {
+  const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
+
   function createLocaleSelect() {
     const select = document.createElement("select");
     select.className = "field-input";
@@ -13,6 +15,30 @@
     }
 
     select.value = window.FinanzAppLanguage.getLocale();
+    return select;
+  }
+
+  function createThemeSelect() {
+    const select = document.createElement("select");
+    select.className = "field-input";
+    select.id = "global-theme-select";
+
+    const options = [
+      { value: "light", key: "theme_light", fallback: "Hell" },
+      { value: "dark", key: "theme_dark", fallback: "Dunkel" },
+      { value: "auto", key: "theme_auto", fallback: "Systemdesign" }
+    ];
+
+    for (const optionData of options) {
+      const option = document.createElement("option");
+      option.value = optionData.value;
+      option.dataset.i18nKey = optionData.key;
+      option.dataset.fallback = optionData.fallback;
+      option.textContent = window.FinanzAppLanguage.t(optionData.key) || optionData.fallback;
+      select.appendChild(option);
+    }
+
+    select.value = window.FinanzAppTheme?.getStoredThemeMode?.() || "auto";
     return select;
   }
 
@@ -38,16 +64,25 @@
     const form = document.createElement("form");
     form.className = "settings-form";
 
-    const field = document.createElement("div");
-    const label = document.createElement("label");
-    label.className = "field-label";
-    label.setAttribute("for", "global-locale-select");
-    label.textContent = window.FinanzAppLanguage.t("settings.title");
+    const localeField = document.createElement("div");
+    const localeLabel = document.createElement("label");
+    localeLabel.className = "field-label";
+    localeLabel.setAttribute("for", "global-locale-select");
+    localeLabel.textContent = window.FinanzAppLanguage.t("language_number_format");
 
     const localeSelect = createLocaleSelect();
+    const themeSelect = createThemeSelect();
 
-    field.appendChild(label);
-    field.appendChild(localeSelect);
+    localeField.appendChild(localeLabel);
+    localeField.appendChild(localeSelect);
+
+    const themeField = document.createElement("div");
+    const themeLabel = document.createElement("label");
+    themeLabel.className = "field-label";
+    themeLabel.setAttribute("for", "global-theme-select");
+    themeLabel.textContent = window.FinanzAppLanguage.t("theme_mode");
+    themeField.appendChild(themeLabel);
+    themeField.appendChild(themeSelect);
 
     const actions = document.createElement("div");
     actions.className = "settings-actions";
@@ -62,7 +97,8 @@
     const status = document.createElement("p");
     status.className = "form-status";
 
-    form.appendChild(field);
+    form.appendChild(localeField);
+    form.appendChild(themeField);
     form.appendChild(actions);
 
     panel.appendChild(title);
@@ -75,6 +111,7 @@
       button.setAttribute("aria-expanded", String(willOpen));
       if (willOpen) {
         localeSelect.value = window.FinanzAppLanguage.getLocale();
+        themeSelect.value = window.FinanzAppTheme?.getStoredThemeMode?.() || "auto";
         status.textContent = "";
       }
     });
@@ -82,6 +119,10 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       window.FinanzAppLanguage.setLocale(localeSelect.value);
+      const mode = THEME_OPTIONS.has(themeSelect.value) ? themeSelect.value : "auto";
+      if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
+        window.FinanzAppTheme.saveAndApplyThemeMode(mode);
+      }
       status.textContent = window.FinanzAppLanguage.t("settings.saved");
     });
 
@@ -108,9 +149,15 @@
     window.addEventListener("finanzapp:locale-changed", () => {
       button.setAttribute("aria-label", window.FinanzAppLanguage.t("settings.aria"));
       title.textContent = window.FinanzAppLanguage.t("settings.title");
-      label.textContent = window.FinanzAppLanguage.t("settings.title");
+      localeLabel.textContent = window.FinanzAppLanguage.t("language_number_format");
+      themeLabel.textContent = window.FinanzAppLanguage.t("theme_mode");
       submit.textContent = window.FinanzAppLanguage.t("settings.save");
       refreshLocaleOptions();
+      for (const option of Array.from(themeSelect.options)) {
+        const key = option.dataset.i18nKey || "";
+        const fallback = option.dataset.fallback || option.value;
+        option.textContent = window.FinanzAppLanguage.t(key) || fallback;
+      }
     });
 
     return wrap;

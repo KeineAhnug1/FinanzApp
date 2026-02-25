@@ -6,7 +6,8 @@
  */
 (function initSharedTopbar() {
   const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
-  const DEFAULT_SETTINGS = { currency: "EUR", locale: "de-DE" };
+  const DEFAULT_SETTINGS = { currency: "EUR", locale: "de-DE", themeMode: "auto" };
+  const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
   const CURRENCIES = [
     { value: "EUR", labelKey: "euro_label", fallback: "Euro (EUR)" },
     { value: "USD", labelKey: "usd_label", fallback: "US-Dollar (USD)" },
@@ -99,7 +100,8 @@
       const parsed = raw ? JSON.parse(raw) : {};
       const currency = CURRENCIES.some((item) => item.value === parsed?.currency) ? parsed.currency : DEFAULT_SETTINGS.currency;
       const locale = window.FinanzAppLanguage?.LOCALES?.includes(parsed?.locale) ? parsed.locale : (window.FinanzAppLanguage?.getLocale?.(userId) || DEFAULT_SETTINGS.locale);
-      return { ...parsed, currency, locale };
+      const themeMode = window.FinanzAppTheme?.getStoredThemeMode?.() || DEFAULT_SETTINGS.themeMode;
+      return { ...parsed, currency, locale, themeMode };
     } catch {
       return { ...DEFAULT_SETTINGS };
     }
@@ -116,6 +118,7 @@
     }
     merged.currency = nextSettings.currency;
     merged.locale = nextSettings.locale;
+    merged.themeMode = THEME_OPTIONS.has(nextSettings.themeMode) ? nextSettings.themeMode : DEFAULT_SETTINGS.themeMode;
     window.localStorage.setItem(key, JSON.stringify(merged));
   }
 
@@ -137,6 +140,14 @@
             <label class="field-label" for="settings-locale">${t("language_number_format", "Sprache & Zahlenformat")}</label>
             <select class="field-input" id="settings-locale" name="locale"></select>
           </div>
+          <div>
+            <label class="field-label" for="settings-theme-mode">${t("theme_mode", "Farbmodus")}</label>
+            <select class="field-input" id="settings-theme-mode" name="theme_mode">
+              <option value="light">${t("theme_light", "Hell")}</option>
+              <option value="dark">${t("theme_dark", "Dunkel")}</option>
+              <option value="auto">${t("theme_auto", "Systemdesign")}</option>
+            </select>
+          </div>
           <div class="settings-actions">
             <button class="submit-income" type="submit">${t("save", "Speichern")}</button>
             <button id="settings-reset-btn" class="settings-reset-btn" type="button">${t("reset", "Zurücksetzen")}</button>
@@ -153,6 +164,15 @@
     select.innerHTML = locales
       .map((locale) => `<option value="${locale}">${window.FinanzAppLanguage?.t?.(`locale.${locale}`) || locale}</option>`)
       .join("");
+  }
+
+  function renderThemeOptions(select) {
+    if (!select) return;
+    select.innerHTML = [
+      { value: "light", key: "theme_light", fallback: "Hell" },
+      { value: "dark", key: "theme_dark", fallback: "Dunkel" },
+      { value: "auto", key: "theme_auto", fallback: "Systemdesign" }
+    ].map((option) => `<option value="${option.value}">${t(option.key, option.fallback)}</option>`).join("");
   }
 
   function initGlobalSettings(topbar, sessionUser) {
@@ -184,15 +204,18 @@
     const status = topbar.querySelector("#settings-status");
     const currency = topbar.querySelector("#settings-currency");
     const locale = topbar.querySelector("#settings-locale");
-    if (!settingsBtn || !settingsPanel || !settingsForm || !resetBtn || !status || !currency || !locale) return;
+    const themeMode = topbar.querySelector("#settings-theme-mode");
+    if (!settingsBtn || !settingsPanel || !settingsForm || !resetBtn || !status || !currency || !locale || !themeMode) return;
 
     const userId = String(sessionUser?.id || "anonymous");
     renderLocaleOptions(locale);
+    renderThemeOptions(themeMode);
 
     const applyFormValues = () => {
       const settings = loadSettings(userId);
       currency.value = settings.currency;
       locale.value = settings.locale;
+      themeMode.value = settings.themeMode;
       status.textContent = "";
       status.classList.remove("is-error", "is-success");
     };
@@ -213,9 +236,13 @@
       event.preventDefault();
       const nextSettings = {
         currency: String(currency.value || DEFAULT_SETTINGS.currency).toUpperCase(),
-        locale: String(locale.value || DEFAULT_SETTINGS.locale)
+        locale: String(locale.value || DEFAULT_SETTINGS.locale),
+        themeMode: THEME_OPTIONS.has(themeMode.value) ? themeMode.value : DEFAULT_SETTINGS.themeMode
       };
       saveSettings(userId, nextSettings);
+      if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
+        window.FinanzAppTheme.saveAndApplyThemeMode(nextSettings.themeMode);
+      }
       if (window.FinanzAppLanguage?.setLocale) {
         window.FinanzAppLanguage.setLocale(nextSettings.locale, { userId });
       }
@@ -227,6 +254,9 @@
     resetBtn.addEventListener("click", () => {
       const resetSettings = { ...DEFAULT_SETTINGS };
       saveSettings(userId, resetSettings);
+      if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
+        window.FinanzAppTheme.saveAndApplyThemeMode(resetSettings.themeMode);
+      }
       if (window.FinanzAppLanguage?.setLocale) {
         window.FinanzAppLanguage.setLocale(resetSettings.locale, { userId });
       }
@@ -244,6 +274,7 @@
 
     window.addEventListener("finanzapp:locale-changed", () => {
       renderLocaleOptions(locale);
+      renderThemeOptions(themeMode);
       applyFormValues();
     });
   }
