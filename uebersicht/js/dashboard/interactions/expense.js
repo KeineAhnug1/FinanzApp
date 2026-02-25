@@ -1,4 +1,11 @@
 // Ausgaben-Logik: Listenaktionen und Speichern/Bearbeiten im Formular.
+function expenseT(key, fallback, params = {}) {
+  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  if (translated && translated !== key) return translated;
+  if (!params || !Object.keys(params).length) return fallback;
+  return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
 function initExpenseListActions() {
   const list = document.getElementById("expense-list");
   if (!list) return;
@@ -27,26 +34,26 @@ function initExpenseListActions() {
 
     if (action === "edit") {
       setExpenseFormModeEdit(entry);
-      setStatus("expense-form-status", "", "Bearbeitung aktiv. Aendere Werte und speichere.");
+      setStatus("expense-form-status", "", expenseT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere."));
       setActiveView("expense");
       return;
     }
 
     if (action === "delete") {
       const confirmDelete = await expenseState.askConfirm({
-        title: "Ausgabe loeschen?",
+        title: expenseT("expense_delete_confirm", "Ausgabe loeschen?"),
         message: `Der Eintrag "${entry.source || entry.category || "Ausgabe"}" wird dauerhaft entfernt.`,
-        confirmText: "Ja, loeschen"
+        confirmText: expenseT("confirm_delete_yes", "Ja, loeschen")
       });
       if (!confirmDelete) return;
 
       const result = await handleDeleteExpense(entryId);
       if (!result.ok) {
-        setStatus("expense-form-status", "error", result.message || "Eintrag konnte nicht geloescht werden.");
+        setStatus("expense-form-status", "error", result.message || expenseT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden."));
         return;
       }
 
-      setStatus("expense-form-status", "success", "Ausgabe geloescht.");
+      setStatus("expense-form-status", "success", expenseT("expense_deleted", "Ausgabe geloescht."));
       if (expenseState.editingId === entryId) setExpenseFormModeCreate();
       await refreshDashboardData();
     }
@@ -65,7 +72,7 @@ function initExpenseForm() {
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
       setExpenseFormModeCreate();
-      setStatus("expense-form-status", "", "Bearbeitung abgebrochen.");
+      setStatus("expense-form-status", "", expenseT("editing_cancelled", "Bearbeitung abgebrochen."));
     });
   }
 
@@ -85,19 +92,19 @@ function initExpenseForm() {
       is_active: formData.get("is_active") === "on"
     };
 
-    setStatus("expense-form-status", "", expenseState.editingId ? "Aktualisiere Ausgabe..." : "Speichere Ausgabe...");
+    setStatus("expense-form-status", "", expenseState.editingId ? expenseT("updating_expense", "Aktualisiere Ausgabe...") : expenseT("saving_expense", "Speichere Ausgabe..."));
 
     const result = expenseState.editingId
       ? await handleUpdateExpense(expenseState.editingId, payload)
       : await handleCreateExpense(payload);
 
     if (!result.ok) {
-      setStatus("expense-form-status", "error", result.message || "Speichern fehlgeschlagen.");
+      setStatus("expense-form-status", "error", result.message || expenseT("save_failed", "Speichern fehlgeschlagen."));
       if (submitBtn) submitBtn.disabled = false;
       return;
     }
 
-    setStatus("expense-form-status", "success", expenseState.editingId ? "Ausgabe aktualisiert." : "Ausgabe gespeichert.");
+    setStatus("expense-form-status", "success", expenseState.editingId ? expenseT("expense_updated", "Ausgabe aktualisiert.") : expenseT("expense_saved", "Ausgabe gespeichert."));
     await refreshCategoryData();
     setExpenseFormModeCreate();
     await refreshDashboardData();

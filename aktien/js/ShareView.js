@@ -106,13 +106,13 @@
 	function fnGetShareAccountLabel(sShareAccountId) {
 		const sId = fnNormalizeAccountId(sShareAccountId);
 		const oMatch = aShareAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
-		return String(oMatch?.label || sId || "Unbekanntes Konto");
+		return String(oMatch?.label || sId || fnT("stocks.unknown_account", "Unbekanntes Konto"));
 	}
 
 	function fnGetBankAccountLabel(sBankAccountId) {
 		const sId = fnNormalizeAccountId(sBankAccountId);
 		const oMatch = aBankAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
-		return String(oMatch?.label || sId || "Unbekanntes Konto");
+		return String(oMatch?.label || sId || fnT("stocks.unknown_account", "Unbekanntes Konto"));
 	}
 
 	function fnFmtTradeAmountRaw(nAmount) {
@@ -146,12 +146,12 @@
 	}) {
 		const sUserId = fnGetCurrentSessionUserId();
 		if (!/^[a-fA-F0-9]{24}$/.test(sUserId)) {
-			throw new Error("Kein gueltiger Nutzer gefunden. Bitte neu einloggen.");
+			throw new Error(fnT("stocks.invalid_user_relogin", "Kein gueltiger Nutzer gefunden. Bitte neu einloggen."));
 		}
 
 		const nRoundedAmount = Number(Number(nTotalValue).toFixed(2));
 		if (!Number.isFinite(nRoundedAmount) || nRoundedAmount <= 0) {
-			throw new Error("Betrag fuer Einnahme/Ausgabe ist ungueltig.");
+			throw new Error(fnT("stocks.invalid_trade_amount", "Betrag fuer Einnahme/Ausgabe ist ungueltig."));
 		}
 
 		const sSource = fnBuildTradeSource(sSymbol, nAmount, sType === "income" ? "in" : "out");
@@ -193,7 +193,7 @@
 	}) {
 		await fnLoadBankAccounts();
 		if (!aBankAccounts.length) {
-			throw new Error("Kein Bankkonto vorhanden. Bitte zuerst in der Kontenverwaltung ein Bankkonto anlegen.");
+			throw new Error(fnT("stocks.no_bank_account_available", "Kein Bankkonto vorhanden. Bitte zuerst in der Kontenverwaltung ein Bankkonto anlegen."));
 		}
 
 		return await new Promise((fnResolve) => {
@@ -261,6 +261,13 @@
 	 */
 	function fnShowError(sMessage) {
 		console.error(sMessage);
+	}
+
+	function fnT(sKey, sFallback, oParams = {}) {
+		const sTranslated = window.FinanzAppLanguage?.t?.(sKey, oParams);
+		if (sTranslated && sTranslated !== sKey) return sTranslated;
+		if (!oParams || !Object.keys(oParams).length) return sFallback;
+		return String(sFallback || "").replaceAll(/\{(\w+)\}/g, (_, sName) => String(oParams[sName] ?? ""));
 	}
 
 	/**
@@ -411,7 +418,7 @@
 		const oCachedData = fnCacheRead(sKey);
 		if (oCachedData) return { data: oCachedData, fromCache: true };
 
-		let sLastError = "Kein Backend-Endpoint verfügbar.";
+		let sLastError = fnT("stocks.no_backend_endpoint", "Kein Backend-Endpoint verfügbar.");
 		for (const sBaseUrl of aBackendBaseUrls) {
 			const sEndpointPath = `/api/twelvedata${sPath}`;
 			const oUrl = sBaseUrl
@@ -431,7 +438,7 @@
 
 				const oData = await oResponse.json();
 				if (oData?.status === "error") {
-					sLastError = oData?.message || "Twelve Data Fehler";
+					sLastError = oData?.message || fnT("stocks.twelve_data_error", "Twelve Data Fehler");
 					continue;
 				}
 
@@ -569,7 +576,7 @@
 			}
 		}
 
-		console.warn("Kein Positions-Endpoint erreichbar. Nutze nur lokale Käufe.");
+		console.warn(fnT("stocks.no_positions_endpoint_local_fallback", "Kein Positions-Endpoint erreichbar. Nutze nur lokale Käufe."));
 		return fnApplySoldPositions(aLocalBoughtPositions, aLocalSoldPositions);
 	}
 
@@ -779,6 +786,46 @@
 
 		return aCatalog
 			.filter((oRow) => oRow.sSymbol.toLowerCase().includes(sQuery) || oRow.sName.toLowerCase().includes(sQuery))
+			.slice(0, iLimit);
+	}
+
+	/**
+	 * Sucht Aktien über den zentralen Backend-Proxy (`/api/stocks/search`).
+	 * Scope: [SHARED]
+	 * @param {string} sQuery
+	 * @param {{sExchange?: string, iLimit?: number}} [oOptions]
+	 * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCountry: string, sCurrency: string}>>}
+	 */
+	async function fnSearchStocksViaBackend(sQuery, oOptions = {}) {
+		const sNeedle = String(sQuery || "").trim();
+		if (!sNeedle) return [];
+
+		const sExchange = String(oOptions?.sExchange || "NASDAQ").trim().toUpperCase();
+		const iLimitRaw = Number(oOptions?.iLimit);
+		const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
+
+		const oUrl = new URL("/api/stocks/search", window.location.origin);
+		oUrl.searchParams.set("q", sNeedle);
+		oUrl.searchParams.set("exchange", sExchange);
+		oUrl.searchParams.set("limit", String(iLimit));
+
+		const oResponse = await fetch(oUrl.toString());
+		if (!oResponse.ok) {
+			const oError = await oResponse.json().catch(() => null);
+			throw new Error(String(oError?.message || `HTTP ${oResponse.status}`));
+		}
+
+		const oPayload = await oResponse.json();
+		const aResults = Array.isArray(oPayload?.results) ? oPayload.results : [];
+		return aResults
+			.map((oRow) => ({
+				sSymbol: String(oRow?.sSymbol || oRow?.symbol || "").trim().toUpperCase(),
+				sName: String(oRow?.sName || oRow?.name || "").trim(),
+				sExchange: String(oRow?.sExchange || oRow?.exchange || "").trim(),
+				sCountry: String(oRow?.sCountry || oRow?.country || "").trim(),
+				sCurrency: String(oRow?.sCurrency || oRow?.currency || "").trim(),
+			}))
+			.filter((oRow) => Boolean(oRow.sSymbol))
 			.slice(0, iLimit);
 	}
 
@@ -2668,13 +2715,12 @@
 	// =====================================================
 
 	/**
-	 * Initialisiert die Einzelanalyse inkl. Katalogsuche, Depot-Auswahl, Kauf und Einzel-Chart.
+	 * Initialisiert die Einzelanalyse inkl. API-Suche, Depot-Auswahl, Kauf und Einzel-Chart.
 	 * Scope: [ANALYSE]
 	 * Variablen:
 	 * - `aPositions`: Vollständige Positionsliste.
 	 * - `aOwnedRows`: Aggregierte Symbol-Zeilen aus dem Depot.
-	 * - `aAllStocksCatalog`: Gesamter lokaler Katalog aus `Allstocks.json`.
-	 * - `sCatalogSearchTerm`: Aktueller Suchstring für den Katalog.
+	 * - `sCatalogSearchTerm`: Aktueller Suchstring für die Suche.
 	 * - `sActiveRange`: Gewählter Zeitraum.
 	 * - `sSelectedSymbol`: Aktuell ausgewähltes Symbol.
 	 * - `nLastKnownClose`: Letzter bekannter Kurs für Kauf-Fallback.
@@ -2716,11 +2762,11 @@
 		}
 
 		let aOwnedRows = fnAggregateOwnedSymbols(aPositions);
-		const aAllStocksCatalog = await fnLoadAllStocksCatalog();
 		let sActiveRange = "1D";
 		let sCatalogSearchTerm = "";
 		let sSelectedSymbol = aOwnedRows[0]?.sSymbol || "";
 		let aCurrentSearchResults = [];
+		let iSearchRequestSeq = 0;
 		let nLastKnownClose = Number.NaN;
 		let sSelectedTradeShareAccountId = fnNormalizeAccountId(sSelectedShareAccountId || aShareAccounts[0]?.id);
 
@@ -2772,8 +2818,22 @@
 			elTradeShareAccountSelect.disabled = aShareAccounts.length === 0;
 		};
 
-		const fnRenderSearchResults = () => {
-			aCurrentSearchResults = fnSearchStocksCatalog(aAllStocksCatalog, sCatalogSearchTerm, 20);
+		const fnRenderSearchResults = async () => {
+			const sNeedle = String(sCatalogSearchTerm || "").trim();
+			const iRequestSeq = ++iSearchRequestSeq;
+
+			if (!sNeedle) {
+				aCurrentSearchResults = [];
+				if (iRequestSeq === iSearchRequestSeq) {
+					elSearchResults.innerHTML = `<div class="muted">Bitte Suchbegriff eingeben.</div>`;
+				}
+				return;
+			}
+
+			aCurrentSearchResults = await fnSearchStocksViaBackend(sNeedle, { sExchange: "NASDAQ", iLimit: 20 });
+
+			if (iRequestSeq !== iSearchRequestSeq) return;
+
 			if (!aCurrentSearchResults.length) {
 				elSearchResults.innerHTML = `<div class="muted">Keine Treffer gefunden.</div>`;
 				return;
@@ -2781,8 +2841,8 @@
 
 			elSearchResults.innerHTML = aCurrentSearchResults
 				.map((oRow) => {
-					const sLabel = `${fnEscapeHtml(oRow.sSymbol)} - ${fnEscapeHtml(oRow.sName || "Unbekannter Name")}`;
-					const sMeta = [oRow.sExchange, oRow.sCurrency].filter(Boolean).join(" | ");
+					const sLabel = `${fnEscapeHtml(oRow.sSymbol)} - ${fnEscapeHtml(oRow.sName || fnT("stocks.unknown_name", "Unbekannter Name"))}`;
+					const sMeta = [oRow.sExchange, oRow.sCurrency || oRow.sCountry].filter(Boolean).join(" | ");
 					return `
             <button type="button" class="analysis-search-item" data-symbol="${fnEscapeHtml(oRow.sSymbol)}">
               <span><b>${sLabel}</b></span>
@@ -2818,15 +2878,15 @@
 			nLastKnownClose = Number.isFinite(oChartResult?.nLastClose) ? oChartResult.nLastClose : Number.NaN;
 		};
 
-		elCatalogSearchInput.addEventListener("input", () => {
+		elCatalogSearchInput.addEventListener("input", async () => {
 			sCatalogSearchTerm = String(elCatalogSearchInput.value || "").trim();
-			fnRenderSearchResults();
+			await fnRenderSearchResults();
 		});
 
 		elCatalogSelectFirstBtn.addEventListener("click", async () => {
 			const oFirstHit = aCurrentSearchResults[0];
 			if (!oFirstHit?.sSymbol) {
-				elInfo.textContent = "Kein Treffer zur aktuellen Suche auswählbar.";
+				elInfo.textContent = fnT("stocks.no_selectable_hit", "Kein Treffer zur aktuellen Suche auswählbar.");
 				return;
 			}
 
@@ -2874,18 +2934,18 @@
 			const nAmount = Number(elTradeAmountInput.value);
 
 			if (!sSymbol) {
-				elBuyFeedback.textContent = "Bitte zuerst eine Aktie auswählen.";
+				elBuyFeedback.textContent = fnT("stocks.select_stock_first", "Bitte zuerst eine Aktie auswählen.");
 				return;
 			}
 
 			if (!Number.isFinite(nAmount) || nAmount <= 0) {
-				elBuyFeedback.textContent = "Bitte eine gültige Kaufmenge größer als 0 eingeben.";
+				elBuyFeedback.textContent = fnT("stocks.invalid_buy_amount", "Bitte eine gültige Kaufmenge größer als 0 eingeben.");
 				return;
 			}
 
 			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
 			if (!sTargetShareAccountId) {
-				elBuyFeedback.textContent = "Kauf nicht möglich: Bitte ein Aktienkonto auswählen.";
+				elBuyFeedback.textContent = fnT("stocks.buy_missing_share_account", "Kauf nicht möglich: Bitte ein Aktienkonto auswählen.");
 				return;
 			}
 
@@ -2894,7 +2954,7 @@
 				nBuyPrice = nLastKnownClose;
 			}
 			if (!Number.isFinite(nBuyPrice) || nBuyPrice <= 0) {
-				elBuyFeedback.textContent = "Kauf nicht möglich: aktueller Kurs konnte nicht geladen werden.";
+				elBuyFeedback.textContent = fnT("stocks.buy_price_unavailable", "Kauf nicht möglich: aktueller Kurs konnte nicht geladen werden.");
 				return;
 			}
 
@@ -2913,7 +2973,7 @@
 			}
 
 			if (!oSelectedBankAccount?.id) {
-				elBuyFeedback.textContent = "Kauf abgebrochen.";
+				elBuyFeedback.textContent = fnT("stocks.buy_cancelled", "Kauf abgebrochen.");
 				return;
 			}
 
@@ -2956,12 +3016,12 @@
 			const nAmount = Number(elTradeAmountInput.value);
 
 			if (!sSymbol) {
-				elBuyFeedback.textContent = "Bitte zuerst eine Aktie auswählen.";
+				elBuyFeedback.textContent = fnT("stocks.select_stock_first", "Bitte zuerst eine Aktie auswählen.");
 				return;
 			}
 
 			if (!Number.isFinite(nAmount) || nAmount <= 0) {
-				elBuyFeedback.textContent = "Bitte eine gültige Verkaufsmenge größer als 0 eingeben.";
+				elBuyFeedback.textContent = fnT("stocks.invalid_sell_amount", "Bitte eine gültige Verkaufsmenge größer als 0 eingeben.");
 				return;
 			}
 
@@ -2978,7 +3038,7 @@
 
 			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
 			if (!sTargetShareAccountId) {
-				elBuyFeedback.textContent = "Verkauf nicht möglich: Bitte ein Aktienkonto auswählen.";
+				elBuyFeedback.textContent = fnT("stocks.sell_missing_share_account", "Verkauf nicht möglich: Bitte ein Aktienkonto auswählen.");
 				return;
 			}
 
@@ -2996,7 +3056,7 @@
 				nSellPrice = nLastKnownClose;
 			}
 			if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
-				elBuyFeedback.textContent = "Verkauf nicht möglich: aktueller Kurs konnte nicht geladen werden.";
+				elBuyFeedback.textContent = fnT("stocks.sell_price_unavailable", "Verkauf nicht möglich: aktueller Kurs konnte nicht geladen werden.");
 				return;
 			}
 
@@ -3015,7 +3075,7 @@
 			}
 
 			if (!oSelectedBankAccount?.id) {
-				elBuyFeedback.textContent = "Verkauf abgebrochen.";
+				elBuyFeedback.textContent = fnT("stocks.sell_cancelled", "Verkauf abgebrochen.");
 				return;
 			}
 
@@ -3053,17 +3113,12 @@
 		fnRenderOwnedRows();
 		fnRenderOwnedSelectOptions();
 		fnRenderTradeShareAccountOptions();
-		fnRenderSearchResults();
-
-		if (!sSelectedSymbol) {
-			const oFirstHit = fnSearchStocksCatalog(aAllStocksCatalog, "", 1)[0];
-			sSelectedSymbol = oFirstHit?.sSymbol || "";
-		}
+		await fnRenderSearchResults();
 
 		if (sSelectedSymbol) {
 			await fnRefreshAnalysisChart();
 		} else {
-			elInfo.textContent = "Keine Aktie verfügbar. Bitte Suchdatei prüfen.";
+			elInfo.textContent = fnT("stocks.no_stock_available_use_search", "Keine Aktie verfügbar. Bitte Suche verwenden.");
 			fnClearCanvas(oCtx, elCanvas);
 		}
 
@@ -3114,7 +3169,7 @@
 			try {
 				const oQuoteResult = await fnGetLatestPriceBySymbolWithFallback(sSymbol);
 				const nLast = Number(oQuoteResult?.nPrice);
-				if (!Number.isFinite(nLast) || nLast <= 0) throw new Error("Quote ohne gueltigen Kurs.");
+				if (!Number.isFinite(nLast) || nLast <= 0) throw new Error(fnT("stocks.invalid_quote_price", "Quote ohne gueltigen Kurs."));
 
 				const aQuoteFallbackPoints = fnBuildZeroFallbackSeries(oQuery, nLast, "");
 				const nFirst = Number(aQuoteFallbackPoints[0]?.y);
@@ -3448,7 +3503,7 @@
 				.filter((sSymbol) => setSelectedSymbols.has(sSymbol));
 
 			if (!aSelectedSymbols.length) {
-				elInfo.textContent = "Bitte mindestens eine gehaltene Aktie auswählen.";
+				elInfo.textContent = fnT("stocks.select_at_least_one", "Bitte mindestens eine gehaltene Aktie auswählen.");
 				elSelectedSymbols.textContent = "—";
 				elCurrentValue.textContent = "—";
 				elAvgProfitYear.textContent = "—";

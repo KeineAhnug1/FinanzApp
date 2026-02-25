@@ -219,7 +219,7 @@
       if (window.FinanzAppLanguage?.setLocale) {
         window.FinanzAppLanguage.setLocale(nextSettings.locale, { userId });
       }
-      status.textContent = window.FinanzAppLanguage?.t?.("settings.saved") || "Einstellungen gespeichert.";
+      status.textContent = t("settings.saved", "Einstellungen gespeichert.");
       status.classList.remove("is-error");
       status.classList.add("is-success");
     });
@@ -231,7 +231,7 @@
         window.FinanzAppLanguage.setLocale(resetSettings.locale, { userId });
       }
       applyFormValues();
-      status.textContent = window.FinanzAppLanguage?.t?.("settings.reset_done") || "Einstellungen zurückgesetzt.";
+      status.textContent = t("settings.reset_done", "Einstellungen zurückgesetzt.");
       status.classList.remove("is-error");
       status.classList.add("is-success");
     });

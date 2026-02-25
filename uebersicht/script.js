@@ -13,11 +13,20 @@ class UsersLogin extends HTMLElement {
     this.mode = "login";
     this.pendingEmail = "";
     this.flash = null;
+    this.localeListener = () => {
+      this.render();
+      this.bindEvents();
+    };
   }
 
   connectedCallback() {
     this.render();
     this.bindEvents();
+    window.addEventListener("finanzapp:locale-changed", this.localeListener);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("finanzapp:locale-changed", this.localeListener);
   }
 
   bindEvents() {

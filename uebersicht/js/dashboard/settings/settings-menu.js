@@ -69,7 +69,7 @@ function initSettingsMenu() {
     populateSettingsForm();
     setIncomeFormModeCreate();
     setExpenseFormModeCreate();
-    const resetMessage = window.FinanzAppLanguage?.t?.("settings.reset_done") || "Einstellungen zurueckgesetzt.";
+    const resetMessage = window.FinanzAppLanguage?.t?.("settings.reset_done") || "Einstellungen zurückgesetzt.";
     setStatus("settings-status", "success", resetMessage);
   });
 

@@ -1,4 +1,11 @@
 // Einnahmen-Logik: Listenaktionen, Formularablauf und Basis-Einkommen.
+function incomeT(key, fallback, params = {}) {
+  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  if (translated && translated !== key) return translated;
+  if (!params || !Object.keys(params).length) return fallback;
+  return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
 function initIncomeListActions() {
   const list = document.getElementById("income-list");
   if (!list) return;
@@ -27,26 +34,26 @@ function initIncomeListActions() {
 
     if (action === "edit") {
       setIncomeFormModeEdit(entry);
-      setStatus("income-form-status", "", "Bearbeitung aktiv. Aendere Werte und speichere.");
+      setStatus("income-form-status", "", incomeT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere."));
       setActiveView("income");
       return;
     }
 
     if (action === "delete") {
       const confirmDelete = await incomeState.askConfirm({
-        title: "Einnahme loeschen?",
+        title: incomeT("income_delete_confirm", "Einnahme loeschen?"),
         message: `Der Eintrag "${entry.source}" wird dauerhaft entfernt.`,
-        confirmText: "Ja, loeschen"
+        confirmText: incomeT("confirm_delete_yes", "Ja, loeschen")
       });
       if (!confirmDelete) return;
 
       const result = await handleDeleteIncome(entryId);
       if (!result.ok) {
-        setStatus("income-form-status", "error", result.message || "Eintrag konnte nicht geloescht werden.");
+        setStatus("income-form-status", "error", result.message || incomeT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden."));
         return;
       }
 
-      setStatus("income-form-status", "success", "Einnahme geloescht.");
+      setStatus("income-form-status", "success", incomeT("income_deleted", "Einnahme geloescht."));
       if (incomeState.editingId === entryId) setIncomeFormModeCreate();
       await refreshDashboardData();
     }
@@ -65,7 +72,7 @@ function initIncomeForm() {
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
       setIncomeFormModeCreate();
-      setStatus("income-form-status", "", "Bearbeitung abgebrochen.");
+      setStatus("income-form-status", "", incomeT("editing_cancelled", "Bearbeitung abgebrochen."));
     });
   }
 
@@ -85,19 +92,19 @@ function initIncomeForm() {
       is_active: formData.get("is_active") === "on"
     };
 
-    setStatus("income-form-status", "", incomeState.editingId ? "Aktualisiere Einnahme..." : "Speichere Einnahme...");
+    setStatus("income-form-status", "", incomeState.editingId ? incomeT("updating_income", "Aktualisiere Einnahme...") : incomeT("saving_income", "Speichere Einnahme..."));
 
     const result = incomeState.editingId
       ? await handleUpdateIncome(incomeState.editingId, payload)
       : await handleCreateIncome(payload);
 
     if (!result.ok) {
-      setStatus("income-form-status", "error", result.message || "Speichern fehlgeschlagen.");
+      setStatus("income-form-status", "error", result.message || incomeT("save_failed", "Speichern fehlgeschlagen."));
       if (submitBtn) submitBtn.disabled = false;
       return;
     }
 
-    setStatus("income-form-status", "success", incomeState.editingId ? "Einnahme aktualisiert." : "Einnahme gespeichert.");
+    setStatus("income-form-status", "success", incomeState.editingId ? incomeT("income_updated", "Einnahme aktualisiert.") : incomeT("income_saved", "Einnahme gespeichert."));
     await refreshCategoryData();
     setIncomeFormModeCreate();
     await refreshDashboardData();
@@ -120,16 +127,16 @@ function initBaseIncomeForm() {
 
     const incomeValue = Number(input.value);
     if (!Number.isFinite(incomeValue) || incomeValue < 0) {
-      setStatus("base-income-status", "error", "Bitte eine Zahl >= 0 eingeben.");
+      setStatus("base-income-status", "error", incomeT("enter_number_gte_zero", "Bitte eine Zahl >= 0 eingeben."));
       return;
     }
 
     if (submitBtn) submitBtn.disabled = true;
-    setStatus("base-income-status", "", "Speichere Monatseinnahme...");
+    setStatus("base-income-status", "", incomeT("saving_monthly_income", "Speichere Monatseinnahme..."));
 
     const result = await handleUpdateBaseIncome(incomeValue);
     if (!result.ok || !result.user) {
-      setStatus("base-income-status", "error", result.message || "Monatseinnahme konnte nicht gespeichert werden.");
+      setStatus("base-income-status", "error", result.message || incomeT("monthly_income_save_failed", "Monatseinnahme konnte nicht gespeichert werden."));
       if (submitBtn) submitBtn.disabled = false;
       return;
     }
@@ -137,7 +144,7 @@ function initBaseIncomeForm() {
     setCurrentUser(result.user);
     hydrateProfile(appState.user);
     input.value = Number(appState.user.income || 0).toFixed(2);
-    setStatus("base-income-status", "success", "Monatseinnahme aktualisiert.");
+    setStatus("base-income-status", "success", incomeT("monthly_income_updated", "Monatseinnahme aktualisiert."));
     updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
     if (submitBtn) submitBtn.disabled = false;
   });

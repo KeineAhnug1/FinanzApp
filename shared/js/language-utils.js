@@ -14,6 +14,7 @@
   let activeDictionary = {};
   let activeLocale = DEFAULT_LOCALE;
   let tokenLookup = new Map();
+  let normalizedTokenLookup = new Map();
   let isReady = false;
   let initPromise = null;
 
@@ -22,6 +23,17 @@
 
   function format(template, params = {}) {
     return String(template).replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+  }
+
+  function normalizeToken(text) {
+    return String(text || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase()
+      .replace(/ä/g, "ae")
+      .replace(/ö/g, "oe")
+      .replace(/ü/g, "ue")
+      .replace(/ß/g, "ss");
   }
 
   function dashboardSettingsKey(userId) {
@@ -85,10 +97,15 @@
 
   function rebuildTokenLookup() {
     tokenLookup = new Map();
+    normalizedTokenLookup = new Map();
     for (const [key, value] of Object.entries(sourceDictionary || {})) {
       const normalized = String(value || "").trim();
       if (!normalized) continue;
       tokenLookup.set(normalized, key);
+      const folded = normalizeToken(normalized);
+      if (folded && !normalizedTokenLookup.has(folded)) {
+        normalizedTokenLookup.set(folded, key);
+      }
     }
   }
 
@@ -138,7 +155,11 @@
     const raw = String(sourceText || "");
     const trimmed = raw.trim();
     if (!trimmed) return raw;
-    const key = tokenLookup.get(trimmed);
+    const key =
+      tokenLookup.get(trimmed) ||
+      normalizedTokenLookup.get(normalizeToken(trimmed)) ||
+      (activeDictionary[trimmed] ? trimmed : null) ||
+      (activeDictionary[normalizeToken(trimmed)] ? normalizeToken(trimmed) : null);
     if (!key) return raw;
     const translated = activeDictionary[key] || sourceDictionary[key] || trimmed;
     return raw.replace(trimmed, translated);
@@ -149,7 +170,7 @@
     return format(template, params);
   }
 
-  function applyTranslations(root = document.body) {
+  function applyTranslations(root = document.documentElement) {
     if (!root) return;
     const locale = activeLocale || getLocale();
     document.documentElement.lang = locale;
@@ -213,7 +234,7 @@
     window.localStorage.setItem(STORAGE_KEY, locale);
     if (userId) writeDashboardLocale(userId, locale);
     setActiveLocale(locale);
-    safeApply(document.body);
+    safeApply(document.documentElement);
     if (!options.silent) {
       window.dispatchEvent(new CustomEvent("finanzapp:locale-changed", { detail: { locale } }));
     }
@@ -230,14 +251,14 @@
       rebuildTokenLookup();
     }
     setActiveLocale(getLocale());
-    safeApply(document.body);
+    safeApply(document.documentElement);
     isReady = true;
 
     const observer = new MutationObserver(() => {
-      safeApply(document.body);
+      safeApply(document.documentElement);
     });
-    if (document.body) {
-      observer.observe(document.body, {
+    if (document.documentElement) {
+      observer.observe(document.documentElement, {
         childList: true,
         subtree: true,
         characterData: true,

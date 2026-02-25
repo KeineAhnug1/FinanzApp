@@ -25,6 +25,13 @@ const EXCHANGE_RATE_BASE_URL = "https://v6.exchangerate-api.com/v6";
 const EXCHANGE_RATE_API_KEY = String(
   process.env.EXCHANGE_RATE_API_KEY || process.env.EXCHANGERATE_API_KEY || process.env.EXCHANGE_API_KEY || ""
 ).trim();
+const STOCK_SEARCH_BASE_URL = String(
+  process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || "http://3.225.21.161"
+).trim();
+const STOCK_API_KEY = String(process.env.STOCK_API_KEY || process.env.Hairy_Balls || "Hairy_Balls").trim();
+const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ")
+  .trim()
+  .toUpperCase();
 const PASSWORD_HASH_PREFIX = "scrypt$";
 const PASSWORD_HASH_SHA256_PREFIX = "sha256$";
 const PASSWORD_SALT_BYTES = 16;
@@ -3028,6 +3035,69 @@ async function handleExchangeRates(req, res, requestUrl, session) {
   }
 }
 
+async function handleStockSearchProxy(req, res, requestUrl, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!STOCK_SEARCH_BASE_URL) {
+    return sendJson(res, 500, { ok: false, message: "STOCK_SEARCH_BASE_URL fehlt im Backend." });
+  }
+
+  if (!STOCK_API_KEY) {
+    return sendJson(res, 500, { ok: false, message: "STOCK_API_KEY fehlt im Backend." });
+  }
+
+  const query = String(requestUrl.searchParams.get("q") || "").trim();
+  if (!query) {
+    return sendJson(res, 400, { ok: false, message: "Query-Parameter 'q' fehlt." });
+  }
+
+  const exchange = String(requestUrl.searchParams.get("exchange") || STOCK_SEARCH_DEFAULT_EXCHANGE)
+    .trim()
+    .toUpperCase();
+  const requestedLimitRaw = Number(requestUrl.searchParams.get("limit"));
+  const requestedLimit = Number.isFinite(requestedLimitRaw) ? requestedLimitRaw : 20;
+  const limit = Math.max(1, Math.min(50, Math.floor(requestedLimit)));
+
+  const upstreamUrl = new URL("/search", STOCK_SEARCH_BASE_URL);
+  upstreamUrl.searchParams.set("q", query);
+  if (exchange) upstreamUrl.searchParams.set("exchange", exchange);
+
+  try {
+    const upstreamResponse = await fetch(upstreamUrl.toString(), {
+      headers: {
+        Accept: "application/json",
+        "x-api-key": STOCK_API_KEY
+      }
+    });
+    const payload = await upstreamResponse.json().catch(() => null);
+    if (!upstreamResponse.ok || !Array.isArray(payload)) {
+      const message = payload?.detail || payload?.message || "Stock-Suche konnte nicht geladen werden.";
+      return sendJson(res, 502, { ok: false, message });
+    }
+
+    const results = payload
+      .map((row) => ({
+        sSymbol: String(row?.symbol || "").trim().toUpperCase(),
+        sName: String(row?.name || "").trim(),
+        sExchange: String(row?.exchange || "").trim(),
+        sCountry: String(row?.country || "").trim()
+      }))
+      .filter((row) => Boolean(row.sSymbol))
+      .slice(0, limit);
+
+    return sendJson(res, 200, { ok: true, results });
+  } catch (error) {
+    return sendJson(res, 502, {
+      ok: false,
+      message: "Stock-Suche fehlgeschlagen.",
+      detail: String(error?.message || error)
+    });
+  }
+}
+
 function resolveStaticPath(pathname) {
   if (pathname === "/") return path.join(PROJECT_ROOT, "uebersicht", "index.html");
   if (pathname === "/dashboard.html") return path.join(PROJECT_ROOT, "uebersicht", "dashboard.html");
@@ -3238,6 +3308,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (pathname === "/api/debug/positions") return await handleDebugPositions(req, res, url, session);
       if (pathname.startsWith("/api/twelvedata")) return await handleTwelveDataProxy(req, res, pathname, url, session);
+      if (pathname === "/api/stocks/search") return await handleStockSearchProxy(req, res, url, session);
       if (pathname === "/api/exchange-rates/latest") return await handleExchangeRates(req, res, url, session);
 
       return sendJson(res, 404, { ok: false, message: "API route not found" });

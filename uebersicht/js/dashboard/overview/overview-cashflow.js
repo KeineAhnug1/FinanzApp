@@ -1,4 +1,11 @@
 // Uebersicht: Gruppierung/Rendering der Listen sowie Cashflow- und KPI-Berechnung.
+function cashflowT(key, fallback, params = {}) {
+  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  if (translated && translated !== key) return translated;
+  if (!params || !Object.keys(params).length) return fallback;
+  return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
 function entryMatchesQuery(entry, query, dateField) {
   if (!query) return true;
   const haystack = [
@@ -71,7 +78,7 @@ function buildHierarchicalGroups(entries, dateField) {
       const yearEntries = months.flatMap((month) => month.days.flatMap((day) => day.entries));
       return {
         key: yearKey,
-        label: yearKey === "unknown" ? "Ohne Jahr" : yearKey,
+        label: yearKey === "unknown" ? cashflowT("cashflow.without_year", "Ohne Jahr") : yearKey,
         months,
         count: yearEntries.length,
         total: yearEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
@@ -90,7 +97,7 @@ function renderIncomeItem(entry) {
             <span class="income-tag">${recurrenceLabel(entry.recurrence)}</span>
             ${
               entry.recurrence !== "once"
-                ? `<span class="income-tag">${entry.is_active ? "Aktiv" : "Pausiert"}</span>`
+                ? `<span class="income-tag">${entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert")}</span>`
                 : ""
             }
           </div>
@@ -118,7 +125,7 @@ function renderExpenseItem(entry) {
             <span class="income-tag">${recurrenceLabel(entry.recurrence)}</span>
             ${
               entry.recurrence !== "once"
-                ? `<span class="income-tag">${entry.is_active ? "Aktiv" : "Pausiert"}</span>`
+                ? `<span class="income-tag">${entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert")}</span>`
                 : ""
             }
           </div>
@@ -515,7 +522,7 @@ function renderCashflowBars(incomeEntries, expenseEntries, baseIncome) {
 
   container.innerHTML = `
     <div class="cashflow-scroll">
-      <svg class="cashflow-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Linienverlauf fuer Einnahmen, Ausgaben und Erspartes">
+      <svg class="cashflow-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${cashflowT("cashflow.chart_aria", "Linienverlauf fuer Einnahmen, Ausgaben und Erspartes")}">
         ${yGridLines}
         <line class="cashflow-axis" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}"></line>
         <line class="cashflow-axis" x1="${padLeft}" y1="${zeroY}" x2="${width - padRight}" y2="${zeroY}"></line>
@@ -531,9 +538,9 @@ function renderCashflowBars(incomeEntries, expenseEntries, baseIncome) {
       </svg>
     </div>
     <div class="cashflow-legend" aria-hidden="true">
-      <span class="cashflow-legend-item"><span class="cashflow-legend-dot income"></span>Einnahmen</span>
-      <span class="cashflow-legend-item"><span class="cashflow-legend-dot expense"></span>Ausgaben</span>
-      <span class="cashflow-legend-item"><span class="cashflow-legend-dot savings"></span>Erspartes</span>
+      <span class="cashflow-legend-item"><span class="cashflow-legend-dot income"></span>${cashflowT("income_short", "Einnahmen")}</span>
+      <span class="cashflow-legend-item"><span class="cashflow-legend-dot expense"></span>${cashflowT("expenses_short", "Ausgaben")}</span>
+      <span class="cashflow-legend-item"><span class="cashflow-legend-dot savings"></span>${cashflowT("cashflow.saved", "Erspartes")}</span>
     </div>
   `;
 
@@ -600,9 +607,9 @@ function renderCashflowBars(incomeEntries, expenseEntries, baseIncome) {
 
     tooltip.innerHTML = `
       <p class="cashflow-tooltip-title">${escapeHtml(month)}</p>
-      <p class="cashflow-tooltip-row"><span>Einnahmen</span><strong>${escapeHtml(income)}</strong></p>
-      <p class="cashflow-tooltip-row"><span>Ausgaben</span><strong>${escapeHtml(expense)}</strong></p>
-      <p class="cashflow-tooltip-row"><span>Erspart</span><strong>${escapeHtml(savings)}</strong></p>
+      <p class="cashflow-tooltip-row"><span>${cashflowT("income_short", "Einnahmen")}</span><strong>${escapeHtml(income)}</strong></p>
+      <p class="cashflow-tooltip-row"><span>${cashflowT("expenses_short", "Ausgaben")}</span><strong>${escapeHtml(expense)}</strong></p>
+      <p class="cashflow-tooltip-row"><span>${cashflowT("cashflow.saved_short", "Erspart")}</span><strong>${escapeHtml(savings)}</strong></p>
     `;
     tooltip.hidden = false;
     positionTooltip(event);
@@ -660,14 +667,22 @@ function updateFinanceCards(user, incomeEntries, expenseEntries) {
   setText("kpi-income", formatMoney(monthlyIncome));
   setTrend(
     "kpi-income-trend",
-    currentIncome > previousIncome ? "ueber Vormonat" : currentIncome < previousIncome ? "unter Vormonat" : "wie Vormonat",
+    currentIncome > previousIncome
+      ? cashflowT("cashflow.above_prev_month", "ueber Vormonat")
+      : currentIncome < previousIncome
+        ? cashflowT("cashflow.below_prev_month", "unter Vormonat")
+        : cashflowT("cashflow.same_prev_month", "wie Vormonat"),
     currentIncome > previousIncome ? "positive" : "neutral"
   );
 
   setText("kpi-expenses", formatMoney(monthlyExpense));
   setTrend(
     "kpi-expenses-trend",
-    currentExpense > previousExpense ? "ueber Vormonat" : currentExpense < previousExpense ? "unter Vormonat" : "wie Vormonat",
+    currentExpense > previousExpense
+      ? cashflowT("cashflow.above_prev_month", "ueber Vormonat")
+      : currentExpense < previousExpense
+        ? cashflowT("cashflow.below_prev_month", "unter Vormonat")
+        : cashflowT("cashflow.same_prev_month", "wie Vormonat"),
     "neutral"
   );
 
