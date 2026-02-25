@@ -236,7 +236,7 @@
 		const aPointsWithRange = fnWithFixedDateRange(aRawPoints, oQuery, oArgs.bPnlOnly);
 		let aPoints = oArgs.bPnlOnly ? aPointsWithRange : fnEnsureInitialPortfolioJump(aPointsWithRange);
 
-		if (aPoints.length < 2) {
+		if (aPoints.length === 0) {
 			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
 			if (!Number.isFinite(nLastValue) || nLastValue === 0) {
 				const aCurrentComposition = fnBuildDepotComposition(aPositions, mSeriesBySymbol);
@@ -778,7 +778,7 @@
 
 		let aPoints = fnWithFixedDateRange(aRawPoints, oQuery, false);
 
-		if (aPoints.length < 2) {
+		if (aPoints.length === 0) {
 			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
 			if (!Number.isFinite(nLastValue) || nLastValue === 0) {
 				const nLatestSeriesClose = Number(aSeriesValues[aSeriesValues.length - 1]?.close);

@@ -73,9 +73,33 @@
 	 * @returns {{interval: string, outputsize?: number, start_date?: string, end_date?: string}}
 	 */
 	function fnRangeToQuery(sRange, aPositions) {
-		if (sRange === "1D") return { interval: "5min", outputsize: 120 };
-		if (sRange === "1W") return { interval: "1day", outputsize: 35 };
-		if (sRange === "1M") return { interval: "1day", outputsize: 60 };
+		if (sRange === "1D") return { interval: "5min", outputsize: 288 };
+
+		if (sRange === "1W") {
+			const dEndDate = new Date();
+			const dStartDate = new Date(dEndDate);
+			dStartDate.setDate(dStartDate.getDate() - 6);
+
+			return {
+				interval: "1day",
+				start_date: fnFmtYmd(dStartDate),
+				end_date: fnFmtYmd(dEndDate),
+				outputsize: 14,
+			};
+		}
+
+		if (sRange === "1M") {
+			const dEndDate = new Date();
+			const dStartDate = new Date(dEndDate);
+			dStartDate.setMonth(dStartDate.getMonth() - 1);
+
+			return {
+				interval: "1day",
+				start_date: fnFmtYmd(dStartDate),
+				end_date: fnFmtYmd(dEndDate),
+				outputsize: 60,
+			};
+		}
 
 		if (sRange === "1Y") {
 			const dEndDate = new Date();
@@ -383,9 +407,19 @@
 				const sDatetime = oValue?.datetime;
 				const nClose = Number(oValue?.close);
 				const iPointMs = fnToMsFromTdDatetime(sDatetime);
+				const bIsDailyPoint = String(sDatetime || "").includes(" ") === false;
+				const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmd(new Date(iPurchaseMs)) : "";
+				const sPointDay = String(sDatetime || "").slice(0, 10);
 
 				if (!sDatetime || !Number.isFinite(nClose)) continue;
-				if (Number.isFinite(iPurchaseMs) && Number.isFinite(iPointMs) && iPointMs < iPurchaseMs) continue;
+				if (Number.isFinite(iPurchaseMs)) {
+					if (bIsDailyPoint) {
+						// Tagesdaten gelten fuer den gesamten Kalendertag; Kauftag bleibt sichtbar.
+						if (sPointDay && sPurchaseDay && sPointDay < sPurchaseDay) continue;
+					} else if (Number.isFinite(iPointMs) && iPointMs < iPurchaseMs) {
+						continue;
+					}
+				}
 
 				mCloseByTime.set(sDatetime, nClose);
 				setAllTimes.add(sDatetime);
@@ -441,8 +475,18 @@
 
 			const aFilteredValues = aSeriesValues.filter((oValue) => {
 				const iPointMs = fnToMsFromTdDatetime(oValue?.datetime);
+				const sDatetime = String(oValue?.datetime || "");
+				const bIsDailyPoint = sDatetime.includes(" ") === false;
+				const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmd(new Date(iPurchaseMs)) : "";
+				const sPointDay = sDatetime.slice(0, 10);
 				if (!Number.isFinite(iPointMs)) return false;
-				if (Number.isFinite(iPurchaseMs) && iPointMs < iPurchaseMs) return false;
+				if (Number.isFinite(iPurchaseMs)) {
+					if (bIsDailyPoint) {
+						if (sPointDay && sPurchaseDay && sPointDay < sPurchaseDay) return false;
+					} else if (iPointMs < iPurchaseMs) {
+						return false;
+					}
+				}
 				return Number.isFinite(Number(oValue?.close));
 			});
 
@@ -465,7 +509,8 @@
 	}
 
 	/**
-	 * Erweitert Tagesdaten auf einen fixen Bereich (`start_date` bis `end_date`) mit Forward-Fill.
+	 * Beschraenkt Daten auf den angefragten Datumsbereich ohne Forward-Fill.
+	 * Damit werden Nicht-Handelstage nicht kuenstlich angezeigt.
 	 * Scope: [SHARED]
 	 * @param {Array<object>} aPoints
 	 * @param {object} oQuery
@@ -473,40 +518,20 @@
 	 * @returns {Array<object>}
 	 */
 	function fnWithFixedDateRange(aPoints, oQuery, bPnlOnly) {
-		if (!oQuery?.start_date || !oQuery?.end_date) return aPoints;
 		if (!Array.isArray(aPoints)) return aPoints;
+		if (!oQuery?.start_date || !oQuery?.end_date) return aPoints;
+		const sStartDay = String(oQuery.start_date || "").slice(0, 10);
+		const sEndDay = String(oQuery.end_date || "").slice(0, 10);
+		if (!sStartDay || !sEndDay || sStartDay > sEndDay) return aPoints;
 
-		const mByDate = new Map();
-		for (const oPoint of aPoints) {
-			mByDate.set(String(oPoint.t).slice(0, 10), oPoint);
-		}
+		const aFiltered = aPoints.filter((oPoint) => {
+			const sPointDay = String(oPoint?.t || "").slice(0, 10);
+			if (!/^\d{4}-\d{2}-\d{2}$/.test(sPointDay)) return false;
+			return sPointDay >= sStartDay && sPointDay <= sEndDay;
+		});
 
-		const dStart = new Date(`${oQuery.start_date}T00:00:00`);
-		const dEnd = new Date(`${oQuery.end_date}T00:00:00`);
-		if (!Number.isFinite(dStart.getTime()) || !Number.isFinite(dEnd.getTime()) || dStart > dEnd) return aPoints;
-
-		const aOutput = [];
-		let oLastKnown = null;
-
-		for (let dCursor = new Date(dStart); dCursor <= dEnd; dCursor.setDate(dCursor.getDate() + 1)) {
-			const sDay = fnFmtYmd(dCursor);
-			const oRealPoint = mByDate.get(sDay);
-
-			if (oRealPoint) {
-				oLastKnown = oRealPoint;
-				aOutput.push(oRealPoint);
-				continue;
-			}
-
-			if (oLastKnown) {
-				aOutput.push({ ...oLastKnown, t: sDay, y: bPnlOnly ? oLastKnown.pnl : oLastKnown.total });
-				continue;
-			}
-
-			aOutput.push({ t: sDay, total: 0, invested: 0, pnl: 0, y: 0 });
-		}
-
-		return aOutput;
+		// Falls ein unerwartetes Datumsformat geliefert wurde, nichts verstecken.
+		return aFiltered.length ? aFiltered : aPoints;
 	}
 
 	/**
@@ -539,6 +564,7 @@
 		const oFirstPoint = aPoints[0];
 		const nFirstValue = Number(oFirstPoint?.y);
 		if (!Number.isFinite(nFirstValue) || nFirstValue <= 0) return aPoints;
+		if (!String(oFirstPoint?.t || "").includes(" ")) return aPoints;
 
 		const iFirstMs = fnToMsFromTdDatetime(oFirstPoint?.t);
 		let dBefore = null;
@@ -592,7 +618,10 @@
 		const nSafeLastValue = Number.isFinite(Number(nLastValue)) ? Number(nLastValue) : 0;
 		const nStepMs = fnIntervalToStepMs(oQuery?.interval);
 		const nNowMs = Date.now();
-		const iDefaultPointCount = nStepMs < 24 * 60 * 60 * 1000 ? 24 : 30;
+		const iDefaultPointCount = nStepMs < 24 * 60 * 60 * 1000
+			? Math.max(2, Math.floor((24 * 60 * 60 * 1000) / Math.max(1, nStepMs)) + 1)
+			: 30;
+		const bIntradayFallback = nStepMs < 24 * 60 * 60 * 1000;
 
 		let iPointCount = iDefaultPointCount;
 		const dStart = oQuery?.start_date ? new Date(`${oQuery.start_date}T00:00:00`) : null;
@@ -610,8 +639,16 @@
 		for (let iIndex = 0; iIndex < iPointCount; iIndex += 1) {
 			const iCurrentMs = iStartMs + iIndex * nStepMs;
 			const dCurrent = new Date(iCurrentMs);
+			const sTimeValue = (() => {
+				if (!bIntradayFallback) return fnFormatTimeLikeReference(dCurrent, sReferenceTime);
+				if (String(sReferenceTime || "").includes(" ")) return fnFormatTimeLikeReference(dCurrent, sReferenceTime);
+				const sHours = String(dCurrent.getHours()).padStart(2, "0");
+				const sMinutes = String(dCurrent.getMinutes()).padStart(2, "0");
+				const sSeconds = String(dCurrent.getSeconds()).padStart(2, "0");
+				return `${fnFmtYmd(dCurrent)} ${sHours}:${sMinutes}:${sSeconds}`;
+			})();
 			aSeries.push({
-				t: fnFormatTimeLikeReference(dCurrent, sReferenceTime),
+				t: sTimeValue,
 				total: 0,
 				invested: 0,
 				pnl: 0,
@@ -637,9 +674,8 @@
 		if (!sText) return "";
 
 		if (sText.includes(" ")) {
-			const [sDate, sTime] = sText.split(" ");
-			const [sYear, sMonth, sDay] = sDate.split("-");
-			return `${sDay}.${sMonth}. ${sTime.slice(0, 5)}`;
+			const [, sTime] = sText.split(" ");
+			return String(sTime || "").slice(0, 5);
 		}
 		const [sYear, sMonth, sDay] = sText.split("-");
 		if (sYear && sMonth && sDay) return `${sDay}.${sMonth}.`;

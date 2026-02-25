@@ -55,7 +55,7 @@
                 <div class="kpi">
                   <b>Piechart anzeigen</b>
                   <label class="check-row">
-                    <input type="checkbox" id="k_show_pie" class="ui-check" checked>
+                    <input type="checkbox" id="k_show_pie" class="ui-check">
                     <span>Aktiv</span>
                   </label>
                 </div>
@@ -64,7 +64,7 @@
               <div class="muted" id="depotInfo">Bereit.</div>
             </div>
 
-            <div class="depot-chart-layout">
+            <div class="depot-chart-layout is-pie-hidden">
               <div class="depot-line-wrap">
                 <canvas id="depotChart" class="line-chart" width="1200" height="420"></canvas>
               </div>

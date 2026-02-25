@@ -330,7 +330,10 @@
 		const iTimestampMs = fnToMsFromTimestamp(nTimestampRaw);
 		if (!Number.isFinite(iTimestampMs)) return "—";
 		const dDate = new Date(iTimestampMs);
-		return new Intl.DateTimeFormat(fnGetLocale(), { dateStyle: "medium" }).format(dDate);
+		return new Intl.DateTimeFormat(fnGetLocale(), {
+			dateStyle: "medium",
+			timeStyle: "short",
+		}).format(dDate);
 	}
 
 	// =====================================================

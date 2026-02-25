@@ -289,7 +289,8 @@
 		if (iHoverIndex >= 0 && iHoverIndex < aCanvasPoints.length) {
 			const oHoverPoint = aCanvasPoints[iHoverIndex];
 			const nHoverValue = Number(aPoints[iHoverIndex]?.y);
-			const sHoverValue = Number.isFinite(nHoverValue) ? fnFmtMoney(nHoverValue, "USD") : "—";
+			const sHoverPrefix = bPnlOnly && nHoverValue > 0 ? "+" : "";
+			const sHoverValue = Number.isFinite(nHoverValue) ? `${sHoverPrefix}${fnFmtMoney(nHoverValue, "USD")}` : "—";
 
 			oCtx.beginPath();
 			oCtx.setLineDash([4, 4]);
