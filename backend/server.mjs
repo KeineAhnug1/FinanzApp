@@ -6,6 +6,8 @@ import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 
 import { fileURLToPath } from "node:url";
 import { MongoClient, Decimal128, ObjectId } from "mongodb";
 import nodemailer from "nodemailer";
+import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
+import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3098,47 +3100,10 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
   }
 }
 
-function resolveStaticPath(pathname) {
-  if (pathname === "/") return path.join(PROJECT_ROOT, "uebersicht", "index.html");
-  if (pathname === "/dashboard.html") return path.join(PROJECT_ROOT, "uebersicht", "dashboard.html");
-  if (pathname === "/dashboard.css") return path.join(PROJECT_ROOT, "uebersicht", "dashboard.css");
-  if (pathname === "/style.css") return path.join(PROJECT_ROOT, "uebersicht", "style.css");
-  if (pathname === "/script.js") return path.join(PROJECT_ROOT, "uebersicht", "script.js");
-  if (pathname.startsWith("/js/")) {
-    return path.join(PROJECT_ROOT, "uebersicht", pathname.slice(1));
-  }
-
-  if (pathname === "/groups/") return path.join(PROJECT_ROOT, "groups", "index.html");
-  if (pathname.startsWith("/groups/")) {
-    const relative = pathname.replace(/^\/groups\//, "");
-    return path.join(PROJECT_ROOT, "groups", relative);
-  }
-
-  if (pathname === "/fragen/") return path.join(PROJECT_ROOT, "fragen", "index.html");
-  if (pathname.startsWith("/fragen/")) {
-    const relative = pathname.replace(/^\/fragen\//, "");
-    return path.join(PROJECT_ROOT, "fragen", relative);
-  }
-
-  if (pathname === "/aktien/") return path.join(PROJECT_ROOT, "aktien", "ShareView.html");
-  if (pathname.startsWith("/aktien/")) {
-    const relative = pathname.replace(/^\/aktien\//, "");
-    return path.join(PROJECT_ROOT, "aktien", relative);
-  }
-
-  if (pathname === "/konten/") return path.join(PROJECT_ROOT, "konten", "index.html");
-  if (pathname.startsWith("/konten/")) {
-    const relative = pathname.replace(/^\/konten\//, "");
-    return path.join(PROJECT_ROOT, "konten", relative);
-  }
-
-  return path.join(PROJECT_ROOT, pathname.slice(1));
-}
-
 async function handleStatic(req, res, pathname) {
   const requestPath = pathname === "/" ? "/" : decodeURIComponent(pathname);
   const normalized = path.normalize(requestPath).replace(/^([/\\])+/, "");
-  const filePath = resolveStaticPath(`/${normalized}`);
+  const filePath = resolveStaticPath(PROJECT_ROOT, `/${normalized}`);
 
   if (!filePath.startsWith(PROJECT_ROOT)) {
     res.statusCode = 403;
@@ -3166,6 +3131,43 @@ async function handleStatic(req, res, pathname) {
   }
 }
 
+const API_HANDLERS = {
+  handleCategories,
+  handleIncomeEntries,
+  handleIncomeEntryById,
+  handleExpenseEntries,
+  handleExpenseEntryById,
+  handleUserIncome,
+  handleQuestions,
+  handleGroups,
+  handleGetInvitations,
+  handleInvitationDecision,
+  handleInviteUser,
+  handleCreateGroupActivity,
+  handleCreateGroupFunding,
+  handleDonateToFunding,
+  handleCreateGroupExpense,
+  handlePromoteMemberToAdmin,
+  handleLeaveGroup,
+  handleRemoveMember,
+  handleGroupDetail,
+  handleDeleteGroup,
+  handleQuestionAnswerCreate,
+  handleQuestionLike,
+  handleQuestionById,
+  handleAnswerLike,
+  handleAnswerById,
+  handlePositions,
+  handleBankAccounts,
+  handleBankAccountById,
+  handleShareAccounts,
+  handleShareAccountById,
+  handleDebugPositions,
+  handleTwelveDataProxy,
+  handleStockSearchProxy,
+  handleExchangeRates
+};
+
 const server = http.createServer(async (req, res) => {
   try {
     gcSessions();
@@ -3180,19 +3182,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/session") return await handleSession(req, res);
     if (pathname === "/api/logout") return await handleLogout(req, res);
 
-    const isProtectedUiPath =
-      pathname === "/dashboard.html" ||
-      pathname === "/fragen" ||
-      pathname.startsWith("/fragen/") ||
-      pathname === "/groups" ||
-      pathname.startsWith("/groups/") ||
-      pathname === "/konten" ||
-      pathname.startsWith("/konten/") ||
-      pathname === "/aktien" ||
-      pathname.startsWith("/aktien/") ||
-      pathname.startsWith("/js/dashboard/");
-
-    if (isProtectedUiPath) {
+    if (isProtectedUiPath(pathname)) {
       const session = await getSessionUser(req);
       if (!session) {
         res.writeHead(302, { Location: "/" });
@@ -3201,117 +3191,20 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    if (pathname === "/groups") {
-      res.writeHead(302, { Location: "/groups/" });
-      res.end();
-      return;
-    }
-    if (pathname === "/fragen") {
-      res.writeHead(302, { Location: "/fragen/" });
-      res.end();
-      return;
-    }
-    if (pathname === "/aktien") {
-      res.writeHead(302, { Location: "/aktien/" });
-      res.end();
-      return;
-    }
-    if (pathname === "/konten") {
-      res.writeHead(302, { Location: "/konten/" });
-      res.end();
-      return;
-    }
+    if (redirectUiRoot(pathname, res)) return;
 
     if (pathname.startsWith("/api/")) {
       const session = await requireSessionUser(req, res);
       if (!session) return;
-
-      if (pathname === "/api/categories") return await handleCategories(req, res, session);
-      if (pathname === "/api/income-entries") return await handleIncomeEntries(req, res, session);
-      if (pathname.startsWith("/api/income-entries/")) {
-        const entryId = decodeURIComponent(pathname.replace("/api/income-entries/", ""));
-        return await handleIncomeEntryById(req, res, entryId, session);
-      }
-      if (pathname === "/api/expense-entries") return await handleExpenseEntries(req, res, session);
-      if (pathname.startsWith("/api/expense-entries/")) {
-        const entryId = decodeURIComponent(pathname.replace("/api/expense-entries/", ""));
-        return await handleExpenseEntryById(req, res, entryId, session);
-      }
-      if (pathname === "/api/user-income") return await handleUserIncome(req, res, session);
-      if (pathname === "/api/questions") return await handleQuestions(req, res, session, url);
-
-      if (pathname === "/api/groups") return await handleGroups(req, res, session);
-      if (pathname === "/api/inbox/invitations") return await handleGetInvitations(req, res, session);
-
-      const invitationDecisionMatch = pathname.match(/^\/api\/inbox\/invitations\/([^/]+)\/(accept|deny)$/);
-      if (invitationDecisionMatch) {
-        return await handleInvitationDecision(req, res, invitationDecisionMatch[1], invitationDecisionMatch[2], session);
-      }
-
-      const inviteMatch = pathname.match(/^\/api\/groups\/([^/]+)\/invite$/);
-      if (inviteMatch) return await handleInviteUser(req, res, inviteMatch[1], session);
-
-      const createActivityMatch = pathname.match(/^\/api\/groups\/([^/]+)\/activities$/);
-      if (createActivityMatch) return await handleCreateGroupActivity(req, res, createActivityMatch[1], session);
-
-      const createFundingMatch = pathname.match(/^\/api\/groups\/([^/]+)\/funding$/);
-      if (createFundingMatch) return await handleCreateGroupFunding(req, res, createFundingMatch[1], session);
-
-      const donateMatch = pathname.match(/^\/api\/groups\/([^/]+)\/funding\/([^/]+)\/donate$/);
-      if (donateMatch) return await handleDonateToFunding(req, res, donateMatch[1], donateMatch[2], session);
-
-      const createExpenseMatch = pathname.match(/^\/api\/groups\/([^/]+)\/expenses$/);
-      if (createExpenseMatch) return await handleCreateGroupExpense(req, res, createExpenseMatch[1], session);
-
-      const promoteAdminMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)\/promote-admin$/);
-      if (promoteAdminMatch) return await handlePromoteMemberToAdmin(req, res, promoteAdminMatch[1], promoteAdminMatch[2], session);
-
-      const leaveGroupMatch = pathname.match(/^\/api\/groups\/([^/]+)\/leave$/);
-      if (leaveGroupMatch) return await handleLeaveGroup(req, res, leaveGroupMatch[1], session);
-
-      const removeMemberMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)$/);
-      if (removeMemberMatch) return await handleRemoveMember(req, res, removeMemberMatch[1], removeMemberMatch[2], session);
-
-      const groupMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
-      if (groupMatch) {
-        if (req.method === "GET") return await handleGroupDetail(req, res, groupMatch[1], session);
-        if (req.method === "DELETE") return await handleDeleteGroup(req, res, groupMatch[1], session);
-        res.setHeader("Allow", "GET, DELETE");
-        return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-      }
-
-      const questionAnswerMatch = pathname.match(/^\/api\/questions\/([^/]+)\/answers$/);
-      if (questionAnswerMatch) return await handleQuestionAnswerCreate(req, res, questionAnswerMatch[1], session);
-
-      const questionLikeMatch = pathname.match(/^\/api\/questions\/([^/]+)\/like$/);
-      if (questionLikeMatch) return await handleQuestionLike(req, res, questionLikeMatch[1], session);
-
-      const questionByIdMatch = pathname.match(/^\/api\/questions\/([^/]+)$/);
-      if (questionByIdMatch) return await handleQuestionById(req, res, questionByIdMatch[1], session);
-
-      const answerLikeMatch = pathname.match(/^\/api\/answers\/([^/]+)\/like$/);
-      if (answerLikeMatch) return await handleAnswerLike(req, res, answerLikeMatch[1], session);
-
-      const answerByIdMatch = pathname.match(/^\/api\/answers\/([^/]+)$/);
-      if (answerByIdMatch) return await handleAnswerById(req, res, answerByIdMatch[1], session);
-
-      if (pathname === "/api/positions") return await handlePositions(req, res, url, session);
-      if (pathname === "/api/bank-accounts") return await handleBankAccounts(req, res, session);
-      if (pathname.startsWith("/api/bank-accounts/")) {
-        const accountId = decodeURIComponent(pathname.replace("/api/bank-accounts/", ""));
-        return await handleBankAccountById(req, res, accountId, session);
-      }
-      if (pathname === "/api/share-accounts") return await handleShareAccounts(req, res, session);
-      if (pathname.startsWith("/api/share-accounts/")) {
-        const accountId = decodeURIComponent(pathname.replace("/api/share-accounts/", ""));
-        return await handleShareAccountById(req, res, accountId, session);
-      }
-      if (pathname === "/api/debug/positions") return await handleDebugPositions(req, res, url, session);
-      if (pathname.startsWith("/api/twelvedata")) return await handleTwelveDataProxy(req, res, pathname, url, session);
-      if (pathname === "/api/stocks/search") return await handleStockSearchProxy(req, res, url, session);
-      if (pathname === "/api/exchange-rates/latest") return await handleExchangeRates(req, res, url, session);
-
-      return sendJson(res, 404, { ok: false, message: "API route not found" });
+      return await dispatchApiRoute({
+        req,
+        res,
+        url,
+        pathname,
+        session,
+        sendJson,
+        handlers: API_HANDLERS
+      });
     }
 
     if (req.method !== "GET" && req.method !== "HEAD") {

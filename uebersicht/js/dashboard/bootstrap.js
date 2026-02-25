@@ -2,10 +2,12 @@
 async function bootstrap() {
   let sessionUser = null;
   try {
-    const response = await fetch("/api/session", { credentials: "same-origin" });
-    const payload = await response.json();
-    if (response.ok && payload?.ok && payload.session_user) {
-      sessionUser = payload.session_user;
+    const request = window.FinanzAppApi?.requestJsonMerged;
+    if (typeof request === "function") {
+      const payload = await request("/api/session", { credentials: "same-origin" });
+      if (payload?.ok && payload.session_user) {
+        sessionUser = payload.session_user;
+      }
     }
   } catch {
     sessionUser = null;

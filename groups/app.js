@@ -557,12 +557,31 @@ function renderGroupDetail(detail) {
   }
 }
 
-async function loadSession() {
-  const response = await fetch("/api/session");
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.session_load_failed", "Sitzung konnte nicht geladen werden"));
+async function requestApi(path, options = {}) {
+  const request = window.FinanzAppApi?.requestJsonMerged;
+  if (typeof request !== "function") {
+    throw new Error(t("groups.request_failed", "Anfrage fehlgeschlagen"));
   }
+
+  const payload = await request(path, {
+    method: options.method || "GET",
+    headers: options.headers || {},
+    body: options.body
+  });
+  if (payload?.ok) {
+    return payload;
+  }
+
+  if (payload?.status === 0) {
+    throw new Error(t("groups.server_unreachable", "Server nicht erreichbar"));
+  }
+  throw new Error(String(payload?.message || options.defaultMessage || t("groups.request_failed", "Anfrage fehlgeschlagen")));
+}
+
+async function loadSession() {
+  const payload = await requestApi("/api/session", {
+    defaultMessage: t("groups.session_load_failed", "Sitzung konnte nicht geladen werden")
+  });
   sessionUser = payload.session_user || null;
   applyGroupLocaleSettings(sessionUser?.id);
   rerenderAfterLocaleChange();
@@ -573,12 +592,9 @@ async function loadSession() {
 }
 
 async function fetchGroupDetail(groupId) {
-  const response = await fetch(`/api/groups/${groupId}`);
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.detail_load_failed", "Gruppendetails konnten nicht geladen werden"));
-  }
-  return payload;
+  return await requestApi(`/api/groups/${groupId}`, {
+    defaultMessage: t("groups.detail_load_failed", "Gruppendetails konnten nicht geladen werden")
+  });
 }
 
 async function loadGroupDetail(groupId) {
@@ -591,11 +607,9 @@ async function loadGroupDetail(groupId) {
 }
 
 async function loadGroups(preferredGroupId = selectedGroupId) {
-  const response = await fetch("/api/groups");
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.list_load_failed", "Gruppen konnten nicht geladen werden"));
-  }
+  const payload = await requestApi("/api/groups", {
+    defaultMessage: t("groups.list_load_failed", "Gruppen konnten nicht geladen werden")
+  });
 
   groupsState = payload.groups || [];
 
@@ -614,11 +628,9 @@ async function loadGroups(preferredGroupId = selectedGroupId) {
 }
 
 async function loadInvitations() {
-  const response = await fetch("/api/inbox/invitations");
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.invitations_load_failed", "Einladungen konnten nicht geladen werden"));
-  }
+  const payload = await requestApi("/api/inbox/invitations", {
+    defaultMessage: t("groups.invitations_load_failed", "Einladungen konnten nicht geladen werden")
+  });
 
   invitationsState = payload.invitations || [];
   updateInboxIndicator(invitationsState);
@@ -626,144 +638,102 @@ async function loadInvitations() {
 }
 
 async function createGroup(name, address) {
-  const response = await fetch("/api/groups", {
+  const payload = await requestApi("/api/groups", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, address })
+    body: { name, address },
+    defaultMessage: t("groups.create_failed", "Gruppe konnte nicht erstellt werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.create_failed", "Gruppe konnte nicht erstellt werden"));
-  }
   return payload.group;
 }
 
 async function inviteUserToGroup(groupId, username) {
-  const response = await fetch(`/api/groups/${groupId}/invite`, {
+  await requestApi(`/api/groups/${groupId}/invite`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username })
+    body: { username },
+    defaultMessage: t("groups.invite_failed", "Nutzer konnte nicht eingeladen werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.invite_failed", "Nutzer konnte nicht eingeladen werden"));
-  }
 }
 
 async function removeMember(groupId, userId) {
-  const response = await fetch(`/api/groups/${groupId}/members/${userId}`, {
-    method: "DELETE"
+  await requestApi(`/api/groups/${groupId}/members/${userId}`, {
+    method: "DELETE",
+    defaultMessage: t("groups.remove_member_failed", "Teilnehmende konnten nicht entfernt werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.remove_member_failed", "Teilnehmende konnten nicht entfernt werden"));
-  }
 }
 
 async function createGroupActivity(groupId, info, date) {
-  const response = await fetch(`/api/groups/${groupId}/activities`, {
+  await requestApi(`/api/groups/${groupId}/activities`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ info, date: date || null })
+    body: { info, date: date || null },
+    defaultMessage: t("groups.activity_create_failed", "Aktivitaet konnte nicht erstellt werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.activity_create_failed", "Aktivitaet konnte nicht erstellt werden"));
-  }
 }
 
 async function createGroupFunding(groupId, info, groupActivityId) {
-  const response = await fetch(`/api/groups/${groupId}/funding`, {
+  await requestApi(`/api/groups/${groupId}/funding`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       info: info || null,
       group_activity_id: groupActivityId || null
-    })
+    },
+    defaultMessage: t("groups.funding_create_failed", "Finanzierung konnte nicht erstellt werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.funding_create_failed", "Finanzierung konnte nicht erstellt werden"));
-  }
 }
 
 async function promoteMemberToAdmin(groupId, userId) {
-  const response = await fetch(`/api/groups/${groupId}/members/${userId}/promote-admin`, {
-    method: "POST"
+  await requestApi(`/api/groups/${groupId}/members/${userId}/promote-admin`, {
+    method: "POST",
+    defaultMessage: t("groups.promote_failed", "Teilnehmende konnten nicht zum Admin gemacht werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.promote_failed", "Teilnehmende konnten nicht zum Admin gemacht werden"));
-  }
 }
 
 async function donateToFunding(groupId, fundingId, amount) {
-  const response = await fetch(`/api/groups/${groupId}/funding/${fundingId}/donate`, {
+  await requestApi(`/api/groups/${groupId}/funding/${fundingId}/donate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amount })
+    body: { amount },
+    defaultMessage: t("groups.donation_failed", "Spende konnte nicht verarbeitet werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.donation_failed", "Spende konnte nicht verarbeitet werden"));
-  }
 }
 
 async function createGroupExpense(groupId, groupFundingId, amount, info, dueDate) {
-  const response = await fetch(`/api/groups/${groupId}/expenses`, {
+  await requestApi(`/api/groups/${groupId}/expenses`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       group_funding_id: groupFundingId,
       amount,
       info: info || null,
       due_date: dueDate || null
-    })
+    },
+    defaultMessage: t("groups.paid_expense_create_failed", "Bezahlte Ausgabe konnte nicht erstellt werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.paid_expense_create_failed", "Bezahlte Ausgabe konnte nicht erstellt werden"));
-  }
 }
 
 async function acceptInvitation(groupId) {
-  const response = await fetch(`/api/inbox/invitations/${groupId}/accept`, {
-    method: "POST"
+  await requestApi(`/api/inbox/invitations/${groupId}/accept`, {
+    method: "POST",
+    defaultMessage: t("groups.invitation_accept_failed", "Einladung konnte nicht angenommen werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.invitation_accept_failed", "Einladung konnte nicht angenommen werden"));
-  }
 }
 
 async function denyInvitation(groupId) {
-  const response = await fetch(`/api/inbox/invitations/${groupId}/deny`, {
-    method: "POST"
+  await requestApi(`/api/inbox/invitations/${groupId}/deny`, {
+    method: "POST",
+    defaultMessage: t("groups.invitation_deny_failed", "Einladung konnte nicht abgelehnt werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.invitation_deny_failed", "Einladung konnte nicht abgelehnt werden"));
-  }
 }
 
 async function deleteGroup(groupId) {
-  const response = await fetch(`/api/groups/${groupId}`, {
-    method: "DELETE"
+  await requestApi(`/api/groups/${groupId}`, {
+    method: "DELETE",
+    defaultMessage: t("groups.delete_failed", "Gruppe konnte nicht geloescht werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.delete_failed", "Gruppe konnte nicht geloescht werden"));
-  }
 }
 
 async function leaveGroup(groupId) {
-  const response = await fetch(`/api/groups/${groupId}/leave`, {
-    method: "POST"
+  await requestApi(`/api/groups/${groupId}/leave`, {
+    method: "POST",
+    defaultMessage: t("groups.leave_failed", "Gruppe konnte nicht verlassen werden")
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || t("groups.leave_failed", "Gruppe konnte nicht verlassen werden"));
-  }
 }
 
 async function openGroupDetail(groupId) {

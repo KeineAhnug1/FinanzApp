@@ -1,21 +1,14 @@
 // API-Aufrufe und Formularstatus fuer Einnahmen, Ausgaben und Kategorien.
 async function requestJson(url, options) {
-  try {
-    const response = await fetch(url, {
-      credentials: "same-origin",
-      ...options
-    });
-    const raw = await response.text();
-    let data = {};
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch {
-      data = {};
-    }
-    return { ok: response.ok && Boolean(data.ok), status: response.status, ...data };
-  } catch {
+  const request = window.FinanzAppApi?.requestJsonMerged;
+  if (typeof request !== "function") {
     return { ok: false, status: 0, message: "Server nicht erreichbar." };
   }
+  const result = await request(url, {
+    credentials: "same-origin",
+    ...(options || {})
+  });
+  return result;
 }
 
 // Laedt die serverseitig gespeicherten Einnahmen fuer den aktiven User.

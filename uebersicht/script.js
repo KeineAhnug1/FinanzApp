@@ -278,25 +278,16 @@ class UsersLogin extends HTMLElement {
 }
 
 async function postJson(url, payload) {
+  const request = window.FinanzAppApi?.requestJsonMerged;
+  if (typeof request !== "function") {
+    return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
+  }
   try {
-    const response = await fetch(url, {
+    return await request(url, {
       method: "POST",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: payload
     });
-    const raw = await response.text();
-    let data = {};
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch {
-      data = {};
-    }
-    return {
-      ok: response.ok && Boolean(data.ok),
-      status: response.status,
-      ...data
-    };
   } catch {
     return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
   }
@@ -326,9 +317,11 @@ window.FinanzAppTheme.initThemeSwitcher();
 
 (async () => {
   try {
-    const response = await fetch("/api/session", { credentials: "same-origin" });
-    const payload = await response.json();
-    if (response.ok && payload?.ok && payload.session_user) {
+    const request = window.FinanzAppApi?.requestJsonMerged;
+    const payload = typeof request === "function"
+      ? await request("/api/session", { credentials: "same-origin" })
+      : null;
+    if (payload?.ok && payload.session_user) {
       window.FinanzAppSession.setCurrentUserInStorage(payload.session_user);
       window.location.assign("/dashboard.html");
     }
