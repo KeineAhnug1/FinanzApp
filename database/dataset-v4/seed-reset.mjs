@@ -24,7 +24,8 @@ const ids = {
     ben: new ObjectId("76a100000000000000000002"),
     clara: new ObjectId("76a100000000000000000003"),
     emre: new ObjectId("76a100000000000000000004"),
-    farah: new ObjectId("76a100000000000000000005")
+    farah: new ObjectId("76a100000000000000000005"),
+    finzbro: new ObjectId("76a100000000000000000006")
   },
   groups: {
     sonnenallee: new ObjectId("76a200000000000000000001"),
@@ -142,6 +143,17 @@ const data = {
       first_name: "Farah",
       last_name: "Ali",
       age: 25,
+      verification_code: null,
+      created_at: createdAt
+    }),
+    createUserEntity({
+      _id: ids.users.finzbro,
+      username: "finzbro",
+      email: "finzbro@finanzapp.local",
+      password: "finzbro_pw_hash",
+      first_name: "Finzbro",
+      last_name: "Bot",
+      age: null,
       verification_code: null,
       created_at: createdAt
     })

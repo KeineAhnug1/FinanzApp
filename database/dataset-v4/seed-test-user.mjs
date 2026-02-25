@@ -29,7 +29,8 @@ const ids = {
     test: new ObjectId("77a100000000000000000001"),
     lisa: new ObjectId("77a100000000000000000002"),
     marco: new ObjectId("77a100000000000000000003"),
-    nina: new ObjectId("77a100000000000000000004")
+    nina: new ObjectId("77a100000000000000000004"),
+    finzbro: new ObjectId("77a100000000000000000005")
   },
   groups: {
     testFinanceCrew: new ObjectId("77a200000000000000000001")
@@ -137,6 +138,17 @@ function buildUsers() {
       first_name: "Nina",
       last_name: "Becker",
       age: 25,
+      verification_code: null,
+      created_at: createdAt
+    }),
+    createUserEntity({
+      _id: ids.users.finzbro,
+      username: "finzbro",
+      email: "finzbro@finanzapp.local",
+      password: "finzbro123456",
+      first_name: "Finzbro",
+      last_name: "Bot",
+      age: null,
       verification_code: null,
       created_at: createdAt
     })
@@ -454,7 +466,8 @@ async function resolveUserIds(db) {
     { key: "test", email: TEST_EMAIL, username: "test" },
     { key: "lisa", email: "lisa.demo@test.test", username: "lisa.demo" },
     { key: "marco", email: "marco.demo@test.test", username: "marco.demo" },
-    { key: "nina", email: "nina.demo@test.test", username: "nina.demo" }
+    { key: "nina", email: "nina.demo@test.test", username: "nina.demo" },
+    { key: "finzbro", email: "finzbro@finanzapp.local", username: "finzbro" }
   ];
 
   for (const user of seedUsers) {
