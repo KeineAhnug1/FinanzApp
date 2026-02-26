@@ -110,6 +110,14 @@
     const activeKey = currentNavKey();
     return NAV_ITEMS.map((item) => {
       const active = item.key === activeKey ? " is-active" : "";
+      if (item.key === activeKey) {
+        return `
+          <span class="app-nav-link${active}" aria-current="page">
+            <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
+            <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
+          </span>
+        `;
+      }
       return `
         <a class="app-nav-link${active}" href="${item.href}">
           <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
@@ -117,6 +125,18 @@
         </a>
       `;
     }).join("");
+  }
+
+  function disableActiveNavLinkClicks() {
+    if (document.documentElement.dataset.activeNavClickGuardBound === "1") return;
+    document.documentElement.dataset.activeNavClickGuardBound = "1";
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const activeLink = target.closest("a.app-nav-link.is-active");
+      if (!activeLink) return;
+      event.preventDefault();
+    });
   }
 
   function ensureSidebar(topbar, controls) {
@@ -337,7 +357,9 @@
     const legacyWrap = controls.querySelector(".global-settings-wrap");
     if (legacyWrap) legacyWrap.remove();
 
-    if (!controls.querySelector(".settings-wrap")) {
+    // Settings koennen bereits von ensureSidebar in die Side-Nav verschoben worden sein.
+    // In dem Fall nicht erneut erzeugen, sonst entstehen doppelte Einstellungen.
+    if (!document.querySelector(".settings-wrap")) {
       const wrap = document.createElement("div");
       wrap.className = "settings-wrap";
       wrap.innerHTML = createGlobalSettingsMarkup();
@@ -349,14 +371,14 @@
       }
     }
 
-    const settingsBtn = topbar.querySelector("#settings-btn");
-    const settingsPanel = topbar.querySelector("#settings-panel");
-    const settingsForm = topbar.querySelector("#settings-form");
-    const resetBtn = topbar.querySelector("#settings-reset-btn");
-    const status = topbar.querySelector("#settings-status");
-    const currency = topbar.querySelector("#settings-currency");
-    const locale = topbar.querySelector("#settings-locale");
-    const themeMode = topbar.querySelector("#settings-theme-mode");
+    const settingsBtn = document.getElementById("settings-btn");
+    const settingsPanel = document.getElementById("settings-panel");
+    const settingsForm = document.getElementById("settings-form");
+    const resetBtn = document.getElementById("settings-reset-btn");
+    const status = document.getElementById("settings-status");
+    const currency = document.getElementById("settings-currency");
+    const locale = document.getElementById("settings-locale");
+    const themeMode = document.getElementById("settings-theme-mode");
     if (!settingsBtn || !settingsPanel || !settingsForm || !resetBtn || !status || !currency || !locale || !themeMode) return;
 
     const userId = String(sessionUser?.id || "anonymous");
@@ -502,14 +524,6 @@
   }
 
   async function initTopbar() {
-    if (window.FinanzAppHeaderReady && typeof window.FinanzAppHeaderReady.then === "function") {
-      try {
-        await window.FinanzAppHeaderReady;
-      } catch {
-        // no-op
-      }
-    }
-
     const topbar = findTopbar();
     if (!topbar) return;
 
@@ -526,6 +540,7 @@
     }
 
     initProfileMenus();
+    disableActiveNavLinkClicks();
 
     try {
       const sessionUser = await window.FinanzAppSession.fetchSessionUser();
