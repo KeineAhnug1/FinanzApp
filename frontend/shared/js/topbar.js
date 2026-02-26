@@ -5,7 +5,10 @@
  * - Globales Settings-Panel (Währung + Sprache) außerhalb vom Dashboard
  */
 (function initSharedTopbar() {
+  window.FinanzAppSharedTopbar = true;
   const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
+  const SIDENAV_COLLAPSED_STORAGE_KEY = "finanzapp.sideNav.collapsed";
+  const MOBILE_BREAKPOINT = 960;
   const DEFAULT_SETTINGS = { currency: "EUR", locale: "de-DE", themeMode: "auto" };
   const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
   const CURRENCIES = [
@@ -15,11 +18,41 @@
     { value: "CHF", labelKey: "chf_label", fallback: "Schweizer Franken (CHF)" }
   ];
   const NAV_ITEMS = [
-    { href: "/dashboard.html", labelKey: "nav_dashboard", fallback: "Dashboard", key: "dashboard" },
-    { href: "/konten/", labelKey: "nav_accounts", fallback: "Kontenverwaltung", key: "accounts" },
-    { href: "/groups/", labelKey: "nav_groups", fallback: "Gruppen", key: "groups" },
-    { href: "/aktien/", labelKey: "nav_stocks", fallback: "Aktien", key: "stocks" },
-    { href: "/fragen/", labelKey: "nav_questions", fallback: "Fragen", key: "questions" }
+    {
+      href: "/dashboard.html",
+      labelKey: "nav_dashboard",
+      fallback: "Dashboard",
+      key: "dashboard",
+      iconPath: "/shared/images/nav-dashboard.svg"
+    },
+    {
+      href: "/konten/",
+      labelKey: "nav_accounts",
+      fallback: "Kontenverwaltung",
+      key: "accounts",
+      iconPath: "/shared/images/nav-accounts.svg"
+    },
+    {
+      href: "/groups/",
+      labelKey: "nav_groups",
+      fallback: "Gruppen",
+      key: "groups",
+      iconPath: "/shared/images/nav-groups.svg"
+    },
+    {
+      href: "/aktien/",
+      labelKey: "nav_stocks",
+      fallback: "Aktien",
+      key: "stocks",
+      iconPath: "/shared/images/nav-stocks.svg"
+    },
+    {
+      href: "/fragen/",
+      labelKey: "nav_questions",
+      fallback: "Fragen",
+      key: "questions",
+      iconPath: "/shared/images/nav-questions.svg"
+    }
   ];
 
   function t(key, fallback, params = {}) {
@@ -73,54 +106,108 @@
     sub.textContent = currentBrandSub();
   }
 
-  function ensureNav(controls) {
-    if (!controls) return;
-    let nav = controls.querySelector(".app-nav-links");
-    if (!nav) {
-      nav = document.createElement("nav");
-      nav.className = "app-nav-links";
-      nav.setAttribute("aria-label", t("nav_app", "App-Navigation"));
-      controls.prepend(nav);
-    }
-
+  function navMarkup() {
     const activeKey = currentNavKey();
-    nav.innerHTML = NAV_ITEMS.map((item) => {
+    return NAV_ITEMS.map((item) => {
       const active = item.key === activeKey ? " is-active" : "";
-      return `<a class="app-nav-link${active}" href="${item.href}">${t(item.labelKey, item.fallback)}</a>`;
+      return `
+        <a class="app-nav-link${active}" href="${item.href}">
+          <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
+          <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
+        </a>
+      `;
     }).join("");
   }
 
-  function ensureMobileNavToggle(controls) {
-    if (!controls) return;
-    const nav = controls.querySelector(".app-nav-links");
-    if (!nav) return;
+  function ensureSidebar(topbar, controls) {
+    if (!topbar || !controls) return;
+    document.body.classList.add("has-shared-sidebar");
+    const existingTopbarNav = controls.querySelector(".app-nav-links");
+    if (existingTopbarNav) existingTopbarNav.remove();
 
-    if (!nav.id) {
-      nav.id = `app-nav-links-${Math.random().toString(36).slice(2, 10)}`;
+    let sideNav = document.querySelector(".app-side-nav");
+    if (!sideNav) {
+      sideNav = document.createElement("aside");
+      sideNav.className = "app-side-nav";
+      sideNav.innerHTML = `
+        <div class="app-side-nav-head">
+          <button class="side-nav-collapse-toggle" type="button" aria-expanded="true" aria-label="${t("topbar.menu", "Menue")}">
+            <span class="side-nav-collapse-icon" aria-hidden="true">&#9776;</span>
+          </button>
+          <span class="side-nav-title">${t("topbar.brand", "FinanzApp")}</span>
+        </div>
+        <nav class="app-nav-links" aria-label="${t("nav_app", "App-Navigation")}"></nav>
+        <div class="app-side-nav-after-links"></div>
+        <div class="app-side-nav-bottom"></div>
+      `;
+      document.body.prepend(sideNav);
+    }
+    const nav = sideNav.querySelector(".app-nav-links");
+    if (nav) nav.innerHTML = navMarkup();
+    const sideNavAfterLinks = sideNav.querySelector(".app-side-nav-after-links");
+    const sideNavBottom = sideNav.querySelector(".app-side-nav-bottom");
+
+    if (sideNavAfterLinks) {
+      const settingsWrap = controls.querySelector(".settings-wrap");
+      if (settingsWrap) sideNavAfterLinks.appendChild(settingsWrap);
     }
 
-    let toggle = controls.querySelector(".nav-toggle");
+    if (sideNavBottom) {
+      const profileWrap = controls.querySelector(".profile-wrap");
+      if (profileWrap) sideNavBottom.appendChild(profileWrap);
+    }
+
+    let isCollapsed = false;
+    try {
+      isCollapsed = window.localStorage.getItem(SIDENAV_COLLAPSED_STORAGE_KEY) === "1";
+    } catch {
+      isCollapsed = false;
+    }
+
+    const collapseButton = sideNav.querySelector(".side-nav-collapse-toggle");
+    const applyCollapsedState = (collapsed) => {
+      document.body.classList.toggle("side-nav-collapsed", collapsed);
+      if (collapseButton) {
+        collapseButton.setAttribute("aria-expanded", String(!collapsed));
+      }
+    };
+    applyCollapsedState(isCollapsed);
+
+    if (collapseButton && collapseButton.dataset.bound !== "1") {
+      collapseButton.dataset.bound = "1";
+      collapseButton.addEventListener("click", () => {
+        const nextCollapsed = !document.body.classList.contains("side-nav-collapsed");
+        applyCollapsedState(nextCollapsed);
+        try {
+          window.localStorage.setItem(SIDENAV_COLLAPSED_STORAGE_KEY, nextCollapsed ? "1" : "0");
+        } catch {
+          // ignore storage failures
+        }
+      });
+    }
+
+    sideNav.id = "app-side-nav";
+    let toggle = document.querySelector(".side-nav-mobile-toggle");
     if (!toggle) {
       toggle = document.createElement("button");
       toggle.type = "button";
-      toggle.className = "nav-toggle";
+      toggle.className = "side-nav-mobile-toggle";
       toggle.innerHTML = `
         <span class="nav-toggle-icon" aria-hidden="true">&#9776;</span>
-        <span class="nav-toggle-label">${t("topbar.menu", "Menue")}</span>
+        <span class="sr-only">${t("topbar.menu", "Menue")}</span>
       `;
-      controls.insertBefore(toggle, nav);
+      document.body.appendChild(toggle);
     }
-
-    toggle.setAttribute("aria-controls", nav.id);
+    toggle.setAttribute("aria-controls", "app-side-nav");
     const closeMenu = () => {
-      controls.classList.remove("is-nav-open");
+      document.body.classList.remove("side-nav-open");
       toggle.setAttribute("aria-expanded", "false");
       const icon = toggle.querySelector(".nav-toggle-icon");
       if (icon) icon.innerHTML = "&#9776;";
     };
 
     const openMenu = () => {
-      controls.classList.add("is-nav-open");
+      document.body.classList.add("side-nav-open");
       toggle.setAttribute("aria-expanded", "true");
       const icon = toggle.querySelector(".nav-toggle-icon");
       if (icon) icon.innerHTML = "&times;";
@@ -129,12 +216,12 @@
     if (toggle.dataset.bound !== "1") {
       toggle.dataset.bound = "1";
       toggle.addEventListener("click", () => {
-        const isOpen = controls.classList.contains("is-nav-open");
+        const isOpen = document.body.classList.contains("side-nav-open");
         if (isOpen) closeMenu();
         else openMenu();
       });
 
-      nav.addEventListener("click", (event) => {
+      sideNav.addEventListener("click", (event) => {
         const target = event.target;
         if (target instanceof Element && target.closest("a")) closeMenu();
       });
@@ -142,11 +229,12 @@
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof Node)) return;
-        if (!controls.contains(target)) closeMenu();
+        if (window.innerWidth > MOBILE_BREAKPOINT) return;
+        if (!sideNav.contains(target) && !toggle.contains(target)) closeMenu();
       });
 
       window.addEventListener("resize", () => {
-        if (window.innerWidth > 960) closeMenu();
+        if (window.innerWidth > MOBILE_BREAKPOINT) closeMenu();
       });
     }
 
@@ -189,6 +277,7 @@
     return `
       <button id="settings-btn" class="settings-btn" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="${t("settings", "Einstellungen")}">
         <span class="settings-icon" aria-hidden="true">&#9881;</span>
+        <span class="settings-btn-label">${t("settings", "Einstellungen")}</span>
       </button>
       <div id="settings-panel" class="settings-panel" hidden>
         <p class="settings-title">${t("settings", "Einstellungen")}</p>
@@ -350,16 +439,16 @@
     const profileName = `${sessionUser.first_name || ""} ${sessionUser.last_name || ""}`.trim() || sessionUser.username || t("topbar.user_fallback", "Nutzer");
     const avatarInitials = window.FinanzAppSession.initialsFromUser(sessionUser);
 
-    const profileNameElements = document.querySelectorAll("[data-profile-name]");
+    const profileNameElements = document.querySelectorAll("[data-profile-name], #profile-name");
     for (const element of profileNameElements) element.textContent = profileName;
 
-    const menuNameElements = document.querySelectorAll("[data-profile-menu-name]");
+    const menuNameElements = document.querySelectorAll("[data-profile-menu-name], #menu-name");
     for (const element of menuNameElements) element.textContent = profileName;
 
-    const mailElements = document.querySelectorAll("[data-profile-menu-mail]");
+    const mailElements = document.querySelectorAll("[data-profile-menu-mail], #menu-mail");
     for (const element of mailElements) element.textContent = sessionUser.email || "-";
 
-    const avatarElements = document.querySelectorAll("[data-profile-avatar]");
+    const avatarElements = document.querySelectorAll("[data-profile-avatar], #profile-avatar");
     for (const element of avatarElements) element.textContent = avatarInitials;
   }
 
@@ -383,9 +472,6 @@
         button.setAttribute("aria-expanded", String(willOpen));
       });
 
-      logout.addEventListener("click", () => {
-        window.FinanzAppSession.logoutAndRedirect();
-      });
     }
 
     document.addEventListener("click", (event) => {
@@ -401,9 +487,29 @@
         }
       }
     });
+
+    if (document.documentElement.dataset.logoutBound !== "1") {
+      document.documentElement.dataset.logoutBound = "1";
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const logoutButton = target.closest(".logout-btn");
+        if (!logoutButton) return;
+        event.preventDefault();
+        window.FinanzAppSession.logoutAndRedirect();
+      });
+    }
   }
 
   async function initTopbar() {
+    if (window.FinanzAppHeaderReady && typeof window.FinanzAppHeaderReady.then === "function") {
+      try {
+        await window.FinanzAppHeaderReady;
+      } catch {
+        // no-op
+      }
+    }
+
     const topbar = findTopbar();
     if (!topbar) return;
 
@@ -413,8 +519,7 @@
     }
 
     updateBrandSub(topbar);
-    ensureNav(controls);
-    ensureMobileNavToggle(controls);
+    ensureSidebar(topbar, controls);
 
     if (window.FinanzAppTheme?.initThemeSwitcher) {
       window.FinanzAppTheme.initThemeSwitcher();
@@ -427,6 +532,7 @@
       fillProfileElements(sessionUser);
       window.FinanzAppSession.setCurrentUserInStorage(sessionUser);
       initGlobalSettings(topbar, sessionUser);
+      ensureSidebar(topbar, controls);
     } catch {
       // Seitenzugriffe sind serverseitig geschuetzt.
     }

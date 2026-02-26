@@ -30,10 +30,15 @@ async function bootstrap() {
 
   initThemeSwitcher();
   initSectionTabs();
-  initDashboardMobileNav();
-  hydrateProfile(appState.user);
+  const bUseSharedTopbar = Boolean(window.FinanzAppSharedTopbar);
+  if (!bUseSharedTopbar) {
+    initDashboardMobileNav();
+    hydrateProfile(appState.user);
+  }
   initSettingsMenu();
-  initProfileMenu();
+  if (!bUseSharedTopbar) {
+    initProfileMenu();
+  }
 
   const askConfirm = initConfirmModal();
   incomeState.askConfirm = askConfirm;

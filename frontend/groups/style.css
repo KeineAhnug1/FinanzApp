@@ -27,7 +27,7 @@
   border-radius: 999px;
   padding: 3px;
   gap: 2px;
-  box-shadow: 0 8px 18px rgba(24, 35, 29, 0.09);
+  box-shadow: var(--shadow-soft);
 }
 
 .theme-option {
@@ -88,7 +88,7 @@
   gap: 8px;
   color: var(--text-strong);
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(24, 35, 29, 0.09);
+  box-shadow: var(--shadow-soft);
 }
 
 .profile-avatar {
@@ -367,7 +367,7 @@ button {
   border: 0;
   border-radius: 11px;
   background: linear-gradient(160deg, var(--primary), var(--primary-dark));
-  color: #fff;
+  color: var(--text-on-primary);
   min-height: 40px;
   padding: 10px 14px;
   font: inherit;
@@ -395,8 +395,8 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #cb4c4c;
-  color: #fff;
+  background: var(--danger);
+  color: var(--text-on-primary);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -406,7 +406,7 @@ button {
 .danger-button {
   border: 0;
   border-radius: 10px;
-  color: #fff;
+  color: var(--text-on-primary);
   cursor: pointer;
   font: inherit;
 }
@@ -418,12 +418,12 @@ button {
 
 .small-danger-button {
   padding: 8px 10px;
-  background: linear-gradient(160deg, #cb4c4c, #a73737);
+  background: linear-gradient(160deg, var(--danger), var(--danger-strong));
 }
 
 .danger-button {
   padding: 10px 14px;
-  background: linear-gradient(160deg, #cb4c4c, #a73737);
+  background: linear-gradient(160deg, var(--danger), var(--danger-strong));
 }
 
 .form-status {
@@ -450,7 +450,7 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(16, 26, 22, 0.35);
+  background: var(--overlay);
   padding: 16px;
   z-index: 30;
 }

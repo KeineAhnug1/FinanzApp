@@ -15,11 +15,9 @@
         var resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
         document.documentElement.dataset.theme = resolved;
         document.documentElement.dataset.themeMode = mode;
-        document.documentElement.style.backgroundColor = resolved === "dark" ? "#121614" : "#f0f2ef";
       } catch (_) {
         document.documentElement.dataset.theme = "light";
         document.documentElement.dataset.themeMode = "auto";
-        document.documentElement.style.backgroundColor = "#f0f2ef";
       }
     })();
   </script>
@@ -28,78 +26,7 @@
 </head>
 <body>
   <div class="dash-shell">
-    <header class="dash-topbar">
-      <div class="topbar-left">
-        <span class="brand-mark">FinanzApp</span>
-        <span class="brand-sub">Dashboard</span>
-      </div>
-
-      <div class="topbar-right">
-        <nav class="app-nav-links" aria-label="App-Navigation">
-          <a class="app-nav-link is-active" href="/dashboard.html">Dashboard</a>
-          <a class="app-nav-link" href="/konten/">Kontenverwaltung</a>
-          <a class="app-nav-link" href="/groups/">Gruppen</a>
-          <a class="app-nav-link" href="/aktien/">Aktien</a>
-          <a class="app-nav-link" href="/fragen/">Fragen</a>
-        </nav>
-
-        <div class="settings-wrap">
-          <button id="settings-btn" class="settings-btn" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="Einstellungen">
-            <span class="settings-icon" aria-hidden="true">&#9881;</span>
-          </button>
-          <div id="settings-panel" class="settings-panel" hidden>
-            <p class="settings-title">Einstellungen</p>
-            <form id="settings-form" class="settings-form">
-              <div>
-                <label class="field-label" for="settings-currency">Anzeige-Währung</label>
-                <select class="field-input" id="settings-currency" name="currency">
-                  <option value="EUR">Euro (EUR)</option>
-                  <option value="USD">US-Dollar (USD)</option>
-                  <option value="GBP">Pfund (GBP)</option>
-                  <option value="CHF">Schweizer Franken (CHF)</option>
-                </select>
-              </div>
-              <div>
-                <label class="field-label" for="settings-locale">Sprache & Zahlenformat</label>
-                <select class="field-input" id="settings-locale" name="locale">
-                  <option value="de-DE">Deutsch (Deutschland)</option>
-                  <option value="en-US">Englisch (USA)</option>
-                  <option value="en-GB">Englisch (UK)</option>
-                  <option value="fr-FR">Franzoesisch (FR)</option>
-                  <option value="es-ES">Spanisch (ES)</option>
-                </select>
-              </div>
-              <div>
-                <label class="field-label" for="settings-theme-mode">Farbmodus</label>
-                <select class="field-input" id="settings-theme-mode" name="theme_mode">
-                  <option value="light">Hell</option>
-                  <option value="dark">Dunkel</option>
-                  <option value="auto">Systemdesign</option>
-                </select>
-              </div>
-              <div class="settings-actions">
-                <button class="submit-income" type="submit">Speichern</button>
-                <button id="settings-reset-btn" class="settings-reset-btn" type="button">Zurücksetzen</button>
-              </div>
-            </form>
-            <p id="settings-status" class="form-status"></p>
-          </div>
-        </div>
-
-        <div class="profile-wrap">
-          <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
-            <span class="profile-avatar" id="profile-avatar">U</span>
-            <span class="profile-name" id="profile-name">Profil</span>
-          </button>
-          <div id="profile-menu" class="profile-menu" hidden>
-            <p class="menu-name" id="menu-name">-</p>
-            <p class="menu-mail" id="menu-mail">-</p>
-            <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
-          </div>
-        </div>
-
-      </div>
-    </header>
+    <header class="dash-topbar page-topbar" data-shared-header data-header-sub="Dashboard" data-header-with-settings="true"></header>
 
     <main class="dash-main">
       <nav class="section-switch" role="tablist" aria-label="Bereiche">
@@ -357,6 +284,8 @@
   <script src="/shared/js/language-utils.js"></script>
   <script src="/shared/js/currency-utils.js"></script>
   <script src="/shared/js/api-client.js"></script>
+  <script src="/shared/js/header-include.js"></script>
+  <script src="/shared/js/topbar.js"></script>
   <script src="./js/state.js"></script>
   <script src="./js/runtime.js"></script>
   <script src="./js/helpers.js"></script>

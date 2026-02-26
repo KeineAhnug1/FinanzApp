@@ -197,19 +197,19 @@
 
 .cashflow-line-income {
   fill: none;
-  stroke: #4a9dff;
+  stroke: var(--accent-blue);
   stroke-width: 2.6;
 }
 
 .cashflow-line-expense {
   fill: none;
-  stroke: #ff8a65;
+  stroke: var(--accent-orange);
   stroke-width: 2.6;
 }
 
 .cashflow-line-savings {
   fill: none;
-  stroke: #7c83ff;
+  stroke: var(--accent-violet);
   stroke-width: 2.6;
 }
 
@@ -231,15 +231,15 @@
 }
 
 .cashflow-point-income {
-  fill: #4a9dff;
+  fill: var(--accent-blue);
 }
 
 .cashflow-point-expense {
-  fill: #ff8a65;
+  fill: var(--accent-orange);
 }
 
 .cashflow-point-savings {
-  fill: #7c83ff;
+  fill: var(--accent-violet);
 }
 
 .cashflow-point-income,
@@ -290,15 +290,15 @@
 }
 
 .cashflow-legend-dot.income {
-  background: #4a9dff;
+  background: var(--accent-blue);
 }
 
 .cashflow-legend-dot.expense {
-  background: #ff8a65;
+  background: var(--accent-orange);
 }
 
 .cashflow-legend-dot.savings {
-  background: #7c83ff;
+  background: var(--accent-violet);
 }
 
 .cashflow-tooltip {
@@ -378,7 +378,7 @@
 }
 
 .bar.negative span {
-  background: linear-gradient(180deg, #cc7f7f, #b45757);
+  background: linear-gradient(180deg, var(--danger), var(--danger-strong));
 }
 
 .bar p {
@@ -497,7 +497,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   background: linear-gradient(145deg, var(--primary), var(--primary-dark));
-  color: #eff6ff;
+  color: var(--text-on-primary);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 700;
@@ -533,7 +533,7 @@
 }
 
 .form-status.is-error {
-  color: #d9534f;
+  color: var(--danger);
 }
 
 .category-manager {
@@ -571,7 +571,7 @@
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--bg-surface);
-  color: #c75b5b;
+  color: var(--danger);
   font: inherit;
   font-size: 0.74rem;
   padding: 4px 8px;
@@ -730,7 +730,7 @@
 }
 
 .income-amount.is-expense {
-  color: #c86a6a;
+  color: var(--danger);
 }
 
 .income-tags {
@@ -783,7 +783,7 @@
 }
 
 .inline-action.delete {
-  color: #c75b5b;
+  color: var(--danger);
 }
 
 .question-topic-head {
@@ -843,15 +843,15 @@
 }
 
 .question-badge.is-answered {
-  color: #207457;
-  border-color: #8acdb5;
-  background: #e8f8f1;
+  color: var(--success);
+  border-color: var(--success-border);
+  background: var(--success-soft);
 }
 
 .question-badge.is-open {
-  color: #9a6a1c;
-  border-color: #e3c99a;
-  background: #fff7ea;
+  color: var(--warning);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
 }
 
 .question-text {
@@ -929,7 +929,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(6, 10, 8, 0.45);
+  background: var(--overlay);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -985,8 +985,8 @@
 
 .modal-delete {
   border: 0;
-  background: linear-gradient(145deg, #ca5c5c, #ac2e2e);
-  color: #fff5f5;
+  background: linear-gradient(145deg, var(--danger), var(--danger-strong));
+  color: var(--text-on-primary);
 }
 
 @media (max-width: 1020px) {

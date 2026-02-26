@@ -84,7 +84,7 @@
 
 .submit-btn {
   border: 0;
-  color: #eff6ff;
+  color: var(--text-on-primary);
   background: linear-gradient(145deg, var(--primary), var(--primary-dark));
 }
 
@@ -103,7 +103,7 @@
 }
 
 .status.is-error {
-  color: #d9534f;
+  color: var(--danger);
 }
 
 .status.is-success {
@@ -171,15 +171,15 @@
 }
 
 .badge.is-answered {
-  color: #207457;
-  border-color: #8acdb5;
-  background: #e8f8f1;
+  color: var(--success);
+  border-color: var(--success-border);
+  background: var(--success-soft);
 }
 
 .badge.is-open {
-  color: #9a6a1c;
-  border-color: #e3c99a;
-  background: #fff7ea;
+  color: var(--warning);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
 }
 
 .question-text,

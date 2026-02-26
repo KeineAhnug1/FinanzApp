@@ -1,0 +1,67 @@
+<div class="topbar-left">
+  <span class="brand-mark">FinanzApp</span>
+  <span class="brand-sub">FinanzApp</span>
+</div>
+<div class="header-controls">
+  <nav class="app-nav-links" aria-label="App-Navigation">
+    <a class="app-nav-link" data-nav-key="dashboard" href="/dashboard.html">Dashboard</a>
+    <a class="app-nav-link" data-nav-key="accounts" href="/konten/">Kontenverwaltung</a>
+    <a class="app-nav-link" data-nav-key="groups" href="/groups/">Gruppen</a>
+    <a class="app-nav-link" data-nav-key="stocks" href="/aktien/">Aktien</a>
+    <a class="app-nav-link" data-nav-key="questions" href="/fragen/">Fragen</a>
+  </nav>
+  <div class="settings-wrap">
+    <button id="settings-btn" class="settings-btn" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="Einstellungen">
+      <span class="settings-icon" aria-hidden="true">&#9881;</span>
+      <span class="settings-btn-label">Einstellungen</span>
+    </button>
+    <div id="settings-panel" class="settings-panel" hidden>
+      <p class="settings-title">Einstellungen</p>
+      <form id="settings-form" class="settings-form">
+        <div>
+          <label class="field-label" for="settings-currency">Anzeige-Währung</label>
+          <select class="field-input" id="settings-currency" name="currency">
+            <option value="EUR">Euro (EUR)</option>
+            <option value="USD">US-Dollar (USD)</option>
+            <option value="GBP">Pfund (GBP)</option>
+            <option value="CHF">Schweizer Franken (CHF)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="settings-locale">Sprache & Zahlenformat</label>
+          <select class="field-input" id="settings-locale" name="locale">
+            <option value="de-DE">Deutsch (Deutschland)</option>
+            <option value="en-US">Englisch (USA)</option>
+            <option value="en-GB">Englisch (UK)</option>
+            <option value="fr-FR">Franzoesisch (FR)</option>
+            <option value="es-ES">Spanisch (ES)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="settings-theme-mode">Farbmodus</label>
+          <select class="field-input" id="settings-theme-mode" name="theme_mode">
+            <option value="light">Hell</option>
+            <option value="dark">Dunkel</option>
+            <option value="auto">Systemdesign</option>
+          </select>
+        </div>
+        <div class="settings-actions">
+          <button class="submit-income" type="submit">Speichern</button>
+          <button id="settings-reset-btn" class="settings-reset-btn" type="button">Zurücksetzen</button>
+        </div>
+      </form>
+      <p id="settings-status" class="form-status"></p>
+    </div>
+  </div>
+  <div class="profile-wrap">
+    <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
+      <span class="profile-avatar" id="profile-avatar" data-profile-avatar>U</span>
+      <span class="profile-name" id="profile-name" data-profile-name>Profil</span>
+    </button>
+    <div id="profile-menu" class="profile-menu" hidden>
+      <p class="menu-name" id="menu-name" data-profile-menu-name>-</p>
+      <p class="menu-mail" id="menu-mail" data-profile-menu-mail>-</p>
+      <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
+    </div>
+  </div>
+</div>
