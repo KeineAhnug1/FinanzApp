@@ -46,6 +46,7 @@ function initSettingsMenu() {
     const formData = new FormData(settingsForm);
     const pick = (name, fallback) => formData.get(name) ?? fallback;
     const themeMode = String(pick("theme_mode", "auto"));
+    const currentLocale = String(window.FinanzAppLanguage?.getLocale?.(appState.user?.id) || appState.settings.locale || DEFAULT_DASHBOARD_SETTINGS.locale);
     const nextSettings = normalizeDashboardSettings({
       currency: pick("currency", appState.settings.currency),
       locale: pick("locale", appState.settings.locale),
@@ -63,8 +64,11 @@ function initSettingsMenu() {
     }
     setIncomeFormModeCreate();
     setExpenseFormModeCreate();
-    const savedMessage = window.FinanzAppLanguage?.t?.("settings.saved") || "Einstellungen gespeichert.";
+    const savedMessage = window.FinanzAppLanguage?.t?.("settings.saved") || "settings.saved";
     setStatus("settings-status", "success", savedMessage);
+    if (nextSettings.locale !== currentLocale) {
+      window.location.reload();
+    }
   });
 
   resetBtn.addEventListener("click", () => {
@@ -78,7 +82,7 @@ function initSettingsMenu() {
     populateSettingsForm();
     setIncomeFormModeCreate();
     setExpenseFormModeCreate();
-    const resetMessage = window.FinanzAppLanguage?.t?.("settings.reset_done") || "Einstellungen zurückgesetzt.";
+    const resetMessage = window.FinanzAppLanguage?.t?.("settings.reset_done") || "settings.reset_done";
     setStatus("settings-status", "success", resetMessage);
   });
 

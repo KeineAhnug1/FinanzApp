@@ -61,7 +61,7 @@ function buildHierarchicalGroups(entries, dateField) {
             .sort((a, b) => compareDescKey(a[0], b[0]))
             .map(([dayKey, dayEntries]) => ({
               key: dayKey,
-              label: dayKey === "unknown" ? "Ohne Datum" : dayLabelFromKey(dayKey),
+              label: dayKey === "unknown" ? cashflowT("without_date", "Ohne Datum") : dayLabelFromKey(dayKey),
               entries: dayEntries,
               count: dayEntries.length,
               total: dayEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
@@ -69,7 +69,7 @@ function buildHierarchicalGroups(entries, dateField) {
           const monthEntries = days.flatMap((day) => day.entries);
           return {
             key: monthKey,
-            label: monthKey === "unknown" ? "Ohne Monat" : monthLongLabelFromKey(monthKey),
+            label: monthKey === "unknown" ? cashflowT("without_month", "Ohne Monat") : monthLongLabelFromKey(monthKey),
             days,
             count: monthEntries.length,
             total: monthEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
@@ -109,8 +109,8 @@ function renderIncomeItem(entry) {
       <p class="income-meta">${formatDate(entry.received_at)}</p>
       ${entry.note ? `<p class="income-note">${escapeHtml(entry.note)}</p>` : ""}
       <div class="income-actions-inline">
-        <button class="inline-action" type="button" data-action="edit" data-entry-id="${entry.id}">Bearbeiten</button>
-        <button class="inline-action delete" type="button" data-action="delete" data-entry-id="${entry.id}">Loeschen</button>
+        <button class="inline-action" type="button" data-action="edit" data-entry-id="${entry.id}">${cashflowT("edit", "Bearbeiten")}</button>
+        <button class="inline-action delete" type="button" data-action="delete" data-entry-id="${entry.id}">${cashflowT("delete", "Löschen")}</button>
       </div>
     </li>
   `;
@@ -122,7 +122,7 @@ function renderExpenseItem(entry) {
     <li class="income-item" data-entry-id="${entry.id}">
       <div class="income-topline">
         <div>
-          <span class="income-source">${escapeHtml(entry.source || entry.category || "Ausgabe")}</span>
+          <span class="income-source">${escapeHtml(entry.source || entry.category || cashflowT("expense", "Ausgabe"))}</span>
           <div class="income-tags">
             <span class="income-tag">${escapeHtml(categoryLabel(entry.category))}</span>
             ${bankAccountLabel ? `<span class="income-tag">${escapeHtml(bankAccountLabel)}</span>` : ""}
@@ -139,8 +139,8 @@ function renderExpenseItem(entry) {
       <p class="income-meta">${formatDate(entry.spent_at)}</p>
       ${entry.note ? `<p class="income-note">${escapeHtml(entry.note)}</p>` : ""}
       <div class="income-actions-inline">
-        <button class="inline-action" type="button" data-expense-action="edit" data-entry-id="${entry.id}">Bearbeiten</button>
-        <button class="inline-action delete" type="button" data-expense-action="delete" data-entry-id="${entry.id}">Loeschen</button>
+        <button class="inline-action" type="button" data-expense-action="edit" data-entry-id="${entry.id}">${cashflowT("edit", "Bearbeiten")}</button>
+        <button class="inline-action delete" type="button" data-expense-action="delete" data-entry-id="${entry.id}">${cashflowT("delete", "Löschen")}</button>
       </div>
     </li>
   `;
@@ -161,7 +161,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
           <details class="year-group" data-group-key="year:${yearGroup.key}" ${yearOpen ? "open" : ""}>
             <summary class="month-summary">
               <span class="month-title">${escapeHtml(yearGroup.label)}</span>
-              <span class="month-meta">${yearGroup.count} Eintraege • ${escapeHtml(formatMoney(yearGroup.total))}</span>
+              <span class="month-meta">${yearGroup.count} ${cashflowT("entries", "Eintraege")} • ${escapeHtml(formatMoney(yearGroup.total))}</span>
             </summary>
             <div class="year-content">
               ${yearGroup.months
@@ -171,7 +171,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
                     <details class="month-group" data-group-key="month:${monthGroup.key}" ${monthOpen ? "open" : ""}>
                       <summary class="month-summary">
                         <span class="month-title">${escapeHtml(monthGroup.label)}</span>
-                        <span class="month-meta">${monthGroup.count} Eintraege • ${escapeHtml(formatMoney(monthGroup.total))}</span>
+                        <span class="month-meta">${monthGroup.count} ${cashflowT("entries", "Eintraege")} • ${escapeHtml(formatMoney(monthGroup.total))}</span>
                       </summary>
                       <ul class="month-entry-list">
                         ${monthGroup.days
@@ -182,7 +182,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
                                 <details class="day-group" data-group-key="day:${dayGroup.key}" ${dayOpen ? "open" : ""}>
                                   <summary class="day-summary">
                                     <span class="day-title">${escapeHtml(dayGroup.label)}</span>
-                                    <span class="month-meta">${dayGroup.count} Eintraege • ${escapeHtml(formatMoney(dayGroup.total))}</span>
+                                    <span class="month-meta">${dayGroup.count} ${cashflowT("entries", "Eintraege")} • ${escapeHtml(formatMoney(dayGroup.total))}</span>
                                   </summary>
                                   <ul class="month-entry-list">
                                     ${dayGroup.entries.map((entry) => renderer(entry)).join("")}
@@ -212,8 +212,8 @@ function renderIncomeList(entries) {
   const filtered = entries.filter((entry) => entryMatchesQuery(entry, query, "received_at"));
   const grouped = buildHierarchicalGroups(filtered, "received_at");
   const emptyMessage = query
-    ? "Keine Einnahmen fuer diese Suche gefunden."
-    : "Noch keine Einnahmen eingetragen.";
+    ? cashflowT("income.none_for_search", "Keine Einnahmen fuer diese Suche gefunden.")
+    : cashflowT("income.none_yet", "Noch keine Einnahmen eingetragen.");
   renderGroupedEntryList(list, grouped, listState.incomeExpandedGroups, renderIncomeItem, emptyMessage);
 }
 
@@ -224,8 +224,8 @@ function renderExpenseList(entries) {
   const filtered = entries.filter((entry) => entryMatchesQuery(entry, query, "spent_at"));
   const grouped = buildHierarchicalGroups(filtered, "spent_at");
   const emptyMessage = query
-    ? "Keine Ausgaben fuer diese Suche gefunden."
-    : "Noch keine Ausgaben eingetragen.";
+    ? cashflowT("expense.none_for_search", "Keine Ausgaben fuer diese Suche gefunden.")
+    : cashflowT("expense.none_yet", "Noch keine Ausgaben eingetragen.");
   renderGroupedEntryList(list, grouped, listState.expenseExpandedGroups, renderExpenseItem, emptyMessage);
 }
 

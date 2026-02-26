@@ -234,6 +234,7 @@
 
     settingsForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      const currentLocale = String(window.FinanzAppLanguage?.getLocale?.(userId) || DEFAULT_SETTINGS.locale);
       const nextSettings = {
         currency: String(currency.value || DEFAULT_SETTINGS.currency).toUpperCase(),
         locale: String(locale.value || DEFAULT_SETTINGS.locale),
@@ -249,6 +250,9 @@
       status.textContent = t("settings.saved", "Einstellungen gespeichert.");
       status.classList.remove("is-error");
       status.classList.add("is-success");
+      if (nextSettings.locale !== currentLocale) {
+        window.location.reload();
+      }
     });
 
     resetBtn.addEventListener("click", () => {

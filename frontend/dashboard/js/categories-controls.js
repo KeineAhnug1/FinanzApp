@@ -107,8 +107,9 @@ function renderCategoryManager(kind, listId) {
   const list = document.getElementById(listId);
   if (!list) return;
   const categories = customCategories(kind);
+  const tr = (key, fallback) => window.FinanzAppLanguage?.t?.(key) || fallback;
   if (!categories.length) {
-    list.innerHTML = '<li><p class="category-empty">Keine eigenen Kategorien vorhanden.</p></li>';
+    list.innerHTML = `<li><p class="category-empty">${escapeHtml(tr("category.none_custom", "Keine eigenen Kategorien vorhanden."))}</p></li>`;
     return;
   }
   list.innerHTML = categories
@@ -116,7 +117,7 @@ function renderCategoryManager(kind, listId) {
       <li class="category-item">
         <span class="category-name">${escapeHtml(category)}</span>
         <button type="button" class="category-delete" data-category-delete="${escapeHtml(category)}" data-category-kind="${kind}">
-          Loeschen
+          ${escapeHtml(tr("delete", "Löschen"))}
         </button>
       </li>
     `)

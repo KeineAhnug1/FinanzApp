@@ -258,7 +258,7 @@
 			aQueries.push(fnBuildDailyFallbackQuery(oQuery));
 		}
 
-		let sLastError = "Keine Zeitreihe verfuegbar.";
+		let sLastError = fnT("stocks.no_timeseries_available", "Keine Zeitreihe verfuegbar.");
 
 		for (const oCandidateQuery of aQueries) {
 			for (const sCandidate of aSymbolCandidates) {
@@ -281,7 +281,7 @@
 						};
 					}
 
-					sLastError = `Leere Zeitreihe fuer ${sCandidate}.`;
+					sLastError = fnT("stocks.empty_timeseries_for", "Leere Zeitreihe fuer {symbol}.", { symbol: sCandidate });
 				} catch (oError) {
 					sLastError = String(oError?.message || oError);
 				}

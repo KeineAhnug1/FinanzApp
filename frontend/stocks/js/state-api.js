@@ -165,7 +165,7 @@
 			source: sSource,
 			amount: nRoundedAmount,
 			category: sType === "income" ? "investment" : "other",
-			note: `Aktientrade ueber Bankkonto: ${sBankLabel}`,
+			note: fnT("stocks.trade_note_bank_account", "Aktientrade ueber Bankkonto: {account}", { account: sBankLabel }),
 			recurrence: "once",
 			is_active: true,
 			bank_account_id: fnNormalizeAccountId(sBankAccountId),
@@ -203,19 +203,19 @@
 			elBackdrop.className = "trade-account-modal";
 			const sDefaultId = fnNormalizeAccountId(aBankAccounts[0]?.id);
 			elBackdrop.innerHTML = `
-        <div class="trade-account-modal-card" role="dialog" aria-modal="true" aria-label="Bankkonto auswaehlen">
-          <h3>${fnEscapeHtml(sActionLabel)}: Bankkonto auswaehlen</h3>
+        <div class="trade-account-modal-card" role="dialog" aria-modal="true" aria-label="${fnT("stocks.select_bank_account_aria", "Bankkonto auswaehlen")}">
+          <h3>${fnT("stocks.action_bank_account", "{action}: Bankkonto auswaehlen", { action: fnEscapeHtml(sActionLabel) })}</h3>
           <p class="muted">${fnEscapeHtml(fnBuildTradeSource(sSymbol, nAmount, sActionLabel === "Verkauf" ? "in" : "out"))}</p>
-          <p class="muted">Betrag: ${fnEscapeHtml(fnFmtMoney(nTotalValue, "USD"))}</p>
+          <p class="muted">${fnT("amount", "Betrag")}: ${fnEscapeHtml(fnFmtMoney(nTotalValue, "USD"))}</p>
           <label>
-            Bankkonto
+            ${fnT("bank_account", "Bankkonto")}
             <select id="tradeBankAccountSelect">
               ${aBankAccounts.map((oAccount) => `<option value="${fnEscapeHtml(oAccount.id)}">${fnEscapeHtml(oAccount.label)}</option>`).join("")}
             </select>
           </label>
           <div class="trade-account-modal-actions">
-            <button type="button" class="action" data-action="cancel">Abbrechen</button>
-            <button type="button" class="action primary" data-action="confirm">Bestaetigen</button>
+            <button type="button" class="action" data-action="cancel">${fnT("cancel", "Abbrechen")}</button>
+            <button type="button" class="action primary" data-action="confirm">${fnT("confirm", "Bestaetigen")}</button>
           </div>
         </div>
       `;
@@ -545,10 +545,10 @@
 		if (!elSelect) return;
 		const sCurrent = String(sSelectedShareAccountId || "").trim();
 		const sOptions = [
-			...(bIncludeAllOption ? [`<option value="">Alle Konten</option>`] : []),
+			...(bIncludeAllOption ? [`<option value="">${fnT("stocks.all_accounts", "Alle Konten")}</option>`] : []),
 			...aShareAccounts.map((oAccount) => {
 				const sId = fnEscapeHtml(String(oAccount?.id || ""));
-				const sLabel = fnEscapeHtml(String(oAccount?.label || sId || "Aktienkonto"));
+				const sLabel = fnEscapeHtml(String(oAccount?.label || sId || fnT("stocks.share_account", "Aktienkonto")));
 				return `<option value="${sId}">${sLabel}</option>`;
 			}),
 		].join("");
@@ -560,14 +560,14 @@
 	}
 
 	async function fnLoadShareAccounts() {
-		aShareAccounts = await fnLoadAccountsByEndpoints(aShareAccountsEndpoints, "Aktienkonto", {
-			warnPrefix: "Aktienkonto",
+		aShareAccounts = await fnLoadAccountsByEndpoints(aShareAccountsEndpoints, fnT("stocks.share_account", "Aktienkonto"), {
+			warnPrefix: fnT("stocks.share_account", "Aktienkonto"),
 			warnHttp: true,
 		});
 	}
 
 	async function fnLoadBankAccounts() {
-		aBankAccounts = await fnLoadAccountsByEndpoints(aBankAccountsEndpoints, "Bankkonto");
+		aBankAccounts = await fnLoadAccountsByEndpoints(aBankAccountsEndpoints, fnT("bank_account", "Bankkonto"));
 	}
 
 	/**

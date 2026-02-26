@@ -480,7 +480,7 @@
 			oCtx.font = "13px 'Sora', 'Avenir Next', sans-serif";
 			oCtx.textAlign = "center";
 			oCtx.textBaseline = "middle";
-			oCtx.fillText("Keine Verteilung verfügbar", nCx, nCy);
+			oCtx.fillText(fnT("stocks.no_distribution", "Keine Verteilung verfügbar"), nCx, nCy);
 			return;
 		}
 
@@ -522,8 +522,8 @@
 		oCtx.lineWidth = 1;
 		oCtx.stroke();
 
-		const sInfoTitle = iSelectedIndex >= 0 ? "Auswahl" : "Depot";
-		const sInfoNameRaw = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? aItems[iSelectedIndex].sSymbol : "Allokation";
+		const sInfoTitle = iSelectedIndex >= 0 ? fnT("selection", "Auswahl") : fnT("depot", "Depot");
+		const sInfoNameRaw = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? aItems[iSelectedIndex].sSymbol : fnT("allocation", "Allokation");
 		const sInfoName = String(sInfoNameRaw || "");
 		const sInfoNameShort = sInfoName.length > 14 ? `${sInfoName.slice(0, 13)}…` : sInfoName;
 		const sInfoPct = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? `${aItems[iSelectedIndex].nPct.toFixed(2)}%` : "";
@@ -552,7 +552,7 @@
 	function fnRenderPieLegend(elLegend, aItems, iSelectedIndex = -1) {
 		if (!elLegend) return;
 		if (!aItems.length) {
-			elLegend.innerHTML = `<p class="muted">Keine Verteilung verfügbar.</p>`;
+			elLegend.innerHTML = `<p class="muted">${fnT("stocks.no_distribution", "Keine Verteilung verfügbar.")}</p>`;
 			return;
 		}
 

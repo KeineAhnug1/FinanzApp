@@ -13,55 +13,55 @@
 		if (sViewName === "depot") {
 			elViewHost.innerHTML = `
         <section class="depot-page">
-          <h2 class="view-title">Gesamtsdepot</h2>
+          <h2 class="view-title">${fnT("stocks.depot_total", "Gesamtsdepot")}</h2>
 
           <div class="card">
             <div class="row">
               <label class="depot-account-picker">
-                Aktienkonto
-                <select id="depotShareAccountSelect" aria-label="Aktienkonto auswählen">
-                  <option value="">Alle Konten</option>
+                ${fnT("stocks.share_account", "Aktienkonto")}
+                <select id="depotShareAccountSelect" aria-label="${fnT("stocks.share_account_select_aria", "Aktienkonto auswählen")}">
+                  <option value="">${fnT("stocks.all_accounts", "Alle Konten")}</option>
                 </select>
               </label>
             </div>
           </div>
 
           <div class="range-bar">
-            <button class="range-btn active" data-range="1D">Tag</button>
-            <button class="range-btn" data-range="1W">Woche</button>
-            <button class="range-btn" data-range="1M">Monat</button>
-            <button class="range-btn" data-range="1Y">Jahr</button>
-            <button class="range-btn" data-range="SINCE_BUY">Ab Kauf</button>
+            <button class="range-btn active" data-range="1D">${fnT("common.day", "Tag")}</button>
+            <button class="range-btn" data-range="1W">${fnT("common.week", "Woche")}</button>
+            <button class="range-btn" data-range="1M">${fnT("month", "Monat")}</button>
+            <button class="range-btn" data-range="1Y">${fnT("common.year", "Jahr")}</button>
+            <button class="range-btn" data-range="SINCE_BUY">${fnT("stocks.since_buy", "Ab Kauf")}</button>
           </div>
 
           <div class="card">
             <div class="depot-top">
               <div class="kpis">
                 <div class="kpi">
-                  <b id="k_total_label">Depotwert (letzter Punkt)</b>
+                  <b id="k_total_label">${fnT("stocks.depot_value_last_point", "Depotwert (letzter Punkt)")}</b>
                   <span id="k_total">—</span>
                 </div>
                 <div class="kpi">
-                  <b>Veränderung im Zeitraum</b>
+                  <b>${fnT("stocks.change_period", "Veränderung im Zeitraum")}</b>
                   <span id="k_change">—</span>
                 </div>
                 <div class="kpi">
-                  <b>Nur Gewinn/Verlust</b>
+                  <b>${fnT("stocks.pnl_only", "Nur Gewinn/Verlust")}</b>
                   <label class="check-row">
                     <input type="checkbox" id="k_pnl_only" class="ui-check">
-                    <span>Aktiv</span>
+                    <span>${fnT("stocks.active", "Aktiv")}</span>
                   </label>
                 </div>
                 <div class="kpi">
-                  <b>Piechart anzeigen</b>
+                  <b>${fnT("stocks.show_pie", "Piechart anzeigen")}</b>
                   <label class="check-row">
                     <input type="checkbox" id="k_show_pie" class="ui-check">
-                    <span>Aktiv</span>
+                    <span>${fnT("stocks.active", "Aktiv")}</span>
                   </label>
                 </div>
               </div>
 
-              <div class="muted" id="depotInfo">Bereit.</div>
+              <div class="muted" id="depotInfo">${fnT("common.ready", "Bereit.")}</div>
             </div>
 
             <div class="depot-chart-layout is-pie-hidden">
@@ -78,15 +78,15 @@
           </div>
 
           <div class="card">
-            <h3>Positionen</h3>
+            <h3>${fnT("stocks.positions", "Positionen")}</h3>
             <div class="table-wrap">
               <table class="table" id="holdingsTable">
                 <thead>
                   <tr>
-                    <th>Symbol</th>
-                    <th>Menge</th>
-                    <th>Erster Kauf</th>
-                    <th>Ø Kaufpreis</th>
+                    <th>${fnT("symbol", "Symbol")}</th>
+                    <th>${fnT("amount", "Menge")}</th>
+                    <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
+                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -105,18 +105,18 @@
 		if (sViewName === "analysis") {
 			elViewHost.innerHTML = `
         <section class="analysis-page">
-          <h2 class="view-title">Einzelanalyse</h2>
+          <h2 class="view-title">${fnT("stocks.single_analysis", "Einzelanalyse")}</h2>
 
           <div class="card">
             <div class="row analysis-top-row">
               <label>
-                Alle Aktien durchsuchen
-                <input id="analysisCatalogSearchInput" type="search" placeholder="z. B. Apple oder AAPL" autocomplete="off">
+                ${fnT("stocks.search_all", "Alle Aktien durchsuchen")}
+                <input id="analysisCatalogSearchInput" type="search" placeholder="${fnT("stocks.search_placeholder", "z. B. Apple oder AAPL")}" autocomplete="off">
               </label>
 
-              <button class="action" id="analysisCatalogSelectFirstBtn" type="button">Ersten Treffer laden</button>
+              <button class="action" id="analysisCatalogSelectFirstBtn" type="button">${fnT("stocks.select_first_hit", "Ersten Treffer laden")}</button>
 
-              <div class="muted" id="analysisInfo">Bereit.</div>
+              <div class="muted" id="analysisInfo">${fnT("common.ready", "Bereit.")}</div>
             </div>
 
             <div id="analysisSearchResults" class="analysis-search-results"></div>
@@ -125,45 +125,45 @@
           <div class="card">
             <div class="row analysis-top-row">
               <label>
-                Meine gehaltenen Aktien
+                ${fnT("stocks.my_holdings", "Meine gehaltenen Aktien")}
                 <select id="analysisOwnedSymbolSelect"></select>
               </label>
 
-              <button class="action" id="analysisUseOwnedBtn" type="button">Aus Depot laden</button>
+              <button class="action" id="analysisUseOwnedBtn" type="button">${fnT("stocks.load_from_depot", "Aus Depot laden")}</button>
 
               <label>
-                Menge
+                ${fnT("amount", "Menge")}
                 <input id="analysisTradeAmountInput" type="number" min="0.0001" step="0.0001" value="1">
               </label>
 
               <label>
-                Aktienkonto
+                ${fnT("stocks.share_account", "Aktienkonto")}
                 <select id="analysisTradeShareAccountSelect"></select>
               </label>
 
-              <button class="action primary" id="analysisBuyBtn" type="button">Kaufen</button>
-              <button class="action primary" id="analysisSellBtn" type="button">Verkaufen</button>
+              <button class="action primary" id="analysisBuyBtn" type="button">${fnT("stocks.buy", "Kaufen")}</button>
+              <button class="action primary" id="analysisSellBtn" type="button">${fnT("stocks.sell", "Verkaufen")}</button>
             </div>
             <div class="muted" id="analysisBuyFeedback"></div>
           </div>
 
           <div class="range-bar">
-            <button class="range-btn active" data-range="1D">Tag</button>
-            <button class="range-btn" data-range="1W">Woche</button>
-            <button class="range-btn" data-range="1M">Monat</button>
-            <button class="range-btn" data-range="1Y">Jahr</button>
-            <button class="range-btn" data-range="SINCE_BUY">Ab Kauf</button>
+            <button class="range-btn active" data-range="1D">${fnT("common.day", "Tag")}</button>
+            <button class="range-btn" data-range="1W">${fnT("common.week", "Woche")}</button>
+            <button class="range-btn" data-range="1M">${fnT("month", "Monat")}</button>
+            <button class="range-btn" data-range="1Y">${fnT("common.year", "Jahr")}</button>
+            <button class="range-btn" data-range="SINCE_BUY">${fnT("stocks.since_buy", "Ab Kauf")}</button>
           </div>
 
           <div class="card">
             <div class="depot-top">
               <div class="kpis">
                 <div class="kpi">
-                  <b id="analysis_total_label">Kurs (letzter Punkt)</b>
+                  <b id="analysis_total_label">${fnT("stocks.price_last_point", "Kurs (letzter Punkt)")}</b>
                   <span id="analysis_total">—</span>
                 </div>
                 <div class="kpi">
-                  <b>Veränderung im Zeitraum</b>
+                  <b>${fnT("stocks.change_period", "Veränderung im Zeitraum")}</b>
                   <span id="analysis_change">—</span>
                 </div>
               </div>
@@ -173,15 +173,15 @@
           </div>
 
           <div class="card">
-            <h3>Alle Aktien im Besitz</h3>
+            <h3>${fnT("stocks.all_owned", "Alle Aktien im Besitz")}</h3>
             <div class="table-wrap">
               <table class="table" id="analysisHoldingsTable">
                 <thead>
                   <tr>
-                    <th>Symbol</th>
-                    <th>Gesamtmenge</th>
-                    <th>Erster Kauf</th>
-                    <th>Ø Kaufpreis</th>
+                    <th>${fnT("symbol", "Symbol")}</th>
+                    <th>${fnT("stocks.total_quantity", "Gesamtmenge")}</th>
+                    <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
+                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -204,78 +204,78 @@
 		if (sViewName === "futureanalysis") {
 			elViewHost.innerHTML = `
         <section class="future-page">
-          <h2 class="view-title">Zukunftsaussicht</h2>
+          <h2 class="view-title">${fnT("stocks.future_outlook", "Zukunftsaussicht")}</h2>
 
           <div class="card">
             <div class="row future-top-row">
               <label>
-                Prognosezeitraum (Jahre)
+                ${fnT("stocks.forecast_period_years", "Prognosezeitraum (Jahre)")}
                 <input id="futureYearsInput" type="number" min="1" max="50" step="1" value="5">
               </label>
 
-              <button class="action" id="futureRecalcBtn" type="button">Neu berechnen</button>
-              <button class="action" id="futureSelectAllBtn" type="button">Alle wählen</button>
-              <button class="action" id="futureSelectNoneBtn" type="button">Keine wählen</button>
+              <button class="action" id="futureRecalcBtn" type="button">${fnT("stocks.future_recalc", "Neu berechnen")}</button>
+              <button class="action" id="futureSelectAllBtn" type="button">${fnT("stocks.select_all", "Alle wählen")}</button>
+              <button class="action" id="futureSelectNoneBtn" type="button">${fnT("stocks.select_none", "Keine wählen")}</button>
             </div>
 
-            <div class="muted" id="futureInfo">Bereit.</div>
+            <div class="muted" id="futureInfo">${fnT("common.ready", "Bereit.")}</div>
           </div>
 
           <div class="card">
-            <h3>Meine gehaltenen Aktien (einzeln oder mehrfach auswählen)</h3>
+            <h3>${fnT("stocks.my_owned_multiple", "Meine gehaltenen Aktien (einzeln oder mehrfach auswählen)")}</h3>
             <div id="futureOwnedList" class="future-owned-list"></div>
           </div>
 
           <div class="card">
             <div class="kpis">
               <div class="kpi">
-                <b>Ausgewählte Aktien</b>
+                <b>${fnT("stocks.selected_stocks", "Ausgewählte Aktien")}</b>
                 <span id="futureSelectedSymbols">—</span>
               </div>
               <div class="kpi">
-                <b>Aktueller Wert</b>
+                <b>${fnT("stocks.current_value", "Aktueller Wert")}</b>
                 <span id="futureCurrentValue">—</span>
               </div>
               <div class="kpi">
-                <b>Ø Gewinn pro Jahr (seit Erstkauf)</b>
+                <b>${fnT("stocks.avg_profit_year", "Ø Gewinn pro Jahr (seit Erstkauf)")}</b>
                 <span id="futureAvgProfitYear">—</span>
               </div>
               <div class="kpi">
-                <b>Ø Rendite pro Jahr (seit Erstkauf)</b>
+                <b>${fnT("stocks.avg_return_year", "Ø Rendite pro Jahr (seit Erstkauf)")}</b>
                 <span id="futureAvgReturnYear">—</span>
               </div>
               <div class="kpi">
-                <b>Prognosewert</b>
+                <b>${fnT("stocks.forecast_value", "Prognosewert")}</b>
                 <span id="futureProjectedValue">—</span>
               </div>
               <div class="kpi">
-                <b>Prognose Gewinn/Verlust</b>
+                <b>${fnT("stocks.forecast_pnl", "Prognose Gewinn/Verlust")}</b>
                 <span id="futureProjectedPnl">—</span>
               </div>
             </div>
           </div>
 
           <div class="card">
-            <h3>Historische Entwicklung (ab erstem Kauf)</h3>
+            <h3>${fnT("stocks.history_since_first_buy", "Historische Entwicklung (ab erstem Kauf)")}</h3>
             <canvas id="futureHistoryChart" class="line-chart" width="1200" height="420"></canvas>
           </div>
 
           <div class="card">
-            <h3>Prognose bei gleichbleibenden Bedingungen</h3>
+            <h3>${fnT("stocks.forecast_constant_conditions", "Prognose bei gleichbleibenden Bedingungen")}</h3>
             <canvas id="futureProjectionChart" class="line-chart" width="1200" height="420"></canvas>
           </div>
 
           <div class="card">
-            <h3>Bestand (aggregiert)</h3>
+            <h3>${fnT("stocks.holdings_aggregated", "Bestand (aggregiert)")}</h3>
             <div class="table-wrap">
               <table class="table" id="futureHoldingsTable">
                 <thead>
                   <tr>
-                    <th>Aktiv</th>
-                    <th>Symbol</th>
-                    <th>Gesamtmenge</th>
-                    <th>Erster Kauf</th>
-                    <th>Ø Kaufpreis</th>
+                    <th>${fnT("stocks.active", "Aktiv")}</th>
+                    <th>${fnT("symbol", "Symbol")}</th>
+                    <th>${fnT("stocks.total_quantity", "Gesamtmenge")}</th>
+                    <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
+                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -307,22 +307,22 @@
 
           <div class="card">
             <div class="row analysis-top-row">
-              <div class="muted" id="categoryInfo">Lade Daten...</div>
+              <div class="muted" id="categoryInfo">${fnT("stocks.load_data", "Lade Daten...")}</div>
             </div>
           </div>
 
           <div class="card">
-            <h3>Meine gehaltenen Aktien (${fnEscapeHtml(oCategoryMeta.sTitle)})</h3>
+            <h3>${fnT("stocks.my_holdings_with_category", "Meine gehaltenen Aktien ({category})", { category: fnEscapeHtml(oCategoryMeta.sTitle) })}</h3>
             <div class="table-wrap">
               <table class="table" id="categoryHoldingsTable">
                 <thead>
                   <tr>
-                    <th>Symbol</th>
-                    <th>Name</th>
-                    <th>Typ</th>
-                    <th>Gesamtmenge</th>
-                    <th>Erster Kauf</th>
-                    <th>Ø Kaufpreis</th>
+                    <th>${fnT("symbol", "Symbol")}</th>
+                    <th>${fnT("name", "Name")}</th>
+                    <th>${fnT("type", "Typ")}</th>
+                    <th>${fnT("stocks.total_quantity", "Gesamtmenge")}</th>
+                    <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
+                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -336,10 +336,10 @@
 			return;
 		}
 
-		elViewHost.innerHTML = `
+	elViewHost.innerHTML = `
       <div class="card">
         <h2 class="view-title">${fnEscapeHtml(sViewName)}</h2>
-        <p class="muted">Dieser Bereich ist noch nicht implementiert.</p>
+        <p class="muted">${fnT("stocks.not_implemented_yet", "Dieser Bereich ist noch nicht implementiert.")}</p>
       </div>
     `;
 	}

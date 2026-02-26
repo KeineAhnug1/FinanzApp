@@ -118,12 +118,17 @@
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      const currentLocale = String(window.FinanzAppLanguage.getLocale() || "de-DE");
+      const nextLocale = String(localeSelect.value || currentLocale);
       window.FinanzAppLanguage.setLocale(localeSelect.value);
       const mode = THEME_OPTIONS.has(themeSelect.value) ? themeSelect.value : "auto";
       if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
         window.FinanzAppTheme.saveAndApplyThemeMode(mode);
       }
       status.textContent = window.FinanzAppLanguage.t("settings.saved");
+      if (nextLocale !== currentLocale) {
+        window.location.reload();
+      }
     });
 
     document.addEventListener("click", (event) => {

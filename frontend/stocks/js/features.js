@@ -213,20 +213,20 @@
 	async function fnBuildDepotChart(oArgs) {
 		const aPositions = oArgs.aPositions || [];
 		if (!aPositions.length) {
-			oArgs.elInfo.textContent = "Keine Positionen vorhanden.";
+			oArgs.elInfo.textContent = fnT("stocks.no_positions", "Keine Positionen vorhanden.");
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
 			oArgs.fnOnCompositionChange?.([]);
 			return;
 		}
 
 		const oQuery = fnRangeToQuery(oArgs.sRange, aPositions);
-		oArgs.elInfo.textContent = `Lade Kursdaten (${oArgs.sRange}, interval=${oQuery.interval})...`;
+		oArgs.elInfo.textContent = `${fnT("stocks.loading_quotes", "Lade Kursdaten")} (${oArgs.sRange}, interval=${oQuery.interval})...`;
 
 		const aSymbols = [...new Set(aPositions.map((oPosition) => String(oPosition?.symbol || "").trim().toUpperCase()).filter(Boolean))];
 		const mSeriesBySymbol = await fnLoadSeriesForSymbols(aSymbols, oQuery);
 
 		if (mSeriesBySymbol.size === 0) {
-			oArgs.elInfo.textContent = "Keine Kursdaten erhalten (API Limit? falsche Symbole?).";
+			oArgs.elInfo.textContent = fnT("stocks.no_data_received", "Keine Kursdaten erhalten (API Limit? falsche Symbole?).");
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
 			oArgs.fnOnCompositionChange?.([]);
 			return;
@@ -268,7 +268,9 @@
 			? fnComputeWeightedReturnPct(aPositions, mSeriesBySymbol)
 			: (nFirst !== 0 ? (nChangeAbs / nFirst) * 100 : Number.NaN);
 
-		oArgs.elKTotalLabel.textContent = oArgs.bPnlOnly ? "Gewinn/Verlust (letzter Punkt)" : "Depotwert (letzter Punkt)";
+		oArgs.elKTotalLabel.textContent = oArgs.bPnlOnly
+			? fnT("stocks.pnl_last_point", "Gewinn/Verlust (letzter Punkt)")
+			: fnT("stocks.depot_value_last_point", "Depotwert (letzter Punkt)");
 		oArgs.elKTotal.textContent = fnFmtMoney(nLast, "USD");
 		oArgs.elKChange.textContent = `${fnFmtMoney(nChangeAbs, "USD")} (${Number.isFinite(nChangePct) ? nChangePct.toFixed(2) : "—"}%)`;
 
@@ -278,7 +280,7 @@
 		oArgs.fnOnCompositionChange?.(aComposition);
 
 		const bSomeFromCache = [...mSeriesBySymbol.values()].some((oSeries) => oSeries.fromCache);
-		oArgs.elInfo.textContent = `Chart aktualisiert: ${oArgs.sRange}${bSomeFromCache ? " (teilweise aus Cache)" : ""}`;
+		oArgs.elInfo.textContent = `${fnT("stocks.chart_updated", "Chart aktualisiert")}: ${oArgs.sRange}${bSomeFromCache ? ` (${fnT("stocks.partly_from_cache", "teilweise aus Cache")})` : ""}`;
 	}
 
 	// =====================================================
@@ -319,7 +321,7 @@
 		const oCtx = elCanvas?.getContext("2d");
 
 		if (!elInfo || !elCatalogSearchInput || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elTradeShareAccountSelect || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
-			fnShowError("Einzelanalyse konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
+			fnShowError(fnT("stocks.analysis_view_init_failed", "Einzelanalyse konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente)."));
 			return;
 		}
 
@@ -328,7 +330,7 @@
 			aPositions = await fnLoadPositions();
 		} catch (oError) {
 			fnShowError(String(oError?.message || oError));
-			elInfo.textContent = "Konnte Positionen nicht laden.";
+			elInfo.textContent = fnT("stocks.load_positions_failed", "Konnte Positionen nicht laden.");
 			fnClearCanvas(oCtx, elCanvas);
 			return;
 		}
@@ -397,7 +399,7 @@
 			if (!sNeedle) {
 				aCurrentSearchResults = [];
 				if (iRequestSeq === iSearchRequestSeq) {
-					elSearchResults.innerHTML = `<div class="muted">Bitte Suchbegriff eingeben.</div>`;
+					elSearchResults.innerHTML = `<div class="muted">${fnT("stocks.enter_search", "Bitte Suchbegriff eingeben.")}</div>`;
 				}
 				return;
 			}
@@ -407,7 +409,7 @@
 			if (iRequestSeq !== iSearchRequestSeq) return;
 
 			if (!aCurrentSearchResults.length) {
-				elSearchResults.innerHTML = `<div class="muted">Keine Treffer gefunden.</div>`;
+				elSearchResults.innerHTML = `<div class="muted">${fnT("stocks.no_results", "Keine Treffer gefunden.")}</div>`;
 				return;
 			}
 
@@ -540,7 +542,7 @@
 					nTotalValue: nTradeTotalValue,
 				});
 			} catch (oError) {
-				elBuyFeedback.textContent = `Kauf nicht möglich: ${String(oError?.message || oError)}`;
+				elBuyFeedback.textContent = `${fnT("stocks.buy_not_possible", "Kauf nicht möglich")}: ${String(oError?.message || oError)}`;
 				return;
 			}
 
@@ -558,7 +560,7 @@
 					sBankAccountId: oSelectedBankAccount.id,
 				});
 			} catch (oError) {
-				elBuyFeedback.textContent = `Kauf nicht gespeichert: ${String(oError?.message || oError)}`;
+				elBuyFeedback.textContent = `${fnT("stocks.buy_not_saved", "Kauf nicht gespeichert")}: ${String(oError?.message || oError)}`;
 				return;
 			}
 
@@ -579,7 +581,13 @@
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 			const sTargetShareLabel = fnGetShareAccountLabel(sTargetShareAccountId);
-			elBuyFeedback.textContent = `Kauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} zu ${fnFmtMoney(nBuyPrice, "USD")} auf ${sTargetShareLabel}, abgebucht von ${oSelectedBankAccount.label}.`;
+			elBuyFeedback.textContent = fnT("stocks.buy_saved_detail", "Kauf gespeichert: {amount} x {symbol} zu {price} auf {shareAccount}, abgebucht von {bankAccount}.", {
+				amount: fnFmtNumber(nAmount, 4),
+				symbol: sSymbol,
+				price: fnFmtMoney(nBuyPrice, "USD"),
+				shareAccount: sTargetShareLabel,
+				bankAccount: oSelectedBankAccount.label,
+			});
 			await fnRefreshAnalysisChart();
 		});
 
@@ -600,11 +608,14 @@
 			const oOwnedRow = aOwnedRows.find((oRow) => oRow.sSymbol === sSymbol);
 			const nOwnedAmount = Number(oOwnedRow?.nTotalAmount);
 			if (!Number.isFinite(nOwnedAmount) || nOwnedAmount <= 0) {
-				elBuyFeedback.textContent = `Verkauf nicht möglich: ${sSymbol} ist nicht im Bestand.`;
+				elBuyFeedback.textContent = fnT("stocks.sell_not_possible_not_owned", "Verkauf nicht möglich: {symbol} ist nicht im Bestand.", { symbol: sSymbol });
 				return;
 			}
 			if (nAmount > nOwnedAmount) {
-				elBuyFeedback.textContent = `Verkauf nicht möglich: Bestand ${fnFmtNumber(nOwnedAmount, 4)} ${sSymbol}.`;
+				elBuyFeedback.textContent = fnT("stocks.sell_not_possible_stock", "Verkauf nicht möglich: Bestand {amount} {symbol}.", {
+					amount: fnFmtNumber(nOwnedAmount, 4),
+					symbol: sSymbol,
+				});
 				return;
 			}
 
@@ -619,7 +630,11 @@
 				.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sTargetShareAccountId)
 				.reduce((nSum, oPosition) => nSum + Number(oPosition?.amount || 0), 0);
 			if (nAmount > nOwnedAmountOnTargetAccount) {
-				elBuyFeedback.textContent = `Verkauf nicht möglich: Bestand auf ${fnGetShareAccountLabel(sTargetShareAccountId)} ist ${fnFmtNumber(nOwnedAmountOnTargetAccount, 4)} ${sSymbol}.`;
+				elBuyFeedback.textContent = fnT("stocks.sell_not_possible_account_stock", "Verkauf nicht möglich: Bestand auf {account} ist {amount} {symbol}.", {
+					account: fnGetShareAccountLabel(sTargetShareAccountId),
+					amount: fnFmtNumber(nOwnedAmountOnTargetAccount, 4),
+					symbol: sSymbol,
+				});
 				return;
 			}
 
@@ -642,7 +657,7 @@
 					nTotalValue: nTradeTotalValue,
 				});
 			} catch (oError) {
-				elBuyFeedback.textContent = `Verkauf nicht möglich: ${String(oError?.message || oError)}`;
+				elBuyFeedback.textContent = `${fnT("stocks.sell_not_possible", "Verkauf nicht möglich")}: ${String(oError?.message || oError)}`;
 				return;
 			}
 
@@ -660,7 +675,7 @@
 					sBankAccountId: oSelectedBankAccount.id,
 				});
 			} catch (oError) {
-				elBuyFeedback.textContent = `Verkauf nicht gespeichert: ${String(oError?.message || oError)}`;
+				elBuyFeedback.textContent = `${fnT("stocks.sell_not_saved", "Verkauf nicht gespeichert")}: ${String(oError?.message || oError)}`;
 				return;
 			}
 
@@ -678,7 +693,12 @@
 			fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 
-			elBuyFeedback.textContent = `Verkauf gespeichert: ${fnFmtNumber(nAmount, 4)} x ${sSymbol} von ${fnGetShareAccountLabel(sTargetShareAccountId)}, gutgeschrieben auf ${oSelectedBankAccount.label}.`;
+			elBuyFeedback.textContent = fnT("stocks.sell_saved_detail", "Verkauf gespeichert: {amount} x {symbol} von {shareAccount}, gutgeschrieben auf {bankAccount}.", {
+				amount: fnFmtNumber(nAmount, 4),
+				symbol: sSymbol,
+				shareAccount: fnGetShareAccountLabel(sTargetShareAccountId),
+				bankAccount: oSelectedBankAccount.label,
+			});
 			await fnRefreshAnalysisChart();
 		});
 
@@ -720,7 +740,7 @@
 	async function fnBuildAnalysisChart(oArgs) {
 		const sSymbol = String(oArgs.sSelectedSymbol || "").trim().toUpperCase();
 		if (!sSymbol) {
-			oArgs.elInfo.textContent = "Keine Aktie ausgewählt.";
+			oArgs.elInfo.textContent = fnT("stocks.no_stock_selected", "Keine Aktie ausgewählt.");
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
 			return;
 		}
@@ -734,7 +754,7 @@
 			: [{ symbol: sSymbol, amount: 1, created_at: Date.now(), worthwhenbought: 0 }];
 
 		const oQuery = fnRangeToQuery(oArgs.sRange, aPositionsForRange);
-		oArgs.elInfo.textContent = `Lade Kursdaten für ${sSymbol} (${oArgs.sRange}, interval=${oQuery.interval})...`;
+		oArgs.elInfo.textContent = `${fnT("stocks.loading_quotes_for", "Lade Kursdaten für {symbol}", { symbol: sSymbol })} (${oArgs.sRange}, interval=${oQuery.interval})...`;
 
 		const mSeriesBySymbol = await fnLoadSeriesForSymbols([sSymbol], oQuery);
 		if (!mSeriesBySymbol.size) {
@@ -748,19 +768,23 @@
 				const nChangeAbs = nLast - nFirst;
 				const nChangePct = nFirst !== 0 ? (nChangeAbs / nFirst) * 100 : Number.NaN;
 
-				oArgs.elTotalLabel.textContent = `Kurs ${sSymbol} (letzter Punkt)`;
+				oArgs.elTotalLabel.textContent = fnT("stocks.price_symbol_last_point", "Kurs {symbol} (letzter Punkt)", { symbol: sSymbol });
 				oArgs.elTotal.textContent = fnFmtMoney(nLast, "USD");
 				oArgs.elChange.textContent = `${fnFmtMoney(nChangeAbs, "USD")} (${Number.isFinite(nChangePct) ? nChangePct.toFixed(2) : "—"}%)`;
 				fnDrawLineChart(oArgs.oCtx, oArgs.elCanvas, aQuoteFallbackPoints, false);
-				oArgs.elInfo.textContent = `Keine Historie fuer ${sSymbol}; Fallback auf Live-Quote (${oQuoteResult.sourceSymbol}${oQuoteResult.fromCache ? ", Cache" : ""}).`;
+				oArgs.elInfo.textContent = fnT("stocks.no_history_live_quote_fallback", "Keine Historie fuer {symbol}; Fallback auf Live-Quote ({source}{cache}).", {
+					symbol: sSymbol,
+					source: oQuoteResult.sourceSymbol,
+					cache: oQuoteResult.fromCache ? ", Cache" : "",
+				});
 				return { nLastClose: nLast };
 			} catch (oQuoteError) {
 				const sSeriesError = String(mSeriesBySymbol?.mErrorsBySymbol?.get?.(sSymbol) || "").trim();
 				const sQuoteError = String(oQuoteError?.message || oQuoteError || "").trim();
 				const sDetail = [sSeriesError, sQuoteError].filter(Boolean).join(" | ");
 				oArgs.elInfo.textContent = sDetail
-					? `Keine Kursdaten fuer ${sSymbol}. Detail: ${sDetail}`
-					: `Keine Kursdaten fuer ${sSymbol} erhalten.`;
+					? fnT("stocks.no_data_for_symbol_with_detail", "Keine Kursdaten fuer {symbol}. Detail: {detail}", { symbol: sSymbol, detail: sDetail })
+					: fnT("stocks.no_data_for_symbol", "Keine Kursdaten fuer {symbol} erhalten.", { symbol: sSymbol });
 				fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
 				return;
 			}
@@ -882,7 +906,7 @@
 		const elInfo = document.getElementById("categoryInfo");
 		const elTableTbody = document.querySelector("#categoryHoldingsTable tbody");
 		if (!elInfo || !elTableTbody) {
-			fnShowError("Kategorieansicht konnte nicht initialisiert werden (fehlende DOM-Elemente).");
+			fnShowError(fnT("stocks.category_view_init_failed", "Kategorieansicht konnte nicht initialisiert werden (fehlende DOM-Elemente)."));
 			return;
 		}
 
@@ -892,7 +916,7 @@
 			[aPositions, aAllStocksCatalog] = await Promise.all([fnLoadPositions(), fnLoadAllStocksCatalog()]);
 		} catch (oError) {
 			fnShowError(String(oError?.message || oError));
-			elInfo.textContent = "Konnte Daten nicht laden.";
+			elInfo.textContent = fnT("stocks.load_data_failed", "Konnte Daten nicht laden.");
 			elTableTbody.innerHTML = "";
 			return;
 		}
@@ -908,21 +932,21 @@
 		});
 
 		if (!aFilteredRows.length) {
-			elInfo.textContent = "Keine gehaltenen Aktien in dieser Kategorie gefunden.";
+			elInfo.textContent = fnT("stocks.no_owned_in_category", "Keine gehaltenen Aktien in dieser Kategorie gefunden.");
 			elTableTbody.innerHTML = `
         <tr>
-          <td colspan="6">Keine passenden Positionen vorhanden.</td>
+          <td colspan="6">${fnT("stocks.no_matching_positions", "Keine passenden Positionen vorhanden.")}</td>
         </tr>
       `;
 			return;
 		}
 
-		elInfo.textContent = `${aFilteredRows.length} Symbol(e) in dieser Kategorie gefunden.`;
+		elInfo.textContent = fnT("stocks.symbol_count_in_category", "{count} Symbol(e) in dieser Kategorie gefunden.", { count: aFilteredRows.length });
 		elTableTbody.innerHTML = aFilteredRows
 			.map((oRow) => {
 				const oCatalogRow = mCatalogBySymbol.get(oRow.sSymbol) || {};
-				const sName = String(oCatalogRow?.sName || "Unbekannt");
-				const sType = String(oCatalogRow?.sType || "Unbekannt");
+				const sName = String(oCatalogRow?.sName || fnT("unknown", "Unbekannt"));
+				const sType = String(oCatalogRow?.sType || fnT("unknown", "Unbekannt"));
 				const sFirstBuyDate = Number.isFinite(oRow.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
 				return `
           <tr>
@@ -987,7 +1011,7 @@
 			!elProjectionCanvas ||
 			!oProjectionCtx
 		) {
-			fnShowError("Zukunftsaussicht konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
+			fnShowError(fnT("stocks.future_view_init_failed", "Zukunftsaussicht konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente)."));
 			return;
 		}
 
@@ -996,7 +1020,7 @@
 			aPositions = await fnLoadPositions();
 		} catch (oError) {
 			fnShowError(String(oError?.message || oError));
-			elInfo.textContent = "Konnte Positionen nicht laden.";
+			elInfo.textContent = fnT("stocks.load_positions_failed", "Konnte Positionen nicht laden.");
 			fnClearCanvas(oHistoryCtx, elHistoryCanvas);
 			fnClearCanvas(oProjectionCtx, elProjectionCanvas);
 			return;
@@ -1007,7 +1031,7 @@
 
 		const fnRenderOwnedSelectors = () => {
 			if (!aOwnedRows.length) {
-				elOwnedList.innerHTML = `<div class="muted">Keine gehaltenen Aktien vorhanden.</div>`;
+				elOwnedList.innerHTML = `<div class="muted">${fnT("stocks.no_owned_stocks", "Keine gehaltenen Aktien vorhanden.")}</div>`;
 				elTableTbody.innerHTML = "";
 				return;
 			}
@@ -1018,7 +1042,7 @@
 					return `
             <label class="future-owned-item">
               <input type="checkbox" data-symbol="${fnEscapeHtml(oRow.sSymbol)}" ${sChecked}>
-              <span><b>${fnEscapeHtml(oRow.sSymbol)}</b> (${fnFmtNumber(oRow.nTotalAmount, 4)} Stk)</span>
+              <span><b>${fnEscapeHtml(oRow.sSymbol)}</b> (${fnFmtNumber(oRow.nTotalAmount, 4)} ${fnT("piece_short", "Stk")})</span>
             </label>
           `;
 				})
@@ -1026,7 +1050,7 @@
 
 			elTableTbody.innerHTML = aOwnedRows
 				.map((oRow) => {
-					const sIsActive = setSelectedSymbols.has(oRow.sSymbol) ? "Ja" : "Nein";
+					const sIsActive = setSelectedSymbols.has(oRow.sSymbol) ? fnT("yes", "Ja") : fnT("no", "Nein");
 					const sFirstBuyDate = Number.isFinite(oRow.iEarliestBuyMs)
 						? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs)
 						: "—";
@@ -1091,7 +1115,7 @@
 				setSelectedSymbols.has(String(oPosition?.symbol || "").trim().toUpperCase())
 			);
 			if (!aSelectedPositions.length) {
-				elInfo.textContent = "Für die Auswahl gibt es keine Positionen.";
+				elInfo.textContent = fnT("stocks.no_positions_for_selection", "Für die Auswahl gibt es keine Positionen.");
 				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
 				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
 				return;
@@ -1106,10 +1130,10 @@
 				outputsize: 5000,
 			};
 
-			elInfo.textContent = `Lade Kursdaten für ${aSelectedSymbols.join(", ")}...`;
+			elInfo.textContent = fnT("stocks.loading_quotes_for_symbols", "Lade Kursdaten für {symbols}...", { symbols: aSelectedSymbols.join(", ") });
 			const mSeriesBySymbol = await fnLoadSeriesForSymbols(aSelectedSymbols, oQuery);
 			if (!mSeriesBySymbol.size) {
-				elInfo.textContent = "Keine Kursdaten für die Auswahl erhalten.";
+				elInfo.textContent = fnT("stocks.no_chart_data_selected", "Keine Kursdaten für die Auswahl erhalten.");
 				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
 				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
 				return;
@@ -1118,7 +1142,7 @@
 			const aRawHistoryPoints = fnBuildSeriesPointsForPositions(aSelectedPositions, mSeriesBySymbol, false);
 			const aHistoryPoints = fnWithFixedDateRange(aRawHistoryPoints, oQuery, false);
 			if (aHistoryPoints.length < 2) {
-				elInfo.textContent = "Zu wenige historische Datenpunkte für die Auswahl.";
+				elInfo.textContent = fnT("stocks.too_few_historical_points", "Zu wenige historische Datenpunkte für die Auswahl.");
 				fnClearCanvas(oHistoryCtx, elHistoryCanvas);
 				fnClearCanvas(oProjectionCtx, elProjectionCanvas);
 				return;
@@ -1213,7 +1237,7 @@
 					}));
 
 				if (aProjectionPoints.length < 2) {
-					elInfo.textContent = "Zu wenige Prognosedaten für die Auswahl.";
+					elInfo.textContent = fnT("stocks.too_few_projection_points", "Zu wenige Prognosedaten für die Auswahl.");
 					fnClearCanvas(oProjectionCtx, elProjectionCanvas);
 					return;
 				}
@@ -1334,16 +1358,16 @@
 
 		const fnRenderAccountList = (elContainer, aAccounts, sKind) => {
 			if (!aAccounts.length) {
-				elContainer.innerHTML = `<p class="muted">Keine ${sKind} vorhanden.</p>`;
+				elContainer.innerHTML = `<p class="muted">${fnT("stocks.none_for_kind", "Keine {kind} vorhanden.", { kind: sKind })}</p>`;
 				return;
 			}
 
 			elContainer.innerHTML = aAccounts
 				.map((oAccount) => `
           <div class="account-row" data-kind="${fnEscapeHtml(sKind)}" data-account-id="${fnEscapeHtml(oAccount.id)}">
-            <input class="account-name-input" type="text" value="${fnEscapeHtml(oAccount.label)}" aria-label="${fnEscapeHtml(sKind)} Name">
-            <button class="action" data-action="rename">Umbenennen</button>
-            <button class="action" data-action="delete">Löschen</button>
+            <input class="account-name-input" type="text" value="${fnEscapeHtml(oAccount.label)}" aria-label="${fnT("stocks.account_name_aria", "{kind} Name", { kind: sKind })}">
+            <button class="action" data-action="rename">${fnT("accounts.rename", "Umbenennen")}</button>
+            <button class="action" data-action="delete">${fnT("accounts.delete", "Löschen")}</button>
           </div>
         `)
 				.join("");
@@ -1351,14 +1375,14 @@
 
 		const fnRefresh = async () => {
 			await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
-			fnRenderAccountList(elShareAccountsList, aShareAccounts, "Aktienkonto");
-			fnRenderAccountList(elBankAccountsList, aBankAccounts, "Bankkonto");
+			fnRenderAccountList(elShareAccountsList, aShareAccounts, fnT("accounts.share_account_fallback", "Aktienkonto"));
+			fnRenderAccountList(elBankAccountsList, aBankAccounts, fnT("accounts.bank_account_fallback", "Bankkonto"));
 		};
 
 		elCreateShareAccountBtn.addEventListener("click", async () => {
 			const sLabel = String(elShareAccountNameInput.value || "").trim();
 			if (!sLabel) {
-				elFeedback.textContent = "Bitte einen Namen für das Aktienkonto eingeben.";
+				elFeedback.textContent = fnT("accounts.enter_share_name", "Bitte einen Namen für das Aktienkonto eingeben.");
 				return;
 			}
 			try {
@@ -1369,16 +1393,16 @@
 				});
 				elShareAccountNameInput.value = "";
 				await fnRefresh();
-				elFeedback.textContent = "Aktienkonto erstellt.";
+				elFeedback.textContent = fnT("accounts.share_created", "Aktienkonto erstellt.");
 			} catch (oError) {
-				elFeedback.textContent = `Aktienkonto konnte nicht erstellt werden: ${String(oError?.message || oError)}`;
+				elFeedback.textContent = fnT("accounts.share_create_failed", "Aktienkonto konnte nicht erstellt werden: {error}", { error: String(oError?.message || oError) });
 			}
 		});
 
 		elCreateBankAccountBtn.addEventListener("click", async () => {
 			const sLabel = String(elBankAccountNameInput.value || "").trim();
 			if (!sLabel) {
-				elFeedback.textContent = "Bitte einen Namen für das Bankkonto eingeben.";
+				elFeedback.textContent = fnT("accounts.enter_bank_name", "Bitte einen Namen für das Bankkonto eingeben.");
 				return;
 			}
 			try {
@@ -1389,9 +1413,9 @@
 				});
 				elBankAccountNameInput.value = "";
 				await fnRefresh();
-				elFeedback.textContent = "Bankkonto erstellt.";
+				elFeedback.textContent = fnT("accounts.bank_created", "Bankkonto erstellt.");
 			} catch (oError) {
-				elFeedback.textContent = `Bankkonto konnte nicht erstellt werden: ${String(oError?.message || oError)}`;
+				elFeedback.textContent = fnT("accounts.bank_create_failed", "Bankkonto konnte nicht erstellt werden: {error}", { error: String(oError?.message || oError) });
 			}
 		});
 
@@ -1409,14 +1433,14 @@
 			try {
 				if (sAction === "rename") {
 					await fnApiUpdateAccount(aShareAccountsCrudEndpoints, sAccountId, { label: sLabel }, "PATCH");
-					elFeedback.textContent = "Aktienkonto umbenannt.";
+					elFeedback.textContent = fnT("accounts.share_renamed", "Aktienkonto umbenannt.");
 				} else if (sAction === "delete") {
 					await fnApiDeleteAccount(aShareAccountsCrudEndpoints, sAccountId);
-					elFeedback.textContent = "Aktienkonto gelöscht.";
+					elFeedback.textContent = fnT("accounts.share_deleted", "Aktienkonto gelöscht.");
 				}
 				await fnRefresh();
 			} catch (oError) {
-				elFeedback.textContent = `Aktion fehlgeschlagen: ${String(oError?.message || oError)}`;
+				elFeedback.textContent = fnT("accounts.action_failed", "Aktion fehlgeschlagen: {error}", { error: String(oError?.message || oError) });
 			}
 		});
 
@@ -1434,14 +1458,14 @@
 			try {
 				if (sAction === "rename") {
 					await fnApiUpdateAccount(aBankAccountsEndpoints, sAccountId, { label: sLabel }, "PATCH");
-					elFeedback.textContent = "Bankkonto umbenannt.";
+					elFeedback.textContent = fnT("accounts.bank_renamed", "Bankkonto umbenannt.");
 				} else if (sAction === "delete") {
 					await fnApiDeleteAccount(aBankAccountsEndpoints, sAccountId);
-					elFeedback.textContent = "Bankkonto gelöscht.";
+					elFeedback.textContent = fnT("accounts.bank_deleted", "Bankkonto gelöscht.");
 				}
 				await fnRefresh();
 			} catch (oError) {
-				elFeedback.textContent = `Aktion fehlgeschlagen: ${String(oError?.message || oError)}`;
+				elFeedback.textContent = fnT("accounts.action_failed", "Aktion fehlgeschlagen: {error}", { error: String(oError?.message || oError) });
 			}
 		});
 
