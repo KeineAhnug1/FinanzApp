@@ -131,6 +131,17 @@
   gap: 8px;
 }
 
+.question-link {
+  color: inherit;
+  text-decoration: none;
+  display: grid;
+  gap: 8px;
+}
+
+.question-link:hover .question-topic {
+  text-decoration: underline;
+}
+
 .question-head {
   display: flex;
   justify-content: space-between;
@@ -208,6 +219,18 @@
 .answer-form {
   display: grid;
   gap: 8px;
+}
+
+.question-detail-main {
+  width: min(980px, calc(100% - 32px));
+}
+
+.question-detail-item .question-topic {
+  font-size: 1.1rem;
+}
+
+.detail-top-actions {
+  margin-bottom: 10px;
 }
 
 .empty {

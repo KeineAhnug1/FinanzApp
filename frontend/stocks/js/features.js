@@ -121,13 +121,19 @@
 		elHoldingsTbody.innerHTML = aDepotRows
 			.map((oRow) => {
 				const sSymbol = fnEscapeHtml(String(oRow?.sSymbol || ""));
+				const sLogoUrl = fnEscapeHtml(fnBuildStockLogoUrl(oRow?.sSymbol, { size: 48 }));
 				const sAmount = fnFmtNumber(Number(oRow?.nTotalAmount), 4);
 				const sBuyDate = Number.isFinite(oRow?.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
 				const sBuyPrice = fnFmtMoney(Number(oRow?.nAvgBuyPrice), "USD");
 
 				return `
           <tr>
-            <td><b>${sSymbol}</b></td>
+            <td>
+              <span class="stock-cell-with-logo">
+                <img class="stock-logo stock-logo--sm" data-symbol="${sSymbol}" data-logo-size="48" src="${sLogoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';">
+                <b>${sSymbol}</b>
+              </span>
+            </td>
             <td>${sAmount}</td>
             <td>${sBuyDate}</td>
             <td>${sBuyPrice}</td>
@@ -233,8 +239,8 @@
 		}
 
 		const aRawPoints = fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, oArgs.bPnlOnly);
-		const aPointsWithRange = fnWithFixedDateRange(aRawPoints, oQuery, oArgs.bPnlOnly);
-		let aPoints = oArgs.bPnlOnly ? aPointsWithRange : fnEnsureInitialPortfolioJump(aPointsWithRange);
+		const aPointsWithRange = fnWithFixedDateRange(aRawPoints, oQuery, oArgs.bPnlOnly, oArgs.sRange);
+		let aPoints = aPointsWithRange;
 
 		if (aPoints.length === 0) {
 			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
@@ -800,7 +806,7 @@
 			})
 			.filter(Boolean);
 
-		let aPoints = fnWithFixedDateRange(aRawPoints, oQuery, false);
+		let aPoints = fnWithFixedDateRange(aRawPoints, oQuery, false, oArgs.sRange);
 
 		if (aPoints.length === 0) {
 			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
@@ -947,11 +953,17 @@
 				const oCatalogRow = mCatalogBySymbol.get(oRow.sSymbol) || {};
 				const sName = String(oCatalogRow?.sName || fnT("unknown", "Unbekannt"));
 				const sType = String(oCatalogRow?.sType || fnT("unknown", "Unbekannt"));
+				const sLogoUrl = fnEscapeHtml(fnBuildStockLogoUrl(oRow?.sSymbol, { size: 48 }));
 				const sFirstBuyDate = Number.isFinite(oRow.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
 				return `
           <tr>
             <td><b>${fnEscapeHtml(oRow.sSymbol)}</b></td>
-            <td>${fnEscapeHtml(sName)}</td>
+            <td>
+              <span class="stock-cell-with-logo">
+                <img class="stock-logo stock-logo--sm" data-symbol="${fnEscapeHtml(oRow.sSymbol)}" data-logo-size="48" src="${sLogoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';">
+                <span>${fnEscapeHtml(sName)}</span>
+              </span>
+            </td>
             <td>${fnEscapeHtml(sType)}</td>
             <td>${fnFmtNumber(oRow.nTotalAmount, 4)}</td>
             <td>${sFirstBuyDate}</td>
@@ -1140,7 +1152,7 @@
 			}
 
 			const aRawHistoryPoints = fnBuildSeriesPointsForPositions(aSelectedPositions, mSeriesBySymbol, false);
-			const aHistoryPoints = fnWithFixedDateRange(aRawHistoryPoints, oQuery, false);
+			const aHistoryPoints = fnWithFixedDateRange(aRawHistoryPoints, oQuery, false, "SINCE_BUY");
 			if (aHistoryPoints.length < 2) {
 				elInfo.textContent = fnT("stocks.too_few_historical_points", "Zu wenige historische Datenpunkte für die Auswahl.");
 				fnClearCanvas(oHistoryCtx, elHistoryCanvas);

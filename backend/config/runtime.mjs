@@ -22,6 +22,8 @@ export const STOCK_API_KEY = String(process.env.STOCK_API_KEY || process.env.Hai
 export const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ")
   .trim()
   .toUpperCase();
+export const LOGO_DEV_BASE_URL = String(process.env.LOGO_DEV_BASE_URL || "https://img.logo.dev").trim();
+export const LOGO_DEV_API_KEY = String(process.env.LOGO_DEV_API_KEY || process.env.LOGODEV_API_KEY || "").trim();
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();

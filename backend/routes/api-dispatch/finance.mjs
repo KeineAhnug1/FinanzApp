@@ -45,6 +45,11 @@ export async function dispatchFinanceRoutes(ctx) {
     return true;
   }
 
+  if (pathname === "/api/stocks/logo") {
+    await handlers.handleStockLogoProxy(req, res, url, session);
+    return true;
+  }
+
   if (pathname === "/api/exchange-rates/latest") {
     await handlers.handleExchangeRates(req, res, url, session);
     return true;

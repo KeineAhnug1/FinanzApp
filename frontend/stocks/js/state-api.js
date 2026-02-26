@@ -47,6 +47,7 @@
 		return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
 	});
 	const sAllStocksDataPath = "/global-information/Allstocks.json";
+	const sTradingExchange = "NASDAQ";
 	const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 	const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 	const iCacheTtlMs = 5 * 60 * 1000;
@@ -280,6 +281,38 @@
 	function fnGetLocale() {
 		return window.FinanzAppLanguage?.getLocale?.() || sLocale || "de-DE";
 	}
+
+	function fnGetLogoTheme() {
+		return document.documentElement?.dataset?.theme === "dark" ? "dark" : "light";
+	}
+
+	function fnBuildStockLogoUrl(sSymbol, oOptions = {}) {
+		const sCleanSymbol = String(sSymbol || "").trim().toUpperCase();
+		if (!sCleanSymbol) return "";
+		const iSizeRaw = Number(oOptions?.size);
+		const iSize = Number.isFinite(iSizeRaw) ? Math.max(16, Math.min(256, Math.round(iSizeRaw))) : 48;
+		const oUrl = new URL("/api/stocks/logo", window.location.origin);
+		oUrl.searchParams.set("symbol", sCleanSymbol);
+		oUrl.searchParams.set("exchange", sTradingExchange);
+		oUrl.searchParams.set("theme", fnGetLogoTheme());
+		oUrl.searchParams.set("size", String(iSize));
+		return oUrl.toString();
+	}
+
+	function fnRefreshStockLogoTheme(oRoot = document) {
+		const elRoot = oRoot && typeof oRoot.querySelectorAll === "function" ? oRoot : document;
+		const aLogoNodes = elRoot.querySelectorAll(".stock-logo[data-symbol]");
+		for (const elLogo of aLogoNodes) {
+			const sSymbol = String(elLogo.dataset.symbol || "").trim().toUpperCase();
+			if (!sSymbol) continue;
+			const iSizeRaw = Number(elLogo.dataset.logoSize || 48);
+			elLogo.src = fnBuildStockLogoUrl(sSymbol, { size: iSizeRaw });
+		}
+	}
+
+	window.addEventListener("finanzapp:theme-changed", () => {
+		fnRefreshStockLogoTheme(document);
+	});
 
 	/**
 	 * Formatiert einen numerischen Wert als Währung.
@@ -792,6 +825,7 @@
 						sType: String(oRow?.type || "").trim(),
 					}))
 					.filter((oRow) => Boolean(oRow.sSymbol))
+					.filter((oRow) => String(oRow.sExchange || "").trim().toUpperCase() === sTradingExchange)
 				: [];
 
 			return aRows;
@@ -828,7 +862,7 @@
 		const sNeedle = String(sQuery || "").trim();
 		if (!sNeedle) return [];
 
-		const sExchange = String(oOptions?.sExchange || "NASDAQ").trim().toUpperCase();
+		const sExchange = sTradingExchange;
 		const iLimitRaw = Number(oOptions?.iLimit);
 		const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
 

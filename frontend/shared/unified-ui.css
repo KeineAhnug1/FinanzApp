@@ -21,25 +21,25 @@
 }
 
 :root[data-theme="dark"] {
-  --ui-bg-c1: #0c1118;
-  --ui-bg-c2: #101a26;
-  --ui-bg-c3: #0b131d;
-  --ui-bg-stripe-a: rgba(96, 141, 201, 0.055);
-  --ui-bg-stripe-b: rgba(83, 128, 188, 0.035);
-  --ui-bg-grid: rgba(125, 166, 221, 0.05);
-  --ui-surface: #131d2a;
-  --ui-surface-soft: #1a2737;
-  --ui-text: #e8f1fb;
-  --ui-text-muted: #a3b7ce;
-  --ui-border: #2b3c52;
-  --ui-border-strong: #39516f;
-  --ui-primary: #6aa9ff;
-  --ui-primary-dark: #3b7ed6;
-  --ui-focus-ring: rgba(106, 169, 255, 0.32);
+  --ui-bg-c1: #070b11;
+  --ui-bg-c2: #0b121b;
+  --ui-bg-c3: #060a10;
+  --ui-bg-stripe-a: rgba(99, 143, 201, 0.035);
+  --ui-bg-stripe-b: rgba(86, 130, 186, 0.02);
+  --ui-bg-grid: rgba(128, 168, 222, 0.035);
+  --ui-surface: #0f1722;
+  --ui-surface-soft: #151f2d;
+  --ui-text: #e6eef8;
+  --ui-text-muted: #95a9bf;
+  --ui-border: #233247;
+  --ui-border-strong: #324860;
+  --ui-primary: #78b1ff;
+  --ui-primary-dark: #4b8ee6;
+  --ui-focus-ring: rgba(120, 177, 255, 0.3);
   --ui-success: #53c27f;
   --ui-error: #ff8f8f;
-  --ui-shadow-soft: 0 8px 18px rgba(4, 10, 18, 0.42);
-  --ui-shadow-strong: 0 26px 54px rgba(3, 8, 16, 0.56);
+  --ui-shadow-soft: 0 8px 18px rgba(2, 6, 12, 0.52);
+  --ui-shadow-strong: 0 26px 54px rgba(1, 4, 9, 0.66);
 }
 
 :root {

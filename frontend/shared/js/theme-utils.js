@@ -50,6 +50,7 @@
     document.documentElement.dataset.theme = sResolvedThemeMode;
     document.documentElement.dataset.themeMode = sThemeMode;
     fnUpdateThemeButtons(sThemeMode);
+    window.dispatchEvent(new CustomEvent("finanzapp:theme-changed", { detail: { theme: sResolvedThemeMode, themeMode: sThemeMode } }));
     return sResolvedThemeMode;
   }
 

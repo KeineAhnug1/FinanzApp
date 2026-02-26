@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fragen | FinanzApp</title>
+  <title>Frage | FinanzApp</title>
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="/shared/unified-ui.css" />
 </head>
@@ -11,7 +11,7 @@
   <header class="page-topbar">
     <div class="topbar-left">
       <span class="brand-mark">FinanzApp</span>
-      <span class="brand-sub">Fragen</span>
+      <span class="brand-sub">Frage</span>
     </div>
     <div class="header-controls">
       <nav class="app-nav-links" aria-label="App-Navigation">
@@ -35,35 +35,13 @@
     </div>
   </header>
 
-  <main class="questions-main">
+  <main class="questions-main question-detail-main">
     <section class="panel">
-      <h2 class="panel-title">Frage erstellen</h2>
-      <form id="question-form" class="form-grid">
-        <div>
-          <div class="field-head">
-            <label class="field-label" for="question-topic">Thema</label>
-            <span id="question-topic-counter" class="counter">0/80</span>
-          </div>
-          <input class="field-input" id="question-topic" name="thema" type="text" maxlength="80" required placeholder="z. B. Wie viele Steuern zahle ich?" />
-        </div>
-        <div>
-          <label class="field-label" for="question-message">Frage</label>
-          <textarea class="field-input field-textarea" id="question-message" name="message" maxlength="4000" rows="4" required placeholder="Beschreibe deine Frage im Detail..."></textarea>
-        </div>
-        <div class="actions">
-          <button id="question-submit-btn" class="submit-btn" type="submit">Frage erstellen</button>
-          <button id="question-cancel-btn" class="ghost-btn" type="button" hidden>Bearbeitung abbrechen</button>
-        </div>
-      </form>
-      <p id="question-form-status" class="status"></p>
-    </section>
-
-    <section class="panel">
-      <h2 class="panel-title">Fragen suchen</h2>
-      <div class="tools">
-        <input class="field-input" id="question-search" type="search" placeholder="Nach Fragetitel suchen (z. B. Steuern)..." />
+      <div class="detail-top-actions">
+        <a class="inline-btn" href="/fragen/">Zurück zur Suche</a>
       </div>
-      <ul id="question-list" class="question-list"></ul>
+      <div id="question-detail"></div>
+      <p id="question-detail-status" class="status"></p>
     </section>
   </main>
 
@@ -73,6 +51,6 @@
   <script src="/shared/js/currency-utils.js"></script>
   <script src="/shared/js/global-settings.js"></script>
   <script src="/shared/js/topbar.js"></script>
-  <script src="./js/app.js"></script>
+  <script src="./js/question.js"></script>
 </body>
 </html>

@@ -12,10 +12,25 @@
   --clr-nav-active-to: color-mix(in srgb, var(--clr-primary) 10%, var(--clr-surface) 90%);
   --clr-switch-track: color-mix(in srgb, var(--clr-text-muted) 34%, var(--clr-surface) 66%);
   --clr-switch-knob: color-mix(in srgb, var(--clr-surface) 82%, #eff6ff 18%);
-  --clr-chart-from: color-mix(in srgb, var(--clr-surface) 78%, var(--clr-primary) 22%);
-  --clr-chart-to: color-mix(in srgb, var(--clr-surface-soft) 90%, var(--clr-primary) 10%);
-  --clr-chart-alt-from: color-mix(in srgb, var(--clr-surface) 82%, var(--clr-primary) 18%);
-  --clr-chart-alt-to: color-mix(in srgb, var(--clr-surface-soft) 92%, var(--clr-primary) 8%);
+  --clr-chart-from: var(--clr-surface-soft);
+  --clr-chart-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
+  --clr-chart-alt-from: var(--clr-surface-soft);
+  --clr-chart-alt-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
+  --clr-chart-line: #4a9dff;
+  --clr-chart-fill-top: rgba(74, 157, 255, 0.02);
+  --clr-chart-fill-bottom: rgba(74, 157, 255, 0);
+  --clr-chart-point-glow: rgba(74, 157, 255, 0);
+  --clr-chart-hover-glow: rgba(74, 157, 255, 0.18);
+  --clr-pie-1: color-mix(in srgb, var(--clr-primary-strong) 62%, var(--clr-primary) 38%);
+  --clr-pie-2: color-mix(in srgb, var(--clr-primary-strong) 52%, var(--clr-primary) 48%);
+  --clr-pie-3: color-mix(in srgb, var(--clr-primary-strong) 42%, var(--clr-primary) 58%);
+  --clr-pie-4: color-mix(in srgb, var(--clr-primary-strong) 32%, var(--clr-primary) 68%);
+  --clr-pie-5: color-mix(in srgb, var(--clr-primary-strong) 24%, var(--clr-primary) 76%);
+  --clr-pie-6: color-mix(in srgb, var(--clr-primary) 86%, var(--clr-surface) 14%);
+  --clr-pie-7: color-mix(in srgb, var(--clr-primary) 76%, var(--clr-surface) 24%);
+  --clr-pie-8: color-mix(in srgb, var(--clr-primary) 66%, var(--clr-surface) 34%);
+  --clr-pie-9: color-mix(in srgb, var(--clr-primary) 56%, var(--clr-surface) 44%);
+  --clr-pie-10: color-mix(in srgb, var(--clr-primary) 46%, var(--clr-surface) 54%);
   --clr-table-head-bg: color-mix(in srgb, var(--clr-surface) 88%, var(--clr-primary) 12%);
   --clr-legend-active-bg: color-mix(in srgb, var(--clr-surface-soft) 84%, var(--clr-primary) 16%);
   --clr-legend-active-ring: color-mix(in srgb, var(--clr-primary) 22%, transparent);
@@ -29,6 +44,29 @@
   --space-3: 16px;
   --space-4: 20px;
   --space-5: 24px;
+}
+
+:root[data-theme="dark"] {
+  --clr-primary-soft: color-mix(in srgb, var(--clr-primary) 28%, transparent);
+  --clr-chart-from: var(--clr-surface-soft);
+  --clr-chart-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
+  --clr-chart-alt-from: var(--clr-surface-soft);
+  --clr-chart-alt-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
+  --clr-chart-line: #4a9dff;
+  --clr-chart-fill-top: rgba(74, 157, 255, 0.03);
+  --clr-chart-fill-bottom: rgba(74, 157, 255, 0);
+  --clr-chart-point-glow: rgba(74, 157, 255, 0);
+  --clr-chart-hover-glow: rgba(74, 157, 255, 0.2);
+  --clr-pie-1: color-mix(in srgb, var(--clr-primary) 88%, #d4e7ff 12%);
+  --clr-pie-2: color-mix(in srgb, var(--clr-primary) 80%, #d4e7ff 20%);
+  --clr-pie-3: color-mix(in srgb, var(--clr-primary) 72%, #d4e7ff 28%);
+  --clr-pie-4: color-mix(in srgb, var(--clr-primary) 64%, #d4e7ff 36%);
+  --clr-pie-5: color-mix(in srgb, var(--clr-primary) 56%, #d4e7ff 44%);
+  --clr-pie-6: color-mix(in srgb, var(--clr-primary) 48%, #d4e7ff 52%);
+  --clr-pie-7: color-mix(in srgb, var(--clr-primary) 40%, #d4e7ff 60%);
+  --clr-pie-8: color-mix(in srgb, var(--clr-primary) 34%, #d4e7ff 66%);
+  --clr-pie-9: color-mix(in srgb, var(--clr-primary) 28%, #d4e7ff 72%);
+  --clr-pie-10: color-mix(in srgb, var(--clr-primary) 22%, #d4e7ff 78%);
 }
 
 /* ======================================================
@@ -772,6 +810,28 @@ select:focus {
 
 .table tr:hover td {
   background: var(--clr-surface-soft);
+}
+
+.stock-cell-with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  object-fit: cover;
+  border: none;
+  background: transparent;
+  flex: 0 0 auto;
+}
+
+.stock-logo--sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
 }
 
 /* ======================================================

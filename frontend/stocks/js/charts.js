@@ -175,6 +175,12 @@
 	 * @param {boolean} bPnlOnly
 	 */
 	function fnDrawLineChart(oCtx, elCanvas, aPoints, bPnlOnly) {
+		if (!Array.isArray(aPoints) || aPoints.length === 0) {
+			const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
+			oCtx.clearRect(0, 0, iWidth, iHeight);
+			return;
+		}
+
 		const oHoverState = mLineChartHover.get(elCanvas) || { iHoverIndex: -1 };
 		oHoverState.oCtx = oCtx;
 		oHoverState.aPoints = aPoints;
@@ -186,8 +192,12 @@
 		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
 		oCtx.clearRect(0, 0, iWidth, iHeight);
 		const oStyles = getComputedStyle(document.documentElement);
-		const sPrimary = oStyles.getPropertyValue("--clr-primary").trim() || "#0a6ed1";
+		const sPrimary = oStyles.getPropertyValue("--clr-chart-line").trim() || oStyles.getPropertyValue("--clr-primary").trim() || "#0a6ed1";
 		const sPrimarySoft = oStyles.getPropertyValue("--clr-primary-soft").trim() || "rgba(10, 110, 209, 0.12)";
+		const sChartFillTop = oStyles.getPropertyValue("--clr-chart-fill-top").trim() || "rgba(10, 110, 209, 0.30)";
+		const sChartFillBottom = oStyles.getPropertyValue("--clr-chart-fill-bottom").trim() || sPrimarySoft || "rgba(10, 110, 209, 0.08)";
+		const sChartPointGlow = oStyles.getPropertyValue("--clr-chart-point-glow").trim() || "rgba(10, 110, 209, 0.23)";
+		const sChartHoverGlow = oStyles.getPropertyValue("--clr-chart-hover-glow").trim() || "rgba(10, 110, 209, 0.18)";
 		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
 		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
 		const sBorderStrong = oStyles.getPropertyValue("--clr-border-strong").trim() || "#b5c0ba";
@@ -208,8 +218,8 @@
 		};
 		const fnYAt = (nValue) => iPadT + (1 - (nValue - nMin) / (nMax - nMin)) * iInnerHeight;
 
-		oCtx.strokeStyle = sBorderStrong;
-		oCtx.lineWidth = 1;
+		oCtx.strokeStyle = sBorder;
+		oCtx.lineWidth = 1.1;
 		oCtx.strokeRect(iPadL, iPadT, iInnerWidth, iInnerHeight);
 
 		oCtx.font = `${bCompact ? 10 : 12}px 'Sora', 'Avenir Next', sans-serif`;
@@ -220,7 +230,7 @@
 			const nY = fnYAt(nTickValue);
 
 			oCtx.strokeStyle = iTickIndex === 5 ? sBorderStrong : sBorder;
-			oCtx.setLineDash(iTickIndex === 5 ? [] : [3, 5]);
+			oCtx.setLineDash([]);
 			oCtx.beginPath();
 			oCtx.moveTo(iPadL, nY);
 			oCtx.lineTo(iPadL + iInnerWidth, nY);
@@ -239,19 +249,14 @@
 		}));
 
 		const oGradient = oCtx.createLinearGradient(0, iPadT, 0, iPadT + iInnerHeight);
-		oGradient.addColorStop(0, "rgba(10, 110, 209, 0.30)");
-		oGradient.addColorStop(1, sPrimarySoft || "rgba(10, 110, 209, 0.08)");
+		oGradient.addColorStop(0, sChartFillTop);
+		oGradient.addColorStop(1, sChartFillBottom);
 
 		oCtx.beginPath();
 		oCtx.moveTo(aCanvasPoints[0].nX, iPadT + iInnerHeight);
 		oCtx.lineTo(aCanvasPoints[0].nX, aCanvasPoints[0].nY);
-		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length - 1; iPointIndex += 1) {
-			const nCurrentX = aCanvasPoints[iPointIndex].nX;
-			const nCurrentY = aCanvasPoints[iPointIndex].nY;
-			const nNextX = aCanvasPoints[iPointIndex + 1].nX;
-			const nNextY = aCanvasPoints[iPointIndex + 1].nY;
-			const nControlX = (nCurrentX + nNextX) / 2;
-			oCtx.quadraticCurveTo(nCurrentX, nCurrentY, nControlX, (nCurrentY + nNextY) / 2);
+		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length; iPointIndex += 1) {
+			oCtx.lineTo(aCanvasPoints[iPointIndex].nX, aCanvasPoints[iPointIndex].nY);
 		}
 		const oLastPoint = aCanvasPoints[aCanvasPoints.length - 1];
 		oCtx.lineTo(oLastPoint.nX, oLastPoint.nY);
@@ -262,13 +267,8 @@
 
 		oCtx.beginPath();
 		oCtx.moveTo(aCanvasPoints[0].nX, aCanvasPoints[0].nY);
-		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length - 1; iPointIndex += 1) {
-			const nCurrentX = aCanvasPoints[iPointIndex].nX;
-			const nCurrentY = aCanvasPoints[iPointIndex].nY;
-			const nNextX = aCanvasPoints[iPointIndex + 1].nX;
-			const nNextY = aCanvasPoints[iPointIndex + 1].nY;
-			const nControlX = (nCurrentX + nNextX) / 2;
-			oCtx.quadraticCurveTo(nCurrentX, nCurrentY, nControlX, (nCurrentY + nNextY) / 2);
+		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length; iPointIndex += 1) {
+			oCtx.lineTo(aCanvasPoints[iPointIndex].nX, aCanvasPoints[iPointIndex].nY);
 		}
 		oCtx.lineTo(oLastPoint.nX, oLastPoint.nY);
 		oCtx.strokeStyle = sPrimary;
@@ -276,14 +276,16 @@
 		oCtx.stroke();
 
 		oCtx.beginPath();
-		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 3.5, 0, Math.PI * 2);
+		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 2.8, 0, Math.PI * 2);
 		oCtx.fillStyle = sPrimary;
 		oCtx.fill();
 
-		oCtx.beginPath();
-		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 8, 0, Math.PI * 2);
-		oCtx.fillStyle = "rgba(10, 110, 209, 0.23)";
-		oCtx.fill();
+		if (sChartPointGlow) {
+			oCtx.beginPath();
+			oCtx.arc(oLastPoint.nX, oLastPoint.nY, 6.5, 0, Math.PI * 2);
+			oCtx.fillStyle = sChartPointGlow;
+			oCtx.fill();
+		}
 
 		const iHoverIndex = Number.isInteger(oHoverState.iHoverIndex) ? oHoverState.iHoverIndex : -1;
 		if (iHoverIndex >= 0 && iHoverIndex < aCanvasPoints.length) {
@@ -296,14 +298,14 @@
 			oCtx.setLineDash([4, 4]);
 			oCtx.moveTo(oHoverPoint.nX, iPadT);
 			oCtx.lineTo(oHoverPoint.nX, iPadT + iInnerHeight);
-			oCtx.strokeStyle = sBorderStrong;
-			oCtx.lineWidth = 1;
+			oCtx.strokeStyle = sTextMuted;
+			oCtx.lineWidth = 1.2;
 			oCtx.stroke();
 			oCtx.setLineDash([]);
 
 			oCtx.beginPath();
 			oCtx.arc(oHoverPoint.nX, oHoverPoint.nY, 6.5, 0, Math.PI * 2);
-			oCtx.fillStyle = "rgba(10, 110, 209, 0.18)";
+			oCtx.fillStyle = sChartHoverGlow;
 			oCtx.fill();
 
 			oCtx.beginPath();
@@ -340,6 +342,13 @@
 		}
 
 		const iLabelCount = Math.min(bCompact ? 4 : 6, aPoints.length);
+		const setIntradayDays = new Set(
+			aPoints
+				.map((oPoint) => String(oPoint?.t || ""))
+				.filter((sTime) => sTime.includes(" "))
+				.map((sTime) => sTime.slice(0, 10))
+		);
+		const bIntradayCrossesDays = setIntradayDays.size > 1;
 		oCtx.font = `${bCompact ? 10 : 11}px 'Sora', 'Avenir Next', sans-serif`;
 		oCtx.fillStyle = sTextMuted;
 		oCtx.textAlign = "center";
@@ -349,7 +358,8 @@
 			const iPointIndex = Math.round(nRatio * (aPoints.length - 1));
 			const nX = fnXAt(iPointIndex);
 			const sTime = aPoints[iPointIndex].t;
-			oCtx.fillText(fnShortLabel(sTime), nX, iPadT + iInnerHeight + 10);
+			const sLabel = fnShortLabel(sTime, bIntradayCrossesDays);
+			oCtx.fillText(sLabel, nX, iPadT + iInnerHeight + 10);
 		}
 	}
 
@@ -398,17 +408,18 @@
 	 * @returns {string}
 	 */
 	function fnPieColorAt(iIndex) {
+		const oStyles = getComputedStyle(document.documentElement);
 		const aPalette = [
-			"#0a6ed1",
-			"#2c7ddd",
-			"#3b8eea",
-			"#539df2",
-			"#69abff",
-			"#2a62a7",
-			"#356fba",
-			"#447fcb",
-			"#6b95d6",
-			"#8aaee0",
+			oStyles.getPropertyValue("--clr-pie-1").trim() || "#0a6ed1",
+			oStyles.getPropertyValue("--clr-pie-2").trim() || "#2c7ddd",
+			oStyles.getPropertyValue("--clr-pie-3").trim() || "#3b8eea",
+			oStyles.getPropertyValue("--clr-pie-4").trim() || "#539df2",
+			oStyles.getPropertyValue("--clr-pie-5").trim() || "#69abff",
+			oStyles.getPropertyValue("--clr-pie-6").trim() || "#2a62a7",
+			oStyles.getPropertyValue("--clr-pie-7").trim() || "#356fba",
+			oStyles.getPropertyValue("--clr-pie-8").trim() || "#447fcb",
+			oStyles.getPropertyValue("--clr-pie-9").trim() || "#6b95d6",
+			oStyles.getPropertyValue("--clr-pie-10").trim() || "#8aaee0",
 		];
 		return aPalette[iIndex % aPalette.length];
 	}

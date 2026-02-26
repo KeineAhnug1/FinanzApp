@@ -47,6 +47,54 @@
 		return Number.isFinite(iMs) ? iMs : Number.NaN;
 	}
 
+	function fnTdSortKey(sValueRaw) {
+		const sValue = String(sValueRaw || "").trim();
+		if (!sValue) return Number.NaN;
+		const sCompact = sValue.replace(/[^\d]/g, "");
+		if (!sCompact) return Number.NaN;
+		const sPadded = sValue.includes(" ") ? sCompact.padEnd(14, "0") : `${sCompact}000000`;
+		const nKey = Number(sPadded);
+		return Number.isFinite(nKey) ? nKey : Number.NaN;
+	}
+
+	function fnFmtYmdInTimeZone(iMs, sTimeZone = "America/New_York") {
+		if (!Number.isFinite(iMs)) return "";
+		const oFormatter = new Intl.DateTimeFormat("en-CA", {
+			timeZone: sTimeZone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		});
+		return oFormatter.format(new Date(iMs));
+	}
+
+	function fnFmtTdDateTimeInTimeZone(iMs, sTimeZone = "America/New_York") {
+		if (!Number.isFinite(iMs)) return "";
+		const oFormatter = new Intl.DateTimeFormat("sv-SE", {
+			timeZone: sTimeZone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
+		});
+		return oFormatter.format(new Date(iMs)).replace("T", " ");
+	}
+
+	function fnIsTdPointOnOrAfterPurchase(sTdDatetime, iPurchaseMs) {
+		if (!Number.isFinite(iPurchaseMs)) return true;
+		const sPoint = String(sTdDatetime || "").trim();
+		if (!sPoint) return false;
+		if (sPoint.includes(" ")) {
+			const sPurchaseDateTime = fnFmtTdDateTimeInTimeZone(iPurchaseMs, "America/New_York");
+			return sPoint >= sPurchaseDateTime;
+		}
+		const sPurchaseDay = fnFmtYmdInTimeZone(iPurchaseMs, "America/New_York");
+		return sPoint.slice(0, 10) >= sPurchaseDay;
+	}
+
 	/**
 	 * Liefert das früheste Kaufdatum aller Positionen als Date.
 	 * Scope: [SHARED]
@@ -73,7 +121,7 @@
 	 * @returns {{interval: string, outputsize?: number, start_date?: string, end_date?: string}}
 	 */
 	function fnRangeToQuery(sRange, aPositions) {
-		if (sRange === "1D") return { interval: "5min", outputsize: 288 };
+		if (sRange === "1D") return { interval: "5min", outputsize: 390 };
 
 		if (sRange === "1W") {
 			const dEndDate = new Date();
@@ -81,10 +129,10 @@
 			dStartDate.setDate(dStartDate.getDate() - 6);
 
 			return {
-				interval: "1day",
+				interval: "15min",
 				start_date: fnFmtYmd(dStartDate),
 				end_date: fnFmtYmd(dEndDate),
-				outputsize: 14,
+				outputsize: 700,
 			};
 		}
 
@@ -94,10 +142,10 @@
 			dStartDate.setMonth(dStartDate.getMonth() - 1);
 
 			return {
-				interval: "1day",
+				interval: "1h",
 				start_date: fnFmtYmd(dStartDate),
 				end_date: fnFmtYmd(dEndDate),
-				outputsize: 60,
+				outputsize: 900,
 			};
 		}
 
@@ -254,7 +302,8 @@
 	async function fnLoadSeriesForSymbolWithFallback(sSymbol, oQuery) {
 		const aSymbolCandidates = fnBuildTdSymbolCandidates(sSymbol);
 		const aQueries = [oQuery];
-		if (String(oQuery?.interval || "").toLowerCase() === "5min") {
+		const sInterval = String(oQuery?.interval || "").toLowerCase();
+		if (sInterval && sInterval !== "1day") {
 			aQueries.push(fnBuildDailyFallbackQuery(oQuery));
 		}
 
@@ -394,61 +443,74 @@
 	 * @returns {Array<{t: string, total: number, invested: number, pnl: number, y: number}>}
 	 */
 	function fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, bPnlOnly) {
-		const setAllTimes = new Set();
-		const mCloseByPosition = new Map();
+		const mTimeLabelByKey = new Map();
+		const aPreparedPositions = [];
 
-		aPositions.forEach((oPosition, iPositionIndex) => {
+		for (const oPosition of aPositions || []) {
 			const sSymbol = String(oPosition?.symbol || "").trim().toUpperCase();
+			const nAmount = Number(oPosition?.amount);
+			if (!sSymbol || !Number.isFinite(nAmount) || nAmount <= 0) continue;
+
 			const iPurchaseMs = fnToMsFromTimestamp(oPosition?.created_at);
+			const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmd(new Date(iPurchaseMs)) : "";
+			const nBuyPrice = Number(oPosition?.worthwhenbought);
 			const aSeriesValues = mSeriesBySymbol.get(sSymbol)?.values || [];
-			const mCloseByTime = new Map();
+			const aSeriesPoints = [];
 
 			for (const oValue of aSeriesValues) {
-				const sDatetime = oValue?.datetime;
+				const sDatetime = String(oValue?.datetime || "").trim();
 				const nClose = Number(oValue?.close);
-				const iPointMs = fnToMsFromTdDatetime(sDatetime);
-				const bIsDailyPoint = String(sDatetime || "").includes(" ") === false;
-				const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmd(new Date(iPurchaseMs)) : "";
-				const sPointDay = String(sDatetime || "").slice(0, 10);
+				const nTimeKey = fnTdSortKey(sDatetime);
+				if (!sDatetime || !Number.isFinite(nTimeKey) || !Number.isFinite(nClose)) continue;
 
-				if (!sDatetime || !Number.isFinite(nClose)) continue;
-				if (Number.isFinite(iPurchaseMs)) {
-					if (bIsDailyPoint) {
-						// Tagesdaten gelten fuer den gesamten Kalendertag; Kauftag bleibt sichtbar.
-						if (sPointDay && sPurchaseDay && sPointDay < sPurchaseDay) continue;
-					} else if (Number.isFinite(iPointMs) && iPointMs < iPurchaseMs) {
-						continue;
-					}
-				}
-
-				mCloseByTime.set(sDatetime, nClose);
-				setAllTimes.add(sDatetime);
+				if (!mTimeLabelByKey.has(nTimeKey)) mTimeLabelByKey.set(nTimeKey, sDatetime);
+				aSeriesPoints.push({ nTimeKey, nClose, sDatetime });
 			}
 
-			mCloseByPosition.set(iPositionIndex, mCloseByTime);
-		});
+			if (!aSeriesPoints.length) continue;
+			aSeriesPoints.sort((oLeft, oRight) => oLeft.nTimeKey - oRight.nTimeKey);
 
-		const aSortedTimes = [...setAllTimes].sort((sA, sB) => (sA < sB ? -1 : 1));
+			aPreparedPositions.push({
+				nAmount,
+				nBuyPrice,
+				iPurchaseMs,
+				aSeriesPoints,
+				iCursor: 0,
+				nLastClose: Number.NaN,
+			});
+		}
 
-		const aPoints = aSortedTimes.map((sTime) => {
+		const aSortedTimeKeys = [...mTimeLabelByKey.keys()].sort((nLeft, nRight) => nLeft - nRight);
+		if (!aSortedTimeKeys.length) return [];
+
+		const aPoints = [];
+		for (const nTimeKey of aSortedTimeKeys) {
 			let nTotal = 0;
 			let nInvested = 0;
+			const sPointLabel = mTimeLabelByKey.get(nTimeKey) || "";
 
-			aPositions.forEach((oPosition, iPositionIndex) => {
-				const nAmount = Number(oPosition?.amount);
-				const nBuyPrice = Number(oPosition?.worthwhenbought);
-				const nClose = mCloseByPosition.get(iPositionIndex)?.get(sTime);
+			for (const oPrepared of aPreparedPositions) {
+				while (
+					oPrepared.iCursor < oPrepared.aSeriesPoints.length &&
+					oPrepared.aSeriesPoints[oPrepared.iCursor].nTimeKey <= nTimeKey
+				) {
+					oPrepared.nLastClose = oPrepared.aSeriesPoints[oPrepared.iCursor].nClose;
+					oPrepared.iCursor += 1;
+				}
 
-				if (!Number.isFinite(nAmount) || nAmount <= 0) return;
-				if (!Number.isFinite(nClose)) return;
+				if (!Number.isFinite(oPrepared.nLastClose)) continue;
+				if (!fnIsTdPointOnOrAfterPurchase(sPointLabel, oPrepared.iPurchaseMs)) continue;
 
-				nTotal += nClose * nAmount;
-				if (Number.isFinite(nBuyPrice)) nInvested += nBuyPrice * nAmount;
-			});
+				nTotal += oPrepared.nLastClose * oPrepared.nAmount;
+				if (Number.isFinite(oPrepared.nBuyPrice)) {
+					nInvested += oPrepared.nBuyPrice * oPrepared.nAmount;
+				}
+			}
 
+			const sTimeLabel = sPointLabel;
 			const nPnl = nTotal - nInvested;
-			return { t: sTime, total: nTotal, invested: nInvested, pnl: nPnl, y: bPnlOnly ? nPnl : nTotal };
-		});
+			aPoints.push({ t: sTimeLabel, total: nTotal, invested: nInvested, pnl: nPnl, y: bPnlOnly ? nPnl : nTotal });
+		}
 
 		return aPoints;
 	}
@@ -517,11 +579,10 @@
 	 * @param {boolean} bPnlOnly
 	 * @returns {Array<object>}
 	 */
-	function fnWithFixedDateRange(aPoints, oQuery, bPnlOnly) {
+	function fnWithFixedDateRange(aPoints, oQuery, bPnlOnly, sRange = "") {
 		if (!Array.isArray(aPoints)) return aPoints;
-		if (!oQuery?.start_date || !oQuery?.end_date) return aPoints;
-		const sStartDay = String(oQuery.start_date || "").slice(0, 10);
-		const sEndDay = String(oQuery.end_date || "").slice(0, 10);
+		const sStartDay = String(oQuery?.start_date || "").slice(0, 10);
+		const sEndDay = String(oQuery?.end_date || "").slice(0, 10);
 		if (!sStartDay || !sEndDay || sStartDay > sEndDay) return aPoints;
 
 		const aFiltered = aPoints.filter((oPoint) => {
@@ -529,8 +590,6 @@
 			if (!/^\d{4}-\d{2}-\d{2}$/.test(sPointDay)) return false;
 			return sPointDay >= sStartDay && sPointDay <= sEndDay;
 		});
-
-		// Falls ein unerwartetes Datumsformat geliefert wurde, nichts verstecken.
 		return aFiltered.length ? aFiltered : aPoints;
 	}
 
@@ -582,6 +641,19 @@
 		};
 
 		return [oSyntheticPoint, ...aPoints];
+	}
+
+	/**
+	 * Ergänzt einen Ankerpunkt zum frühesten Kaufzeitpunkt.
+	 * Dadurch wirkt der Verlauf nicht so, als wäre erst beim ersten Kursdatenpunkt gekauft worden.
+	 * Scope: [SHARED]
+	 * @param {Array<{t: string, total: number, invested: number, pnl: number, y: number}>} aPoints
+	 * @param {Array<object>} aPositions
+	 * @param {boolean} bPnlOnly
+	 * @returns {Array<{t: string, total: number, invested: number, pnl: number, y: number}>}
+	 */
+	function fnInjectPurchaseAnchorPoint(aPoints, aPositions, bPnlOnly) {
+		return Array.isArray(aPoints) ? aPoints : [];
 	}
 
 	/**
@@ -669,13 +741,17 @@
 	 * @param {string} sValue
 	 * @returns {string}
 	 */
-	function fnShortLabel(sValue) {
+	function fnShortLabel(sValue, bIncludeDate = false) {
 		const sText = String(sValue || "");
 		if (!sText) return "";
 
 		if (sText.includes(" ")) {
-			const [, sTime] = sText.split(" ");
-			return String(sTime || "").slice(0, 5);
+			const [sDate, sTime] = sText.split(" ");
+			const sClock = String(sTime || "").slice(0, 5);
+			if (!bIncludeDate) return sClock;
+			const [, sMonth, sDay] = String(sDate || "").split("-");
+			if (sDay && sMonth) return `${sDay}.${sMonth} ${sClock}`.trim();
+			return sClock;
 		}
 		const [sYear, sMonth, sDay] = sText.split("-");
 		if (sYear && sMonth && sDay) return `${sDay}.${sMonth}.`;

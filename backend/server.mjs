@@ -39,6 +39,8 @@ import {
   STOCK_API_KEY,
   STOCK_SEARCH_BASE_URL,
   STOCK_SEARCH_DEFAULT_EXCHANGE,
+  LOGO_DEV_BASE_URL,
+  LOGO_DEV_API_KEY,
   TWELVE_DATA_API_KEY,
   TWELVE_DATA_BASE_URL,
   VERIFICATION_TTL_MINUTES
@@ -2046,6 +2048,107 @@ function buildSearchRegex(rawSearch) {
   return new RegExp(escapeRegex(search), "i");
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function tokenizeSearch(value) {
+  return normalizeSearchText(value)
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function tokenizeTitleWords(value) {
+  return normalizeSearchText(value)
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function isDistanceAtMostOne(leftRaw, rightRaw) {
+  const left = String(leftRaw || "");
+  const right = String(rightRaw || "");
+  const leftLen = left.length;
+  const rightLen = right.length;
+  const lenDiff = Math.abs(leftLen - rightLen);
+  if (lenDiff > 1) return false;
+  if (left === right) return true;
+
+  if (leftLen === rightLen) {
+    let mismatches = 0;
+    for (let index = 0; index < leftLen; index += 1) {
+      if (left[index] !== right[index]) {
+        mismatches += 1;
+        if (mismatches > 1) return false;
+      }
+    }
+    return true;
+  }
+
+  const shortText = leftLen < rightLen ? left : right;
+  const longText = leftLen < rightLen ? right : left;
+  let shortIndex = 0;
+  let longIndex = 0;
+  let skipped = false;
+
+  while (shortIndex < shortText.length && longIndex < longText.length) {
+    if (shortText[shortIndex] === longText[longIndex]) {
+      shortIndex += 1;
+      longIndex += 1;
+      continue;
+    }
+
+    if (skipped) return false;
+    skipped = true;
+    longIndex += 1;
+  }
+
+  return true;
+}
+
+function scoreQuestionTitle(thema, searchTokens) {
+  const normalizedTitle = normalizeSearchText(thema);
+  const titleWords = tokenizeTitleWords(thema);
+  if (!searchTokens.length || !normalizedTitle) {
+    return { allMatched: false, anyMatched: false, score: 0 };
+  }
+
+  let matchedTokens = 0;
+  let score = 0;
+
+  for (const token of searchTokens) {
+    if (!token) continue;
+
+    const containsToken = normalizedTitle.includes(token);
+    if (containsToken) {
+      matchedTokens += 1;
+      score += 10;
+      continue;
+    }
+
+    if (token.length >= 3) {
+      const fuzzyWordMatch = titleWords.some((word) => {
+        if (!word || Math.abs(word.length - token.length) > 1) return false;
+        return isDistanceAtMostOne(word, token);
+      });
+      if (fuzzyWordMatch) {
+        matchedTokens += 1;
+        score += 6;
+      }
+    }
+  }
+
+  return {
+    allMatched: matchedTokens === searchTokens.length,
+    anyMatched: matchedTokens > 0,
+    score
+  };
+}
+
 function containsFinzbroMention(thema, message) {
   return FINZBRO_MENTION_REGEX.test(`${String(thema || "")}\n${String(message || "")}`);
 }
@@ -2216,21 +2319,39 @@ function serializeQuestion(question, options = {}) {
 }
 
 async function listQuestionsWithRelations(userId, searchRaw = "") {
-  const searchRegex = buildSearchRegex(searchRaw);
-  const query = searchRegex
-    ? {
-      $or: [
-        { thema: searchRegex },
-        { message: searchRegex }
-      ]
-    }
-    : {};
+  const searchTokens = tokenizeSearch(searchRaw);
+  const hasSearch = searchTokens.length > 0;
+  const candidateLimit = hasSearch ? 600 : 200;
 
-  const questions = await db.collection(COLLECTIONS.globalQuestions)
-    .find(query, { projection: { _id: 1, from_user_id: 1, thema: 1, message: 1, answered: 1, edited: 1, created_at: 1, updated_at: 1 } })
+  const candidateQuestions = await db.collection(COLLECTIONS.globalQuestions)
+    .find(
+      {},
+      { projection: { _id: 1, from_user_id: 1, thema: 1, message: 1, answered: 1, edited: 1, created_at: 1, updated_at: 1 } }
+    )
     .sort({ created_at: -1 })
-    .limit(200)
+    .limit(candidateLimit)
     .toArray();
+
+  const questions = hasSearch
+    ? (() => {
+      const scored = candidateQuestions.map((question) => ({
+        question,
+        ...scoreQuestionTitle(question?.thema || "", searchTokens)
+      }));
+
+      const strictMatches = scored.filter((entry) => entry.allMatched);
+      const fallbackMatches = strictMatches.length > 0 ? strictMatches : scored.filter((entry) => entry.anyMatched);
+
+      fallbackMatches.sort((left, right) => {
+        if (right.score !== left.score) return right.score - left.score;
+        const leftTs = new Date(left.question?.created_at || 0).getTime();
+        const rightTs = new Date(right.question?.created_at || 0).getTime();
+        return rightTs - leftTs;
+      });
+
+      return fallbackMatches.slice(0, 10).map((entry) => entry.question);
+    })()
+    : candidateQuestions;
 
   const questionIds = questions.map((question) => question._id);
   const answers = questionIds.length
@@ -2378,6 +2499,18 @@ async function handleQuestionById(req, res, questionIdRaw, session) {
   const userId = parseObjectId(session.user.id);
   if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
 
+  if (req.method === "GET") {
+    const questions = await listQuestionsWithRelations(userId);
+    const question = questions.find((item) => item.id === String(questionId));
+    if (!question) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+    return sendJson(res, 200, { ok: true, question });
+  }
+
+  if (req.method !== "PATCH") {
+    res.setHeader("Allow", "GET, PATCH");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
   const existing = await db.collection(COLLECTIONS.globalQuestions).findOne(
     { _id: questionId },
     { projection: { _id: 1, from_user_id: 1 } }
@@ -2385,11 +2518,6 @@ async function handleQuestionById(req, res, questionIdRaw, session) {
   if (!existing) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
   if (String(existing.from_user_id) !== String(userId)) {
     return sendJson(res, 403, { ok: false, message: "Nur der Ersteller darf diese Frage bearbeiten" });
-  }
-
-  if (req.method !== "PATCH") {
-    res.setHeader("Allow", "PATCH");
-    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
   let payload;
@@ -3074,9 +3202,7 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
     return sendJson(res, 400, { ok: false, message: "Query-Parameter 'q' fehlt." });
   }
 
-  const exchange = String(requestUrl.searchParams.get("exchange") || STOCK_SEARCH_DEFAULT_EXCHANGE)
-    .trim()
-    .toUpperCase();
+  const exchange = "NASDAQ";
   const requestedLimitRaw = Number(requestUrl.searchParams.get("limit"));
   const requestedLimit = Number.isFinite(requestedLimitRaw) ? requestedLimitRaw : 20;
   const limit = Math.max(1, Math.min(50, Math.floor(requestedLimit)));
@@ -3106,6 +3232,7 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
         sCountry: String(row?.country || "").trim()
       }))
       .filter((row) => Boolean(row.sSymbol))
+      .filter((row) => String(row.sExchange || "").trim().toUpperCase() === exchange)
       .slice(0, limit);
 
     return sendJson(res, 200, { ok: true, results });
@@ -3116,6 +3243,156 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
       detail: String(error?.message || error)
     });
   }
+}
+
+function extractHostnameCandidate(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return "";
+  try {
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
+      return new URL(value).hostname.toLowerCase();
+    }
+    const cleaned = value.replace(/^www\./i, "");
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cleaned)) return "";
+    return cleaned.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function resolveLogoDomainFromSearchRows(rows, symbolHint = "") {
+  const normalizedSymbol = String(symbolHint || "").trim().toUpperCase();
+  const candidates = Array.isArray(rows) ? rows : [];
+  const exact = candidates.find((row) => String(row?.symbol || "").trim().toUpperCase() === normalizedSymbol) || candidates[0];
+  if (!exact) return "";
+
+  const domainFields = [
+    exact?.domain,
+    exact?.website,
+    exact?.url,
+    exact?.homepage,
+    exact?.site,
+    exact?.company_url
+  ];
+
+  for (const field of domainFields) {
+    const hostname = extractHostnameCandidate(field);
+    if (hostname) return hostname;
+  }
+  return "";
+}
+
+async function resolveLogoDomainBySymbol(symbol, exchange) {
+  if (!STOCK_SEARCH_BASE_URL || !STOCK_API_KEY) return "";
+  const sSymbol = String(symbol || "").trim().toUpperCase();
+  if (!sSymbol) return "";
+
+  const upstreamUrl = new URL("/search", STOCK_SEARCH_BASE_URL);
+  upstreamUrl.searchParams.set("q", sSymbol);
+  upstreamUrl.searchParams.set("exchange", String(exchange || "NASDAQ").trim().toUpperCase() || "NASDAQ");
+
+  const upstreamResponse = await fetch(upstreamUrl.toString(), {
+    headers: {
+      Accept: "application/json",
+      "x-api-key": STOCK_API_KEY
+    }
+  });
+  const payload = await upstreamResponse.json().catch(() => null);
+  if (!upstreamResponse.ok || !Array.isArray(payload)) return "";
+  return resolveLogoDomainFromSearchRows(payload, sSymbol);
+}
+
+async function handleStockLogoProxy(req, res, requestUrl, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!LOGO_DEV_BASE_URL || !LOGO_DEV_API_KEY) {
+    return sendJson(res, 500, { ok: false, message: "LOGO_DEV_API_KEY fehlt im Backend." });
+  }
+
+  const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+  const domainFromQuery = extractHostnameCandidate(requestUrl.searchParams.get("domain"));
+  const exchange = "NASDAQ";
+  const themeRaw = String(requestUrl.searchParams.get("theme") || "").trim().toLowerCase();
+  const theme = themeRaw === "dark" ? "dark" : "light";
+  const sizeRaw = Number(requestUrl.searchParams.get("size"));
+  const size = Number.isFinite(sizeRaw) ? Math.max(16, Math.min(128, Math.round(sizeRaw))) : 28;
+
+  if (!symbol && !domainFromQuery) {
+    return sendJson(res, 400, { ok: false, message: "Query-Parameter 'symbol' oder 'domain' fehlt." });
+  }
+
+  let domain = domainFromQuery;
+  if (!domain && symbol) {
+    try {
+      domain = await resolveLogoDomainBySymbol(symbol, exchange);
+    } catch {
+      domain = "";
+    }
+  }
+
+  const logoCandidates = [];
+  if (domain) {
+    logoCandidates.push(`/${encodeURIComponent(domain)}`);
+  }
+  if (symbol) {
+    logoCandidates.push(`/ticker/${encodeURIComponent(symbol)}`);
+  }
+
+  if (!logoCandidates.length) {
+    return sendJson(res, 404, { ok: false, message: "Kein Logo-Kandidat gefunden." });
+  }
+
+  const queryVariants = [
+    { format: "svg", background: "transparent" },
+    { format: "svg" },
+    { format: "png", background: "transparent" },
+    { format: "png" }
+  ];
+
+  let lastErrorMessage = "Logo konnte nicht geladen werden.";
+  for (const pathCandidate of logoCandidates) {
+    for (const variant of queryVariants) {
+      const logoUrl = new URL(pathCandidate, LOGO_DEV_BASE_URL);
+      logoUrl.searchParams.set("token", LOGO_DEV_API_KEY);
+      logoUrl.searchParams.set("size", String(size));
+      logoUrl.searchParams.set("theme", theme);
+      if (variant.format) logoUrl.searchParams.set("format", variant.format);
+      if (variant.background) logoUrl.searchParams.set("background", variant.background);
+
+      try {
+        const upstreamResponse = await fetch(logoUrl.toString(), {
+          headers: {
+            Accept: "image/*",
+            Authorization: `Bearer ${LOGO_DEV_API_KEY}`
+          }
+        });
+        if (!upstreamResponse.ok) {
+          lastErrorMessage = `Logo upstream HTTP ${upstreamResponse.status} (${logoUrl.pathname}).`;
+          continue;
+        }
+
+        const imageBuffer = Buffer.from(await upstreamResponse.arrayBuffer());
+        const contentType = upstreamResponse.headers.get("content-type") || "image/png";
+        res.writeHead(200, {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=21600"
+        });
+        res.end(imageBuffer);
+        return;
+      } catch (error) {
+        lastErrorMessage = String(error?.message || error);
+      }
+    }
+  }
+
+  return sendJson(res, 404, {
+    ok: false,
+    message: "Logo konnte nicht geladen werden.",
+    detail: lastErrorMessage
+  });
 }
 
 async function handleStatic(req, res, pathname) {
@@ -3182,6 +3459,7 @@ const API_HANDLERS = {
   handleDebugPositions,
   handleTwelveDataProxy,
   handleStockSearchProxy,
+  handleStockLogoProxy,
   handleExchangeRates
 };
 
