@@ -1,4 +1,13 @@
 :root {
+  --ui-space-1: 8px;
+  --ui-space-2: 12px;
+  --ui-space-3: 16px;
+  --ui-space-4: 20px;
+  --ui-space-5: 24px;
+  --ui-space-6: 32px;
+  --ui-radius-sm: 10px;
+  --ui-radius-md: 14px;
+  --ui-radius-lg: 16px;
   --ui-bg-c1: #f5f6f7;
   --ui-bg-c2: #eef1f4;
   --ui-bg-c3: #e8edf2;
@@ -107,18 +116,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--ui-space-2);
   position: sticky;
   top: 0;
   z-index: 50;
   width: 100vw;
   max-width: none;
-  margin: 0 calc(50% - 50vw) 18px;
+  margin: 0 calc(50% - 50vw) var(--ui-space-3);
   border: 1px solid var(--ui-border);
   border-radius: 0;
   background: var(--ui-surface);
   box-shadow: var(--ui-shadow-soft);
-  padding: 12px 18px;
+  padding: var(--ui-space-2) var(--ui-space-3);
 }
 
 .topbar-left {
@@ -155,20 +164,43 @@ body {
 .app-nav-links {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-space-1);
 }
 
 .app-nav-link {
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
   color: var(--ui-text-muted);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: var(--ui-radius-sm);
+  padding: 8px var(--ui-space-2);
   font-size: 0.8rem;
   font-weight: 650;
   text-decoration: none;
   box-shadow: var(--ui-shadow-soft);
   white-space: nowrap;
+}
+
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  min-width: 42px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: var(--ui-shadow-soft);
+}
+
+.nav-toggle-icon {
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .app-nav-link:hover {
@@ -324,8 +356,9 @@ body {
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
   color: var(--ui-text);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: var(--ui-radius-sm);
+  min-height: 40px;
+  padding: 10px var(--ui-space-2);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 650;
@@ -425,7 +458,7 @@ button:not(:disabled):active,
 .login-card {
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
-  border-radius: 16px;
+  border-radius: var(--ui-radius-lg);
   box-shadow: var(--ui-shadow-soft);
 }
 
@@ -436,9 +469,9 @@ textarea,
   border: 1px solid var(--ui-border);
   background: var(--ui-surface-soft);
   color: var(--ui-text);
-  border-radius: 11px;
+  border-radius: var(--ui-radius-sm);
   min-height: 40px;
-  padding: 9px 11px;
+  padding: 9px var(--ui-space-2);
   font: inherit;
 }
 
@@ -452,13 +485,69 @@ textarea:focus,
   background: var(--ui-surface);
 }
 
+@media (max-width: 960px) {
+  .dash-topbar,
+  .layout-toolbar,
+  .page-topbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: var(--ui-space-2);
+    margin-bottom: var(--ui-space-2);
+  }
+
+  .toolbar-actions,
+  .topbar-right,
+  .header-controls {
+    width: 100%;
+    justify-content: flex-start;
+    gap: var(--ui-space-2);
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .app-nav-links {
+    display: none;
+    order: 99;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ui-space-1);
+  }
+
+  .header-controls.is-nav-open .app-nav-links,
+  .topbar-right.is-nav-open .app-nav-links,
+  .toolbar-actions.is-nav-open .app-nav-links {
+    display: flex;
+  }
+
+  .app-nav-link {
+    width: 100%;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    white-space: normal;
+  }
+}
+
 @media (max-width: 720px) {
   .dash-topbar,
   .layout-toolbar,
   .page-topbar {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 10px 12px;
-    margin-bottom: 12px;
+    gap: var(--ui-space-1);
+  }
+
+  .logout-btn,
+  .action,
+  .submit-income,
+  .cancel-income,
+  .settings-reset-btn,
+  .ghost-button,
+  .danger-button,
+  .small-danger-button,
+  .nav-toggle {
+    min-height: 44px;
   }
 }

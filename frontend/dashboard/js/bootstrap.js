@@ -30,6 +30,7 @@ async function bootstrap() {
 
   initThemeSwitcher();
   initSectionTabs();
+  initDashboardMobileNav();
   hydrateProfile(appState.user);
   initSettingsMenu();
   initProfileMenu();

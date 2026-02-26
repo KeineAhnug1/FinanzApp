@@ -90,6 +90,69 @@
     }).join("");
   }
 
+  function ensureMobileNavToggle(controls) {
+    if (!controls) return;
+    const nav = controls.querySelector(".app-nav-links");
+    if (!nav) return;
+
+    if (!nav.id) {
+      nav.id = `app-nav-links-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    let toggle = controls.querySelector(".nav-toggle");
+    if (!toggle) {
+      toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "nav-toggle";
+      toggle.innerHTML = `
+        <span class="nav-toggle-icon" aria-hidden="true">&#9776;</span>
+        <span class="nav-toggle-label">${t("topbar.menu", "Menue")}</span>
+      `;
+      controls.insertBefore(toggle, nav);
+    }
+
+    toggle.setAttribute("aria-controls", nav.id);
+    const closeMenu = () => {
+      controls.classList.remove("is-nav-open");
+      toggle.setAttribute("aria-expanded", "false");
+      const icon = toggle.querySelector(".nav-toggle-icon");
+      if (icon) icon.innerHTML = "&#9776;";
+    };
+
+    const openMenu = () => {
+      controls.classList.add("is-nav-open");
+      toggle.setAttribute("aria-expanded", "true");
+      const icon = toggle.querySelector(".nav-toggle-icon");
+      if (icon) icon.innerHTML = "&times;";
+    };
+
+    if (toggle.dataset.bound !== "1") {
+      toggle.dataset.bound = "1";
+      toggle.addEventListener("click", () => {
+        const isOpen = controls.classList.contains("is-nav-open");
+        if (isOpen) closeMenu();
+        else openMenu();
+      });
+
+      nav.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target instanceof Element && target.closest("a")) closeMenu();
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (!controls.contains(target)) closeMenu();
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth > 960) closeMenu();
+      });
+    }
+
+    closeMenu();
+  }
+
   function settingsStorageKey(userId) {
     return `${SETTINGS_STORAGE_PREFIX}.${userId || "anonymous"}`;
   }
@@ -351,6 +414,7 @@
 
     updateBrandSub(topbar);
     ensureNav(controls);
+    ensureMobileNavToggle(controls);
 
     if (window.FinanzAppTheme?.initThemeSwitcher) {
       window.FinanzAppTheme.initThemeSwitcher();

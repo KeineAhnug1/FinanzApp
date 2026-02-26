@@ -26,6 +26,7 @@
   border: 0;
   background: transparent;
   border-radius: 999px;
+  min-height: 40px;
   padding: 8px 14px;
   color: var(--text-muted);
   font: inherit;
@@ -989,6 +990,10 @@
 }
 
 @media (max-width: 1020px) {
+  .dash-shell {
+    width: calc(100% - 24px);
+  }
+
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1004,19 +1009,7 @@
 
 @media (max-width: 720px) {
   .dash-shell {
-    width: calc(100% - 24px);
     margin-bottom: 18px;
-  }
-
-  .dash-topbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .topbar-right {
-    width: 100%;
-    justify-content: flex-end;
-    flex-wrap: wrap;
   }
 
   .settings-panel {
@@ -1036,6 +1029,7 @@
   .section-tab {
     flex: 1;
     text-align: center;
+    min-height: 44px;
   }
 
   .form-two-cols {
@@ -1044,5 +1038,11 @@
 
   .income-actions {
     flex-direction: column;
+  }
+
+  .income-actions > button,
+  .modal-actions > button {
+    width: 100%;
+    min-height: 44px;
   }
 }
