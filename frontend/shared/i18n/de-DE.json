@@ -412,7 +412,6 @@
     "source": "Quelle",
     "start_section": "Start-Bereich",
     "status": "Status",
-    "stock_api_limit_hint": "Falls keine Aktienkurse angezeigt werden liegt dies an der vollständigen Auslastung des API Keys.",
     "stock_view_page_title": "Aktienansicht | FinanzApp",
     "stock_view_title": "Aktienansicht",
     "stocks.account_name_aria": "{kind} Name",

@@ -8,6 +8,8 @@
   window.FinanzAppSharedTopbar = true;
   const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
   const SIDENAV_COLLAPSED_STORAGE_KEY = "finanzapp.sideNav.collapsed";
+  const SUB_NAV_CLOSE_DURATION_MS = 180;
+  const EMBEDDED_QUERY_PARAM = "embedded";
   const MOBILE_BREAKPOINT = 960;
   const DEFAULT_SETTINGS = { currency: "EUR", locale: "de-DE", themeMode: "auto" };
   const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
@@ -54,12 +56,49 @@
       iconPath: "/shared/images/nav-questions.svg"
     }
   ];
+  const SUB_NAV_ITEMS = {
+    dashboard: [
+      { href: "/dashboard.html#overview", key: "overview", labelKey: "overview", fallback: "Uebersicht" },
+      { href: "/dashboard.html#income", key: "income", labelKey: "income_short", fallback: "Einnahmen" },
+      { href: "/dashboard.html#expense", key: "expense", labelKey: "expense_short", fallback: "Ausgaben" }
+    ],
+    stocks: [
+      { href: "/aktien/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtsdepot" },
+      { href: "/aktien/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" },
+      { href: "/aktien/#futureanalysis", key: "futureanalysis", labelKey: "stocks.future_outlook", fallback: "Zukunftsaussicht" }
+    ]
+  };
+  const NAV_PATHS = new Set(NAV_ITEMS.map((item) => normalizePath(item.href)));
+  let contentFrame = null;
+  let contentFrameHost = null;
+  let isSoftNavigating = false;
 
   function t(key, fallback, params = {}) {
     const translated = window.FinanzAppLanguage?.t?.(key, params);
     if (translated && translated !== key) return translated;
     if (!params || !Object.keys(params).length) return fallback;
     return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+  }
+
+  function isEmbeddedPageContext() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get(EMBEDDED_QUERY_PARAM) === "1") return true;
+    } catch {
+      // ignore malformed query
+    }
+    return window.self !== window.top;
+  }
+
+  function removeTopbarForEmbeddedContext() {
+    const topbar = findTopbar();
+    if (topbar) topbar.remove();
+    document.body.classList.remove("has-shared-sidebar", "side-nav-open", "side-nav-collapsed");
+    document.body.classList.add("app-embedded-page");
+    const mobileToggle = document.querySelector(".side-nav-mobile-toggle");
+    if (mobileToggle) mobileToggle.remove();
+    const sideNav = document.querySelector(".app-side-nav");
+    if (sideNav) sideNav.remove();
   }
 
   function normalizePath(pathname) {
@@ -106,23 +145,64 @@
     sub.textContent = currentBrandSub();
   }
 
+  function subNavMarkup(parentKey, activeSubKey = "", isOpen = false) {
+    const subItems = SUB_NAV_ITEMS[parentKey] || [];
+    if (!subItems.length) return "";
+    const openClass = isOpen ? " is-open" : "";
+    return `
+      <div class="app-sub-nav${openClass}" aria-label="${t("sections", "Bereiche")}" data-parent-key="${parentKey}">
+        ${subItems.map((subItem) => {
+          const sSubKey = String(subItem.key || "").toLowerCase();
+          const isSubActive = String(activeSubKey || "").toLowerCase() === sSubKey;
+          const activeClass = isSubActive ? " is-active" : "";
+          const currentAttr = isSubActive ? ' aria-current="page"' : "";
+          return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}</a>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function activeSubKeys(activeKey, activeHash) {
+    let activeDashboardSubKey = activeHash;
+    if (activeKey === "dashboard" && !activeDashboardSubKey) {
+      try {
+        const stored = String(window.localStorage.getItem("finanzapp.dashboardView") || "").trim().toLowerCase();
+        activeDashboardSubKey = stored || "overview";
+      } catch {
+        activeDashboardSubKey = "overview";
+      }
+    }
+    const activeStocksSubKey = activeKey === "stocks" ? (activeHash || "depot") : activeHash;
+    return { activeDashboardSubKey, activeStocksSubKey };
+  }
+
   function navMarkup() {
     const activeKey = currentNavKey();
+    const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
+    const { activeDashboardSubKey, activeStocksSubKey } = activeSubKeys(activeKey, activeHash);
     return NAV_ITEMS.map((item) => {
       const active = item.key === activeKey ? " is-active" : "";
+      const sActiveSubKey = item.key === "dashboard" ? activeDashboardSubKey : activeStocksSubKey;
+      const isSubNavParent = Boolean(SUB_NAV_ITEMS[item.key]?.length);
+      const subMarkup = isSubNavParent ? subNavMarkup(item.key, sActiveSubKey, activeKey === item.key) : "";
       if (item.key === activeKey) {
         return `
-          <span class="app-nav-link${active}" aria-current="page">
-            <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
-            <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
-          </span>
+          <div class="app-nav-item">
+            <span class="app-nav-link${active}" aria-current="page">
+              <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
+              <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
+            </span>
+            ${subMarkup}
+          </div>
         `;
       }
       return `
-        <a class="app-nav-link${active}" href="${item.href}">
-          <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
-          <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
-        </a>
+        <div class="app-nav-item">
+          <a class="app-nav-link${active}" href="${item.href}">
+            <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
+            <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
+          </a>
+        </div>
       `;
     }).join("");
   }
@@ -136,6 +216,193 @@
       const activeLink = target.closest("a.app-nav-link.is-active");
       if (!activeLink) return;
       event.preventDefault();
+    });
+  }
+
+  function bindSubNavExitAnimation() {
+    if (document.documentElement.dataset.subNavExitAnimationBound === "1") return;
+    document.documentElement.dataset.subNavExitAnimationBound = "1";
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const navLink = target.closest("a.app-nav-link[href]");
+      if (!(navLink instanceof HTMLAnchorElement)) return;
+      if (event.defaultPrevented) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      let nextUrl;
+      try {
+        nextUrl = new URL(navLink.href, window.location.origin);
+      } catch {
+        return;
+      }
+      if (nextUrl.origin !== window.location.origin) return;
+      if (normalizePath(nextUrl.pathname) === normalizePath(window.location.pathname)) return;
+      if (navLink.closest(".app-side-nav") && canSoftNavigateTo(nextUrl)) return;
+
+      const openSubNav = document.querySelector(".app-side-nav .app-sub-nav.is-open");
+      if (!(openSubNav instanceof HTMLElement)) return;
+
+      event.preventDefault();
+      openSubNav.classList.remove("is-open");
+      openSubNav.classList.add("is-closing");
+
+      window.setTimeout(() => {
+        window.location.assign(nextUrl.pathname + nextUrl.search + nextUrl.hash);
+      }, SUB_NAV_CLOSE_DURATION_MS);
+    });
+  }
+
+  function refreshSidebarNav() {
+    const nav = document.querySelector(".app-side-nav .app-nav-links");
+    if (!nav) return;
+    const activeKey = currentNavKey();
+    const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
+    const signature = `${activeKey || "-"}|${activeHash || "-"}`;
+    if (nav.dataset.signature === signature) return;
+    nav.innerHTML = navMarkup();
+    nav.dataset.signature = signature;
+  }
+
+  function canSoftNavigateTo(url) {
+    if (!(url instanceof URL)) return false;
+    if (url.origin !== window.location.origin) return false;
+    return NAV_PATHS.has(normalizePath(url.pathname));
+  }
+
+  function toEmbeddedUrl(url) {
+    const embeddedUrl = new URL(url.href);
+    embeddedUrl.searchParams.set(EMBEDDED_QUERY_PARAM, "1");
+    return embeddedUrl;
+  }
+
+  function ensureContentFrameShell() {
+    if (contentFrameHost && contentFrame && document.body.contains(contentFrameHost)) return;
+    const sideNav = document.querySelector(".app-side-nav");
+    const mobileToggle = document.querySelector(".side-nav-mobile-toggle");
+    const topbar = findTopbar();
+    const keep = new Set([sideNav, mobileToggle, topbar].filter(Boolean));
+
+    contentFrameHost = document.createElement("main");
+    contentFrameHost.className = "app-content-frame-wrap";
+    contentFrame = document.createElement("iframe");
+    contentFrame.className = "app-content-frame";
+    contentFrame.title = t("sections", "Bereiche");
+    contentFrame.setAttribute("loading", "eager");
+    contentFrameHost.appendChild(contentFrame);
+
+    const children = Array.from(document.body.children);
+    for (const child of children) {
+      if (keep.has(child)) continue;
+      child.remove();
+    }
+    document.body.appendChild(contentFrameHost);
+    document.body.classList.add("app-shell-frame-mode");
+  }
+
+  function syncSidebarAfterSoftNavigation() {
+    updateBrandSub(findTopbar());
+    refreshSidebarNav();
+  }
+
+  function navigateInContentFrame(targetUrl, options = {}) {
+    const { pushState = true } = options;
+    if (!(targetUrl instanceof URL)) return;
+    if (!canSoftNavigateTo(targetUrl)) {
+      window.location.assign(targetUrl.pathname + targetUrl.search + targetUrl.hash);
+      return;
+    }
+
+    ensureContentFrameShell();
+    if (!contentFrame) return;
+    const currentUrl = new URL(window.location.href);
+    const isSameDocumentTarget = normalizePath(targetUrl.pathname) === normalizePath(currentUrl.pathname)
+      && targetUrl.search === currentUrl.search;
+
+    if (isSameDocumentTarget && contentFrame.contentWindow) {
+      if (pushState) {
+        window.history.pushState({ appSoftNav: true }, "", targetUrl.pathname + targetUrl.search + targetUrl.hash);
+      }
+      syncSidebarAfterSoftNavigation();
+      const embeddedTarget = toEmbeddedUrl(targetUrl);
+      contentFrame.contentWindow.location.replace(
+        embeddedTarget.pathname + embeddedTarget.search + embeddedTarget.hash
+      );
+      return;
+    }
+
+    if (isSoftNavigating) return;
+    isSoftNavigating = true;
+    document.body.classList.add("app-shell-frame-loading");
+
+    if (pushState) {
+      window.history.pushState({ appSoftNav: true }, "", targetUrl.pathname + targetUrl.search + targetUrl.hash);
+    }
+    syncSidebarAfterSoftNavigation();
+
+    const onLoad = () => {
+      isSoftNavigating = false;
+      document.body.classList.remove("app-shell-frame-loading");
+      contentFrame?.removeEventListener("load", onLoad);
+      if (releaseTimer) window.clearTimeout(releaseTimer);
+    };
+    const releaseTimer = window.setTimeout(() => {
+      isSoftNavigating = false;
+      document.body.classList.remove("app-shell-frame-loading");
+      contentFrame?.removeEventListener("load", onLoad);
+    }, 1600);
+
+    contentFrame.addEventListener("load", onLoad);
+    contentFrame.src = toEmbeddedUrl(targetUrl).toString();
+  }
+
+  function bindSidebarSoftNavigation() {
+    if (document.documentElement.dataset.sidebarSoftNavigationBound === "1") return;
+    document.documentElement.dataset.sidebarSoftNavigationBound = "1";
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest(".app-side-nav a[href]");
+      if (!(link instanceof HTMLAnchorElement)) return;
+      if (event.defaultPrevented) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      let nextUrl;
+      try {
+        nextUrl = new URL(link.href, window.location.origin);
+      } catch {
+        return;
+      }
+      if (!canSoftNavigateTo(nextUrl)) return;
+
+      const currentUrl = new URL(window.location.href);
+      const samePathAndQuery = normalizePath(nextUrl.pathname) === normalizePath(currentUrl.pathname)
+        && nextUrl.search === currentUrl.search;
+      const sameTarget = samePathAndQuery && nextUrl.hash === currentUrl.hash;
+      if (sameTarget) {
+        event.preventDefault();
+        return;
+      }
+
+      event.preventDefault();
+      if (samePathAndQuery) {
+        navigateInContentFrame(nextUrl, { pushState: true });
+        return;
+      }
+
+      const openSubNav = document.querySelector(".app-side-nav .app-sub-nav.is-open");
+      if (openSubNav instanceof HTMLElement) {
+        openSubNav.classList.remove("is-open");
+        openSubNav.classList.add("is-closing");
+      }
+      navigateInContentFrame(nextUrl, { pushState: true });
+    });
+
+    window.addEventListener("popstate", () => {
+      if (!document.body.classList.contains("app-shell-frame-mode")) return;
+      navigateInContentFrame(new URL(window.location.href), { pushState: false });
     });
   }
 
@@ -163,7 +430,7 @@
       document.body.prepend(sideNav);
     }
     const nav = sideNav.querySelector(".app-nav-links");
-    if (nav) nav.innerHTML = navMarkup();
+    if (nav) refreshSidebarNav();
     const sideNavAfterLinks = sideNav.querySelector(".app-side-nav-after-links");
     const sideNavBottom = sideNav.querySelector(".app-side-nav-bottom");
 
@@ -243,7 +510,8 @@
 
       sideNav.addEventListener("click", (event) => {
         const target = event.target;
-        if (target instanceof Element && target.closest("a")) closeMenu();
+        if (!(target instanceof Element)) return;
+        if (target.closest("a")) closeMenu();
       });
 
       document.addEventListener("click", (event) => {
@@ -524,6 +792,11 @@
   }
 
   async function initTopbar() {
+    if (isEmbeddedPageContext()) {
+      removeTopbarForEmbeddedContext();
+      return;
+    }
+
     const topbar = findTopbar();
     if (!topbar) return;
 
@@ -534,6 +807,10 @@
 
     updateBrandSub(topbar);
     ensureSidebar(topbar, controls);
+    window.addEventListener("hashchange", () => {
+      updateBrandSub(topbar);
+      ensureSidebar(topbar, controls);
+    });
 
     if (window.FinanzAppTheme?.initThemeSwitcher) {
       window.FinanzAppTheme.initThemeSwitcher();
@@ -541,6 +818,8 @@
 
     initProfileMenus();
     disableActiveNavLinkClicks();
+    bindSubNavExitAnimation();
+    bindSidebarSoftNavigation();
 
     try {
       const sessionUser = await window.FinanzAppSession.fetchSessionUser();

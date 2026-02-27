@@ -60,7 +60,6 @@
 	// =====================================================
 	// [SHARED] 1) DOM-Referenzen + globaler Zustand
 	// =====================================================
-	const aElNavButtons = [...document.querySelectorAll(".navbtn")];
 	const elViewHost = document.getElementById("viewHost");
 
 	let sActiveView = "depot";

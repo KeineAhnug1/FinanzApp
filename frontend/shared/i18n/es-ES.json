@@ -412,7 +412,6 @@
     "source": "Source",
     "start_section": "Start section",
     "status": "Estado",
-    "stock_api_limit_hint": "If no stock prices are shown, the API key is likely fully exhausted.",
     "stock_view_page_title": "Stock View | FinanzApp",
     "stock_view_title": "Stock View",
     "stocks.account_name_aria": "{kind} name",

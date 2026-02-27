@@ -412,7 +412,6 @@
     "source": "Source",
     "start_section": "Section de depart",
     "status": "Statut",
-    "stock_api_limit_hint": "Si aucun cours n'apparait, la cle API est probablement totalement utilisee.",
     "stock_view_page_title": "Vue des actions | FinanzApp",
     "stock_view_title": "Vue des actions",
     "stocks.account_name_aria": "{kind} name",

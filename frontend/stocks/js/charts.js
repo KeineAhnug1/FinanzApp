@@ -107,6 +107,28 @@
 	}
 
 	/**
+	 * Zeichnet einen geglaetteten Linienpfad, damit starke Zacken ruhiger wirken.
+	 * Scope: [SHARED]
+	 * @param {CanvasRenderingContext2D} oCtx
+	 * @param {Array<{nX: number, nY: number}>} aCanvasPoints
+	 */
+	function fnStrokeSmoothPath(oCtx, aCanvasPoints) {
+		if (!Array.isArray(aCanvasPoints) || aCanvasPoints.length <= 1) return;
+		oCtx.beginPath();
+		oCtx.moveTo(aCanvasPoints[0].nX, aCanvasPoints[0].nY);
+		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length - 1; iPointIndex += 1) {
+			const oCurrent = aCanvasPoints[iPointIndex];
+			const oNext = aCanvasPoints[iPointIndex + 1];
+			const nMidX = (oCurrent.nX + oNext.nX) / 2;
+			const nMidY = (oCurrent.nY + oNext.nY) / 2;
+			oCtx.quadraticCurveTo(oCurrent.nX, oCurrent.nY, nMidX, nMidY);
+		}
+		const oLastMinusOne = aCanvasPoints[aCanvasPoints.length - 2];
+		const oLast = aCanvasPoints[aCanvasPoints.length - 1];
+		oCtx.quadraticCurveTo(oLastMinusOne.nX, oLastMinusOne.nY, oLast.nX, oLast.nY);
+	}
+
+	/**
 	 * Initialisiert Pointer-Events für Hover-Markierung im Linienchart.
 	 * Scope: [SHARED]
 	 * @param {HTMLCanvasElement} elCanvas
@@ -192,12 +214,7 @@
 		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
 		oCtx.clearRect(0, 0, iWidth, iHeight);
 		const oStyles = getComputedStyle(document.documentElement);
-		const sPrimary = oStyles.getPropertyValue("--clr-chart-line").trim() || oStyles.getPropertyValue("--clr-primary").trim() || "#0a6ed1";
-		const sPrimarySoft = oStyles.getPropertyValue("--clr-primary-soft").trim() || "rgba(10, 110, 209, 0.12)";
-		const sChartFillTop = oStyles.getPropertyValue("--clr-chart-fill-top").trim() || "rgba(10, 110, 209, 0.30)";
-		const sChartFillBottom = oStyles.getPropertyValue("--clr-chart-fill-bottom").trim() || sPrimarySoft || "rgba(10, 110, 209, 0.08)";
-		const sChartPointGlow = oStyles.getPropertyValue("--clr-chart-point-glow").trim() || "rgba(10, 110, 209, 0.23)";
-		const sChartHoverGlow = oStyles.getPropertyValue("--clr-chart-hover-glow").trim() || "rgba(10, 110, 209, 0.18)";
+		const sPrimary = oStyles.getPropertyValue("--accent-blue").trim() || oStyles.getPropertyValue("--clr-chart-line").trim() || oStyles.getPropertyValue("--clr-primary").trim() || "#3f97ff";
 		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
 		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
 		const sBorderStrong = oStyles.getPropertyValue("--clr-border-strong").trim() || "#b5c0ba";
@@ -210,17 +227,22 @@
 		let nMin = Math.min(...aValues);
 		let nMax = Math.max(...aValues);
 
-		if (nMax - nMin < 1e-9) nMax = nMin + 1;
+		const nDataRange = nMax - nMin;
+		if (nDataRange < 1e-9) {
+			const nBase = Math.abs(nMin) > 1 ? Math.abs(nMin) : 1;
+			nMin -= nBase * 0.05;
+			nMax += nBase * 0.05;
+		} else {
+			const nPadding = nDataRange * 0.12;
+			nMin -= nPadding;
+			nMax += nPadding;
+		}
 
 		const fnXAt = (iIndex) => {
 			if (aPoints.length <= 1) return iPadL;
 			return iPadL + (iIndex / (aPoints.length - 1)) * iInnerWidth;
 		};
 		const fnYAt = (nValue) => iPadT + (1 - (nValue - nMin) / (nMax - nMin)) * iInnerHeight;
-
-		oCtx.strokeStyle = sBorder;
-		oCtx.lineWidth = 1.1;
-		oCtx.strokeRect(iPadL, iPadT, iInnerWidth, iInnerHeight);
 
 		oCtx.font = `${bCompact ? 10 : 12}px 'Sora', 'Avenir Next', sans-serif`;
 		oCtx.fillStyle = sTextMuted;
@@ -243,49 +265,25 @@
 			oCtx.fillText(sLabel, iPadL - 10, nY);
 		}
 
+		const nZeroY = fnYAt(0);
+		if (nZeroY >= iPadT && nZeroY <= iPadT + iInnerHeight) {
+			oCtx.beginPath();
+			oCtx.moveTo(iPadL, nZeroY);
+			oCtx.lineTo(iPadL + iInnerWidth, nZeroY);
+			oCtx.strokeStyle = sTextMuted;
+			oCtx.lineWidth = 1.1;
+			oCtx.stroke();
+		}
+
 		const aCanvasPoints = aPoints.map((oPoint, iPointIndex) => ({
 			nX: fnXAt(iPointIndex),
 			nY: fnYAt(oPoint.y),
 		}));
 
-		const oGradient = oCtx.createLinearGradient(0, iPadT, 0, iPadT + iInnerHeight);
-		oGradient.addColorStop(0, sChartFillTop);
-		oGradient.addColorStop(1, sChartFillBottom);
-
-		oCtx.beginPath();
-		oCtx.moveTo(aCanvasPoints[0].nX, iPadT + iInnerHeight);
-		oCtx.lineTo(aCanvasPoints[0].nX, aCanvasPoints[0].nY);
-		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length; iPointIndex += 1) {
-			oCtx.lineTo(aCanvasPoints[iPointIndex].nX, aCanvasPoints[iPointIndex].nY);
-		}
-		const oLastPoint = aCanvasPoints[aCanvasPoints.length - 1];
-		oCtx.lineTo(oLastPoint.nX, oLastPoint.nY);
-		oCtx.lineTo(oLastPoint.nX, iPadT + iInnerHeight);
-		oCtx.closePath();
-		oCtx.fillStyle = oGradient;
-		oCtx.fill();
-
-		oCtx.beginPath();
-		oCtx.moveTo(aCanvasPoints[0].nX, aCanvasPoints[0].nY);
-		for (let iPointIndex = 1; iPointIndex < aCanvasPoints.length; iPointIndex += 1) {
-			oCtx.lineTo(aCanvasPoints[iPointIndex].nX, aCanvasPoints[iPointIndex].nY);
-		}
-		oCtx.lineTo(oLastPoint.nX, oLastPoint.nY);
+		fnStrokeSmoothPath(oCtx, aCanvasPoints);
 		oCtx.strokeStyle = sPrimary;
 		oCtx.lineWidth = 2.6;
 		oCtx.stroke();
-
-		oCtx.beginPath();
-		oCtx.arc(oLastPoint.nX, oLastPoint.nY, 2.8, 0, Math.PI * 2);
-		oCtx.fillStyle = sPrimary;
-		oCtx.fill();
-
-		if (sChartPointGlow) {
-			oCtx.beginPath();
-			oCtx.arc(oLastPoint.nX, oLastPoint.nY, 6.5, 0, Math.PI * 2);
-			oCtx.fillStyle = sChartPointGlow;
-			oCtx.fill();
-		}
 
 		const iHoverIndex = Number.isInteger(oHoverState.iHoverIndex) ? oHoverState.iHoverIndex : -1;
 		if (iHoverIndex >= 0 && iHoverIndex < aCanvasPoints.length) {
@@ -302,16 +300,6 @@
 			oCtx.lineWidth = 1.2;
 			oCtx.stroke();
 			oCtx.setLineDash([]);
-
-			oCtx.beginPath();
-			oCtx.arc(oHoverPoint.nX, oHoverPoint.nY, 6.5, 0, Math.PI * 2);
-			oCtx.fillStyle = sChartHoverGlow;
-			oCtx.fill();
-
-			oCtx.beginPath();
-			oCtx.arc(oHoverPoint.nX, oHoverPoint.nY, 4, 0, Math.PI * 2);
-			oCtx.fillStyle = sPrimary;
-			oCtx.fill();
 
 			oCtx.font = `${bCompact ? 11 : 12}px 'Sora', 'Avenir Next', sans-serif`;
 			const iPadX = bCompact ? 8 : 10;
@@ -410,16 +398,16 @@
 	function fnPieColorAt(iIndex) {
 		const oStyles = getComputedStyle(document.documentElement);
 		const aPalette = [
-			oStyles.getPropertyValue("--clr-pie-1").trim() || "#0a6ed1",
-			oStyles.getPropertyValue("--clr-pie-2").trim() || "#2c7ddd",
-			oStyles.getPropertyValue("--clr-pie-3").trim() || "#3b8eea",
-			oStyles.getPropertyValue("--clr-pie-4").trim() || "#539df2",
-			oStyles.getPropertyValue("--clr-pie-5").trim() || "#69abff",
-			oStyles.getPropertyValue("--clr-pie-6").trim() || "#2a62a7",
-			oStyles.getPropertyValue("--clr-pie-7").trim() || "#356fba",
-			oStyles.getPropertyValue("--clr-pie-8").trim() || "#447fcb",
-			oStyles.getPropertyValue("--clr-pie-9").trim() || "#6b95d6",
-			oStyles.getPropertyValue("--clr-pie-10").trim() || "#8aaee0",
+			oStyles.getPropertyValue("--clr-pie-1").trim() || "#ef5b2a",
+			oStyles.getPropertyValue("--clr-pie-2").trim() || "#f57c00",
+			oStyles.getPropertyValue("--clr-pie-3").trim() || "#f9a825",
+			oStyles.getPropertyValue("--clr-pie-4").trim() || "#f4a261",
+			oStyles.getPropertyValue("--clr-pie-5").trim() || "#e76f51",
+			oStyles.getPropertyValue("--clr-pie-6").trim() || "#f7b267",
+			oStyles.getPropertyValue("--clr-pie-7").trim() || "#ff7043",
+			oStyles.getPropertyValue("--clr-pie-8").trim() || "#d97706",
+			oStyles.getPropertyValue("--clr-pie-9").trim() || "#fb8c00",
+			oStyles.getPropertyValue("--clr-pie-10").trim() || "#ffb74d",
 		];
 		return aPalette[iIndex % aPalette.length];
 	}
@@ -440,7 +428,7 @@
 		const iHeight = Math.max(1, Math.round(oRect.height || elCanvas.clientHeight || elCanvas.height));
 		const nCx = iWidth / 2;
 		const nCy = iHeight / 2;
-		const nRadius = Math.min(iWidth, iHeight) * 0.37;
+		const nRadius = Math.min(iWidth, iHeight) * 0.39;
 		const nInnerRadius = nRadius * 0.52;
 		const nDx = nX - nCx;
 		const nDy = nY - nCy;
@@ -473,15 +461,11 @@
 		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas, { bForceSquare: true });
 		oCtx.clearRect(0, 0, iWidth, iHeight);
 		const oStyles = getComputedStyle(document.documentElement);
-		const sSurfaceSoft = oStyles.getPropertyValue("--clr-surface-soft").trim() || "#f3f4f1";
 		const sSurface = oStyles.getPropertyValue("--clr-surface").trim() || "#ffffff";
-		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
-		const sText = oStyles.getPropertyValue("--clr-text").trim() || "#1d2522";
 		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
-		const sPrimary = oStyles.getPropertyValue("--clr-primary").trim() || "#1d7a5b";
 		const nCx = iWidth / 2;
 		const nCy = iHeight / 2;
-		const nRadius = Math.min(iWidth, iHeight) * 0.37;
+		const nRadius = Math.min(iWidth, iHeight) * 0.39;
 		const nInnerRadius = nRadius * 0.52;
 		const iSelectedIndex = Number.isInteger(oOptions.iSelectedIndex) ? oOptions.iSelectedIndex : -1;
 		const nSelectScale = Number.isFinite(oOptions.nSelectScale) ? Math.max(0, Math.min(1, oOptions.nSelectScale)) : 0;
@@ -499,59 +483,28 @@
 		aItems.forEach((oItem, iIndex) => {
 			const nSlice = (oItem.nPct / 100) * Math.PI * 2;
 			const nEndAngle = nStartAngle + nSlice;
-			const nMid = nStartAngle + nSlice / 2;
-			const nPush = iIndex === iSelectedIndex ? 10 * nSelectScale : 0;
-			const nSliceRadius = nRadius + (iIndex === iSelectedIndex ? 7 * nSelectScale : 0);
-			const nSliceCx = nCx + Math.cos(nMid) * nPush;
-			const nSliceCy = nCy + Math.sin(nMid) * nPush;
+			const bItemSelected = iSelectedIndex >= 0 && iIndex === iSelectedIndex;
 
 			oCtx.beginPath();
-			oCtx.moveTo(nSliceCx, nSliceCy);
-			oCtx.arc(nSliceCx, nSliceCy, nSliceRadius, nStartAngle, nEndAngle);
+			oCtx.moveTo(nCx, nCy);
+			oCtx.arc(nCx, nCy, nRadius, nStartAngle, nEndAngle);
 			oCtx.closePath();
+			oCtx.globalAlpha = iSelectedIndex >= 0 && !bItemSelected ? 0.45 + 0.2 * (1 - nSelectScale) : 1;
 			oCtx.fillStyle = fnPieColorAt(iIndex);
 			oCtx.fill();
 			oCtx.strokeStyle = sSurface;
-			oCtx.lineWidth = 3;
+			oCtx.lineWidth = 2.4;
 			oCtx.stroke();
+			oCtx.globalAlpha = 1;
 
 			nStartAngle = nEndAngle;
 		});
 
-		// Donut-Mitte freilegen für moderneren Look
+		// Dashboard-Style: klare Donut-Mitte ohne Zusatztext.
 		oCtx.beginPath();
 		oCtx.arc(nCx, nCy, nInnerRadius, 0, Math.PI * 2);
-		oCtx.fillStyle = sSurfaceSoft;
-		oCtx.fill();
-
-		const iInfoWidth = Math.min(iWidth * 0.56, nInnerRadius * 2.1);
-		const iInfoHeight = Math.min(iHeight * 0.26, nInnerRadius * 1.7);
-		fnCanvasRoundRect(oCtx, nCx - iInfoWidth / 2, nCy - iInfoHeight / 2, iInfoWidth, iInfoHeight, 14);
 		oCtx.fillStyle = sSurface;
 		oCtx.fill();
-		oCtx.strokeStyle = sBorder;
-		oCtx.lineWidth = 1;
-		oCtx.stroke();
-
-		const sInfoTitle = iSelectedIndex >= 0 ? fnT("selection", "Auswahl") : fnT("depot", "Depot");
-		const sInfoNameRaw = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? aItems[iSelectedIndex].sSymbol : fnT("allocation", "Allokation");
-		const sInfoName = String(sInfoNameRaw || "");
-		const sInfoNameShort = sInfoName.length > 14 ? `${sInfoName.slice(0, 13)}…` : sInfoName;
-		const sInfoPct = iSelectedIndex >= 0 && aItems[iSelectedIndex] ? `${aItems[iSelectedIndex].nPct.toFixed(2)}%` : "";
-
-		oCtx.fillStyle = sTextMuted;
-		oCtx.font = "600 11px 'Sora', 'Avenir Next', sans-serif";
-		oCtx.textAlign = "center";
-		oCtx.textBaseline = "middle";
-		oCtx.fillText(sInfoTitle, nCx, nCy - 16);
-		oCtx.fillStyle = sText;
-		oCtx.font = "700 15px 'Sora', 'Avenir Next', sans-serif";
-		oCtx.fillText(sInfoNameShort, nCx, nCy + 2);
-		if (sInfoPct) {
-			oCtx.fillStyle = sPrimary;
-			oCtx.font = "700 12px 'Sora', 'Avenir Next', sans-serif";
-			oCtx.fillText(sInfoPct, nCx, nCy + 21);
-		}
 	}
 
 	/**

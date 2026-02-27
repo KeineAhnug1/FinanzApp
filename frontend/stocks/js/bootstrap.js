@@ -1,17 +1,20 @@
 	// [SHARED] 13) Navigation + App-Start
 	// =====================================================
+	const aStocksViews = new Set(["depot", "analysis", "futureanalysis"]);
 
-	/**
-	 * Setzt den aktiven Zustand in der Seiten-Navigation.
-	 * Scope: [SHARED]
-	 * Variablen:
-	 * - `sView`: Aktiver View-Key.
-	 * @param {string} sView
-	 */
-	function fnSetActiveNav(sView) {
-		aElNavButtons.forEach((elButton) => {
-			elButton.classList.toggle("active", elButton.dataset.view === sView);
-		});
+	function fnGetViewFromHash() {
+		const sHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
+		return aStocksViews.has(sHash) ? sHash : null;
+	}
+
+	function fnSetViewFromHashOrFallback() {
+		const sViewFromHash = fnGetViewFromHash();
+		if (sViewFromHash) {
+			sActiveView = sViewFromHash;
+			return;
+		}
+		if (aStocksViews.has(sActiveView)) return;
+		sActiveView = "depot";
 	}
 
 	function fnSetActiveTopNavLink() {
@@ -27,24 +30,23 @@
 		});
 	}
 
-	aElNavButtons.forEach((elButton) => {
-		elButton.addEventListener("click", () => {
-			sActiveView = elButton.dataset.view;
-			fnSetActiveNav(sActiveView);
-			fnSetActiveTopNavLink();
-			fnRenderView(sActiveView);
-		});
-	});
-
 	async function fnInitApp() {
 		if (window.FinanzAppCurrency?.preloadRates) {
 			await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
 		}
 		await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
-		fnSetActiveNav(sActiveView);
+		fnSetViewFromHashOrFallback();
 		fnSetActiveTopNavLink();
 		fnRenderView(sActiveView);
 	}
+
+	window.addEventListener("hashchange", () => {
+		const sViewFromHash = fnGetViewFromHash();
+		if (!sViewFromHash) return;
+		sActiveView = sViewFromHash;
+		fnSetActiveTopNavLink();
+		fnRenderView(sActiveView);
+	});
 
 	window.addEventListener("finanzapp:locale-changed", () => {
 		sLocale = fnGetLocale();
