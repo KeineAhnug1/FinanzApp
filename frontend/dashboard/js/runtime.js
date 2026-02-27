@@ -122,7 +122,8 @@ function setActiveView(view) {
 }
 
 function initSectionTabs() {
-  setActiveView(getViewFromHash() || appState.settings?.startView || "overview");
+  setActiveView(getViewFromHash() || getStoredView(appState.settings?.startView || "overview"));
+  document.documentElement.classList.remove("dashboard-view-preload");
 
   window.addEventListener("hashchange", () => {
     const viewFromHash = getViewFromHash();

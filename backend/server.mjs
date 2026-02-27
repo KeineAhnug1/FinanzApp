@@ -108,7 +108,7 @@ async function getSessionUser(req) {
 
   const user = await db.collection(COLLECTIONS.users).findOne(
     { _id: parseObjectId(rec.userId) },
-    { projection: { _id: 1, username: 1, email: 1, first_name: 1, last_name: 1, income: 1 } }
+    { projection: { _id: 1, username: 1, email: 1, first_name: 1, last_name: 1, income: 1, created_at: 1 } }
   );
 
   if (!user) {
@@ -124,7 +124,8 @@ async function getSessionUser(req) {
       email: user.email,
       first_name: user.first_name || null,
       last_name: user.last_name || null,
-      income: toNumber(user.income)
+      income: toNumber(user.income),
+      created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null
     }
   };
 }
@@ -426,7 +427,7 @@ async function handleLogin(req, res) {
 
   const user = await db.collection(COLLECTIONS.users).findOne(
     { email },
-    { projection: { username: 1, email: 1, password: 1, hashed_passwort: 1, first_name: 1, last_name: 1, income: 1 } }
+    { projection: { username: 1, email: 1, password: 1, hashed_passwort: 1, first_name: 1, last_name: 1, income: 1, created_at: 1 } }
   );
 
   if (!user) {
@@ -463,7 +464,8 @@ async function handleLogin(req, res) {
         email: user.email,
         first_name: user.first_name || null,
         last_name: user.last_name || null,
-        income: toNumber(user.income)
+        income: toNumber(user.income),
+        created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null
       }
     },
     { "Set-Cookie": buildSessionCookie(token) }
@@ -3053,21 +3055,86 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
   }
 
   if (req.method === "DELETE") {
-    const shareCount = await db.collection(COLLECTIONS.shares).countDocuments(
-      {
-        $or: [
-          { share_account_id: accountId },
-          { depot_id: accountId },
-          { bank_account_id: accountId }
-        ]
-      },
-      { limit: 1 }
+    const sourceAccount = await db.collection(COLLECTIONS.shareAccounts).findOne(
+      { _id: accountId, user_id: userId },
+      { projection: { _id: 1, label: 1, name: 1 } }
+    ) || await db.collection(COLLECTIONS.depots).findOne(
+      { _id: accountId, user_id: userId },
+      { projection: { _id: 1, label: 1, name: 1 } }
     );
-    if (shareCount > 0) {
+    if (!sourceAccount) return sendJson(res, 404, { ok: false, message: "Aktienkonto nicht gefunden" });
+
+    let payload = {};
+    try {
+      payload = await readBody(req);
+    } catch (error) {
+      if (error.message !== "invalid_json") {
+        if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+        return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+      }
+      payload = {};
+    }
+
+    const transferTargetId = parseObjectId(payload?.transfer_to_share_account_id);
+    const transferRequested = Boolean(transferTargetId);
+
+    const shareAccounts = await listUserShareAccounts(session.user.id);
+    const transferOptions = shareAccounts
+      .filter((account) => String(account?._id) !== String(accountId))
+      .map((account, index) => ({
+        id: String(account._id),
+        label: String(account?.label || account?.name || `Aktienkonto ${index + 1}`)
+      }));
+    const hasAlternativeAccount = transferOptions.length > 0;
+
+    if (!hasAlternativeAccount) {
       return sendJson(res, 409, {
         ok: false,
-        message: "Aktienkonto kann nur geloescht werden, wenn keine Shares mehr darauf liegen"
+        requires_transfer: false,
+        message: "Du hast nur ein Aktienkonto. Lege zuerst ein weiteres an, bevor du dieses loescht."
       });
+    }
+
+    const sharesFilter = {
+      $or: [
+        { share_account_id: accountId },
+        { depot_id: accountId },
+        { bank_account_id: accountId }
+      ]
+    };
+    const shareCount = await db.collection(COLLECTIONS.shares).countDocuments(sharesFilter, { limit: 1 });
+
+    if (shareCount > 0 && !transferRequested) {
+      return sendJson(res, 409, {
+        ok: false,
+        code: "transfer_required",
+        requires_transfer: true,
+        message: "Aktienkonto kann nur geloescht werden, wenn die Shares auf ein anderes Aktienkonto uebertragen werden.",
+        transfer_options: transferOptions
+      });
+    }
+
+    if (transferRequested) {
+      if (String(transferTargetId) === String(accountId)) {
+        return sendJson(res, 400, { ok: false, message: "Zielkonto muss ein anderes Konto sein" });
+      }
+
+      const targetAccount = await db.collection(COLLECTIONS.shareAccounts).findOne(
+        { _id: transferTargetId, user_id: userId },
+        { projection: { _id: 1 } }
+      ) || await db.collection(COLLECTIONS.depots).findOne(
+        { _id: transferTargetId, user_id: userId },
+        { projection: { _id: 1 } }
+      );
+      if (!targetAccount) {
+        return sendJson(res, 400, { ok: false, message: "Zielkonto wurde nicht gefunden" });
+      }
+
+      await Promise.all([
+        db.collection(COLLECTIONS.shares).updateMany({ share_account_id: accountId }, { $set: { share_account_id: transferTargetId } }),
+        db.collection(COLLECTIONS.shares).updateMany({ depot_id: accountId }, { $set: { depot_id: transferTargetId } }),
+        db.collection(COLLECTIONS.shares).updateMany({ bank_account_id: accountId }, { $set: { bank_account_id: transferTargetId } })
+      ]);
     }
 
     let deletion = await db.collection(COLLECTIONS.shareAccounts).deleteOne({ _id: accountId, user_id: userId });

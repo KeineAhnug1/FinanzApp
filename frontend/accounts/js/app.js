@@ -126,17 +126,19 @@
     });
   }
 
-  async function fnDeleteAccount(aEndpoints, sAccountId, sTransferTargetId = "") {
+  async function fnDeleteAccount(aEndpoints, sAccountId, oOptions = {}) {
     const aUrl = aEndpoints.map((sEndpoint) => `${sEndpoint}/${encodeURIComponent(sAccountId)}`);
     const oInit = { method: "DELETE" };
-    if (sTransferTargetId) {
+    const sTransferTargetId = String(oOptions?.transferTargetId || "").trim();
+    const sTransferField = String(oOptions?.transferField || "").trim();
+    if (sTransferTargetId && sTransferField) {
       oInit.headers = { "Content-Type": "application/json" };
-      oInit.body = JSON.stringify({ transfer_to_bank_account_id: sTransferTargetId });
+      oInit.body = JSON.stringify({ [sTransferField]: sTransferTargetId });
     }
     await fnApiRequest(aUrl, oInit);
   }
 
-  function fnAskTransferTargetModal(aOptions) {
+  function fnAskTransferTargetModal(aOptions, sMessage = "") {
     const aValidOptions = (Array.isArray(aOptions) ? aOptions : [])
       .map((oOption) => ({
         id: String(oOption?.id || "").trim(),
@@ -155,7 +157,7 @@
       return Promise.resolve("");
     }
 
-    elMessage.textContent = t(
+    elMessage.textContent = sMessage || t(
       "accounts.transfer_target_required",
       "Dieses Konto enthält noch Guthaben oder verknüpfte Buchungen. Bitte ein Zielkonto wählen."
     );
@@ -272,8 +274,29 @@
           await fnRenameAccount(aShareAccountsEndpoints, sId, sLabel);
           elFeedback.textContent = t("accounts.share_renamed", "Aktienkonto umbenannt.");
         } else if (sAction === "delete") {
-          await fnDeleteAccount(aShareAccountsEndpoints, sId);
-          elFeedback.textContent = t("accounts.share_deleted", "Aktienkonto gelöscht.");
+          try {
+            await fnDeleteAccount(aShareAccountsEndpoints, sId);
+            elFeedback.textContent = t("accounts.share_deleted", "Aktienkonto gelöscht.");
+          } catch (oError) {
+            const oDetails = oError?.details || {};
+            if (oDetails?.requires_transfer) {
+              const sTransferTargetId = await fnAskTransferTargetModal(
+                oDetails.transfer_options,
+                t("accounts.share_transfer_required", "Dieses Aktienkonto enthält noch Shares. Bitte ein Zielkonto wählen.")
+              );
+              if (!sTransferTargetId) {
+                elFeedback.textContent = t("accounts.transfer_cancelled", "Löschen abgebrochen.");
+                return;
+              }
+              await fnDeleteAccount(aShareAccountsEndpoints, sId, {
+                transferTargetId: sTransferTargetId,
+                transferField: "transfer_to_share_account_id"
+              });
+              elFeedback.textContent = t("accounts.share_deleted_with_transfer", "Aktienkonto gelöscht und Shares übertragen.");
+            } else {
+              throw oError;
+            }
+          }
         }
         await fnRefresh();
       } catch (oError) {
@@ -307,12 +330,18 @@
           } catch (oError) {
             const oDetails = oError?.details || {};
             if (oDetails?.requires_transfer) {
-              const sTransferTargetId = await fnAskTransferTargetModal(oDetails.transfer_options);
+              const sTransferTargetId = await fnAskTransferTargetModal(
+                oDetails.transfer_options,
+                t("accounts.transfer_target_required", "Dieses Konto enthält noch Guthaben oder verknüpfte Buchungen. Bitte ein Zielkonto wählen.")
+              );
               if (!sTransferTargetId) {
                 elFeedback.textContent = t("accounts.transfer_cancelled", "Löschen abgebrochen.");
                 return;
               }
-              await fnDeleteAccount(aBankAccountsEndpoints, sId, sTransferTargetId);
+              await fnDeleteAccount(aBankAccountsEndpoints, sId, {
+                transferTargetId: sTransferTargetId,
+                transferField: "transfer_to_bank_account_id"
+              });
               elFeedback.textContent = t("accounts.bank_deleted_with_transfer", "Bankkonto gelöscht und Guthaben übertragen.");
             } else {
               throw oError;

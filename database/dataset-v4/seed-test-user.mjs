@@ -338,17 +338,73 @@ function buildData() {
     shares: [
       createShareEntity({
         depot_id: ids.depots.test,
-        symbol: "SAP",
-        units: 8.5,
-        bought_at: "2025-12-18T10:00:00.000Z",
-        bought_for: 1326
+        symbol: "NVDA",
+        units: 2.4,
+        bought_at: "2025-08-14T10:00:00.000Z",
+        bought_for: 258
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "NVDA",
+        units: 1.8,
+        bought_at: "2025-11-21T10:00:00.000Z",
+        bought_for: 243
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "NVDA",
+        units: 1.1,
+        bought_at: "2026-01-24T10:00:00.000Z",
+        bought_for: 154
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "NVDA",
+        units: 0.9,
+        bought_at: "2026-02-13T10:00:00.000Z",
+        bought_for: 131
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "MSFT",
+        units: 2.2,
+        bought_at: "2025-09-05T10:00:00.000Z",
+        bought_for: 910
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "MSFT",
+        units: 1.4,
+        bought_at: "2025-12-12T10:00:00.000Z",
+        bought_for: 614
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "MSFT",
+        units: 0.8,
+        bought_at: "2026-02-06T10:00:00.000Z",
+        bought_for: 356
       }),
       createShareEntity({
         depot_id: ids.depots.test,
         symbol: "AAPL",
-        units: 5.2,
-        bought_at: "2026-01-21T10:00:00.000Z",
-        bought_for: 980
+        units: 3.1,
+        bought_at: "2025-10-03T10:00:00.000Z",
+        bought_for: 592
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "AAPL",
+        units: 2.0,
+        bought_at: "2026-01-10T10:00:00.000Z",
+        bought_for: 384
+      }),
+      createShareEntity({
+        depot_id: ids.depots.test,
+        symbol: "AAPL",
+        units: 1.3,
+        bought_at: "2026-02-20T10:00:00.000Z",
+        bought_for: 251
       }),
       createShareEntity({
         depot_id: ids.depots.lisa,
@@ -517,10 +573,25 @@ async function run() {
       console.log(`Users upserted in ${dbName}.users for ${TEST_EMAIL} and demo members.`);
 
       const data = buildData();
+      const depotIdsForSeedShares = Array.from(
+        new Set((data.shares || []).map((share) => String(share?.depot_id || "").trim()).filter(Boolean))
+      );
+      const objectDepotIdsForSeedShares = depotIdsForSeedShares.map((id) => new ObjectId(id));
+      if (objectDepotIdsForSeedShares.length) {
+        await db.collection("shares").deleteMany({ depot_id: { $in: objectDepotIdsForSeedShares } });
+      }
+      console.log(`Cleared existing shares for seed depots [${depotIdsForSeedShares.join(", ")}] in ${dbName}.shares`);
       for (const name of upsertOrder) {
         if (name === "users") continue;
+        if (name === "shares") continue;
         const changed = await upsertCollectionDocs(db, name, data[name] || []);
         console.log(`Upserted ${changed} docs in ${dbName}.${name}`);
+      }
+      if (Array.isArray(data.shares) && data.shares.length) {
+        const result = await db.collection("shares").insertMany(data.shares, { ordered: true });
+        console.log(`Inserted ${Object.keys(result?.insertedIds || {}).length} docs in ${dbName}.shares`);
+      } else {
+        console.log(`Inserted 0 docs in ${dbName}.shares`);
       }
     });
 

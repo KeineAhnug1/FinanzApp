@@ -4,10 +4,15 @@
   min-height: 100vh;
   width: min(1320px, calc(100% - 2 * var(--ui-space-3, 16px)));
   margin: 0 auto 28px;
-  padding: 0;
+  padding: 12px 0;
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
+}
+
+html.groups-view-preload #mainView,
+html.groups-view-preload #detailView {
+  visibility: hidden;
 }
 
 .session-badge {

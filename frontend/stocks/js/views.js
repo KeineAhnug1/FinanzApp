@@ -41,9 +41,9 @@
                   <b id="k_total_label">${fnT("stocks.depot_value_last_point", "Depotwert (letzter Punkt)")}</b>
                   <span id="k_total">—</span>
                 </div>
-                <div class="kpi">
-                  <b>${fnT("stocks.change_period", "Veränderung im Zeitraum")}</b>
-                  <span id="k_change">—</span>
+                <div class="kpi" id="k_profit_loss_card">
+                  <b>${fnT("stocks.profit_loss", "Gewinn/Verlust")}</b>
+                  <span id="k_profit_loss" class="stock-performance stock-performance--neutral is-clickable">—</span>
                 </div>
                 <div class="kpi">
                   <b>${fnT("stocks.pnl_only", "Nur Gewinn/Verlust")}</b>
@@ -86,7 +86,7 @@
                     <th>${fnT("symbol", "Symbol")}</th>
                     <th>${fnT("amount", "Menge")}</th>
                     <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
-                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
+                    <th>${fnT("stocks.development_since_buy", "Entwicklung seit Kauf")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -181,7 +181,7 @@
                     <th>${fnT("symbol", "Symbol")}</th>
                     <th>${fnT("stocks.total_quantity", "Gesamtmenge")}</th>
                     <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
-                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
+                    <th>${fnT("stocks.development_since_buy", "Entwicklung seit Kauf")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -275,7 +275,7 @@
                     <th>${fnT("symbol", "Symbol")}</th>
                     <th>${fnT("stocks.total_quantity", "Gesamtmenge")}</th>
                     <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
-                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
+                    <th>${fnT("stocks.development_since_buy", "Entwicklung seit Kauf")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -322,7 +322,7 @@
                     <th>${fnT("type", "Typ")}</th>
                     <th>${fnT("stocks.total_quantity", "Gesamtmenge")}</th>
                     <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
-                    <th>${fnT("stocks.avg_buy_price", "Ø Kaufpreis")}</th>
+                    <th>${fnT("stocks.development_since_buy", "Entwicklung seit Kauf")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>

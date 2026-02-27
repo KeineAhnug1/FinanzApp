@@ -68,16 +68,25 @@ const expenseDueDateInput = document.getElementById("expenseDueDateInput");
 const detailTabButtons = Array.from(document.querySelectorAll("[data-detail-tab-target]"));
 const detailTabPanels = Array.from(document.querySelectorAll("[data-detail-tab-content]"));
 
-let groupsState = [];
-let invitationsState = [];
-let selectedGroupId = null;
-let selectedGroupDetail = null;
-let selectedFundingId = null;
-let activeDetailTab = "members";
-let sessionUser = null;
+const DETAIL_TAB_OPTIONS = new Set(["members", "activities", "fundings"]);
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
+const GROUPS_VIEW_STORAGE_PREFIX = "finanzapp.groupsView";
 const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
 const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
+const DEFAULT_GROUPS_VIEW_STATE = {
+  isDetailOpen: false,
+  selectedGroupId: "",
+  activeDetailTab: "members"
+};
+const initialGroupsViewState = loadGroupsViewState(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
+
+let groupsState = [];
+let invitationsState = [];
+let selectedGroupId = initialGroupsViewState.selectedGroupId || null;
+let selectedGroupDetail = null;
+let selectedFundingId = null;
+let activeDetailTab = initialGroupsViewState.activeDetailTab;
+let sessionUser = null;
 const DEFAULT_GROUP_LOCALE_SETTINGS = {
   locale: "de-DE",
   currency: "EUR"
@@ -89,6 +98,45 @@ function t(key, fallback = "", params = {}) {
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback || key;
   return String(fallback || key).replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
+function groupsViewStorageKey(userId) {
+  return `${GROUPS_VIEW_STORAGE_PREFIX}.${userId || "anonymous"}`;
+}
+
+function normalizeGroupsViewState(raw) {
+  const base = raw && typeof raw === "object" ? raw : {};
+  const tab = String(base.activeDetailTab || "").trim();
+  return {
+    isDetailOpen: Boolean(base.isDetailOpen),
+    selectedGroupId: String(base.selectedGroupId || "").trim(),
+    activeDetailTab: DETAIL_TAB_OPTIONS.has(tab) ? tab : "members"
+  };
+}
+
+function loadGroupsViewState(userId) {
+  const raw = window.localStorage.getItem(groupsViewStorageKey(userId));
+  if (!raw) return { ...DEFAULT_GROUPS_VIEW_STATE };
+  try {
+    return normalizeGroupsViewState(JSON.parse(raw));
+  } catch {
+    return { ...DEFAULT_GROUPS_VIEW_STATE };
+  }
+}
+
+function saveGroupsViewState(userId, state) {
+  const normalized = normalizeGroupsViewState(state);
+  window.localStorage.setItem(groupsViewStorageKey(userId), JSON.stringify(normalized));
+}
+
+function persistGroupsViewState(override = {}) {
+  const userId = sessionUser?.id || window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id;
+  const current = {
+    isDetailOpen: !detailView.hidden,
+    selectedGroupId: selectedGroupId ? String(selectedGroupId) : "",
+    activeDetailTab
+  };
+  saveGroupsViewState(userId, { ...current, ...override });
 }
 
 function sanitizeSettingChoice(value, allowedValues, fallback) {
@@ -201,23 +249,26 @@ function updateInboxIndicator(invitations = []) {
 }
 
 function switchDetailTab(tabName) {
-  activeDetailTab = tabName;
+  activeDetailTab = DETAIL_TAB_OPTIONS.has(tabName) ? tabName : "members";
   for (const button of detailTabButtons) {
-    button.classList.toggle("is-active", button.dataset.detailTabTarget === tabName);
+    button.classList.toggle("is-active", button.dataset.detailTabTarget === activeDetailTab);
   }
   for (const panel of detailTabPanels) {
-    panel.classList.toggle("is-active", panel.dataset.detailTabContent === tabName);
+    panel.classList.toggle("is-active", panel.dataset.detailTabContent === activeDetailTab);
   }
+  persistGroupsViewState({ activeDetailTab });
 }
 
 function showMainView() {
   mainView.hidden = false;
   detailView.hidden = true;
+  persistGroupsViewState({ isDetailOpen: false });
 }
 
 function showDetailView() {
   mainView.hidden = true;
   detailView.hidden = false;
+  persistGroupsViewState({ isDetailOpen: true });
 }
 
 function openModal(modal) {
@@ -437,7 +488,7 @@ function renderGroups(groups) {
   for (const group of groups) {
     const card = document.createElement("article");
     card.className = "group-card";
-    if (group.group_id === selectedGroupId) {
+    if (String(group.group_id) === String(selectedGroupId || "")) {
       card.classList.add("is-active");
     }
     card.innerHTML = `
@@ -617,14 +668,18 @@ async function loadGroups(preferredGroupId = selectedGroupId) {
     selectedGroupId = null;
     renderGroups(groupsState);
     renderGroupDetail(null);
+    persistGroupsViewState({ selectedGroupId: "", isDetailOpen: false });
     return;
   }
 
-  if (preferredGroupId && groupsState.some((group) => group.group_id === preferredGroupId)) {
-    selectedGroupId = preferredGroupId;
+  if (preferredGroupId && groupsState.some((group) => String(group.group_id) === String(preferredGroupId))) {
+    selectedGroupId = String(preferredGroupId);
+  } else if (!groupsState.some((group) => String(group.group_id) === String(selectedGroupId || ""))) {
+    selectedGroupId = null;
   }
 
   renderGroups(groupsState);
+  persistGroupsViewState({ selectedGroupId: selectedGroupId ? String(selectedGroupId) : "" });
 }
 
 async function loadInvitations() {
@@ -736,14 +791,17 @@ async function leaveGroup(groupId) {
   });
 }
 
-async function openGroupDetail(groupId) {
-  selectedGroupId = groupId;
+async function openGroupDetail(groupId, options = {}) {
+  const { resetTab = true } = options;
+  selectedGroupId = String(groupId || "");
+  if (!selectedGroupId) return;
   selectedFundingId = null;
   renderGroups(groupsState);
   setDetailStatus("");
-  switchDetailTab("members");
+  switchDetailTab(resetTab ? "members" : activeDetailTab);
   showDetailView();
-  await loadGroupDetail(groupId);
+  persistGroupsViewState({ selectedGroupId, isDetailOpen: true });
+  await loadGroupDetail(selectedGroupId);
 }
 
 for (const button of detailTabButtons) {
@@ -1017,7 +1075,11 @@ groupForm.addEventListener("submit", async (event) => {
 });
 
 switchDetailTab(activeDetailTab);
-showMainView();
+if (initialGroupsViewState.isDetailOpen && selectedGroupId) {
+  showDetailView();
+} else {
+  showMainView();
+}
 applyGroupLocaleSettings(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
 
 window.addEventListener("finanzapp:locale-changed", () => {
@@ -1030,9 +1092,24 @@ async function bootstrap() {
     await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
   }
   await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
+
+  if (initialGroupsViewState.isDetailOpen && selectedGroupId) {
+    const hasGroup = groupsState.some((group) => String(group.group_id) === String(selectedGroupId));
+    if (hasGroup) {
+      document.documentElement.classList.remove("groups-view-preload");
+      await openGroupDetail(selectedGroupId, { resetTab: false });
+      return;
+    }
+  }
+
+  selectedGroupId = null;
+  showMainView();
+  persistGroupsViewState({ selectedGroupId: "", isDetailOpen: false });
+  document.documentElement.classList.remove("groups-view-preload");
 }
 
 bootstrap().catch((error) => {
+  document.documentElement.classList.remove("groups-view-preload");
   formStatus.className = "form-status error";
   formStatus.textContent = error.message;
 });

@@ -1,6 +1,7 @@
 .questions-main {
   width: min(1180px, calc(100% - 2 * var(--ui-space-3, 16px)));
   margin: 0 auto 24px;
+  padding: 12px 0;
   display: grid;
   gap: var(--ui-space-2, 12px);
 }

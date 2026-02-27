@@ -52,6 +52,7 @@ async function bootstrap() {
   initCategoryManagerActions();
   initIncomeListActions();
   initExpenseListActions();
+  initOverviewPieControls();
 
   await refreshDashboardData();
 }

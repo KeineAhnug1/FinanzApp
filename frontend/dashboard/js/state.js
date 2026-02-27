@@ -34,6 +34,17 @@ const listState = {
   expenseExpandedGroups: new Set()
 };
 
+const cashflowChartState = {
+  level: "timeline",
+  selectedYear: "",
+  selectedMonthKey: "",
+  selectedDayKey: ""
+};
+
+const overviewDistributionState = {
+  mode: "income"
+};
+
 const incomeState = {
   editingId: null,
   askConfirm: null

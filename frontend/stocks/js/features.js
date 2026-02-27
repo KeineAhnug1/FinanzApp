@@ -3,6 +3,101 @@
 	// =====================================================
 
 	/**
+	 * Laedt aktuelle Kurse je Symbol fuer die uebergebenen Tabellenzeilen.
+	 * Scope: [SHARED]
+	 * @param {Array<{sSymbol: string}>} aRows
+	 * @returns {Promise<Map<string, number>>}
+	 */
+	async function fnLoadCurrentPricesBySymbol(aRows) {
+		const mCurrentPriceBySymbol = new Map();
+		const aSymbols = [...new Set((aRows || []).map((oRow) => String(oRow?.sSymbol || "").trim().toUpperCase()).filter(Boolean))];
+		await Promise.all(
+			aSymbols.map(async (sSymbol) => {
+				try {
+					const oQuoteResult = await fnGetLatestPriceBySymbolWithFallback(sSymbol);
+					const nPrice = Number(oQuoteResult?.nPrice);
+					if (Number.isFinite(nPrice) && nPrice > 0) {
+						mCurrentPriceBySymbol.set(sSymbol, nPrice);
+					}
+				} catch {
+					// Kurs fuer dieses Symbol nicht verfuegbar.
+				}
+			})
+		);
+		return mCurrentPriceBySymbol;
+	}
+
+	/**
+	 * Berechnet die prozentuale Entwicklung seit Kauf.
+	 * Scope: [SHARED]
+	 * @param {number} nAvgBuyPrice
+	 * @param {number} nCurrentPrice
+	 * @returns {number}
+	 */
+	function fnComputeDevelopmentPctSinceBuy(nAvgBuyPrice, nCurrentPrice) {
+		const nAvg = Number(nAvgBuyPrice);
+		const nCurrent = Number(nCurrentPrice);
+		if (!Number.isFinite(nAvg) || nAvg <= 0) return Number.NaN;
+		if (!Number.isFinite(nCurrent) || nCurrent <= 0) return Number.NaN;
+		return ((nCurrent - nAvg) / nAvg) * 100;
+	}
+
+	/**
+	 * Formatiert Prozentwerte mit Vorzeichen.
+	 * Scope: [SHARED]
+	 * @param {number} nValue
+	 * @returns {string}
+	 */
+	function fnFmtSignedPct(nValue) {
+		if (!Number.isFinite(nValue)) return "—";
+		const oFormatter = new Intl.NumberFormat(fnGetLocale(), {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2,
+		});
+		const sPrefix = nValue > 0 ? "+" : "";
+		return `${sPrefix}${oFormatter.format(nValue)}%`;
+	}
+
+	/**
+	 * Formatiert Geldwerte mit Vorzeichen.
+	 * Scope: [SHARED]
+	 * @param {number} nValue
+	 * @returns {string}
+	 */
+	function fnFmtSignedMoney(nValue) {
+		if (!Number.isFinite(nValue)) return "—";
+		if (nValue === 0) return fnFmtMoney(0, "USD");
+		const sPrefix = nValue > 0 ? "+" : "-";
+		return `${sPrefix}${fnFmtMoney(Math.abs(nValue), "USD")}`;
+	}
+
+	/**
+	 * Rendert die Entwicklungsspalte fuer eine Tabellenzeile.
+	 * Scope: [SHARED]
+	 * @param {{sSymbol: string, nAvgBuyPrice: number}} oRow
+	 * @param {Map<string, number>} mCurrentPriceBySymbol
+	 * @param {"absolute"|"percent"} [sDisplayMode="absolute"]
+	 * @returns {string}
+	 */
+	function fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol, sDisplayMode = "absolute") {
+		const sSymbol = String(oRow?.sSymbol || "").trim().toUpperCase();
+		const nAvgBuyPrice = Number(oRow?.nAvgBuyPrice);
+		const nCurrentPrice = Number(mCurrentPriceBySymbol?.get(sSymbol));
+		const nDevelopmentAbs = Number.isFinite(nCurrentPrice) && Number.isFinite(nAvgBuyPrice)
+			? (nCurrentPrice - nAvgBuyPrice)
+			: Number.NaN;
+		const nDevelopmentPct = fnComputeDevelopmentPctSinceBuy(nAvgBuyPrice, nCurrentPrice);
+		if (!Number.isFinite(nDevelopmentPct)) {
+			return `<span class="stock-performance stock-performance--neutral is-clickable" data-display-mode="absolute">—</span>`;
+		}
+		const sClassName = nDevelopmentAbs > 0
+			? "stock-performance--positive"
+			: (nDevelopmentAbs < 0 ? "stock-performance--negative" : "stock-performance--neutral");
+		const sText = sDisplayMode === "percent" ? fnFmtSignedPct(nDevelopmentPct) : fnFmtSignedMoney(nDevelopmentAbs);
+		return `<span class="stock-performance ${sClassName} is-clickable" data-display-mode="${fnEscapeHtml(sDisplayMode)}">${fnEscapeHtml(sText)}</span>`;
+	}
+
+	/**
 	 * Initialisiert die Gesamtdepot-Ansicht inkl. Tabelle, Range-Buttons und Chart.
 	 * Scope: [DEPOT]
 	 * Variablen:
@@ -18,7 +113,8 @@
 
 		const elKTotal = document.getElementById("k_total");
 		const elKTotalLabel = document.getElementById("k_total_label");
-		const elKChange = document.getElementById("k_change");
+		const elKProfitLoss = document.getElementById("k_profit_loss");
+		const elKProfitLossCard = document.getElementById("k_profit_loss_card");
 		const elPnlOnly = document.getElementById("k_pnl_only");
 		const elShowPie = document.getElementById("k_show_pie");
 
@@ -30,7 +126,7 @@
 		const elPiePanel = document.getElementById("depotPiePanel");
 		const elChartLayout = document.querySelector(".depot-chart-layout");
 
-		if (!elDepotInfo || !elHoldingsTbody || !elDepotShareAccountSelect || !elKTotal || !elKTotalLabel || !elKChange || !elPnlOnly || !elShowPie || !elCanvas || !oCtx || !elPieCanvas || !oPieCtx || !elPieLegend || !elPiePanel || !elChartLayout) {
+		if (!elDepotInfo || !elHoldingsTbody || !elDepotShareAccountSelect || !elKTotal || !elKTotalLabel || !elKProfitLoss || !elKProfitLossCard || !elPnlOnly || !elShowPie || !elCanvas || !oCtx || !elPieCanvas || !oPieCtx || !elPieLegend || !elPiePanel || !elChartLayout) {
 			fnShowError("Depot-Ansicht konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).");
 			return;
 		}
@@ -48,6 +144,10 @@
 		let aLastDepotChartPoints = [];
 		let bLastDepotPnlOnly = false;
 		let iResizeAnimFrame = 0;
+		let sProfitLossDisplayMode = "absolute";
+		let nProfitLossAbs = Number.NaN;
+		let nProfitLossPct = Number.NaN;
+		let sDevelopmentDisplayMode = "absolute";
 
 		const fnRenderPie = () => {
 			const bShowPie = Boolean(elShowPie.checked);
@@ -88,7 +188,7 @@
 		};
 
 		elPieCanvas.addEventListener("click", (oEvent) => {
-			if (!elShowPie.checked || !aPieItemsCurrent.length) return;
+			if (!aPieItemsCurrent.length) return;
 			const oRect = elPieCanvas.getBoundingClientRect();
 			const nX = oEvent.clientX - oRect.left;
 			const nY = oEvent.clientY - oRect.top;
@@ -118,15 +218,29 @@
 		}
 
 		const aDepotRows = fnAggregateOwnedSymbols(aPositions);
-		elHoldingsTbody.innerHTML = aDepotRows
-			.map((oRow) => {
-				const sSymbol = fnEscapeHtml(String(oRow?.sSymbol || ""));
-				const sLogoUrl = fnEscapeHtml(fnBuildStockLogoUrl(oRow?.sSymbol, { size: 48 }));
-				const sAmount = fnFmtNumber(Number(oRow?.nTotalAmount), 4);
-				const sBuyDate = Number.isFinite(oRow?.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
-				const sBuyPrice = fnFmtMoney(Number(oRow?.nAvgBuyPrice), "USD");
+		const mCurrentPriceBySymbol = await fnLoadCurrentPricesBySymbol(aDepotRows);
 
-				return `
+		const fnRenderProfitLoss = () => {
+			const bShowPercent = sProfitLossDisplayMode === "percent";
+			const sValueText = bShowPercent ? fnFmtSignedPct(nProfitLossPct) : fnFmtSignedMoney(nProfitLossAbs);
+			const sClassName = nProfitLossAbs > 0
+				? "stock-performance--positive"
+				: (nProfitLossAbs < 0 ? "stock-performance--negative" : "stock-performance--neutral");
+			elKProfitLoss.classList.remove("stock-performance--positive", "stock-performance--negative", "stock-performance--neutral");
+			elKProfitLoss.classList.add(sClassName);
+			elKProfitLoss.textContent = sValueText;
+		};
+
+		const fnRenderDepotRows = () => {
+			elHoldingsTbody.innerHTML = aDepotRows
+				.map((oRow) => {
+					const sSymbol = fnEscapeHtml(String(oRow?.sSymbol || ""));
+					const sLogoUrl = fnEscapeHtml(fnBuildStockLogoUrl(oRow?.sSymbol, { size: 48 }));
+					const sAmount = fnFmtNumber(Number(oRow?.nTotalAmount), 4);
+					const sBuyDate = Number.isFinite(oRow?.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
+					const sDevelopment = fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol, sDevelopmentDisplayMode);
+
+					return `
           <tr>
             <td>
               <span class="stock-cell-with-logo">
@@ -136,11 +250,26 @@
             </td>
             <td>${sAmount}</td>
             <td>${sBuyDate}</td>
-            <td>${sBuyPrice}</td>
+            <td class="stock-performance-cell">${sDevelopment}</td>
           </tr>
         `;
-			})
-			.join("");
+				})
+				.join("");
+		};
+
+		elKProfitLossCard.addEventListener("click", () => {
+			sProfitLossDisplayMode = sProfitLossDisplayMode === "absolute" ? "percent" : "absolute";
+			fnRenderProfitLoss();
+		});
+
+		elHoldingsTbody.addEventListener("click", (oEvent) => {
+			const elTarget = oEvent.target instanceof Element ? oEvent.target.closest("td.stock-performance-cell") : null;
+			if (!elTarget) return;
+			sDevelopmentDisplayMode = sDevelopmentDisplayMode === "absolute" ? "percent" : "absolute";
+			fnRenderDepotRows();
+		});
+
+		fnRenderDepotRows();
 
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 		let sActiveRange = "1D";
@@ -154,12 +283,11 @@
 				elInfo: elDepotInfo,
 				elKTotal,
 				elKTotalLabel,
-				elKChange,
-				bPnlOnly: Boolean(elPnlOnly?.checked),
+				elKProfitLoss,
+				bPnlOnly: Boolean(elPnlOnly.checked),
 				oPieCtx,
 				elPieCanvas,
 				elPieLegend,
-				bShowPie: Boolean(elShowPie?.checked),
 					fnOnCompositionChange: (aComposition) => {
 						aPieItemsCurrent = aComposition;
 						if (iSelectedPieIndex >= aPieItemsCurrent.length) iSelectedPieIndex = -1;
@@ -168,6 +296,11 @@
 					fnOnPointsChange: (aPoints, bPnlOnlyCurrent) => {
 						aLastDepotChartPoints = Array.isArray(aPoints) ? aPoints : [];
 						bLastDepotPnlOnly = Boolean(bPnlOnlyCurrent);
+					},
+					fnOnProfitLossChange: (nAbs, nPct) => {
+						nProfitLossAbs = Number(nAbs);
+						nProfitLossPct = Number(nPct);
+						fnRenderProfitLoss();
 					},
 				});
 			};
@@ -181,11 +314,11 @@
 			});
 		});
 
-		elPnlOnly?.addEventListener("change", async () => {
+		elPnlOnly.addEventListener("change", async () => {
 			await fnRefreshDepotChart();
 		});
 
-		elShowPie?.addEventListener("change", async () => {
+		elShowPie.addEventListener("change", async () => {
 			fnRenderPie();
 			fnScheduleResponsiveRedraw();
 			await fnRefreshDepotChart();
@@ -212,7 +345,7 @@
 	 *  elInfo: HTMLElement,
 	 *  elKTotal: HTMLElement,
 	 *  elKTotalLabel: HTMLElement,
-	 *  elKChange: HTMLElement,
+	 *  elKProfitLoss: HTMLElement,
 	 *  bPnlOnly: boolean
 	 * }} oArgs
 	 */
@@ -221,6 +354,7 @@
 		if (!aPositions.length) {
 			oArgs.elInfo.textContent = fnT("stocks.no_positions", "Keine Positionen vorhanden.");
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
+			oArgs.fnOnProfitLossChange?.(Number.NaN, Number.NaN);
 			oArgs.fnOnCompositionChange?.([]);
 			return;
 		}
@@ -234,54 +368,59 @@
 		if (mSeriesBySymbol.size === 0) {
 			oArgs.elInfo.textContent = fnT("stocks.no_data_received", "Keine Kursdaten erhalten (API Limit? falsche Symbole?).");
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
+			oArgs.fnOnProfitLossChange?.(Number.NaN, Number.NaN);
 			oArgs.fnOnCompositionChange?.([]);
 			return;
 		}
 
-		const aRawPoints = fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, oArgs.bPnlOnly);
-		const aPointsWithRange = fnWithFixedDateRange(aRawPoints, oQuery, oArgs.bPnlOnly, oArgs.sRange);
-		let aPoints = aPointsWithRange;
+		const aRawTotalPoints = fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, false);
+		const aTotalPointsWithRange = fnWithFixedDateRange(aRawTotalPoints, oQuery, false, oArgs.sRange);
+		let aTotalPoints = aTotalPointsWithRange;
+		const aRawDisplayPoints = oArgs.bPnlOnly
+			? fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, true)
+			: aRawTotalPoints;
+		const aDisplayPointsWithRange = fnWithFixedDateRange(aRawDisplayPoints, oQuery, oArgs.bPnlOnly, oArgs.sRange);
+		let aDisplayPoints = aDisplayPointsWithRange;
 
-		if (aPoints.length === 0) {
-			let nLastValue = Number(aPoints[aPoints.length - 1]?.y);
-			if (!Number.isFinite(nLastValue) || nLastValue === 0) {
-				const aCurrentComposition = fnBuildDepotComposition(aPositions, mSeriesBySymbol);
-				const nCurrentTotal = aCurrentComposition.reduce((nSum, oRow) => nSum + Number(oRow?.nValue || 0), 0);
-				if (oArgs.bPnlOnly) {
-					const nInvestedTotal = aPositions.reduce((nSum, oPosition) => {
-						const nAmount = Number(oPosition?.amount);
-						const nBuyPrice = Number(oPosition?.worthwhenbought);
-						if (!Number.isFinite(nAmount) || nAmount <= 0) return nSum;
-						if (!Number.isFinite(nBuyPrice) || nBuyPrice < 0) return nSum;
-						return nSum + nAmount * nBuyPrice;
-					}, 0);
-					nLastValue = nCurrentTotal - nInvestedTotal;
-				} else {
-					nLastValue = nCurrentTotal;
-				}
+		if (aTotalPoints.length === 0 || aDisplayPoints.length === 0) {
+			const aCurrentComposition = fnBuildDepotComposition(aPositions, mSeriesBySymbol);
+			const nCurrentTotal = aCurrentComposition.reduce((nSum, oRow) => nSum + Number(oRow?.nValue || 0), 0);
+			const nInvestedTotalFallback = aPositions.reduce((nSum, oPosition) => {
+				const nAmount = Number(oPosition?.amount);
+				const nBuyPrice = Number(oPosition?.worthwhenbought);
+				if (!Number.isFinite(nAmount) || nAmount <= 0) return nSum;
+				if (!Number.isFinite(nBuyPrice) || nBuyPrice < 0) return nSum;
+				return nSum + nAmount * nBuyPrice;
+			}, 0);
+			if (aTotalPoints.length === 0) {
+				const sTotalReferenceTime = String(aTotalPoints[0]?.t || "");
+				aTotalPoints = fnBuildZeroFallbackSeries(oQuery, nCurrentTotal, sTotalReferenceTime);
 			}
-			const sReferenceTime = String(aPoints[0]?.t || "");
-			aPoints = fnBuildZeroFallbackSeries(oQuery, Number.isFinite(nLastValue) ? nLastValue : 0, sReferenceTime);
+			if (aDisplayPoints.length === 0) {
+				const sDisplayReferenceTime = String(aDisplayPoints[0]?.t || "");
+				const nLastDisplayValue = oArgs.bPnlOnly ? (nCurrentTotal - nInvestedTotalFallback) : nCurrentTotal;
+				aDisplayPoints = fnBuildZeroFallbackSeries(oQuery, nLastDisplayValue, sDisplayReferenceTime);
+			}
 		}
 
-		const oFirstPoint = aPoints[0];
-		const oLastPoint = aPoints[aPoints.length - 1];
-		const nFirst = oFirstPoint.y;
-		const nLast = oLastPoint.y;
-		const nChangeAbs = nLast - nFirst;
+		const oLastTotalPoint = aTotalPoints[aTotalPoints.length - 1];
+		const nLastTotal = Number(oLastTotalPoint?.y);
 
-		const nChangePct = oArgs.bPnlOnly
-			? fnComputeWeightedReturnPct(aPositions, mSeriesBySymbol)
-			: (nFirst !== 0 ? (nChangeAbs / nFirst) * 100 : Number.NaN);
+		oArgs.elKTotalLabel.textContent = fnT("stocks.depot_value_last_point", "Depotwert (letzter Punkt)");
+		oArgs.elKTotal.textContent = fnFmtMoney(nLastTotal, "USD");
+		const nInvestedTotal = aPositions.reduce((nSum, oPosition) => {
+			const nAmount = Number(oPosition?.amount);
+			const nBuyPrice = Number(oPosition?.worthwhenbought);
+			if (!Number.isFinite(nAmount) || nAmount <= 0) return nSum;
+			if (!Number.isFinite(nBuyPrice) || nBuyPrice < 0) return nSum;
+			return nSum + nAmount * nBuyPrice;
+		}, 0);
+		const nProfitLossAbs = nLastTotal - nInvestedTotal;
+		const nProfitLossPct = nInvestedTotal > 0 ? (nProfitLossAbs / nInvestedTotal) * 100 : Number.NaN;
+		oArgs.fnOnProfitLossChange?.(nProfitLossAbs, nProfitLossPct);
 
-		oArgs.elKTotalLabel.textContent = oArgs.bPnlOnly
-			? fnT("stocks.pnl_last_point", "Gewinn/Verlust (letzter Punkt)")
-			: fnT("stocks.depot_value_last_point", "Depotwert (letzter Punkt)");
-		oArgs.elKTotal.textContent = fnFmtMoney(nLast, "USD");
-		oArgs.elKChange.textContent = `${fnFmtMoney(nChangeAbs, "USD")} (${Number.isFinite(nChangePct) ? nChangePct.toFixed(2) : "—"}%)`;
-
-		fnDrawLineChart(oArgs.oCtx, oArgs.elCanvas, aPoints, oArgs.bPnlOnly);
-		oArgs.fnOnPointsChange?.(aPoints, oArgs.bPnlOnly);
+		fnDrawLineChart(oArgs.oCtx, oArgs.elCanvas, aDisplayPoints, oArgs.bPnlOnly);
+		oArgs.fnOnPointsChange?.(aDisplayPoints, oArgs.bPnlOnly);
 		const aComposition = fnBuildDepotComposition(aPositions, mSeriesBySymbol);
 		oArgs.fnOnCompositionChange?.(aComposition);
 
@@ -352,7 +491,8 @@
 
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 
-		const fnRenderOwnedRows = () => {
+		const fnRenderOwnedRows = async () => {
+			const mCurrentPriceBySymbol = await fnLoadCurrentPricesBySymbol(aOwnedRows);
 			elTableTbody.innerHTML = aOwnedRows
 				.map((oRow) => {
 					const sFirstBuyDate = Number.isFinite(oRow.iEarliestBuyMs)
@@ -364,7 +504,7 @@
               <td><b>${fnEscapeHtml(oRow.sSymbol)}</b></td>
               <td>${fnFmtNumber(oRow.nTotalAmount, 4)}</td>
               <td>${sFirstBuyDate}</td>
-              <td>${fnFmtMoney(oRow.nAvgBuyPrice, "USD")}</td>
+              <td>${fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol)}</td>
             </tr>
           `;
 				})
@@ -584,7 +724,7 @@
 				aPositions.push(oNewPosition);
 			}
 			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
-			fnRenderOwnedRows();
+			await fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 			const sTargetShareLabel = fnGetShareAccountLabel(sTargetShareAccountId);
 			elBuyFeedback.textContent = fnT("stocks.buy_saved_detail", "Kauf gespeichert: {amount} x {symbol} zu {price} auf {shareAccount}, abgebucht von {bankAccount}.", {
@@ -696,7 +836,7 @@
 			fnPersistSoldPosition(oSoldPosition);
 			aPositions = fnApplySoldPositions(aPositions, [oSoldPosition]);
 			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
-			fnRenderOwnedRows();
+			await fnRenderOwnedRows();
 			fnRenderOwnedSelectOptions();
 
 			elBuyFeedback.textContent = fnT("stocks.sell_saved_detail", "Verkauf gespeichert: {amount} x {symbol} von {shareAccount}, gutgeschrieben auf {bankAccount}.", {
@@ -708,7 +848,7 @@
 			await fnRefreshAnalysisChart();
 		});
 
-		fnRenderOwnedRows();
+		await fnRenderOwnedRows();
 		fnRenderOwnedSelectOptions();
 		fnRenderTradeShareAccountOptions();
 		await fnRenderSearchResults();
@@ -947,6 +1087,7 @@
 			return;
 		}
 
+		const mCurrentPriceBySymbol = await fnLoadCurrentPricesBySymbol(aFilteredRows);
 		elInfo.textContent = fnT("stocks.symbol_count_in_category", "{count} Symbol(e) in dieser Kategorie gefunden.", { count: aFilteredRows.length });
 		elTableTbody.innerHTML = aFilteredRows
 			.map((oRow) => {
@@ -967,7 +1108,7 @@
             <td>${fnEscapeHtml(sType)}</td>
             <td>${fnFmtNumber(oRow.nTotalAmount, 4)}</td>
             <td>${sFirstBuyDate}</td>
-            <td>${fnFmtMoney(oRow.nAvgBuyPrice, "USD")}</td>
+            <td>${fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol)}</td>
           </tr>
         `;
 			})
@@ -1039,6 +1180,7 @@
 		}
 
 		const aOwnedRows = fnAggregateOwnedSymbols(aPositions);
+		const mCurrentPriceBySymbol = await fnLoadCurrentPricesBySymbol(aOwnedRows);
 		const setSelectedSymbols = new Set(aOwnedRows.map((oRow) => oRow.sSymbol));
 
 		const fnRenderOwnedSelectors = () => {
@@ -1072,7 +1214,7 @@
               <td><b>${fnEscapeHtml(oRow.sSymbol)}</b></td>
               <td>${fnFmtNumber(oRow.nTotalAmount, 4)}</td>
               <td>${sFirstBuyDate}</td>
-              <td>${fnFmtMoney(oRow.nAvgBuyPrice, "USD")}</td>
+              <td>${fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol)}</td>
             </tr>
           `;
 				})
@@ -1319,21 +1461,27 @@
 				if (typeof fnRequest === "function") {
 					const oResult = await fnRequest(sEndpoint, oRequestInit);
 					if (oResult?.ok) return oResult;
-					sLastError = String(oResult?.message || `HTTP ${oResult?.status || 0}`);
-					continue;
+					const oError = new Error(String(oResult?.message || `HTTP ${oResult?.status || 0}`));
+					oError.details = oResult || null;
+					throw oError;
 				}
 
 				const oResponse = await fetch(sEndpoint, oRequestInit);
 				if (oResponse.ok) return await oResponse.json();
 				let sMessage = `HTTP ${oResponse.status}`;
+				let oDetails = null;
 				try {
 					const oErrorData = await oResponse.json();
+					oDetails = oErrorData;
 					sMessage = String(oErrorData?.message || sMessage);
 				} catch {
 					// noop
 				}
-				sLastError = sMessage;
+				const oError = new Error(sMessage);
+				oError.details = oDetails;
+				throw oError;
 			} catch (oError) {
+				if (oError?.details) throw oError;
 				sLastError = String(oError?.message || oError);
 			}
 		}
@@ -1350,9 +1498,31 @@
 		});
 	}
 
-	async function fnApiDeleteAccount(aBaseEndpoints, sAccountId) {
+	async function fnApiDeleteAccount(aBaseEndpoints, sAccountId, oPayload = null) {
 		const aEndpoints = (aBaseEndpoints || []).map((sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`);
-		return await fnApiRequestWithEndpoints(aEndpoints, { method: "DELETE" });
+		const oInit = { method: "DELETE" };
+		if (oPayload && typeof oPayload === "object") {
+			oInit.headers = { "Content-Type": "application/json" };
+			oInit.body = JSON.stringify(oPayload);
+		}
+		return await fnApiRequestWithEndpoints(aEndpoints, oInit);
+	}
+
+	function fnAskTransferTargetPrompt(aOptions) {
+		const aValidOptions = (Array.isArray(aOptions) ? aOptions : [])
+			.map((oOption) => ({
+				id: String(oOption?.id || "").trim(),
+				label: String(oOption?.label || "").trim(),
+			}))
+			.filter((oOption) => Boolean(oOption.id));
+		if (!aValidOptions.length) return "";
+		const sList = aValidOptions.map((oOption, iIndex) => `${iIndex + 1}: ${oOption.label} (${oOption.id})`).join("\n");
+		const sInput = window.prompt(
+			`${fnT("accounts.share_transfer_required", "Dieses Aktienkonto enthält noch Shares. Bitte ein Zielkonto wählen.")}\n${sList}\n\nID eingeben:`,
+			aValidOptions[0].id
+		);
+		const sChosen = String(sInput || "").trim();
+		return aValidOptions.some((oOption) => oOption.id === sChosen) ? sChosen : "";
 	}
 
 	async function fnInitAccountsView() {
@@ -1447,8 +1617,25 @@
 					await fnApiUpdateAccount(aShareAccountsCrudEndpoints, sAccountId, { label: sLabel }, "PATCH");
 					elFeedback.textContent = fnT("accounts.share_renamed", "Aktienkonto umbenannt.");
 				} else if (sAction === "delete") {
-					await fnApiDeleteAccount(aShareAccountsCrudEndpoints, sAccountId);
-					elFeedback.textContent = fnT("accounts.share_deleted", "Aktienkonto gelöscht.");
+					try {
+						await fnApiDeleteAccount(aShareAccountsCrudEndpoints, sAccountId);
+						elFeedback.textContent = fnT("accounts.share_deleted", "Aktienkonto gelöscht.");
+					} catch (oError) {
+						const oDetails = oError?.details || {};
+						if (oDetails?.requires_transfer) {
+							const sTransferTargetId = fnAskTransferTargetPrompt(oDetails.transfer_options);
+							if (!sTransferTargetId) {
+								elFeedback.textContent = fnT("accounts.transfer_cancelled", "Löschen abgebrochen.");
+								return;
+							}
+							await fnApiDeleteAccount(aShareAccountsCrudEndpoints, sAccountId, {
+								transfer_to_share_account_id: sTransferTargetId
+							});
+							elFeedback.textContent = fnT("accounts.share_deleted_with_transfer", "Aktienkonto gelöscht und Shares übertragen.");
+						} else {
+							throw oError;
+						}
+					}
 				}
 				await fnRefresh();
 			} catch (oError) {

@@ -21,6 +21,9 @@
       }
     })();
   </script>
+  <script>
+    document.documentElement.classList.add("dashboard-view-preload");
+  </script>
   <link rel="stylesheet" href="./dashboard.css" />
   <link rel="stylesheet" href="/shared/unified-ui.css" />
 </head>
@@ -106,29 +109,29 @@
         </section>
 
         <section class="hero-card">
-          <p class="hero-label">Monatlicher Netto-Cashflow</p>
+          <p id="hero-label" class="hero-label">Monatlicher Netto-Cashflow</p>
           <h1 id="total-assets" class="hero-value">0 EUR</h1>
           <p id="hero-sub" class="hero-sub">Noch keine Buchungen erfasst.</p>
         </section>
 
         <section class="kpi-grid">
           <article class="kpi-card">
-            <p class="kpi-label">Monatliche Einnahmen</p>
+            <p id="kpi-income-label" class="kpi-label">Monatliche Einnahmen</p>
             <p class="kpi-value" id="kpi-income">0 EUR</p>
             <p class="kpi-trend neutral" id="kpi-income-trend">Keine Daten</p>
           </article>
           <article class="kpi-card">
-            <p class="kpi-label">Monatliche Ausgaben</p>
+            <p id="kpi-expenses-label" class="kpi-label">Monatliche Ausgaben</p>
             <p class="kpi-value" id="kpi-expenses">0 EUR</p>
             <p class="kpi-trend neutral" id="kpi-expenses-trend">Keine Daten</p>
           </article>
           <article class="kpi-card">
-            <p class="kpi-label">Sparquote</p>
+            <p id="kpi-saving-rate-label" class="kpi-label">Sparquote</p>
             <p class="kpi-value" id="kpi-saving-rate">0%</p>
             <p class="kpi-trend neutral" id="kpi-saving-rate-trend">Keine Daten</p>
           </article>
           <article class="kpi-card">
-            <p class="kpi-label">Liquiditaet (Monat)</p>
+            <p id="kpi-liquid-label" class="kpi-label">Liquiditaet (Monat)</p>
             <p class="kpi-value" id="kpi-liquid">0 EUR</p>
             <p class="kpi-trend neutral" id="kpi-liquid-trend">Einnahmen - Ausgaben</p>
           </article>
@@ -143,12 +146,17 @@
           </article>
 
           <article class="panel">
-            <h2 class="panel-title">Heute im Fokus</h2>
-            <ul class="focus-list">
-              <li><span>Pausierte Wiederholungen</span><strong id="focus-paused">0</strong></li>
-              <li><span>Einnahmen laufender Monat</span><strong id="focus-month-income">0 EUR</strong></li>
-              <li><span>Ausgaben laufender Monat</span><strong id="focus-month-expense">0 EUR</strong></li>
-            </ul>
+            <h2 id="distribution-title" class="panel-title">Verteilung nach Kategorien</h2>
+            <div class="pie-controls">
+              <label class="field-label" for="overview-pie-mode">Diagramm zeigt</label>
+              <select class="field-input" id="overview-pie-mode" name="overview_pie_mode">
+                <option value="income">Einnahmen</option>
+                <option value="expense">Ausgaben</option>
+              </select>
+            </div>
+            <div id="overview-pie-chart" class="overview-pie-chart" aria-label="Kategorieverteilung">
+              <p class="bars-empty">Noch keine Daten fuer die Verteilung vorhanden.</p>
+            </div>
           </article>
         </section>
       </section>
@@ -186,8 +194,8 @@
                   <input class="field-input" id="income-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
                 </div>
                 <div>
-                  <label class="field-label" for="income-date">Datum</label>
-                  <input class="field-input" id="income-date" name="received_at" type="date" required />
+                  <label class="field-label" for="income-date">Datum & Uhrzeit</label>
+                  <input class="field-input" id="income-date" name="received_at" type="datetime-local" required />
                 </div>
               </div>
               <div class="form-two-cols">
@@ -273,8 +281,8 @@
                   <input class="field-input" id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
                 </div>
                 <div>
-                  <label class="field-label" for="expense-date">Datum</label>
-                  <input class="field-input" id="expense-date" name="spent_at" type="date" required />
+                  <label class="field-label" for="expense-date">Datum & Uhrzeit</label>
+                  <input class="field-input" id="expense-date" name="spent_at" type="datetime-local" required />
                 </div>
               </div>
               <div class="form-two-cols">

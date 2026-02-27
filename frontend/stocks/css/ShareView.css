@@ -818,6 +818,34 @@ select:focus {
   gap: 8px;
 }
 
+.stock-performance {
+  font-weight: 620;
+}
+
+.stock-performance.is-clickable {
+  cursor: pointer;
+}
+
+.stock-performance-cell {
+  cursor: pointer;
+}
+
+#k_profit_loss_card {
+  cursor: pointer;
+}
+
+.stock-performance--positive {
+  color: var(--clr-success);
+}
+
+.stock-performance--negative {
+  color: var(--clr-danger);
+}
+
+.stock-performance--neutral {
+  color: var(--clr-text-muted);
+}
+
 .stock-logo {
   width: 24px;
   height: 24px;

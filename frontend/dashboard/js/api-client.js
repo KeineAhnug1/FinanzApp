@@ -147,6 +147,17 @@ function initDashboardAccountFilter() {
   });
 }
 
+function formatDateTimeLocalInputValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 // Schaltet den Aktiv-Checkbox-Status passend zur Wiederholung.
 function initRecurrenceToggle(recurrenceId, activeId) {
   const recurrence = document.getElementById(recurrenceId);
@@ -188,7 +199,7 @@ function setIncomeFormModeCreate() {
   if (!form) return;
   form.reset();
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", "", "salary");
-  if (date) date.value = new Date().toISOString().slice(0, 10);
+  if (date) date.value = formatDateTimeLocalInputValue(new Date());
   if (recurrence) recurrence.value = appState.settings?.defaultIncomeRecurrence || "once";
   if (active) {
     active.checked = true;
@@ -208,7 +219,7 @@ function setIncomeFormModeEdit(entry) {
   if (source) source.value = entry.source || "";
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", entry.category, "salary");
   if (amount) amount.value = Number(entry.amount) || 0;
-  if (date) date.value = String(entry.received_at || "").slice(0, 10);
+  if (date) date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
   if (recurrence) recurrence.value = entry.recurrence || "once";
   if (active) {
     active.checked = entry.recurrence === "once" ? true : Boolean(entry.is_active);
@@ -247,7 +258,7 @@ function setExpenseFormModeCreate() {
   if (!form) return;
   form.reset();
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", "", "rent");
-  if (date) date.value = new Date().toISOString().slice(0, 10);
+  if (date) date.value = formatDateTimeLocalInputValue(new Date());
   if (recurrence) recurrence.value = appState.settings?.defaultExpenseRecurrence || "once";
   if (active) {
     active.checked = true;
@@ -267,7 +278,7 @@ function setExpenseFormModeEdit(entry) {
   if (source) source.value = entry.source || "";
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", entry.category, "rent");
   if (amount) amount.value = Number(entry.amount) || 0;
-  if (date) date.value = String(entry.spent_at || "").slice(0, 10);
+  if (date) date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());
   if (recurrence) recurrence.value = entry.recurrence || "once";
   if (active) {
     active.checked = entry.recurrence === "once" ? true : Boolean(entry.is_active);
