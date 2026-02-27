@@ -248,6 +248,14 @@ body.app-embedded-page {
   min-width: 0;
 }
 
+.brand-link {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+  text-decoration: none;
+}
+
 .brand-mark {
   font-size: 0.8rem;
   letter-spacing: 0.08em;
@@ -436,6 +444,11 @@ body.app-embedded-page {
   letter-spacing: 0.03em;
   color: var(--ui-text-muted);
   text-transform: uppercase;
+}
+
+.side-nav-title-link {
+  text-decoration: none;
+  color: var(--ui-text-muted);
 }
 
 .side-nav-collapse-toggle {

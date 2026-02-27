@@ -11,6 +11,7 @@
   const SUB_NAV_CLOSE_DURATION_MS = 180;
   const EMBEDDED_QUERY_PARAM = "embedded";
   const MOBILE_BREAKPOINT = 960;
+  const HOMEPAGE_PATH = "/homepage/";
   const DEFAULT_SETTINGS = { currency: "EUR", locale: "de-DE", themeMode: "auto" };
   const THEME_OPTIONS = new Set(["light", "dark", "auto"]);
   const CURRENCIES = [
@@ -143,6 +144,29 @@
     const sub = topbar?.querySelector(".brand-sub");
     if (!sub) return;
     sub.textContent = currentBrandSub();
+  }
+
+  function ensureTopbarBrandLink(topbar) {
+    const topbarLeft = topbar?.querySelector(".topbar-left");
+    if (!topbarLeft) return;
+
+    const existingLink = topbarLeft.querySelector(".brand-link");
+    if (existingLink instanceof HTMLAnchorElement) {
+      existingLink.href = HOMEPAGE_PATH;
+      return;
+    }
+
+    const brandMark = topbarLeft.querySelector(".brand-mark");
+    const brandSub = topbarLeft.querySelector(".brand-sub");
+    if (!brandMark && !brandSub) return;
+
+    const brandLink = document.createElement("a");
+    brandLink.className = "brand-link";
+    brandLink.href = HOMEPAGE_PATH;
+    brandLink.setAttribute("aria-label", t("topbar.brand", "FinanzApp"));
+    if (brandMark) brandLink.appendChild(brandMark);
+    if (brandSub) brandLink.appendChild(brandSub);
+    topbarLeft.prepend(brandLink);
   }
 
   function subNavMarkup(parentKey, activeSubKey = "", isOpen = false) {
@@ -421,7 +445,7 @@
           <button class="side-nav-collapse-toggle" type="button" aria-expanded="true" aria-label="${t("topbar.menu", "Menue")}">
             <span class="side-nav-collapse-icon" aria-hidden="true">&#9776;</span>
           </button>
-          <span class="side-nav-title">${t("topbar.brand", "FinanzApp")}</span>
+          <a class="side-nav-title side-nav-title-link" href="${HOMEPAGE_PATH}">${t("topbar.brand", "FinanzApp")}</a>
         </div>
         <nav class="app-nav-links" aria-label="${t("nav_app", "App-Navigation")}"></nav>
         <div class="app-side-nav-after-links"></div>
@@ -800,6 +824,7 @@
     const topbar = findTopbar();
     if (!topbar) return;
 
+    ensureTopbarBrandLink(topbar);
     const controls = findControls(topbar);
     if (controls && !controls.classList.contains("header-controls")) {
       controls.classList.add("header-controls");

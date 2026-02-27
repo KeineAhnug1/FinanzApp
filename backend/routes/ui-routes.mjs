@@ -6,7 +6,8 @@ const UI_ROOT_REDIRECTS = new Map([
   ["/groups", "/groups/"],
   ["/fragen", "/fragen/"],
   ["/aktien", "/aktien/"],
-  ["/konten", "/konten/"]
+  ["/konten", "/konten/"],
+  ["/homepage", "/homepage/"]
 ]);
 const STATIC_EXACT_FILES = new Map([
   ["/", ["frontend", "dashboard", "index.html"]],
@@ -16,6 +17,7 @@ const STATIC_EXACT_FILES = new Map([
   ["/script.js", ["frontend", "dashboard", "js", "script.js"]]
 ]);
 const STATIC_SECTION_ROUTES = [
+  { basePath: "/homepage", directory: path.join("frontend", "homepage"), indexFile: "index.html" },
   { basePath: "/groups", directory: path.join("frontend", "groups"), indexFile: "index.html" },
   { basePath: "/fragen", directory: path.join("frontend", "questions"), indexFile: "index.html" },
   { basePath: "/aktien", directory: path.join("frontend", "stocks"), indexFile: "ShareView.html" },

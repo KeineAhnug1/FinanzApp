@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanzApp | Homepage</title>
+  <script>
+    (function applyStoredThemeEarly() {
+      try {
+        var mode = localStorage.getItem("finanzapp.themeMode") || "auto";
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themeMode = mode;
+      } catch {
+        document.documentElement.dataset.theme = "light";
+        document.documentElement.dataset.themeMode = "auto";
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/shared/unified-ui.css" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="homepage-topbar">
+    <a class="brand-link" href="/homepage/" aria-label="Zur FinanzApp Homepage">
+      <span class="brand-mark">FinanzApp</span>
+      <span class="brand-sub">Homepage</span>
+    </a>
+  </header>
+
+  <a id="top-auth-btn" class="floating-auth-btn" href="/" hidden>Anmelden / Registrieren</a>
+
+  <main class="homepage-main">
+    <section class="hero reveal-from-bottom is-visible">
+      <p class="hero-kicker">The Next Generation Finance Platform</p>
+      <h1>Wenn Finanzmanagement wie ein Enterprise-System denkt, aber schnell wie ein Startup liefert.</h1>
+      <p>
+        FinanzApp verbindet AI Assist, Cloud-Native Skalierung und belastbare Security zu einer Plattform,
+        die fuer persoenliche und kollaborative Finanzen gleichermassen gebaut ist.
+      </p>
+      <a class="hero-cta" href="#ai-enhancement">Zur Capability Tour</a>
+    </section>
+
+    <section id="ai-enhancement" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">AI Enhancement</p>
+        <h2>Adaptive Finance Intelligence</h2>
+        <p>
+          Unsere AI-Layer priorisieren relevante Ausgabenmuster, kategorisieren dynamisch und
+          liefern Kontext, bevor man aktiv suchen muss. Ergebnis: weniger Rauschen, mehr Entscheidungen.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/ai-enhancement.svg" alt="Abstrakte KI-Analyse mit Score-Linien und Vorhersagefenstern" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="serverless" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">Serverless Computing</p>
+        <h2>Instant Elastic Runtime</h2>
+        <p>
+          Event-basierte Dienste reagieren in Echtzeit auf Lastspitzen und entkoppeln Nutzung von
+          statischer Infrastruktur. Die Plattform bleibt performant, auch wenn die Nutzerzahlen explodieren.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/serverless.svg" alt="Serverlose Infrastruktur mit Event-Flows und verteilten Funktionen" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="quantum" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">Quantum Computing (Roadmap)</p>
+        <h2>Quantum-Ready Core Design</h2>
+        <p>
+          Die Architektur ist modular vorbereitet, um kuenftige Quantum-Optimierung in Analytik und
+          Prognosepfade einzubinden, ohne bestehende Kernprozesse neu aufbauen zu muessen.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/quantum-ready.svg" alt="Quantum-inspirierte Netzwerkstruktur mit Knoten und Interferenzmustern" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="blockchain" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">Blockchain</p>
+        <h2>Verifiable Financial Ledger Layer</h2>
+        <p>
+          Kritische Finanzereignisse koennen auditierbar protokolliert werden, um Unveraenderbarkeit,
+          Nachvollziehbarkeit und Vertrauen in sensible Workflows systemseitig abzusichern.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/blockchain.svg" alt="Kettenstruktur mit verifizierten Finanzbloecken und Signaturpunkten" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="saas" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">SaaS</p>
+        <h2>Continuous Value Delivery</h2>
+        <p>
+          Release-Zyklen, Sicherheitsupdates und Produktverbesserungen laufen kontinuierlich,
+          damit die Plattform ohne Downtime mit den Anforderungen des Markts mitwachsen kann.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/saas.svg" alt="SaaS-Bereitstellung mit mehreren Releases, Pipelines und Nutzergruppen" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="loadbalanced" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">Load Balanced (Roadmap)</p>
+        <h2>Traffic-Aware Service Orchestration</h2>
+        <p>
+          Eingehender Traffic wird intelligent verteilt, um Antwortzeiten stabil zu halten und
+          kritische Service-Komponenten auch unter Peak-Bedingungen robust betreiben zu koennen.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/load-balanced.svg" alt="Load-Balancer mit verteilten Datenstroemen auf mehrere Service-Knoten" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="scalable" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">Scalable Architecture</p>
+        <h2>Horizontal Growth Without Friction</h2>
+        <p>
+          Services werden horizontal skaliert und klar getrennt deployt. So bleibt die Plattform
+          unter Last erweiterbar, wartbar und fuer neue Module offen.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/scalable.svg" alt="Skalierende Cluster-Topologie mit wachsendem Service-Gitter" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="aws" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p class="showcase-tag">Backend on AWS</p>
+        <h2>Cloud Operations with Production Discipline</h2>
+        <p>
+          Der Backend-Stack ist cloud-fokussiert aufgebaut: reproduzierbare Deployments,
+          stabile Betriebsprozesse und eine Infrastruktur, die auf Verfuegbarkeit ausgelegt ist.
+        </p>
+      </div>
+      <figure class="showcase-media">
+        <img src="./images/aws-backend.svg" alt="Cloud-Infrastruktur auf AWS mit Services, Datenebene und Monitoring" loading="lazy" />
+      </figure>
+    </section>
+  </main>
+
+  <script src="/shared/js/theme-utils.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
