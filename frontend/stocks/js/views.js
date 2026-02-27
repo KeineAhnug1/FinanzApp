@@ -114,6 +114,11 @@
                 <input id="analysisCatalogSearchInput" type="search" placeholder="${fnT("stocks.search_placeholder", "z. B. Apple oder AAPL")}" autocomplete="off">
               </label>
 
+              <label>
+                ${fnT("stocks.exchange", "Börse")}
+                <select id="analysisExchangeSelect"></select>
+              </label>
+
               <button class="action" id="analysisCatalogSelectFirstBtn" type="button">${fnT("stocks.select_first_hit", "Ersten Treffer laden")}</button>
 
               <div class="muted" id="analysisInfo">${fnT("common.ready", "Bereit.")}</div>

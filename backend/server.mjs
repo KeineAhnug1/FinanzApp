@@ -3269,7 +3269,12 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
     return sendJson(res, 400, { ok: false, message: "Query-Parameter 'q' fehlt." });
   }
 
-  const exchange = "NASDAQ";
+  const requestedExchange = String(requestUrl.searchParams.get("exchange") || STOCK_SEARCH_DEFAULT_EXCHANGE)
+    .trim()
+    .toUpperCase();
+  const exchange = /^[A-Z0-9._-]{2,15}$/.test(requestedExchange)
+    ? requestedExchange
+    : STOCK_SEARCH_DEFAULT_EXCHANGE;
   const requestedLimitRaw = Number(requestUrl.searchParams.get("limit"));
   const requestedLimit = Number.isFinite(requestedLimitRaw) ? requestedLimitRaw : 20;
   const limit = Math.max(1, Math.min(50, Math.floor(requestedLimit)));
@@ -3299,7 +3304,7 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
         sCountry: String(row?.country || "").trim()
       }))
       .filter((row) => Boolean(row.sSymbol))
-      .filter((row) => String(row.sExchange || "").trim().toUpperCase() === exchange)
+      .filter((row) => normalizeExchangeCode(row.sExchange) === exchange)
       .slice(0, limit);
 
     return sendJson(res, 200, { ok: true, results });
@@ -3325,6 +3330,12 @@ function extractHostnameCandidate(rawValue) {
   } catch {
     return "";
   }
+}
+
+function normalizeExchangeCode(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase();
 }
 
 function resolveLogoDomainFromSearchRows(rows, symbolHint = "") {
@@ -3356,7 +3367,7 @@ async function resolveLogoDomainBySymbol(symbol, exchange) {
 
   const upstreamUrl = new URL("/search", STOCK_SEARCH_BASE_URL);
   upstreamUrl.searchParams.set("q", sSymbol);
-  upstreamUrl.searchParams.set("exchange", String(exchange || "NASDAQ").trim().toUpperCase() || "NASDAQ");
+  upstreamUrl.searchParams.set("exchange", String(exchange || STOCK_SEARCH_DEFAULT_EXCHANGE).trim().toUpperCase() || STOCK_SEARCH_DEFAULT_EXCHANGE);
 
   const upstreamResponse = await fetch(upstreamUrl.toString(), {
     headers: {
@@ -3381,7 +3392,12 @@ async function handleStockLogoProxy(req, res, requestUrl, session) {
 
   const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
   const domainFromQuery = extractHostnameCandidate(requestUrl.searchParams.get("domain"));
-  const exchange = "NASDAQ";
+  const requestedExchange = String(requestUrl.searchParams.get("exchange") || STOCK_SEARCH_DEFAULT_EXCHANGE)
+    .trim()
+    .toUpperCase();
+  const exchange = /^[A-Z0-9._-]{2,15}$/.test(requestedExchange)
+    ? requestedExchange
+    : STOCK_SEARCH_DEFAULT_EXCHANGE;
   const themeRaw = String(requestUrl.searchParams.get("theme") || "").trim().toLowerCase();
   const theme = themeRaw === "dark" ? "dark" : "light";
   const sizeRaw = Number(requestUrl.searchParams.get("size"));

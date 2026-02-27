@@ -447,6 +447,7 @@
 	async function fnInitAnalysisView() {
 		const elInfo = document.getElementById("analysisInfo");
 		const elCatalogSearchInput = document.getElementById("analysisCatalogSearchInput");
+		const elExchangeSelect = document.getElementById("analysisExchangeSelect");
 		const elCatalogSelectFirstBtn = document.getElementById("analysisCatalogSelectFirstBtn");
 		const elSearchResults = document.getElementById("analysisSearchResults");
 		const elOwnedSymbolSelect = document.getElementById("analysisOwnedSymbolSelect");
@@ -465,7 +466,7 @@
 		const elCanvas = document.getElementById("analysisChart");
 		const oCtx = elCanvas?.getContext("2d");
 
-		if (!elInfo || !elCatalogSearchInput || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elTradeShareAccountSelect || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
+		if (!elInfo || !elCatalogSearchInput || !elExchangeSelect || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elTradeShareAccountSelect || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
 			fnShowError(fnT("stocks.analysis_view_init_failed", "Einzelanalyse konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente)."));
 			return;
 		}
@@ -488,6 +489,7 @@
 		let iSearchRequestSeq = 0;
 		let nLastKnownClose = Number.NaN;
 		let sSelectedTradeShareAccountId = fnNormalizeAccountId(sSelectedShareAccountId || aShareAccounts[0]?.id);
+		let sSelectedExchange = typeof fnGetTradingExchange === "function" ? fnGetTradingExchange() : "NASDAQ";
 
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 
@@ -538,6 +540,25 @@
 			elTradeShareAccountSelect.disabled = aShareAccounts.length === 0;
 		};
 
+		const fnRenderExchangeOptions = () => {
+			const aExchanges = typeof fnGetCommonTradingExchanges === "function"
+				? fnGetCommonTradingExchanges()
+				: ["NASDAQ", "NYSE", "AMEX", "LSE", "XETR", "TSX", "SIX", "EURONEXT"];
+			const sNormalizedSelectedExchange = String(
+				typeof fnSetTradingExchange === "function" ? fnSetTradingExchange(sSelectedExchange) : sSelectedExchange,
+			).toUpperCase();
+
+			elExchangeSelect.innerHTML = aExchanges
+				.map((sExchange) => {
+					const sNormalizedExchange = String(sExchange || "").trim().toUpperCase();
+					const sLabel = sNormalizedExchange === "XETR" ? "XETRA (XETR)" : sNormalizedExchange;
+					return `<option value="${fnEscapeHtml(sNormalizedExchange)}">${fnEscapeHtml(sLabel)}</option>`;
+				})
+				.join("");
+			elExchangeSelect.value = aExchanges.includes(sNormalizedSelectedExchange) ? sNormalizedSelectedExchange : aExchanges[0];
+			sSelectedExchange = String(elExchangeSelect.value || "").trim().toUpperCase();
+		};
+
 		const fnRenderSearchResults = async () => {
 			const sNeedle = String(sCatalogSearchTerm || "").trim();
 			const iRequestSeq = ++iSearchRequestSeq;
@@ -550,7 +571,7 @@
 				return;
 			}
 
-			aCurrentSearchResults = await fnSearchStocksViaBackend(sNeedle, { sExchange: "NASDAQ", iLimit: 20 });
+			aCurrentSearchResults = await fnSearchStocksViaBackend(sNeedle, { sExchange: sSelectedExchange, iLimit: 20 });
 
 			if (iRequestSeq !== iSearchRequestSeq) return;
 
@@ -601,6 +622,15 @@
 		elCatalogSearchInput.addEventListener("input", async () => {
 			sCatalogSearchTerm = String(elCatalogSearchInput.value || "").trim();
 			await fnRenderSearchResults();
+		});
+
+		elExchangeSelect.addEventListener("change", async () => {
+			sSelectedExchange = String(elExchangeSelect.value || "").trim().toUpperCase();
+			if (typeof fnSetTradingExchange === "function") {
+				sSelectedExchange = fnSetTradingExchange(sSelectedExchange);
+			}
+			await fnRenderSearchResults();
+			fnRefreshStockLogoTheme?.(document);
 		});
 
 		elCatalogSelectFirstBtn.addEventListener("click", async () => {
@@ -851,6 +881,7 @@
 		await fnRenderOwnedRows();
 		fnRenderOwnedSelectOptions();
 		fnRenderTradeShareAccountOptions();
+		fnRenderExchangeOptions();
 		await fnRenderSearchResults();
 
 		if (sSelectedSymbol) {

@@ -47,7 +47,8 @@
 		return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
 	});
 	const sAllStocksDataPath = "/global-information/Allstocks.json";
-	const sTradingExchange = "NASDAQ";
+	const aCommonTradingExchanges = ["NASDAQ", "NYSE", "AMEX", "LSE", "XETR", "TSX", "SIX", "EURONEXT"];
+	let sTradingExchange = fnNormalizeTradingExchange(window.SHAREVIEW_DEFAULT_STOCK_EXCHANGE || "NASDAQ");
 	const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 	const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 	const iCacheTtlMs = 5 * 60 * 1000;
@@ -282,6 +283,31 @@
 		return window.FinanzAppLanguage?.getLocale?.() || sLocale || "de-DE";
 	}
 
+	function fnNormalizeTradingExchange(sExchangeRaw) {
+		const sExchange = fnNormalizeExchangeCode(sExchangeRaw);
+		if (!sExchange) return aCommonTradingExchanges[0];
+		return /^[A-Z0-9._-]{2,15}$/.test(sExchange) ? sExchange : aCommonTradingExchanges[0];
+	}
+
+	function fnNormalizeExchangeCode(sExchangeRaw) {
+		return String(sExchangeRaw || "")
+			.trim()
+			.toUpperCase();
+	}
+
+	function fnGetCommonTradingExchanges() {
+		return [...aCommonTradingExchanges];
+	}
+
+	function fnGetTradingExchange() {
+		return sTradingExchange;
+	}
+
+	function fnSetTradingExchange(sExchangeRaw) {
+		sTradingExchange = fnNormalizeTradingExchange(sExchangeRaw);
+		return sTradingExchange;
+	}
+
 	function fnGetLogoTheme() {
 		return document.documentElement?.dataset?.theme === "dark" ? "dark" : "light";
 	}
@@ -291,9 +317,10 @@
 		if (!sCleanSymbol) return "";
 		const iSizeRaw = Number(oOptions?.size);
 		const iSize = Number.isFinite(iSizeRaw) ? Math.max(16, Math.min(256, Math.round(iSizeRaw))) : 48;
+		const sExchange = fnNormalizeTradingExchange(oOptions?.exchange || sTradingExchange);
 		const oUrl = new URL("/api/stocks/logo", window.location.origin);
 		oUrl.searchParams.set("symbol", sCleanSymbol);
-		oUrl.searchParams.set("exchange", sTradingExchange);
+		oUrl.searchParams.set("exchange", sExchange);
 		oUrl.searchParams.set("theme", fnGetLogoTheme());
 		oUrl.searchParams.set("size", String(iSize));
 		return oUrl.toString();
@@ -809,8 +836,9 @@
 	 * Scope: [SHARED]
 	 * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCurrency: string, sType: string}>>}
 	 */
-	async function fnLoadAllStocksCatalog() {
+	async function fnLoadAllStocksCatalog(oOptions = {}) {
 		try {
+			const sExchange = fnNormalizeTradingExchange(oOptions?.sExchange || fnGetTradingExchange());
 			const oResponse = await fetch(sAllStocksDataPath);
 			if (!oResponse.ok) return [];
 
@@ -825,7 +853,7 @@
 						sType: String(oRow?.type || "").trim(),
 					}))
 					.filter((oRow) => Boolean(oRow.sSymbol))
-					.filter((oRow) => String(oRow.sExchange || "").trim().toUpperCase() === sTradingExchange)
+					.filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
 				: [];
 
 			return aRows;
@@ -862,7 +890,7 @@
 		const sNeedle = String(sQuery || "").trim();
 		if (!sNeedle) return [];
 
-		const sExchange = sTradingExchange;
+		const sExchange = fnNormalizeTradingExchange(oOptions?.sExchange || sTradingExchange);
 		const iLimitRaw = Number(oOptions?.iLimit);
 		const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
 
@@ -879,7 +907,7 @@
 
 		const oPayload = await oResponse.json();
 		const aResults = Array.isArray(oPayload?.results) ? oPayload.results : [];
-		return aResults
+		const aNormalizedResults = aResults
 			.map((oRow) => ({
 				sSymbol: String(oRow?.sSymbol || oRow?.symbol || "").trim().toUpperCase(),
 				sName: String(oRow?.sName || oRow?.name || "").trim(),
@@ -887,8 +915,21 @@
 				sCountry: String(oRow?.sCountry || oRow?.country || "").trim(),
 				sCurrency: String(oRow?.sCurrency || oRow?.currency || "").trim(),
 			}))
-			.filter((oRow) => Boolean(oRow.sSymbol))
+			.filter((oRow) => Boolean(oRow.sSymbol));
+
+		const aExchangeFilteredResults = aNormalizedResults
+			.filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
 			.slice(0, iLimit);
+		if (aExchangeFilteredResults.length) {
+			return aExchangeFilteredResults;
+		}
+
+		const aCatalogFallback = await fnLoadAllStocksCatalog({ sExchange });
+		return fnSearchStocksCatalog(aCatalogFallback, sNeedle, iLimit);
 	}
+
+	window.fnGetCommonTradingExchanges = fnGetCommonTradingExchanges;
+	window.fnGetTradingExchange = fnGetTradingExchange;
+	window.fnSetTradingExchange = fnSetTradingExchange;
 
 	// =====================================================
