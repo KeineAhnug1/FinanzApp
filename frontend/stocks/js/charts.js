@@ -214,7 +214,7 @@
 		const { iWidth, iHeight } = fnPrepareCanvas(oCtx, elCanvas);
 		oCtx.clearRect(0, 0, iWidth, iHeight);
 		const oStyles = getComputedStyle(document.documentElement);
-		const sPrimary = oStyles.getPropertyValue("--accent-blue").trim() || oStyles.getPropertyValue("--clr-chart-line").trim() || oStyles.getPropertyValue("--clr-primary").trim() || "#3f97ff";
+		const sPrimary = oStyles.getPropertyValue("--clr-chart-line").trim() || oStyles.getPropertyValue("--accent-blue").trim() || oStyles.getPropertyValue("--clr-primary").trim() || "#f39a67";
 		const sTextMuted = oStyles.getPropertyValue("--clr-text-muted").trim() || "#5d6763";
 		const sBorder = oStyles.getPropertyValue("--clr-border").trim() || "#d2d8d4";
 		const sBorderStrong = oStyles.getPropertyValue("--clr-border-strong").trim() || "#b5c0ba";

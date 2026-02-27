@@ -428,6 +428,46 @@ html.dashboard-view-preload .dash-main .view-panel {
   font-size: 0.76rem;
 }
 
+:root[data-theme="dark"] .cashflow-grid {
+  stroke: color-mix(in srgb, var(--border) 72%, transparent);
+  opacity: 0.34;
+}
+
+:root[data-theme="dark"] .cashflow-axis {
+  stroke: color-mix(in srgb, var(--text-muted) 78%, transparent);
+  opacity: 0.56;
+}
+
+:root[data-theme="dark"] .cashflow-line-income {
+  stroke: color-mix(in srgb, var(--accent-blue) 72%, var(--primary) 28%);
+}
+
+:root[data-theme="dark"] .cashflow-line-expense {
+  stroke: color-mix(in srgb, var(--danger) 74%, #ff9a6b 26%);
+}
+
+:root[data-theme="dark"] .cashflow-line-savings {
+  stroke: color-mix(in srgb, var(--accent-violet) 72%, var(--primary) 28%);
+}
+
+:root[data-theme="dark"] .cashflow-point-income {
+  fill: color-mix(in srgb, var(--accent-blue) 70%, var(--primary) 30%);
+}
+
+:root[data-theme="dark"] .cashflow-point-expense {
+  fill: color-mix(in srgb, var(--danger) 72%, #ff9a6b 28%);
+}
+
+:root[data-theme="dark"] .cashflow-point-savings {
+  fill: color-mix(in srgb, var(--accent-violet) 72%, var(--primary) 28%);
+}
+
+:root[data-theme="dark"] .cashflow-tooltip {
+  border-color: color-mix(in srgb, var(--border-strong) 70%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 90%, #2b2d34 10%), var(--bg-surface));
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
 .bars-empty {
   margin: 0;
   width: 100%;

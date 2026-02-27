@@ -48,43 +48,43 @@
 }
 
 :root[data-theme="dark"] {
-  --ui-bg-c1: #0f1115;
-  --ui-bg-c2: #12151a;
-  --ui-bg-c3: #151920;
-  --ui-bg-stripe-a: rgba(93, 142, 205, 0);
-  --ui-bg-stripe-b: rgba(66, 112, 172, 0);
-  --ui-bg-grid: rgba(144, 185, 244, 0);
-  --ui-bg-atmo-cool: rgba(59, 72, 92, 0.2);
-  --ui-bg-atmo-warm: rgba(122, 91, 54, 0.16);
-  --ui-bg-atmo-depth: rgba(72, 56, 40, 0.14);
-  --ui-bg-vignette: rgba(0, 0, 0, 0.3);
-  --ui-surface: #1b2028;
-  --ui-surface-soft: #212732;
-  --ui-text: #e6e8ec;
-  --ui-text-muted: #a5aebb;
-  --ui-border: rgba(255, 255, 255, 0.055);
-  --ui-border-strong: rgba(255, 255, 255, 0.1);
-  --ui-primary: #6caeff;
-  --ui-primary-dark: #3e8ef3;
-  --ui-text-on-primary: #eef6ff;
-  --ui-accent-blue: #6fb5ff;
-  --ui-accent-orange: #ffab78;
-  --ui-accent-violet: #a29bff;
-  --ui-focus-ring: rgba(108, 174, 255, 0.3);
-  --ui-success: #6ad89a;
-  --ui-success-soft: #12251f;
-  --ui-success-border: #2f6f55;
-  --ui-warning: #e4bd7d;
-  --ui-warning-soft: #2b2112;
-  --ui-warning-border: #6f5a33;
-  --ui-danger: #f18888;
-  --ui-danger-strong: #cf5555;
-  --ui-danger-soft: #2b1618;
-  --ui-danger-border: #7b3e44;
-  --ui-error: #f18888;
-  --ui-overlay: rgba(5, 8, 13, 0.6);
-  --ui-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.34);
-  --ui-shadow-strong: 0 20px 46px rgba(0, 0, 0, 0.45);
+  --ui-bg-c1: #0f1014;
+  --ui-bg-c2: #131419;
+  --ui-bg-c3: #17191f;
+  --ui-bg-stripe-a: rgba(255, 255, 255, 0.012);
+  --ui-bg-stripe-b: rgba(255, 255, 255, 0.008);
+  --ui-bg-grid: rgba(188, 196, 214, 0.05);
+  --ui-bg-atmo-cool: rgba(98, 105, 120, 0.2);
+  --ui-bg-atmo-warm: rgba(90, 84, 74, 0.11);
+  --ui-bg-atmo-depth: rgba(56, 60, 70, 0.18);
+  --ui-bg-vignette: rgba(0, 0, 0, 0.56);
+  --ui-surface: #1a1c22;
+  --ui-surface-soft: #202329;
+  --ui-text: #e5e7ec;
+  --ui-text-muted: #9ca2ad;
+  --ui-border: rgba(255, 255, 255, 0.09);
+  --ui-border-strong: rgba(255, 255, 255, 0.17);
+  --ui-primary: #7c8396;
+  --ui-primary-dark: #666e84;
+  --ui-text-on-primary: #f3f5f9;
+  --ui-accent-blue: #84a0b0;
+  --ui-accent-orange: #e8986e;
+  --ui-accent-violet: #8f85a8;
+  --ui-focus-ring: rgba(124, 131, 150, 0.34);
+  --ui-success: #49d69f;
+  --ui-success-soft: #122a24;
+  --ui-success-border: #2a7b63;
+  --ui-warning: #e7c07f;
+  --ui-warning-soft: #2d2415;
+  --ui-warning-border: #796140;
+  --ui-danger: #ff7f8c;
+  --ui-danger-strong: #e05567;
+  --ui-danger-soft: #311720;
+  --ui-danger-border: #8e3e4d;
+  --ui-error: #ff7f8c;
+  --ui-overlay: rgba(4, 5, 8, 0.74);
+  --ui-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.44), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --ui-shadow-strong: 0 22px 48px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 :root {
@@ -325,6 +325,13 @@ body.app-embedded-page {
   background: var(--ui-surface-soft);
 }
 
+:root[data-theme="dark"] .app-nav-link.is-active {
+  border-color: color-mix(in srgb, var(--ui-primary) 56%, var(--ui-border) 44%);
+  color: var(--ui-text-on-primary);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 56%, var(--ui-surface) 44%), var(--ui-primary-dark));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-primary) 36%, transparent), 0 10px 24px rgba(0, 0, 0, 0.34);
+}
+
 .app-side-nav {
   position: fixed;
   left: 0;
@@ -516,6 +523,27 @@ body.app-embedded-page {
   border-color: var(--ui-border);
   background: var(--ui-surface-soft);
   color: var(--ui-text-strong);
+}
+
+:root[data-theme="dark"] .app-side-nav {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--ui-surface) 94%, #0c0d11 6%), color-mix(in srgb, var(--ui-surface-soft) 78%, #111218 22%));
+  border-right-color: color-mix(in srgb, var(--ui-border-strong) 72%, transparent);
+  box-shadow: 0 22px 42px rgba(0, 0, 0, 0.54), inset -1px 0 0 rgba(255, 255, 255, 0.045);
+}
+
+:root[data-theme="dark"] .app-side-nav .app-nav-link.is-active {
+  border-color: color-mix(in srgb, var(--ui-primary) 52%, var(--ui-border) 48%);
+  color: var(--ui-text-on-primary);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 50%, var(--ui-surface) 50%), var(--ui-primary-dark));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-primary) 40%, transparent), 0 12px 26px rgba(0, 0, 0, 0.38);
+}
+
+:root[data-theme="dark"] .app-side-nav .app-sub-nav-link.is-active {
+  border-color: color-mix(in srgb, var(--ui-primary) 46%, var(--ui-border) 54%);
+  background: color-mix(in srgb, var(--ui-primary) 22%, var(--ui-surface-soft) 78%);
+  color: var(--ui-text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-primary) 24%, transparent);
 }
 
 .app-side-nav .app-sub-nav.is-closing {
@@ -755,6 +783,13 @@ body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-sub-nav {
   background: var(--ui-primary);
 }
 
+:root[data-theme="dark"] .action.primary,
+:root[data-theme="dark"] .submit-income {
+  border-color: color-mix(in srgb, var(--ui-primary) 58%, var(--ui-border) 42%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 66%, var(--ui-surface) 34%), var(--ui-primary-dark));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-primary) 26%, transparent), 0 10px 24px rgba(0, 0, 0, 0.36);
+}
+
 .small-danger-button,
 .danger-button {
   border-color: color-mix(in srgb, var(--ui-error) 62%, var(--ui-border) 38%);
@@ -810,6 +845,12 @@ button[type="submit"]:not(:disabled):hover,
   box-shadow: var(--ui-shadow-strong);
 }
 
+:root[data-theme="dark"] .action.primary:hover,
+:root[data-theme="dark"] .submit-income:not(:disabled):hover {
+  filter: brightness(1.04);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-primary) 32%, transparent), 0 16px 30px rgba(0, 0, 0, 0.4);
+}
+
 button:not(:disabled):active,
 .action:active,
 .submit-income:active,
@@ -843,6 +884,14 @@ button:not(:disabled):active,
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-lg);
   box-shadow: var(--ui-shadow-soft);
+}
+
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .login-card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-surface) 94%, #292b33 6%), var(--ui-surface));
+  border-color: color-mix(in srgb, var(--ui-border) 88%, rgba(255, 255, 255, 0.08) 12%);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 input,
