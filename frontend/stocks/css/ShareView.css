@@ -8,19 +8,19 @@
   --clr-text-soft: color-mix(in srgb, var(--clr-text-muted) 84%, var(--clr-text) 16%);
   --clr-primary-soft: color-mix(in srgb, var(--clr-primary) 20%, transparent);
   --clr-sidebar-bg: var(--clr-surface-soft);
-  --clr-nav-active-from: color-mix(in srgb, var(--clr-primary) 6%, var(--clr-surface) 94%);
-  --clr-nav-active-to: color-mix(in srgb, var(--clr-primary) 10%, var(--clr-surface) 90%);
+  --clr-nav-active-from: var(--clr-surface-soft);
+  --clr-nav-active-to: var(--clr-surface);
   --clr-switch-track: color-mix(in srgb, var(--clr-text-muted) 34%, var(--clr-surface) 66%);
   --clr-switch-knob: color-mix(in srgb, var(--clr-surface) 82%, var(--clr-text-on-primary) 18%);
   --clr-chart-from: var(--clr-surface-soft);
   --clr-chart-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
   --clr-chart-alt-from: var(--clr-surface-soft);
   --clr-chart-alt-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
-  --clr-chart-line: var(--clr-accent-blue);
-  --clr-chart-fill-top: color-mix(in srgb, var(--clr-accent-blue) 0%, transparent);
-  --clr-chart-fill-bottom: color-mix(in srgb, var(--clr-accent-blue) 0%, transparent);
-  --clr-chart-point-glow: color-mix(in srgb, var(--clr-accent-blue) 0%, transparent);
-  --clr-chart-hover-glow: color-mix(in srgb, var(--clr-accent-blue) 22%, transparent);
+  --clr-chart-line: var(--clr-primary-dark);
+  --clr-chart-fill-top: color-mix(in srgb, var(--clr-primary) 16%, transparent);
+  --clr-chart-fill-bottom: color-mix(in srgb, var(--clr-primary) 4%, transparent);
+  --clr-chart-point-glow: color-mix(in srgb, var(--clr-primary) 28%, transparent);
+  --clr-chart-hover-glow: color-mix(in srgb, var(--clr-primary) 22%, transparent);
   --clr-pie-1: #ef5b2a;
   --clr-pie-2: #f57c00;
   --clr-pie-3: #f9a825;
@@ -31,9 +31,9 @@
   --clr-pie-8: #d97706;
   --clr-pie-9: #fb8c00;
   --clr-pie-10: #ffb74d;
-  --clr-table-head-bg: color-mix(in srgb, var(--clr-surface) 88%, var(--clr-primary) 12%);
-  --clr-legend-active-bg: color-mix(in srgb, var(--clr-surface-soft) 84%, var(--clr-primary) 16%);
-  --clr-legend-active-ring: color-mix(in srgb, var(--clr-primary) 22%, transparent);
+  --clr-table-head-bg: var(--clr-surface-soft);
+  --clr-legend-active-bg: var(--clr-surface-soft);
+  --clr-legend-active-ring: color-mix(in srgb, var(--clr-border-strong) 60%, transparent);
 
   /* Geometrie */
   --radius-sm: 11px;
@@ -52,11 +52,11 @@
   --clr-chart-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
   --clr-chart-alt-from: var(--clr-surface-soft);
   --clr-chart-alt-to: color-mix(in srgb, var(--clr-surface-soft) 0%, transparent 100%);
-  --clr-chart-line: var(--clr-accent-blue);
-  --clr-chart-fill-top: color-mix(in srgb, var(--clr-accent-blue) 0%, transparent);
-  --clr-chart-fill-bottom: color-mix(in srgb, var(--clr-accent-blue) 0%, transparent);
-  --clr-chart-point-glow: color-mix(in srgb, var(--clr-accent-blue) 0%, transparent);
-  --clr-chart-hover-glow: color-mix(in srgb, var(--clr-accent-blue) 25%, transparent);
+  --clr-chart-line: var(--clr-primary);
+  --clr-chart-fill-top: color-mix(in srgb, var(--clr-primary) 18%, transparent);
+  --clr-chart-fill-bottom: color-mix(in srgb, var(--clr-primary) 6%, transparent);
+  --clr-chart-point-glow: color-mix(in srgb, var(--clr-primary) 30%, transparent);
+  --clr-chart-hover-glow: color-mix(in srgb, var(--clr-primary) 25%, transparent);
   --clr-pie-1: #ef5b2a;
   --clr-pie-2: #f57c00;
   --clr-pie-3: #f9a825;
@@ -469,6 +469,8 @@ select:focus {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: var(--space-2);
+  padding-top: 6px;
   margin-bottom: var(--space-3);
 }
 
@@ -490,8 +492,9 @@ select:focus {
 
 .range-btn.active {
   border-color: var(--clr-primary);
-  color: var(--clr-primary);
-  background: var(--clr-primary-soft);
+  color: var(--clr-primary-strong);
+  background: var(--clr-surface-soft);
+  box-shadow: 0 0 0 2px var(--clr-primary-soft);
 }
 
 .depot-top {
