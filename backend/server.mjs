@@ -45,6 +45,7 @@ import {
   TWELVE_DATA_BASE_URL,
   VERIFICATION_TTL_MINUTES
 } from "./config/runtime.mjs";
+import { detectBlockedRegistrationName } from "./config/blocked-names.mjs";
 import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
 import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
 import {
@@ -524,6 +525,13 @@ async function handleRegister(req, res) {
       message: "Username, Vorname, Nachname, E-Mail und Passwort sind Pflichtfelder"
     });
   }
+  if (detectBlockedRegistrationName({ username, firstName, lastName })) {
+    return sendJson(res, 400, {
+      ok: false,
+      code: "forbidden_name",
+      message: "Der angegebene Name ist verboten und kann nicht verwendet werden."
+    });
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return sendJson(res, 400, { ok: false, message: "Bitte eine gueltige E-Mail-Adresse angeben" });
   }
@@ -598,6 +606,18 @@ async function handleRegisterVerify(req, res) {
 
   const verification = await db.collection(COLLECTIONS.emailVerifications).findOne({ email });
   if (!verification) return sendJson(res, 404, { ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" });
+  if (detectBlockedRegistrationName({
+    username: verification.username,
+    firstName: verification.first_name,
+    lastName: verification.last_name
+  })) {
+    await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
+    return sendJson(res, 400, {
+      ok: false,
+      code: "forbidden_name",
+      message: "Der angegebene Name ist verboten und kann nicht verwendet werden."
+    });
+  }
 
   if (verification.expires_at && new Date(verification.expires_at).getTime() < Date.now()) {
     await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
