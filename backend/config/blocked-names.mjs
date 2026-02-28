@@ -77,7 +77,92 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "mussolini",
   "binladen",
   "osamabinladen",
-  "breivik"
+  "breivik",
+
+  // --- Nationalsozialismus / NS-Bezug (Erweiterung)
+  "hitlerjugend",
+  "hitleryouth",
+  "sturmbann",
+  "sturmbannführer",
+  "aryan",
+  "aryanbrotherhood",
+  "volksverräter",
+  "volkstod",
+  "blutundboden",
+  "lebensraum",
+  "reichskriegsflagge",
+  "reichsadler",
+  "juden",
+  "judensau",
+  "untermensch",
+  "übermensch",
+  "uebermensch",
+
+  // --- Weitere rechtsextreme Codes
+  "28",          // Blood & Honour Code
+  "444",
+  "764",
+  "rahowa",      // racial holy war
+  "zog",         // zionist occupied government
+  "hffh",        // honour & fatherland codes
+  "14/88",
+  "8814",
+  "14881488",
+
+  // --- Internationale extremistische Bewegungen
+  "proudboys",
+  "atomwaffen",
+  "atomwaffendivision",
+  "thebase",
+  "goldendawn",
+  "identitäre",
+  "identitarian",
+  "boogaloo",
+
+  // --- Islamistischer Extremismus (Erweiterung)
+  "sharia4",
+  "jihadi",
+  "jihadist",
+  "martyrdom",
+  "kalifat",
+  "caliphate",
+
+  // --- Gewaltverherrlichung (Erweiterung)
+  "killall",
+  "killthem",
+  "racewar",
+  "ethniccleansing",
+  "lynching",
+  "shootup",
+  "bombthem",
+  "beheading",
+
+  // --- Selbstmord / Amok (präventiv sinnvoll)
+  "suicidebomber",
+  "martyr",
+  "amoklauf",
+  "amok",
+
+  // --- Weitere stark diskriminierende Begriffe
+  "cunt",
+  "slut",
+  "whore",
+  "bastard",
+  "mongoloid",
+  "gypsy",
+  "zigeuner",
+  "kanake",
+
+  // --- Personen aus Terror / Extremismus
+  "albaghdadi",
+  "baghdadi",
+  "awlakii",
+  "zarqawi",
+  "mohammedatta",
+  "tarrant",
+  "brenton",
+  "mcveigh",
+  "timothymcveigh"
 ]);
 
 function normalizeNameValue(value) {
