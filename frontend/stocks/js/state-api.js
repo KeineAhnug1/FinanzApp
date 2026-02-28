@@ -901,7 +901,7 @@
 		const oResponse = await fetch(oUrl.toString());
 		if (!oResponse.ok) {
 			const oError = await oResponse.json().catch(() => null);
-			throw new Error(String(oError?.message || `HTTP ${oResponse.status}`));
+			throw new Error(String(oError?.detail || oError?.message || `HTTP ${oResponse.status}`));
 		}
 
 		const oPayload = await oResponse.json();
@@ -921,6 +921,9 @@
 			.slice(0, iLimit);
 		if (aExchangeFilteredResults.length) {
 			return aExchangeFilteredResults;
+		}
+		if (aNormalizedResults.length) {
+			return aNormalizedResults.slice(0, iLimit);
 		}
 
 		const aCatalogFallback = await fnLoadAllStocksCatalog({ sExchange });
