@@ -894,7 +894,7 @@
 	 * Sucht Aktien über den zentralen Backend-Proxy (`/api/stocks/search`).
 	 * Scope: [SHARED]
 	 * @param {string} sQuery
-	 * @param {{sExchange?: string, iLimit?: number}} [oOptions]
+	 * @param {{sExchange?: string, sAssetClass?: string, iLimit?: number}} [oOptions]
 	 * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCountry: string, sCurrency: string}>>}
 	 */
 	async function fnSearchStocksViaBackend(sQuery, oOptions = {}) {
@@ -906,6 +906,10 @@
 		const sExchange = bExchangeProvided && !bNoExchangeSelection
 			? fnNormalizeTradingExchange(oOptions?.sExchange)
 			: fnNormalizeTradingExchange(sTradingExchange);
+		const sRequestedAssetClass = String(oOptions?.sAssetClass || "").trim().toLowerCase();
+		const sAssetClass = sRequestedAssetClass === "stock" || sRequestedAssetClass === "etf"
+			? sRequestedAssetClass
+			: "";
 		const iLimitRaw = Number(oOptions?.iLimit);
 		const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
 
@@ -913,6 +917,9 @@
 		oUrl.searchParams.set("q", sNeedle);
 		if (!(bExchangeProvided && bNoExchangeSelection)) {
 			oUrl.searchParams.set("exchange", sExchange);
+		}
+		if (sAssetClass) {
+			oUrl.searchParams.set("asset_class", sAssetClass);
 		}
 		oUrl.searchParams.set("limit", String(iLimit));
 

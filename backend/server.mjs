@@ -3298,10 +3298,17 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
   const requestedLimitRaw = Number(requestUrl.searchParams.get("limit"));
   const requestedLimit = Number.isFinite(requestedLimitRaw) ? requestedLimitRaw : 20;
   const limit = Math.max(1, Math.min(50, Math.floor(requestedLimit)));
+  const requestedAssetClass = String(requestUrl.searchParams.get("asset_class") || "")
+    .trim()
+    .toLowerCase();
+  const assetClass = requestedAssetClass === "stock" || requestedAssetClass === "etf"
+    ? requestedAssetClass
+    : "";
 
   const upstreamUrl = new URL("/search", STOCK_SEARCH_BASE_URL);
   upstreamUrl.searchParams.set("q", query);
   if (exchange) upstreamUrl.searchParams.set("exchange", exchange);
+  if (assetClass) upstreamUrl.searchParams.set("asset_class", assetClass);
 
   try {
     const upstreamResponse = await fetch(upstreamUrl.toString(), {

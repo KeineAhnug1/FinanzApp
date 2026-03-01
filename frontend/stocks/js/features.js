@@ -446,9 +446,11 @@
 	 */
 	async function fnInitAnalysisView() {
 		const sNoExchangeValue = "__NONE__";
+		const sNoAssetClassValue = "__NONE__";
 		const elInfo = document.getElementById("analysisInfo");
 		const elCatalogSearchInput = document.getElementById("analysisCatalogSearchInput");
 		const elExchangeSelect = document.getElementById("analysisExchangeSelect");
+		const elAssetClassSelect = document.getElementById("analysisAssetClassSelect");
 		const elCatalogSelectFirstBtn = document.getElementById("analysisCatalogSelectFirstBtn");
 		const elSearchResults = document.getElementById("analysisSearchResults");
 		const elOwnedSymbolSelect = document.getElementById("analysisOwnedSymbolSelect");
@@ -467,7 +469,7 @@
 		const elCanvas = document.getElementById("analysisChart");
 		const oCtx = elCanvas?.getContext("2d");
 
-		if (!elInfo || !elCatalogSearchInput || !elExchangeSelect || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elTradeShareAccountSelect || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
+		if (!elInfo || !elCatalogSearchInput || !elExchangeSelect || !elAssetClassSelect || !elCatalogSelectFirstBtn || !elSearchResults || !elOwnedSymbolSelect || !elUseOwnedBtn || !elTradeAmountInput || !elTradeShareAccountSelect || !elBuyBtn || !elSellBtn || !elBuyFeedback || !elTableTbody || !elTotalLabel || !elTotal || !elChange || !elCanvas || !oCtx) {
 			fnShowError(fnT("stocks.analysis_view_init_failed", "Einzelanalyse konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente)."));
 			return;
 		}
@@ -491,6 +493,7 @@
 		let nLastKnownClose = Number.NaN;
 		let sSelectedTradeShareAccountId = fnNormalizeAccountId(sSelectedShareAccountId || aShareAccounts[0]?.id);
 		let sSelectedExchange = typeof fnGetTradingExchange === "function" ? fnGetTradingExchange() : "NASDAQ";
+		let sSelectedAssetClass = sNoAssetClassValue;
 
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 
@@ -566,6 +569,19 @@
 			sSelectedExchange = String(elExchangeSelect.value || "").trim().toUpperCase();
 		};
 
+		const fnRenderAssetClassOptions = () => {
+			elAssetClassSelect.innerHTML = [
+				`<option value="${fnEscapeHtml(sNoAssetClassValue)}">${fnEscapeHtml(fnT("stocks.asset_class_none", "No asset class"))}</option>`,
+				`<option value="stock">${fnEscapeHtml(fnT("stocks.asset_class_stock", "Stock"))}</option>`,
+				`<option value="etf">${fnEscapeHtml(fnT("stocks.asset_class_etf", "ETF"))}</option>`,
+			].join("");
+
+			elAssetClassSelect.value = ["stock", "etf", sNoAssetClassValue].includes(sSelectedAssetClass)
+				? sSelectedAssetClass
+				: sNoAssetClassValue;
+			sSelectedAssetClass = String(elAssetClassSelect.value || sNoAssetClassValue).trim().toLowerCase();
+		};
+
 		const fnRenderSearchResults = async () => {
 			const sNeedle = String(sCatalogSearchTerm || "").trim();
 			const iRequestSeq = ++iSearchRequestSeq;
@@ -578,7 +594,7 @@
 				return;
 			}
 
-			aCurrentSearchResults = await fnSearchStocksViaBackend(sNeedle, { sExchange: sSelectedExchange, iLimit: 20 });
+			aCurrentSearchResults = await fnSearchStocksViaBackend(sNeedle, { sExchange: sSelectedExchange, sAssetClass: sSelectedAssetClass, iLimit: 20 });
 
 			if (iRequestSeq !== iSearchRequestSeq) return;
 
@@ -638,6 +654,11 @@
 			}
 			await fnRenderSearchResults();
 			fnRefreshStockLogoTheme?.(document);
+		});
+
+		elAssetClassSelect.addEventListener("change", async () => {
+			sSelectedAssetClass = String(elAssetClassSelect.value || sNoAssetClassValue).trim().toLowerCase();
+			await fnRenderSearchResults();
 		});
 
 		elCatalogSelectFirstBtn.addEventListener("click", async () => {
@@ -889,6 +910,7 @@
 		fnRenderOwnedSelectOptions();
 		fnRenderTradeShareAccountOptions();
 		fnRenderExchangeOptions();
+		fnRenderAssetClassOptions();
 		await fnRenderSearchResults();
 
 		if (sSelectedSymbol) {

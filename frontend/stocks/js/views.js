@@ -119,6 +119,11 @@
                 <select id="analysisExchangeSelect"></select>
               </label>
 
+              <label>
+                ${fnT("stocks.asset_class", "Asset class")}
+                <select id="analysisAssetClassSelect"></select>
+              </label>
+
               <button class="action" id="analysisCatalogSelectFirstBtn" type="button">${fnT("stocks.select_first_hit", "Ersten Treffer laden")}</button>
 
               <div class="muted" id="analysisInfo">${fnT("common.ready", "Bereit.")}</div>
