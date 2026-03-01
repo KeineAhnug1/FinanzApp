@@ -439,6 +439,7 @@
     "stocks.depot_view_init_failed": "La vue portefeuille n'a pas pu etre initialisee correctement (elements DOM manquants).",
     "stocks.empty_timeseries_for": "Empty time series for {symbol}.",
     "stocks.enter_search": "Veuillez saisir un terme de recherche.",
+    "stocks.exchange_none": "Sans bourse",
     "stocks.first_buy": "Premier achat",
     "stocks.forecast_constant_conditions": "Prevision dans des conditions constantes",
     "stocks.forecast_period_years": "Periode de prevision (annees)",

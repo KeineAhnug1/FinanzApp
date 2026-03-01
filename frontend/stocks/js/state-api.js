@@ -294,6 +294,11 @@
 			.toUpperCase();
 	}
 
+	function fnIsNoExchangeSelection(sExchangeRaw) {
+		const sExchange = fnNormalizeExchangeCode(sExchangeRaw);
+		return sExchange === "__NONE__" || sExchange === "NONE";
+	}
+
 	function fnGetCommonTradingExchanges() {
 		return [...aCommonTradingExchanges];
 	}
@@ -837,7 +842,11 @@
 	 */
 	async function fnLoadAllStocksCatalog(oOptions = {}) {
 		try {
-			const sExchange = fnNormalizeTradingExchange(oOptions?.sExchange || fnGetTradingExchange());
+			const bExchangeProvided = oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
+			const bNoExchangeSelection = fnIsNoExchangeSelection(oOptions?.sExchange);
+			const sExchange = bExchangeProvided && !bNoExchangeSelection
+				? fnNormalizeTradingExchange(oOptions?.sExchange)
+				: fnNormalizeTradingExchange(fnGetTradingExchange());
 			const oResponse = await fetch(sAllStocksDataPath);
 			if (!oResponse.ok) return [];
 
@@ -852,7 +861,10 @@
 						sType: String(oRow?.type || "").trim(),
 					}))
 					.filter((oRow) => Boolean(oRow.sSymbol))
-					.filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
+					.filter((oRow) => {
+						if (bExchangeProvided && bNoExchangeSelection) return true;
+						return fnNormalizeExchangeCode(oRow.sExchange) === sExchange;
+					})
 				: [];
 
 			return aRows;
@@ -889,13 +901,19 @@
 		const sNeedle = String(sQuery || "").trim();
 		if (!sNeedle) return [];
 
-		const sExchange = fnNormalizeTradingExchange(oOptions?.sExchange || sTradingExchange);
+		const bExchangeProvided = oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
+		const bNoExchangeSelection = fnIsNoExchangeSelection(oOptions?.sExchange);
+		const sExchange = bExchangeProvided && !bNoExchangeSelection
+			? fnNormalizeTradingExchange(oOptions?.sExchange)
+			: fnNormalizeTradingExchange(sTradingExchange);
 		const iLimitRaw = Number(oOptions?.iLimit);
 		const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
 
 		const oUrl = new URL("/api/stocks/search", window.location.origin);
 		oUrl.searchParams.set("q", sNeedle);
-		oUrl.searchParams.set("exchange", sExchange);
+		if (!(bExchangeProvided && bNoExchangeSelection)) {
+			oUrl.searchParams.set("exchange", sExchange);
+		}
 		oUrl.searchParams.set("limit", String(iLimit));
 
 		const oResponse = await fetch(oUrl.toString());
@@ -916,17 +934,21 @@
 			}))
 			.filter((oRow) => Boolean(oRow.sSymbol));
 
-		const aExchangeFilteredResults = aNormalizedResults
-			.filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
-			.slice(0, iLimit);
-		if (aExchangeFilteredResults.length) {
-			return aExchangeFilteredResults;
+		if (!(bExchangeProvided && bNoExchangeSelection)) {
+			const aExchangeFilteredResults = aNormalizedResults
+				.filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
+				.slice(0, iLimit);
+			if (aExchangeFilteredResults.length) {
+				return aExchangeFilteredResults;
+			}
 		}
 		if (aNormalizedResults.length) {
 			return aNormalizedResults.slice(0, iLimit);
 		}
 
-		const aCatalogFallback = await fnLoadAllStocksCatalog({ sExchange });
+		const aCatalogFallback = await fnLoadAllStocksCatalog(
+			bExchangeProvided && bNoExchangeSelection ? { sExchange: "__NONE__" } : { sExchange },
+		);
 		return fnSearchStocksCatalog(aCatalogFallback, sNeedle, iLimit);
 	}
 

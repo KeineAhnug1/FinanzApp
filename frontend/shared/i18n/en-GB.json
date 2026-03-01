@@ -439,6 +439,7 @@
     "stocks.depot_view_init_failed": "Portfolio view could not be initialized correctly (missing DOM elements).",
     "stocks.empty_timeseries_for": "Empty time series for {symbol}.",
     "stocks.enter_search": "Please enter a search term.",
+    "stocks.exchange_none": "No exchange",
     "stocks.first_buy": "First buy",
     "stocks.forecast_constant_conditions": "Forecast under constant conditions",
     "stocks.forecast_period_years": "Forecast period (years)",

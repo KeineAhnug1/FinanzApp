@@ -439,6 +439,7 @@
     "stocks.depot_view_init_failed": "Depot-Ansicht konnte nicht korrekt initialisiert werden (fehlende DOM-Elemente).",
     "stocks.empty_timeseries_for": "Leere Zeitreihe fuer {symbol}.",
     "stocks.enter_search": "Bitte Suchbegriff eingeben.",
+    "stocks.exchange_none": "Keine Börse",
     "stocks.first_buy": "Erster Kauf",
     "stocks.forecast_constant_conditions": "Prognose bei gleichbleibenden Bedingungen",
     "stocks.forecast_period_years": "Prognosezeitraum (Jahre)",

@@ -445,6 +445,7 @@
 	 * - `nLastKnownClose`: Letzter bekannter Kurs für Kauf-Fallback.
 	 */
 	async function fnInitAnalysisView() {
+		const sNoExchangeValue = "__NONE__";
 		const elInfo = document.getElementById("analysisInfo");
 		const elCatalogSearchInput = document.getElementById("analysisCatalogSearchInput");
 		const elExchangeSelect = document.getElementById("analysisExchangeSelect");
@@ -545,17 +546,23 @@
 				? fnGetCommonTradingExchanges()
 				: ["NASDAQ", "NYSE", "AMEX", "LSE", "XETR", "TSX", "SIX", "EURONEXT"];
 			const sNormalizedSelectedExchange = String(
-				typeof fnSetTradingExchange === "function" ? fnSetTradingExchange(sSelectedExchange) : sSelectedExchange,
+				sSelectedExchange === sNoExchangeValue
+					? sNoExchangeValue
+					: (typeof fnSetTradingExchange === "function" ? fnSetTradingExchange(sSelectedExchange) : sSelectedExchange),
 			).toUpperCase();
 
-			elExchangeSelect.innerHTML = aExchanges
+			elExchangeSelect.innerHTML = [
+				`<option value="${fnEscapeHtml(sNoExchangeValue)}">${fnEscapeHtml(fnT("stocks.exchange_none", "No exchange"))}</option>`,
+				...aExchanges
 				.map((sExchange) => {
 					const sNormalizedExchange = String(sExchange || "").trim().toUpperCase();
 					const sLabel = sNormalizedExchange === "XETR" ? "XETRA (XETR)" : sNormalizedExchange;
 					return `<option value="${fnEscapeHtml(sNormalizedExchange)}">${fnEscapeHtml(sLabel)}</option>`;
-				})
-				.join("");
-			elExchangeSelect.value = aExchanges.includes(sNormalizedSelectedExchange) ? sNormalizedSelectedExchange : aExchanges[0];
+				}),
+			].join("");
+			elExchangeSelect.value = (sNormalizedSelectedExchange === sNoExchangeValue || aExchanges.includes(sNormalizedSelectedExchange))
+				? sNormalizedSelectedExchange
+				: aExchanges[0];
 			sSelectedExchange = String(elExchangeSelect.value || "").trim().toUpperCase();
 		};
 
@@ -626,7 +633,7 @@
 
 		elExchangeSelect.addEventListener("change", async () => {
 			sSelectedExchange = String(elExchangeSelect.value || "").trim().toUpperCase();
-			if (typeof fnSetTradingExchange === "function") {
+			if (sSelectedExchange !== sNoExchangeValue && typeof fnSetTradingExchange === "function") {
 				sSelectedExchange = fnSetTradingExchange(sSelectedExchange);
 			}
 			await fnRenderSearchResults();

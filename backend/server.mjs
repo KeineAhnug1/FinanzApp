@@ -3289,12 +3289,12 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
     return sendJson(res, 400, { ok: false, message: "Query-Parameter 'q' fehlt." });
   }
 
-  const requestedExchange = String(requestUrl.searchParams.get("exchange") || STOCK_SEARCH_DEFAULT_EXCHANGE)
+  const requestedExchange = String(requestUrl.searchParams.get("exchange") || "")
     .trim()
     .toUpperCase();
   const exchange = /^[A-Z0-9._-]{2,15}$/.test(requestedExchange)
     ? requestedExchange
-    : STOCK_SEARCH_DEFAULT_EXCHANGE;
+    : "";
   const requestedLimitRaw = Number(requestUrl.searchParams.get("limit"));
   const requestedLimit = Number.isFinite(requestedLimitRaw) ? requestedLimitRaw : 20;
   const limit = Math.max(1, Math.min(50, Math.floor(requestedLimit)));
@@ -3324,7 +3324,7 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
         sCountry: String(row?.country || "").trim()
       }))
       .filter((row) => Boolean(row.sSymbol))
-      .filter((row) => normalizeExchangeCode(row.sExchange) === exchange)
+      .filter((row) => !exchange || normalizeExchangeCode(row.sExchange) === exchange)
       .slice(0, limit);
 
     return sendJson(res, 200, { ok: true, results });
