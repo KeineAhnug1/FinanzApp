@@ -37,6 +37,11 @@ const groupActivitiesList = document.getElementById("groupActivitiesList");
 const groupFundingsList = document.getElementById("groupFundingsList");
 const groupExpensesList = document.getElementById("groupExpensesList");
 const fundingTransactionsList = document.getElementById("fundingTransactionsList");
+const groupChatViewport = document.getElementById("groupChatViewport");
+const groupChatMessages = document.getElementById("groupChatMessages");
+const groupChatForm = document.getElementById("groupChatForm");
+const groupChatInput = document.getElementById("groupChatInput");
+const groupChatStatus = document.getElementById("groupChatStatus");
 const fundingDetailEmpty = document.getElementById("fundingDetailEmpty");
 const fundingDetailContent = document.getElementById("fundingDetailContent");
 const fundingDetailTitle = document.getElementById("fundingDetailTitle");
@@ -68,7 +73,7 @@ const expenseDueDateInput = document.getElementById("expenseDueDateInput");
 const detailTabButtons = Array.from(document.querySelectorAll("[data-detail-tab-target]"));
 const detailTabPanels = Array.from(document.querySelectorAll("[data-detail-tab-content]"));
 
-const DETAIL_TAB_OPTIONS = new Set(["members", "activities", "fundings"]);
+const DETAIL_TAB_OPTIONS = new Set(["members", "activities", "fundings", "chat"]);
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 const GROUPS_VIEW_STORAGE_PREFIX = "finanzapp.groupsView";
 const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
@@ -82,11 +87,19 @@ const initialGroupsViewState = loadGroupsViewState(window.FinanzAppSession?.getC
 
 let groupsState = [];
 let invitationsState = [];
-let selectedGroupId = initialGroupsViewState.selectedGroupId || null;
+let selectedGroupId = null;
 let selectedGroupDetail = null;
 let selectedFundingId = null;
-let activeDetailTab = initialGroupsViewState.activeDetailTab;
+let activeDetailTab = "members";
 let sessionUser = null;
+let groupChatState = {
+  groupId: "",
+  messages: [],
+  hasOlder: false,
+  oldestMessageId: null,
+  loadingOlder: false,
+  readyForOlderLoad: false
+};
 const DEFAULT_GROUP_LOCALE_SETTINGS = {
   locale: "de-DE",
   currency: "EUR"
@@ -236,6 +249,77 @@ function setInboxStatus(message, type = "") {
   inboxStatus.textContent = message || "";
 }
 
+function setGroupChatStatus(message, type = "") {
+  groupChatStatus.className = "form-status";
+  if (type) {
+    groupChatStatus.classList.add(type);
+  }
+  groupChatStatus.textContent = message || "";
+}
+
+function resetGroupChatState(groupId = "") {
+  groupChatState = {
+    groupId: String(groupId || ""),
+    messages: [],
+    hasOlder: false,
+    oldestMessageId: null,
+    loadingOlder: false,
+    readyForOlderLoad: false
+  };
+}
+
+function renderGroupChatMessages() {
+  groupChatMessages.innerHTML = "";
+  const currentUserId = String(selectedGroupDetail?.session_user_id || sessionUser?.id || "");
+
+  if (!groupChatState.messages.length) {
+    const emptyItem = document.createElement("li");
+    emptyItem.className = "chat-item";
+    const emptyBubble = document.createElement("div");
+    emptyBubble.className = "chat-bubble";
+    const emptyMessage = document.createElement("p");
+    emptyMessage.className = "chat-message";
+    emptyMessage.textContent = t("groups.no_chat_messages", "Noch keine Nachrichten im Gruppenchat.");
+    emptyBubble.appendChild(emptyMessage);
+    emptyItem.appendChild(emptyBubble);
+    groupChatMessages.appendChild(emptyItem);
+    return;
+  }
+
+  for (const entry of groupChatState.messages) {
+    const item = document.createElement("li");
+    item.className = "chat-item";
+    if (String(entry.from_user_id) === currentUserId) {
+      item.classList.add("is-own");
+    }
+
+    const nameParts = [entry.first_name, entry.last_name].filter(Boolean);
+    const displayName = nameParts.length ? `${entry.username} (${nameParts.join(" ")})` : (entry.username || t("groups.unknown_user", "unbekannt"));
+    const editedSuffix = entry.edited ? ` • ${t("groups.edited", "bearbeitet")}` : "";
+
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble";
+
+    const author = document.createElement("p");
+    author.className = "chat-author";
+    author.textContent = displayName;
+    bubble.appendChild(author);
+
+    const message = document.createElement("p");
+    message.className = "chat-message";
+    message.textContent = String(entry.message || "");
+    bubble.appendChild(message);
+
+    const meta = document.createElement("p");
+    meta.className = "chat-meta";
+    meta.textContent = `${formatDate(entry.created_at)}${editedSuffix}`;
+    bubble.appendChild(meta);
+
+    item.appendChild(bubble);
+    groupChatMessages.appendChild(item);
+  }
+}
+
 function updateInboxIndicator(invitations = []) {
   const count = invitations.length;
   const hasInvitations = count > 0;
@@ -250,6 +334,7 @@ function updateInboxIndicator(invitations = []) {
 
 function switchDetailTab(tabName) {
   activeDetailTab = DETAIL_TAB_OPTIONS.has(tabName) ? tabName : "members";
+  groupDetailContent.classList.toggle("is-chat-tab-active", activeDetailTab === "chat");
   for (const button of detailTabButtons) {
     button.classList.toggle("is-active", button.dataset.detailTabTarget === activeDetailTab);
   }
@@ -546,6 +631,9 @@ function renderGroupDetail(detail) {
     fundingDetailContent.hidden = true;
     renderFundingActivityOptions([]);
     renderFundingSelects([]);
+    resetGroupChatState("");
+    renderGroupChatMessages();
+    setGroupChatStatus("");
     return;
   }
 
@@ -648,13 +736,104 @@ async function fetchGroupDetail(groupId) {
   });
 }
 
+async function fetchGroupMessages(groupId, options = {}) {
+  const params = new URLSearchParams();
+  if (options.beforeMessageId) params.set("before_message_id", String(options.beforeMessageId));
+  if (options.limit) params.set("limit", String(options.limit));
+  const query = params.toString();
+  const suffix = query ? `?${query}` : "";
+  return await requestApi(`/api/groups/${groupId}/messages${suffix}`, {
+    defaultMessage: t("groups.chat_load_failed", "Gruppenchat konnte nicht geladen werden")
+  });
+}
+
+async function createGroupMessage(groupId, message) {
+  return await requestApi(`/api/groups/${groupId}/messages`, {
+    method: "POST",
+    body: { message },
+    defaultMessage: t("groups.chat_send_failed", "Nachricht konnte nicht gesendet werden")
+  });
+}
+
 async function loadGroupDetail(groupId) {
   if (!groupId) {
     renderGroupDetail(null);
+    resetGroupChatState("");
+    renderGroupChatMessages();
     return;
   }
   const detail = await fetchGroupDetail(groupId);
   renderGroupDetail(detail);
+  await loadInitialGroupMessages(groupId);
+}
+
+async function loadInitialGroupMessages(groupId) {
+  if (!groupId) {
+    resetGroupChatState("");
+    renderGroupChatMessages();
+    return;
+  }
+
+  const requestedGroupId = String(groupId);
+  resetGroupChatState(requestedGroupId);
+  renderGroupChatMessages();
+  setGroupChatStatus("");
+
+  const payload = await fetchGroupMessages(requestedGroupId, { limit: 40 });
+  if (String(selectedGroupId || "") !== requestedGroupId) {
+    return;
+  }
+
+  const messages = Array.isArray(payload.messages) ? payload.messages : [];
+  groupChatState.messages = messages;
+  groupChatState.hasOlder = Boolean(payload.has_older);
+  groupChatState.oldestMessageId = messages.length ? String(messages[0].message_id || "") : null;
+  renderGroupChatMessages();
+  requestAnimationFrame(() => {
+    groupChatViewport.scrollTop = groupChatViewport.scrollHeight;
+    requestAnimationFrame(() => {
+      groupChatViewport.scrollTop = groupChatViewport.scrollHeight;
+      groupChatState.readyForOlderLoad = true;
+    });
+  });
+}
+
+async function loadOlderGroupMessages() {
+  if (!selectedGroupId || !groupChatState.groupId) return;
+  if (groupChatState.groupId !== String(selectedGroupId)) return;
+  if (!groupChatState.hasOlder || groupChatState.loadingOlder || !groupChatState.oldestMessageId) return;
+
+  groupChatState.loadingOlder = true;
+  const previousHeight = groupChatViewport.scrollHeight;
+  const previousTop = groupChatViewport.scrollTop;
+
+  try {
+    const payload = await fetchGroupMessages(selectedGroupId, {
+      beforeMessageId: groupChatState.oldestMessageId,
+      limit: 40
+    });
+    if (String(selectedGroupId || "") !== groupChatState.groupId) {
+      return;
+    }
+
+    const olderMessages = Array.isArray(payload.messages) ? payload.messages : [];
+    if (olderMessages.length) {
+      const existingIds = new Set(groupChatState.messages.map((entry) => String(entry.message_id)));
+      const dedupedOlder = olderMessages.filter((entry) => !existingIds.has(String(entry.message_id)));
+      groupChatState.messages = [...dedupedOlder, ...groupChatState.messages];
+    }
+
+    groupChatState.hasOlder = Boolean(payload.has_older);
+    groupChatState.oldestMessageId = groupChatState.messages.length ? String(groupChatState.messages[0].message_id || "") : null;
+    renderGroupChatMessages();
+
+    const nextHeight = groupChatViewport.scrollHeight;
+    groupChatViewport.scrollTop = previousTop + (nextHeight - previousHeight);
+  } catch (error) {
+    setGroupChatStatus(error.message, "error");
+  } finally {
+    groupChatState.loadingOlder = false;
+  }
 }
 
 async function loadGroups(preferredGroupId = selectedGroupId) {
@@ -796,6 +975,9 @@ async function openGroupDetail(groupId, options = {}) {
   selectedGroupId = String(groupId || "");
   if (!selectedGroupId) return;
   selectedFundingId = null;
+  resetGroupChatState(selectedGroupId);
+  renderGroupChatMessages();
+  setGroupChatStatus("");
   renderGroups(groupsState);
   setDetailStatus("");
   switchDetailTab(resetTab ? "members" : activeDetailTab);
@@ -811,6 +993,50 @@ for (const button of detailTabButtons) {
     switchDetailTab(tabName);
   });
 }
+
+groupChatViewport.addEventListener("scroll", () => {
+  if (!groupChatState.readyForOlderLoad) return;
+  if (groupChatViewport.scrollTop > 80) return;
+  loadOlderGroupMessages();
+});
+
+groupChatForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedGroupId) return;
+
+  const content = groupChatInput.value.trim();
+  if (!content) return;
+
+  groupChatInput.disabled = true;
+  setGroupChatStatus(t("groups.chat_sending", "Nachricht wird gesendet..."));
+  try {
+    const payload = await createGroupMessage(selectedGroupId, content);
+    if (String(selectedGroupId || "") !== groupChatState.groupId) return;
+
+    const createdMessage = payload.message || null;
+    if (createdMessage) {
+      const exists = groupChatState.messages.some((entry) => String(entry.message_id) === String(createdMessage.message_id));
+      if (!exists) {
+        groupChatState.messages = [...groupChatState.messages, createdMessage];
+      }
+      if (!groupChatState.oldestMessageId && groupChatState.messages.length) {
+        groupChatState.oldestMessageId = String(groupChatState.messages[0].message_id || "");
+      }
+      renderGroupChatMessages();
+      requestAnimationFrame(() => {
+        groupChatViewport.scrollTop = groupChatViewport.scrollHeight;
+      });
+    }
+
+    groupChatForm.reset();
+    setGroupChatStatus(t("groups.chat_sent", "Nachricht gesendet."), "ok");
+  } catch (error) {
+    setGroupChatStatus(error.message, "error");
+  } finally {
+    groupChatInput.disabled = false;
+    groupChatInput.focus();
+  }
+});
 
 openInboxButton.addEventListener("click", async () => {
   try {
@@ -1074,12 +1300,8 @@ groupForm.addEventListener("submit", async (event) => {
   }
 });
 
-switchDetailTab(activeDetailTab);
-if (initialGroupsViewState.isDetailOpen && selectedGroupId) {
-  showDetailView();
-} else {
-  showMainView();
-}
+switchDetailTab("members");
+showMainView();
 applyGroupLocaleSettings(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
 
 window.addEventListener("finanzapp:locale-changed", () => {
@@ -1093,18 +1315,8 @@ async function bootstrap() {
   }
   await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
 
-  if (initialGroupsViewState.isDetailOpen && selectedGroupId) {
-    const hasGroup = groupsState.some((group) => String(group.group_id) === String(selectedGroupId));
-    if (hasGroup) {
-      document.documentElement.classList.remove("groups-view-preload");
-      await openGroupDetail(selectedGroupId, { resetTab: false });
-      return;
-    }
-  }
-
-  selectedGroupId = null;
   showMainView();
-  persistGroupsViewState({ selectedGroupId: "", isDetailOpen: false });
+  persistGroupsViewState({ selectedGroupId: selectedGroupId ? String(selectedGroupId) : "", isDetailOpen: false, activeDetailTab: "members" });
   document.documentElement.classList.remove("groups-view-preload");
 }
 

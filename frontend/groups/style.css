@@ -1,13 +1,26 @@
 /* Gemeinsame Farben/Basis aus shared/unified-ui.css */
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .groups-layout {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   width: min(1320px, calc(100% - 2 * var(--ui-space-3, 16px)));
-  margin: 0 auto 28px;
-  padding: 12px 0;
+  margin: 0 auto;
+  padding: 12px 0 16px;
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
+  overflow: hidden;
 }
 
 html.groups-view-preload #mainView,
@@ -157,6 +170,24 @@ html.groups-view-preload #detailView {
   border-radius: 20px;
   padding: var(--ui-space-4, 20px);
   box-shadow: var(--shadow);
+  min-height: 0;
+}
+
+#mainView,
+#detailView {
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+#mainView[hidden],
+#detailView[hidden] {
+  display: none !important;
+}
+
+#detailView {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .main-headline,
@@ -221,6 +252,17 @@ html.groups-view-preload #detailView {
 .detail-content {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detail-content.is-chat-tab-active {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+}
+
+.detail-content.is-chat-tab-active > #detailStatus {
+  display: none;
 }
 
 .detail-name {
@@ -259,6 +301,28 @@ html.groups-view-preload #detailView {
 .detail-tab-panel.is-active {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detail-tab-panel.is-active[data-detail-tab-content="chat"] {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  min-height: 0;
+  height: 100%;
+}
+
+.group-chat-shell {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-soft);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  padding: 10px 10px calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 .funding-split {
@@ -337,6 +401,73 @@ html.groups-view-preload #detailView {
   display: grid;
   gap: 12px;
   max-width: 500px;
+}
+
+.group-chat-viewport {
+  border-radius: 10px;
+  background: var(--bg-surface);
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 10px 12px;
+}
+
+.group-chat-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.chat-item {
+  display: flex;
+}
+
+.chat-item.is-own {
+  justify-content: flex-end;
+}
+
+.chat-item:not(.is-own) {
+  justify-content: flex-start;
+}
+
+.chat-bubble {
+  max-width: min(78%, 620px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+}
+
+.chat-item.is-own .chat-bubble {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary-ring) 55%, var(--bg-surface) 45%);
+}
+
+.chat-author {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.chat-message {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-meta {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.group-chat-form {
+  display: grid;
+  gap: 12px;
 }
 
 .field {
@@ -517,7 +648,8 @@ button {
   .main-actions > button,
   .detail-actions > button,
   .group-form button,
-  .invite-form button {
+  .invite-form button,
+  .group-chat-form button {
     width: 100%;
     min-height: 44px;
   }

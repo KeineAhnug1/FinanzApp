@@ -1697,6 +1697,126 @@ async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
   });
 }
 
+async function handleGroupMessages(req, res, groupIdRaw, session) {
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const context = await getGroupContext(groupIdRaw, session.user.id);
+  if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
+
+  if (req.method === "GET") {
+    const requestUrl = new URL(req.url || "/", "http://localhost");
+    const requestedLimit = Number.parseInt(requestUrl.searchParams.get("limit") || "30", 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 30;
+    const beforeMessageIdRaw = String(requestUrl.searchParams.get("before_message_id") || "").trim();
+
+    const filter = { group_id: context.groupId };
+    if (beforeMessageIdRaw) {
+      const beforeMessageId = parseObjectId(beforeMessageIdRaw);
+      if (!beforeMessageId) return sendJson(res, 400, { ok: false, message: "Invalid before_message_id" });
+
+      const beforeMessage = await db.collection(COLLECTIONS.groupMessages).findOne(
+        { _id: beforeMessageId, group_id: context.groupId },
+        { projection: { _id: 1, created_at: 1 } }
+      );
+      if (!beforeMessage) return sendJson(res, 404, { ok: false, message: "Cursor message not found in this group" });
+
+      const beforeCreatedAt = beforeMessage.created_at ?? null;
+      if (beforeCreatedAt) {
+        filter.$or = [
+          { created_at: { $lt: beforeCreatedAt } },
+          { created_at: beforeCreatedAt, _id: { $lt: beforeMessage._id } }
+        ];
+      } else {
+        filter._id = { $lt: beforeMessage._id };
+      }
+    }
+
+    const rows = await db.collection(COLLECTIONS.groupMessages)
+      .find(
+        filter,
+        { projection: { _id: 1, from_user_id: 1, message: 1, status: 1, edited: 1, created_at: 1 } }
+      )
+      .sort({ created_at: -1, _id: -1 })
+      .limit(limit + 1)
+      .toArray();
+
+    const hasOlder = rows.length > limit;
+    const limitedRows = hasOlder ? rows.slice(0, limit) : rows;
+    const orderedRows = limitedRows.reverse();
+
+    const uniqueUserIds = [...new Set(orderedRows.map((entry) => String(entry.from_user_id)))].map((id) => parseObjectId(id)).filter(Boolean);
+    const users = uniqueUserIds.length
+      ? await db.collection(COLLECTIONS.users).find(
+        { _id: { $in: uniqueUserIds } },
+        { projection: { _id: 1, username: 1, first_name: 1, last_name: 1 } }
+      ).toArray()
+      : [];
+    const usersById = new Map(users.map((user) => [String(user._id), user]));
+
+    const messages = orderedRows.map((entry) => {
+      const author = usersById.get(String(entry.from_user_id)) || null;
+      return {
+        message_id: String(entry._id),
+        group_id: String(context.groupId),
+        from_user_id: String(entry.from_user_id),
+        username: author?.username || null,
+        first_name: author?.first_name ?? null,
+        last_name: author?.last_name ?? null,
+        message: entry.message ?? "",
+        status: entry.status ?? null,
+        edited: Boolean(entry.edited),
+        created_at: entry.created_at ?? null
+      };
+    });
+
+    return sendJson(res, 200, {
+      ok: true,
+      messages,
+      has_older: hasOlder
+    });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+  }
+
+  const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
+  if (!message) return sendJson(res, 400, { ok: false, message: "Message is required and must be short enough" });
+
+  const createdAt = new Date();
+  const insertResult = await db.collection(COLLECTIONS.groupMessages).insertOne({
+    group_id: context.groupId,
+    from_user_id: context.user._id,
+    message,
+    status: null,
+    edited: false,
+    created_at: createdAt
+  });
+
+  return sendJson(res, 201, {
+    ok: true,
+    message: {
+      message_id: String(insertResult.insertedId),
+      group_id: String(context.groupId),
+      from_user_id: String(context.user._id),
+      username: context.user.username || null,
+      first_name: context.user.first_name ?? null,
+      last_name: context.user.last_name ?? null,
+      message,
+      status: null,
+      edited: false,
+      created_at: createdAt
+    }
+  });
+}
+
 async function handleInviteUser(req, res, groupIdRaw, session) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -1905,6 +2025,7 @@ async function deleteGroupCascade(groupId) {
     await db.collection(COLLECTIONS.groupFunding).deleteMany({ _id: { $in: fundingIds } });
   }
 
+  await db.collection(COLLECTIONS.groupMessages).deleteMany({ group_id: groupId });
   await db.collection(COLLECTIONS.groupActivities).deleteMany({ group_id: groupId });
   await db.collection(COLLECTIONS.groupMembers).deleteMany({ group_id: groupId });
   await db.collection(COLLECTIONS.groups).deleteOne({ _id: groupId });
@@ -3551,6 +3672,7 @@ const API_HANDLERS = {
   handleCreateGroupFunding,
   handleDonateToFunding,
   handleCreateGroupExpense,
+  handleGroupMessages,
   handlePromoteMemberToAdmin,
   handleLeaveGroup,
   handleRemoveMember,

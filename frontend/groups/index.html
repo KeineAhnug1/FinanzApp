@@ -116,6 +116,7 @@
             <button type="button" class="detail-tab-button is-active" data-detail-tab-target="members">Mitglieder</button>
             <button type="button" class="detail-tab-button" data-detail-tab-target="activities">Gruppenaktivitaeten</button>
             <button type="button" class="detail-tab-button" data-detail-tab-target="fundings">Finanzierungen</button>
+            <button type="button" class="detail-tab-button" data-detail-tab-target="chat">Gruppenchat</button>
           </nav>
 
           <section class="detail-tab-panel is-active" data-detail-tab-content="members">
@@ -227,6 +228,23 @@
                   <input id="expenseDueDateInput" type="datetime-local" />
                 </label>
                 <button type="submit">Bezahlte Ausgabe erstellen</button>
+              </form>
+            </div>
+          </section>
+
+          <section class="detail-tab-panel" data-detail-tab-content="chat">
+            <h3 class="sub-title">Gruppenchat</h3>
+            <div class="group-chat-shell">
+              <div id="groupChatViewport" class="group-chat-viewport">
+                <ul id="groupChatMessages" class="group-chat-messages"></ul>
+              </div>
+              <p id="groupChatStatus" class="form-status" aria-live="polite"></p>
+              <form id="groupChatForm" class="group-chat-form">
+                <label class="field">
+                  <span>Nachricht</span>
+                  <input id="groupChatInput" type="text" maxlength="4000" required placeholder="Nachricht schreiben..." />
+                </label>
+                <button type="submit">Senden</button>
               </form>
             </div>
           </section>

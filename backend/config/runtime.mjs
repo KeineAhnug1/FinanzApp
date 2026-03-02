@@ -56,6 +56,7 @@ export const COLLECTIONS = {
   groupActivities: "group_activities",
   groupFunding: "group_funding",
   groupExpenses: "group_expenses",
+  groupMessages: "group_message",
   fundingParticipants: "funding_participants",
   transactions: "transactions",
   bankAccounts: "bank_accounts",
