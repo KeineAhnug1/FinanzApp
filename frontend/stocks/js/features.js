@@ -79,14 +79,30 @@
 	 * @param {"absolute"|"percent"} [sDisplayMode="absolute"]
 	 * @returns {string}
 	 */
-	function fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol, sDisplayMode = "absolute") {
+	function fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol, sDisplayMode = "absolute", mRangeDevelopmentBySymbol = null) {
 		const sSymbol = String(oRow?.sSymbol || "").trim().toUpperCase();
-		const nAvgBuyPrice = Number(oRow?.nAvgBuyPrice);
-		const nCurrentPrice = Number(mCurrentPriceBySymbol?.get(sSymbol));
-		const nDevelopmentAbs = Number.isFinite(nCurrentPrice) && Number.isFinite(nAvgBuyPrice)
-			? (nCurrentPrice - nAvgBuyPrice)
-			: Number.NaN;
-		const nDevelopmentPct = fnComputeDevelopmentPctSinceBuy(nAvgBuyPrice, nCurrentPrice);
+		let nDevelopmentAbs = Number.NaN;
+		let nDevelopmentPct = Number.NaN;
+
+		const oRangeDevelopment = mRangeDevelopmentBySymbol instanceof Map
+			? mRangeDevelopmentBySymbol.get(sSymbol)
+			: null;
+		if (mRangeDevelopmentBySymbol instanceof Map) {
+			if (oRangeDevelopment && Number.isFinite(Number(oRangeDevelopment.nAbs))) {
+				nDevelopmentAbs = Number(oRangeDevelopment.nAbs);
+				nDevelopmentPct = Number(oRangeDevelopment.nPct);
+			} else {
+				return `<span class="stock-performance stock-performance--neutral is-clickable" data-display-mode="absolute">—</span>`;
+			}
+		} else {
+			const nAvgBuyPrice = Number(oRow?.nAvgBuyPrice);
+			const nCurrentPrice = Number(mCurrentPriceBySymbol?.get(sSymbol));
+			nDevelopmentAbs = Number.isFinite(nCurrentPrice) && Number.isFinite(nAvgBuyPrice)
+				? (nCurrentPrice - nAvgBuyPrice)
+				: Number.NaN;
+			nDevelopmentPct = fnComputeDevelopmentPctSinceBuy(nAvgBuyPrice, nCurrentPrice);
+		}
+
 		if (!Number.isFinite(nDevelopmentPct)) {
 			return `<span class="stock-performance stock-performance--neutral is-clickable" data-display-mode="absolute">—</span>`;
 		}
@@ -95,6 +111,69 @@
 			: (nDevelopmentAbs < 0 ? "stock-performance--negative" : "stock-performance--neutral");
 		const sText = sDisplayMode === "percent" ? fnFmtSignedPct(nDevelopmentPct) : fnFmtSignedMoney(nDevelopmentAbs);
 		return `<span class="stock-performance ${sClassName} is-clickable" data-display-mode="${fnEscapeHtml(sDisplayMode)}">${fnEscapeHtml(sText)}</span>`;
+	}
+
+	function fnBuildRangeDevelopmentBySymbol(aRows, aPositions, mSeriesBySymbol, oQuery, sRange) {
+		const mDevelopmentBySymbol = new Map();
+		for (const oRow of aRows || []) {
+			const sSymbol = String(oRow?.sSymbol || "").trim().toUpperCase();
+			if (!sSymbol) continue;
+
+			const aSymbolPositions = (aPositions || []).filter((oPosition) => {
+				return String(oPosition?.symbol || "").trim().toUpperCase() === sSymbol;
+			});
+			if (!aSymbolPositions.length) continue;
+
+			const aSymbolRawPoints = fnBuildSeriesPointsForPositions(aSymbolPositions, mSeriesBySymbol, false);
+			const aSymbolRangePoints = fnWithFixedDateRange(aSymbolRawPoints, oQuery, false, sRange);
+			if (!aSymbolRangePoints.length) continue;
+
+			const iRangeStartMs = fnToMsFromTdDatetime(aSymbolRangePoints[0]?.t);
+			const iStepMs = Math.max(60 * 1000, fnIntervalToStepMs(oQuery?.interval));
+			const iPurchaseInRangeThresholdMs = Number.isFinite(iRangeStartMs)
+				? (iRangeStartMs - iStepMs)
+				: Number.NaN;
+
+			let nAbsSum = 0;
+			let nBasisSum = 0;
+
+			for (const oPosition of aSymbolPositions) {
+				const aPositionRawPoints = fnBuildSeriesPointsForPositions([oPosition], mSeriesBySymbol, false);
+				const aPositionRangePoints = fnWithFixedDateRange(aPositionRawPoints, oQuery, false, sRange);
+				if (!aPositionRangePoints.length) continue;
+
+				const oFirstPoint = aPositionRangePoints[0];
+				const oLastPoint = aPositionRangePoints[aPositionRangePoints.length - 1];
+				const nFirstPnl = Number(oFirstPoint?.pnl);
+				const nLastPnl = Number(oLastPoint?.pnl);
+				const nFirstTotal = Number(oFirstPoint?.total);
+				const nLastInvested = Number(oLastPoint?.invested);
+				const iPurchaseMs = fnToMsFromTimestamp(oPosition?.created_at);
+				const bPurchasedInRange = Number.isFinite(iPurchaseMs)
+					&& Number.isFinite(iPurchaseInRangeThresholdMs)
+					&& iPurchaseMs >= iPurchaseInRangeThresholdMs;
+
+				if (!Number.isFinite(nLastPnl)) continue;
+
+				if (bPurchasedInRange) {
+					nAbsSum += nLastPnl;
+					if (Number.isFinite(nLastInvested) && nLastInvested > 0) {
+						nBasisSum += nLastInvested;
+					}
+					continue;
+				}
+
+				if (!Number.isFinite(nFirstPnl)) continue;
+				nAbsSum += (nLastPnl - nFirstPnl);
+				if (Number.isFinite(nFirstTotal) && nFirstTotal > 0) {
+					nBasisSum += nFirstTotal;
+				}
+			}
+
+			const nPct = nBasisSum > 0 ? (nAbsSum / nBasisSum) * 100 : Number.NaN;
+			mDevelopmentBySymbol.set(sSymbol, { nAbs: nAbsSum, nPct });
+		}
+		return mDevelopmentBySymbol;
 	}
 
 	/**
@@ -109,10 +188,12 @@
 	async function fnInitDepotView() {
 		const elDepotInfo = document.getElementById("depotInfo");
 		const elHoldingsTbody = document.querySelector("#holdingsTable tbody");
+		const elHoldingsDevelopmentHeader = document.getElementById("holdingsDevelopmentHeader");
 		const elDepotShareAccountSelect = document.getElementById("depotShareAccountSelect");
 
 		const elKTotal = document.getElementById("k_total");
 		const elKTotalLabel = document.getElementById("k_total_label");
+		const elKProfitLossLabel = document.getElementById("k_profit_loss_label");
 		const elKProfitLoss = document.getElementById("k_profit_loss");
 		const elKProfitLossCard = document.getElementById("k_profit_loss_card");
 		const elPnlOnly = document.getElementById("k_pnl_only");
@@ -148,6 +229,7 @@
 		let nProfitLossAbs = Number.NaN;
 		let nProfitLossPct = Number.NaN;
 		let sDevelopmentDisplayMode = "absolute";
+		let mRangeDevelopmentBySymbol = new Map();
 
 		const fnRenderPie = () => {
 			const bShowPie = Boolean(elShowPie.checked);
@@ -238,7 +320,12 @@
 					const sLogoUrl = fnEscapeHtml(fnBuildStockLogoUrl(oRow?.sSymbol, { size: 48 }));
 					const sAmount = fnFmtNumber(Number(oRow?.nTotalAmount), 4);
 					const sBuyDate = Number.isFinite(oRow?.iEarliestBuyMs) ? fnFmtDateFromTimestamp(oRow.iEarliestBuyMs) : "—";
-					const sDevelopment = fnBuildDevelopmentCellHtml(oRow, mCurrentPriceBySymbol, sDevelopmentDisplayMode);
+					const sDevelopment = fnBuildDevelopmentCellHtml(
+						oRow,
+						mCurrentPriceBySymbol,
+						sDevelopmentDisplayMode,
+						mRangeDevelopmentBySymbol
+					);
 
 					return `
           <tr>
@@ -257,6 +344,23 @@
 				.join("");
 		};
 
+		const fnSetRangeLabels = (sRange) => {
+			const oLabels = {
+				"1D": fnT("common.day", "Tag"),
+				"1W": fnT("common.week", "Woche"),
+				"1M": fnT("month", "Monat"),
+				"1Y": fnT("common.year", "Jahr"),
+				"SINCE_BUY": fnT("stocks.since_buy", "Ab Kauf"),
+			};
+			const sRangeLabel = oLabels[sRange] || sRange;
+			if (elHoldingsDevelopmentHeader) {
+				elHoldingsDevelopmentHeader.textContent = fnT("stocks.profit_loss", "Gewinn/Verlust");
+			}
+			if (elKProfitLossLabel) {
+				elKProfitLossLabel.textContent = `${fnT("stocks.profit_loss", "Gewinn/Verlust")} (${sRangeLabel})`;
+			}
+		};
+
 		elKProfitLossCard.addEventListener("click", () => {
 			sProfitLossDisplayMode = sProfitLossDisplayMode === "absolute" ? "percent" : "absolute";
 			fnRenderProfitLoss();
@@ -273,10 +377,12 @@
 
 		const aElRangeButtons = [...document.querySelectorAll(".range-btn")];
 		let sActiveRange = "1D";
+		fnSetRangeLabels(sActiveRange);
 
 			const fnRefreshDepotChart = async () => {
 				await fnBuildDepotChart({
 				aPositions,
+				aDepotRows,
 				sRange: sActiveRange,
 				oCtx,
 				elCanvas,
@@ -302,6 +408,12 @@
 						nProfitLossPct = Number(nPct);
 						fnRenderProfitLoss();
 					},
+					fnOnDevelopmentBySymbolChange: (mNextDevelopmentBySymbol) => {
+						mRangeDevelopmentBySymbol = mNextDevelopmentBySymbol instanceof Map
+							? mNextDevelopmentBySymbol
+							: new Map();
+						fnRenderDepotRows();
+					},
 				});
 			};
 
@@ -310,6 +422,7 @@
 				aElRangeButtons.forEach((elOtherButton) => elOtherButton.classList.remove("active"));
 				elButton.classList.add("active");
 				sActiveRange = elButton.dataset.range;
+				fnSetRangeLabels(sActiveRange);
 				await fnRefreshDepotChart();
 			});
 		});
@@ -351,11 +464,13 @@
 	 */
 	async function fnBuildDepotChart(oArgs) {
 		const aPositions = oArgs.aPositions || [];
+		const aDepotRows = Array.isArray(oArgs.aDepotRows) ? oArgs.aDepotRows : fnAggregateOwnedSymbols(aPositions);
 		if (!aPositions.length) {
 			oArgs.elInfo.textContent = fnT("stocks.no_positions", "Keine Positionen vorhanden.");
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
 			oArgs.fnOnProfitLossChange?.(Number.NaN, Number.NaN);
 			oArgs.fnOnCompositionChange?.([]);
+			oArgs.fnOnDevelopmentBySymbolChange?.(new Map());
 			return;
 		}
 
@@ -370,8 +485,11 @@
 			fnClearCanvas(oArgs.oCtx, oArgs.elCanvas);
 			oArgs.fnOnProfitLossChange?.(Number.NaN, Number.NaN);
 			oArgs.fnOnCompositionChange?.([]);
+			oArgs.fnOnDevelopmentBySymbolChange?.(new Map());
 			return;
 		}
+		const mDevelopmentBySymbol = fnBuildRangeDevelopmentBySymbol(aDepotRows, aPositions, mSeriesBySymbol, oQuery, oArgs.sRange);
+		oArgs.fnOnDevelopmentBySymbolChange?.(mDevelopmentBySymbol);
 
 		const aRawTotalPoints = fnBuildSeriesPointsForPositions(aPositions, mSeriesBySymbol, false);
 		const aTotalPointsWithRange = fnWithFixedDateRange(aRawTotalPoints, oQuery, false, oArgs.sRange);
@@ -408,15 +526,16 @@
 
 		oArgs.elKTotalLabel.textContent = fnT("stocks.depot_value_last_point", "Depotwert (letzter Punkt)");
 		oArgs.elKTotal.textContent = fnFmtMoney(nLastTotal, "USD");
-		const nInvestedTotal = aPositions.reduce((nSum, oPosition) => {
-			const nAmount = Number(oPosition?.amount);
-			const nBuyPrice = Number(oPosition?.worthwhenbought);
-			if (!Number.isFinite(nAmount) || nAmount <= 0) return nSum;
-			if (!Number.isFinite(nBuyPrice) || nBuyPrice < 0) return nSum;
-			return nSum + nAmount * nBuyPrice;
-		}, 0);
-		const nProfitLossAbs = nLastTotal - nInvestedTotal;
-		const nProfitLossPct = nInvestedTotal > 0 ? (nProfitLossAbs / nInvestedTotal) * 100 : Number.NaN;
+		const oFirstDisplayPoint = aDisplayPoints[0];
+		const oLastDisplayPoint = aDisplayPoints[aDisplayPoints.length - 1];
+		const nFirstDisplay = Number(oFirstDisplayPoint?.y);
+		const nLastDisplay = Number(oLastDisplayPoint?.y);
+		const nProfitLossAbs = Number.isFinite(nFirstDisplay) && Number.isFinite(nLastDisplay)
+			? (nLastDisplay - nFirstDisplay)
+			: Number.NaN;
+		const nProfitLossPct = Number.isFinite(nFirstDisplay) && nFirstDisplay > 0
+			? (nProfitLossAbs / nFirstDisplay) * 100
+			: Number.NaN;
 		oArgs.fnOnProfitLossChange?.(nProfitLossAbs, nProfitLossPct);
 
 		fnDrawLineChart(oArgs.oCtx, oArgs.elCanvas, aDisplayPoints, oArgs.bPnlOnly);
@@ -1339,8 +1458,11 @@
 			const dEnd = new Date();
 			const oQuery = {
 				interval: "1day",
-				start_date: fnFmtYmd(dFirstBuy || new Date(dEnd.getTime() - 365 * 24 * 60 * 60 * 1000)),
-				end_date: fnFmtYmd(dEnd),
+				start_date: fnFmtYmdInTimeZone(
+					(dFirstBuy || new Date(dEnd.getTime() - 365 * 24 * 60 * 60 * 1000)).getTime(),
+					"America/New_York"
+				),
+				end_date: fnFmtYmdInTimeZone(dEnd.getTime(), "America/New_York"),
 				outputsize: 5000,
 			};
 

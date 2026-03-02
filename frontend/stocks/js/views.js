@@ -42,7 +42,7 @@
                   <span id="k_total">—</span>
                 </div>
                 <div class="kpi" id="k_profit_loss_card">
-                  <b>${fnT("stocks.profit_loss", "Gewinn/Verlust")}</b>
+                  <b id="k_profit_loss_label">${fnT("stocks.profit_loss", "Gewinn/Verlust")}</b>
                   <span id="k_profit_loss" class="stock-performance stock-performance--neutral is-clickable">—</span>
                 </div>
                 <div class="kpi">
@@ -86,7 +86,7 @@
                     <th>${fnT("symbol", "Symbol")}</th>
                     <th>${fnT("amount", "Menge")}</th>
                     <th>${fnT("stocks.first_buy", "Erster Kauf")}</th>
-                    <th>${fnT("stocks.development_since_buy", "Entwicklung seit Kauf")}</th>
+                    <th id="holdingsDevelopmentHeader">${fnT("stocks.development_since_buy", "Entwicklung seit Kauf")}</th>
                   </tr>
                 </thead>
                 <tbody></tbody>

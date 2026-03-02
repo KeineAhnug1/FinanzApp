@@ -113,6 +113,15 @@ function t(key, fallback = "", params = {}) {
   return String(fallback || key).replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function groupsViewStorageKey(userId) {
   return `${GROUPS_VIEW_STORAGE_PREFIX}.${userId || "anonymous"}`;
 }
@@ -336,10 +345,16 @@ function switchDetailTab(tabName) {
   activeDetailTab = DETAIL_TAB_OPTIONS.has(tabName) ? tabName : "members";
   groupDetailContent.classList.toggle("is-chat-tab-active", activeDetailTab === "chat");
   for (const button of detailTabButtons) {
-    button.classList.toggle("is-active", button.dataset.detailTabTarget === activeDetailTab);
+    const isActive = button.dataset.detailTabTarget === activeDetailTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.setAttribute("role", "tab");
   }
   for (const panel of detailTabPanels) {
-    panel.classList.toggle("is-active", panel.dataset.detailTabContent === activeDetailTab);
+    const isActive = panel.dataset.detailTabContent === activeDetailTab;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+    panel.setAttribute("role", "tabpanel");
   }
   persistGroupsViewState({ activeDetailTab });
 }
@@ -428,13 +443,16 @@ function renderActivities(activities = []) {
   }
 
   for (const activity of activities) {
+    const infoLabel = escapeHtml(activity.info || t("groups.activity_unnamed", "Unbenannte Aktivitaet"));
+    const activityDate = escapeHtml(formatDate(activity.date));
+    const createdAt = escapeHtml(formatDate(activity.created_at));
     const item = document.createElement("li");
     item.className = "member-item";
     item.innerHTML = `
       <div>
-        <p class="member-name">${activity.info || t("groups.activity_unnamed", "Unbenannte Aktivitaet")}</p>
-        <p class="meta">${t("date", "Datum")}: ${formatDate(activity.date)}</p>
-        <p class="meta">${t("groups.created", "Erstellt: {value}", { value: formatDate(activity.created_at) })}</p>
+        <p class="member-name">${infoLabel}</p>
+        <p class="meta">${escapeHtml(t("date", "Datum"))}: ${activityDate}</p>
+        <p class="meta">${escapeHtml(t("groups.created", "Erstellt: {value}", { value: createdAt }))}</p>
       </div>
     `;
     groupActivitiesList.appendChild(item);
@@ -453,6 +471,11 @@ function renderFundings(fundings = []) {
   }
 
   for (const funding of fundings) {
+    const safeFundingId = escapeHtml(String(funding.funding_id || ""));
+    const infoLabel = escapeHtml(funding.info || t("funding_entry", "Finanzierungseintrag"));
+    const currentAmount = escapeHtml(formatAmount(funding.amount));
+    const donatedAmount = escapeHtml(formatAmount(funding.total_donated));
+    const createdAt = escapeHtml(formatDate(funding.created_at));
     const item = document.createElement("li");
     item.className = "member-item funding-item";
     if (funding.funding_id === selectedFundingId) {
@@ -461,12 +484,12 @@ function renderFundings(fundings = []) {
 
     item.innerHTML = `
       <div>
-        <p class="member-name">${funding.info || t("funding_entry", "Finanzierungseintrag")}</p>
-        <p class="meta">${t("groups.current_balance", "Aktueller Kontostand")}: ${formatAmount(funding.amount)}</p>
-        <p class="meta">${t("groups.total_donated", "Insgesamt gespendet")}: ${formatAmount(funding.total_donated)}</p>
-        <p class="meta">${t("groups.created", "Erstellt: {value}", { value: formatDate(funding.created_at) })}</p>
+        <p class="member-name">${infoLabel}</p>
+        <p class="meta">${escapeHtml(t("groups.current_balance", "Aktueller Kontostand"))}: ${currentAmount}</p>
+        <p class="meta">${escapeHtml(t("groups.total_donated", "Insgesamt gespendet"))}: ${donatedAmount}</p>
+        <p class="meta">${escapeHtml(t("groups.created", "Erstellt: {value}", { value: createdAt }))}</p>
       </div>
-      <button type="button" class="select-funding-button" data-funding-id="${funding.funding_id}">${t("groups.open_details", "Details oeffnen")}</button>
+      <button type="button" class="select-funding-button" data-funding-id="${safeFundingId}">${escapeHtml(t("groups.open_details", "Details oeffnen"))}</button>
     `;
     groupFundingsList.appendChild(item);
   }
@@ -517,16 +540,22 @@ function renderExpenses(expenses = []) {
   }
 
   for (const expense of expenses) {
+    const infoLabel = escapeHtml(expense.info || t("group_expense", "Gruppenausgabe"));
+    const fundingInfo = escapeHtml(expense.funding_info || t("groups.na", "k. A."));
+    const amount = escapeHtml(formatAmount(expense.amount));
+    const state = escapeHtml(expense.state || t("groups.na", "k. A."));
+    const dueDate = escapeHtml(formatDate(expense.due_date));
+    const createdAt = escapeHtml(formatDate(expense.created_at));
     const item = document.createElement("li");
     item.className = "member-item";
     item.innerHTML = `
       <div>
-        <p class="member-name">${expense.info || t("group_expense", "Gruppenausgabe")}</p>
-        <p class="meta">${t("groups.funding", "Finanzierung")}: ${expense.funding_info || t("groups.na", "k. A.")}</p>
-        <p class="meta">${t("groups.amount", "Betrag")}: ${formatAmount(expense.amount)}</p>
-        <p class="meta">${t("status", "Status")}: ${expense.state || t("groups.na", "k. A.")}</p>
-        <p class="meta">${t("groups.due_on", "Faellig am")}: ${formatDate(expense.due_date)}</p>
-        <p class="meta">${t("groups.created", "Erstellt: {value}", { value: formatDate(expense.created_at) })}</p>
+        <p class="member-name">${infoLabel}</p>
+        <p class="meta">${escapeHtml(t("groups.funding", "Finanzierung"))}: ${fundingInfo}</p>
+        <p class="meta">${escapeHtml(t("groups.amount", "Betrag"))}: ${amount}</p>
+        <p class="meta">${escapeHtml(t("status", "Status"))}: ${state}</p>
+        <p class="meta">${escapeHtml(t("groups.due_on", "Faellig am"))}: ${dueDate}</p>
+        <p class="meta">${escapeHtml(t("groups.created", "Erstellt: {value}", { value: createdAt }))}</p>
       </div>
     `;
     groupExpensesList.appendChild(item);
@@ -545,14 +574,18 @@ function renderFundingTransactions(transactions = []) {
   }
 
   for (const transaction of transactions) {
+    const expenseInfo = escapeHtml(transaction.expense_info || t("funding_payment", "Finanzierungszahlung"));
+    const fundingInfo = escapeHtml(transaction.funding_info || t("groups.na", "k. A."));
+    const amount = escapeHtml(formatAmount(transaction.amount));
+    const createdAt = escapeHtml(formatDate(transaction.created_at));
     const item = document.createElement("li");
     item.className = "member-item";
     item.innerHTML = `
       <div>
-        <p class="member-name">${transaction.expense_info || t("funding_payment", "Finanzierungszahlung")}</p>
-        <p class="meta">${t("groups.funding", "Finanzierung")}: ${transaction.funding_info || t("groups.na", "k. A.")}</p>
-        <p class="meta">${t("groups.paid_amount", "Gezahlter Betrag")}: ${formatAmount(transaction.amount)}</p>
-        <p class="meta">${t("groups.transaction_date", "Transaktionsdatum")}: ${formatDate(transaction.created_at)}</p>
+        <p class="member-name">${expenseInfo}</p>
+        <p class="meta">${escapeHtml(t("groups.funding", "Finanzierung"))}: ${fundingInfo}</p>
+        <p class="meta">${escapeHtml(t("groups.paid_amount", "Gezahlter Betrag"))}: ${amount}</p>
+        <p class="meta">${escapeHtml(t("groups.transaction_date", "Transaktionsdatum"))}: ${createdAt}</p>
       </div>
     `;
     fundingTransactionsList.appendChild(item);
@@ -571,17 +604,22 @@ function renderGroups(groups) {
   }
 
   for (const group of groups) {
+    const safeGroupId = escapeHtml(String(group.group_id || ""));
+    const groupName = escapeHtml(group.name);
+    const role = escapeHtml(group.role);
+    const memberStatus = escapeHtml(formatMemberStatus(group.status));
+    const address = escapeHtml(group.address || t("groups.na", "k. A."));
     const card = document.createElement("article");
     card.className = "group-card";
     if (String(group.group_id) === String(selectedGroupId || "")) {
       card.classList.add("is-active");
     }
     card.innerHTML = `
-      <h3>${group.name}</h3>
-      <p class="meta"><strong>${t("groups.role", "Rolle")}:</strong> ${group.role}</p>
-      <p class="meta"><strong>${t("status", "Status")}:</strong> ${formatMemberStatus(group.status)}</p>
-      <p class="meta"><strong>${t("groups.address_label", "Adresse")}:</strong> ${group.address || t("groups.na", "k. A.")}</p>
-      <button type="button" class="select-group-button" data-group-id="${group.group_id}">${t("groups.open_details", "Details oeffnen")}</button>
+      <h3>${groupName}</h3>
+      <p class="meta"><strong>${escapeHtml(t("groups.role", "Rolle"))}:</strong> ${role}</p>
+      <p class="meta"><strong>${escapeHtml(t("status", "Status"))}:</strong> ${memberStatus}</p>
+      <p class="meta"><strong>${escapeHtml(t("groups.address_label", "Adresse"))}:</strong> ${address}</p>
+      <button type="button" class="select-group-button" data-group-id="${safeGroupId}">${escapeHtml(t("groups.open_details", "Details oeffnen"))}</button>
     `;
     groupsList.appendChild(card);
   }
@@ -599,17 +637,22 @@ function renderInvitations(invitations) {
   }
 
   for (const invitation of invitations) {
+    const safeGroupId = escapeHtml(String(invitation.group_id || ""));
+    const groupName = escapeHtml(invitation.group_name);
+    const status = escapeHtml(formatMemberStatus(invitation.status));
+    const role = escapeHtml(invitation.role);
+    const address = escapeHtml(invitation.group_address || t("groups.na", "k. A."));
     const item = document.createElement("li");
     item.className = "member-item";
     item.innerHTML = `
       <div>
-        <p class="member-name">${invitation.group_name}</p>
-        <p class="meta">${t("status", "Status")}: ${formatMemberStatus(invitation.status)} | ${t("groups.role", "Rolle")}: ${invitation.role}</p>
-        <p class="meta">${t("groups.address_label", "Adresse")}: ${invitation.group_address || t("groups.na", "k. A.")}</p>
+        <p class="member-name">${groupName}</p>
+        <p class="meta">${escapeHtml(t("status", "Status"))}: ${status} | ${escapeHtml(t("groups.role", "Rolle"))}: ${role}</p>
+        <p class="meta">${escapeHtml(t("groups.address_label", "Adresse"))}: ${address}</p>
       </div>
       <div class="inbox-actions">
-        <button type="button" class="accept-invite-button" data-group-id="${invitation.group_id}">${t("groups.accept", "Annehmen")}</button>
-        <button type="button" class="small-danger-button deny-invite-button" data-group-id="${invitation.group_id}">${t("groups.deny", "Ablehnen")}</button>
+        <button type="button" class="accept-invite-button" data-group-id="${safeGroupId}">${escapeHtml(t("groups.accept", "Annehmen"))}</button>
+        <button type="button" class="small-danger-button deny-invite-button" data-group-id="${safeGroupId}">${escapeHtml(t("groups.deny", "Ablehnen"))}</button>
       </div>
     `;
     inboxInvitations.appendChild(item);
@@ -666,11 +709,15 @@ function renderGroupDetail(detail) {
     const isSessionUser = member.user_id === detail.session_user_id;
     const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
     const identity = fullName ? `${member.username} (${fullName})` : member.username;
+    const safeIdentity = escapeHtml(`${identity}${isSessionUser ? ` ${t("groups.you", "(du)")}` : ""}`);
+    const safeRole = escapeHtml(member.role);
+    const safeStatus = escapeHtml(formatMemberStatus(member.status));
+    const userId = String(member.user_id || "");
 
     item.innerHTML = `
       <div>
-        <p class="member-name">${identity}${isSessionUser ? ` ${t("groups.you", "(du)")}` : ""}</p>
-        <p class="meta">${t("groups.role", "Rolle")}: ${member.role} | ${t("status", "Status")}: ${formatMemberStatus(member.status)}</p>
+        <p class="member-name">${safeIdentity}</p>
+        <p class="meta">${escapeHtml(t("groups.role", "Rolle"))}: ${safeRole} | ${escapeHtml(t("status", "Status"))}: ${safeStatus}</p>
       </div>
     `;
 
@@ -679,7 +726,7 @@ function renderGroupDetail(detail) {
         const promoteButton = document.createElement("button");
         promoteButton.type = "button";
         promoteButton.className = "small-secondary-button promote-admin-button";
-        promoteButton.dataset.userId = member.user_id;
+        promoteButton.dataset.userId = userId;
         promoteButton.textContent = t("groups.make_admin", "Zum Admin machen");
         item.appendChild(promoteButton);
       }
@@ -687,7 +734,7 @@ function renderGroupDetail(detail) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "small-danger-button remove-member-button";
-      button.dataset.userId = member.user_id;
+      button.dataset.userId = userId;
       button.textContent = t("groups.remove_member", "Entfernen");
       item.appendChild(button);
     }
@@ -1314,9 +1361,31 @@ async function bootstrap() {
     await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
   }
   await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
+  const canRestoreSelection = Boolean(
+    initialGroupsViewState.selectedGroupId
+      && groupsState.some((group) => String(group.group_id) === String(initialGroupsViewState.selectedGroupId))
+  );
 
-  showMainView();
-  persistGroupsViewState({ selectedGroupId: selectedGroupId ? String(selectedGroupId) : "", isDetailOpen: false, activeDetailTab: "members" });
+  if (canRestoreSelection) {
+    selectedGroupId = String(initialGroupsViewState.selectedGroupId);
+    activeDetailTab = initialGroupsViewState.activeDetailTab || "members";
+
+    if (initialGroupsViewState.isDetailOpen) {
+      await openGroupDetail(selectedGroupId, { resetTab: false });
+    } else {
+      renderGroups(groupsState);
+      switchDetailTab(activeDetailTab);
+      showMainView();
+      persistGroupsViewState({ selectedGroupId, isDetailOpen: false, activeDetailTab });
+    }
+  } else {
+    showMainView();
+    persistGroupsViewState({
+      selectedGroupId: selectedGroupId ? String(selectedGroupId) : "",
+      isDetailOpen: false,
+      activeDetailTab: "members"
+    });
+  }
   document.documentElement.classList.remove("groups-view-preload");
 }
 

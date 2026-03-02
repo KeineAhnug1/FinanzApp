@@ -509,8 +509,11 @@
 				? new URL(sEndpointPath, sBaseUrl)
 				: new URL(sEndpointPath, window.location.origin);
 
-			Object.entries(oParams).forEach(([sKeyParam, xValue]) => {
-				oUrl.searchParams.set(sKeyParam, String(xValue));
+			Object.entries(oParams || {}).forEach(([sKeyParam, xValue]) => {
+				if (xValue == null) return;
+				const sValue = String(xValue).trim();
+				if (!sValue || sValue === "undefined" || sValue === "null") return;
+				oUrl.searchParams.set(sKeyParam, sValue);
 			});
 
 			try {

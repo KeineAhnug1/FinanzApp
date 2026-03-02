@@ -141,8 +141,7 @@ async function requireSessionUser(req, res) {
 }
 
 function getRequestUrl(req) {
-  const host = req.headers.host || "localhost";
-  return new URL(req.url || "/", `http://${host}`);
+  return new URL(req.url || "/", "http://localhost");
 }
 
 function resolveRequestedBankAccountFilter(req, accountIds) {
@@ -3627,11 +3626,19 @@ async function handleStockLogoProxy(req, res, requestUrl, session) {
 }
 
 async function handleStatic(req, res, pathname) {
-  const requestPath = pathname === "/" ? "/" : decodeURIComponent(pathname);
+  let requestPath = "/";
+  try {
+    requestPath = pathname === "/" ? "/" : decodeURIComponent(pathname);
+  } catch {
+    res.statusCode = 400;
+    res.end("Bad request");
+    return;
+  }
   const normalized = path.normalize(requestPath).replace(/^([/\\])+/, "");
   const filePath = resolveStaticPath(PROJECT_ROOT, `/${normalized}`);
+  const relativePath = path.relative(PROJECT_ROOT, filePath);
 
-  if (!filePath.startsWith(PROJECT_ROOT)) {
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
     res.statusCode = 403;
     res.end("Forbidden");
     return;
@@ -3699,8 +3706,7 @@ const server = http.createServer(async (req, res) => {
   try {
     gcSessions();
 
-    const host = req.headers.host || "localhost";
-    const url = new URL(req.url || "/", `http://${host}`);
+    const url = new URL(req.url || "/", "http://localhost");
     const pathname = url.pathname;
 
     if (pathname === "/api/login") return await handleLogin(req, res);

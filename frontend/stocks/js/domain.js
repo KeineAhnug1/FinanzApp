@@ -59,13 +59,38 @@
 
 	function fnFmtYmdInTimeZone(iMs, sTimeZone = "America/New_York") {
 		if (!Number.isFinite(iMs)) return "";
-		const oFormatter = new Intl.DateTimeFormat("en-CA", {
-			timeZone: sTimeZone,
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-		});
-		return oFormatter.format(new Date(iMs));
+		const dDate = new Date(iMs);
+		try {
+			const oFormatter = new Intl.DateTimeFormat("en-US", {
+				timeZone: sTimeZone,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+			});
+			if (typeof oFormatter.formatToParts === "function") {
+				const aParts = oFormatter.formatToParts(dDate);
+				const sYear = aParts.find((oPart) => oPart.type === "year")?.value || "";
+				const sMonth = aParts.find((oPart) => oPart.type === "month")?.value || "";
+				const sDay = aParts.find((oPart) => oPart.type === "day")?.value || "";
+				if (sYear && sMonth && sDay) return `${sYear}-${sMonth}-${sDay}`;
+			}
+		} catch {
+			// Fallback unten.
+		}
+
+		try {
+			const sFormatted = new Intl.DateTimeFormat("sv-SE", {
+				timeZone: sTimeZone,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+			}).format(dDate);
+			if (/^\d{4}-\d{2}-\d{2}$/.test(sFormatted)) return sFormatted;
+		} catch {
+			// Letzter Fallback unten.
+		}
+
+		return fnFmtYmd(dDate);
 	}
 
 	function fnFmtTdDateTimeInTimeZone(iMs, sTimeZone = "America/New_York") {
@@ -81,6 +106,22 @@
 			hour12: false,
 		});
 		return oFormatter.format(new Date(iMs)).replace("T", " ");
+	}
+
+	function fnFmtMarketYmd(dDate) {
+		if (!(dDate instanceof Date) || !Number.isFinite(dDate.getTime())) return "";
+		return fnFmtYmdInTimeZone(dDate.getTime(), "America/New_York");
+	}
+
+	function fnBuildRangeQuery(interval, outputsize, dStartDate, dEndDate) {
+		const oQuery = { interval, outputsize };
+		const sStart = fnFmtMarketYmd(dStartDate);
+		const sEnd = fnFmtMarketYmd(dEndDate);
+		if (sStart && sEnd) {
+			oQuery.start_date = sStart;
+			oQuery.end_date = sEnd;
+		}
+		return oQuery;
 	}
 
 	function fnIsTdPointOnOrAfterPurchase(sTdDatetime, iPurchaseMs) {
@@ -121,44 +162,31 @@
 	 * @returns {{interval: string, outputsize?: number, start_date?: string, end_date?: string}}
 	 */
 	function fnRangeToQuery(sRange, aPositions) {
-		if (sRange === "1D") return { interval: "5min", outputsize: 390 };
+		if (sRange === "1D") {
+			return {
+				interval: "5min",
+				outputsize: 576,
+			};
+		}
 
 		if (sRange === "1W") {
-			const dEndDate = new Date();
-			const dStartDate = new Date(dEndDate);
-			dStartDate.setDate(dStartDate.getDate() - 6);
-
 			return {
 				interval: "15min",
-				start_date: fnFmtYmd(dStartDate),
-				end_date: fnFmtYmd(dEndDate),
-				outputsize: 700,
+				outputsize: 960,
 			};
 		}
 
 		if (sRange === "1M") {
-			const dEndDate = new Date();
-			const dStartDate = new Date(dEndDate);
-			dStartDate.setMonth(dStartDate.getMonth() - 1);
-
 			return {
 				interval: "1h",
-				start_date: fnFmtYmd(dStartDate),
-				end_date: fnFmtYmd(dEndDate),
-				outputsize: 900,
+				outputsize: 1200,
 			};
 		}
 
 		if (sRange === "1Y") {
-			const dEndDate = new Date();
-			const dStartDate = new Date(dEndDate);
-			dStartDate.setFullYear(dStartDate.getFullYear() - 1);
-
 			return {
 				interval: "1day",
-				start_date: fnFmtYmd(dStartDate),
-				end_date: fnFmtYmd(dEndDate),
-				outputsize: 400,
+				outputsize: 420,
 			};
 		}
 
@@ -167,12 +195,7 @@
 			const dFirstBuyDate = fnGetFirstBuyDate(aPositions);
 			const dStartDate = dFirstBuyDate || new Date(dEndDate.getTime() - 365 * 24 * 60 * 60 * 1000);
 
-			return {
-				interval: "1day",
-				start_date: fnFmtYmd(dStartDate),
-				end_date: fnFmtYmd(dEndDate),
-				outputsize: 5000,
-			};
+			return fnBuildRangeQuery("1day", 5000, dStartDate, dEndDate);
 		}
 
 		return { interval: "1day", outputsize: 30 };
@@ -452,7 +475,6 @@
 			if (!sSymbol || !Number.isFinite(nAmount) || nAmount <= 0) continue;
 
 			const iPurchaseMs = fnToMsFromTimestamp(oPosition?.created_at);
-			const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmd(new Date(iPurchaseMs)) : "";
 			const nBuyPrice = Number(oPosition?.worthwhenbought);
 			const aSeriesValues = mSeriesBySymbol.get(sSymbol)?.values || [];
 			const aSeriesPoints = [];
@@ -539,7 +561,7 @@
 				const iPointMs = fnToMsFromTdDatetime(oValue?.datetime);
 				const sDatetime = String(oValue?.datetime || "");
 				const bIsDailyPoint = sDatetime.includes(" ") === false;
-				const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmd(new Date(iPurchaseMs)) : "";
+				const sPurchaseDay = Number.isFinite(iPurchaseMs) ? fnFmtYmdInTimeZone(iPurchaseMs, "America/New_York") : "";
 				const sPointDay = sDatetime.slice(0, 10);
 				if (!Number.isFinite(iPointMs)) return false;
 				if (Number.isFinite(iPurchaseMs)) {
@@ -581,16 +603,52 @@
 	 */
 	function fnWithFixedDateRange(aPoints, oQuery, bPnlOnly, sRange = "") {
 		if (!Array.isArray(aPoints)) return aPoints;
+		const fnPointDayKey = (oPoint) => {
+			const sRaw = String(oPoint?.t || "").trim();
+			if (/^\d{4}-\d{2}-\d{2}/.test(sRaw)) return sRaw.slice(0, 10);
+			const iMs = fnToMsFromTdDatetime(sRaw);
+			if (!Number.isFinite(iMs)) return "";
+			return fnFmtYmdInTimeZone(iMs, "America/New_York");
+		};
+
+		const fnPointMs = (oPoint) => fnToMsFromTdDatetime(String(oPoint?.t || ""));
+		const aValidPoints = aPoints.filter((oPoint) => Number.isFinite(fnPointMs(oPoint)));
+		if (!aValidPoints.length) return aPoints;
+
+		const iLatestMs = Math.max(...aValidPoints.map((oPoint) => fnPointMs(oPoint)));
+		if (!Number.isFinite(iLatestMs)) return aPoints;
+
+		if (sRange === "1D") {
+			const sLatestDay = fnFmtYmdInTimeZone(iLatestMs, "America/New_York");
+			if (!sLatestDay) return aPoints;
+			const aOneDayPoints = aPoints.filter((oPoint) => fnPointDayKey(oPoint) === sLatestDay);
+			return aOneDayPoints.length ? aOneDayPoints : aPoints;
+		}
+
+		const oWindowByRange = {
+			"1W": 7 * 24 * 60 * 60 * 1000,
+			"1M": 31 * 24 * 60 * 60 * 1000,
+			"1Y": 366 * 24 * 60 * 60 * 1000,
+		};
+		const iWindowMs = oWindowByRange[sRange];
+		if (Number.isFinite(iWindowMs) && iWindowMs > 0) {
+			const iCutoffMs = iLatestMs - iWindowMs + 1;
+			const aWindowed = aPoints.filter((oPoint) => {
+				const iMs = fnPointMs(oPoint);
+				return Number.isFinite(iMs) && iMs >= iCutoffMs;
+			});
+			return aWindowed.length ? aWindowed : aPoints;
+		}
+
 		const sStartDay = String(oQuery?.start_date || "").slice(0, 10);
 		const sEndDay = String(oQuery?.end_date || "").slice(0, 10);
 		if (!sStartDay || !sEndDay || sStartDay > sEndDay) return aPoints;
-
-		const aFiltered = aPoints.filter((oPoint) => {
-			const sPointDay = String(oPoint?.t || "").slice(0, 10);
+		const aDayBounded = aPoints.filter((oPoint) => {
+			const sPointDay = fnPointDayKey(oPoint);
 			if (!/^\d{4}-\d{2}-\d{2}$/.test(sPointDay)) return false;
 			return sPointDay >= sStartDay && sPointDay <= sEndDay;
 		});
-		return aFiltered.length ? aFiltered : aPoints;
+		return aDayBounded.length ? aDayBounded : aPoints;
 	}
 
 	/**
@@ -698,6 +756,10 @@
 		let iPointCount = iDefaultPointCount;
 		const dStart = oQuery?.start_date ? new Date(`${oQuery.start_date}T00:00:00`) : null;
 		const dEnd = oQuery?.end_date ? new Date(`${oQuery.end_date}T00:00:00`) : null;
+		const bSameDayRange = Boolean(
+			String(oQuery?.start_date || "")
+			&& String(oQuery?.start_date || "") === String(oQuery?.end_date || "")
+		);
 		if (dStart instanceof Date && dEnd instanceof Date && Number.isFinite(dStart.getTime()) && Number.isFinite(dEnd.getTime()) && dEnd >= dStart) {
 			const nRangeDays = Math.floor((dEnd.getTime() - dStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
 			if (Number.isFinite(nRangeDays) && nRangeDays > 1) {
@@ -705,8 +767,16 @@
 			}
 		}
 
-		const iEndMs = Number.isFinite(dEnd?.getTime()) ? dEnd.getTime() : nNowMs;
-		const iStartMs = iEndMs - (iPointCount - 1) * nStepMs;
+		let iEndMs = Number.isFinite(dEnd?.getTime()) ? dEnd.getTime() : nNowMs;
+		let iStartMs = iEndMs - (iPointCount - 1) * nStepMs;
+		if (bIntradayFallback && bSameDayRange) {
+			const iDayStartMs = dStart.getTime();
+			const iDayEndMs = iDayStartMs + (24 * 60 * 60 * 1000) - nStepMs;
+			iEndMs = Math.min(nNowMs, iDayEndMs);
+			iStartMs = iDayStartMs;
+			iPointCount = Math.max(2, Math.floor((iEndMs - iStartMs) / Math.max(1, nStepMs)) + 1);
+		}
+
 		const aSeries = [];
 		for (let iIndex = 0; iIndex < iPointCount; iIndex += 1) {
 			const iCurrentMs = iStartMs + iIndex * nStepMs;

@@ -18,7 +18,7 @@ export const EXCHANGE_RATE_API_KEY = String(
 export const STOCK_SEARCH_BASE_URL = String(
   process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || "http://3.225.21.161"
 ).trim();
-export const STOCK_API_KEY = String(process.env.STOCK_API_KEY || process.env.Hairy_Balls || "Hairy_Balls").trim();
+export const STOCK_API_KEY = String(process.env.STOCK_API_KEY || "").trim();
 export const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ")
   .trim()
   .toUpperCase();
