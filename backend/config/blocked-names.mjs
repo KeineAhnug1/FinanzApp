@@ -65,6 +65,9 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "18",
   "1312",
   "311",
+  "88",
+  "161",
+  "1161",
   "wpww",
 
   // Sonstige bekannte extremistische Personen
@@ -162,7 +165,13 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "tarrant",
   "brenton",
   "mcveigh",
-  "timothymcveigh"
+  "timothymcveigh",
+  "Timgioh",
+  "Sakultendo",
+  "MaxPro",
+  "ReneRedo",
+  "epstein",
+  "kirk"
 ]);
 
 function normalizeNameValue(value) {
