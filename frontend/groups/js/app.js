@@ -98,8 +98,12 @@ let groupChatState = {
   hasOlder: false,
   oldestMessageId: null,
   loadingOlder: false,
-  readyForOlderLoad: false
+  readyForOlderLoad: false,
+  hasLoadedOlderHistory: false,
+  refreshing: false
 };
+const GROUP_CHAT_REFRESH_INTERVAL_MS = 3000;
+let groupChatRefreshTimer = null;
 const DEFAULT_GROUP_LOCALE_SETTINGS = {
   locale: "de-DE",
   currency: "EUR"
@@ -273,8 +277,86 @@ function resetGroupChatState(groupId = "") {
     hasOlder: false,
     oldestMessageId: null,
     loadingOlder: false,
-    readyForOlderLoad: false
+    readyForOlderLoad: false,
+    hasLoadedOlderHistory: false,
+    refreshing: false
   };
+}
+
+function stopGroupChatLiveUpdates() {
+  if (groupChatRefreshTimer) {
+    clearInterval(groupChatRefreshTimer);
+    groupChatRefreshTimer = null;
+  }
+}
+
+function isGroupChatNearBottom() {
+  const threshold = 64;
+  const distanceToBottom = groupChatViewport.scrollHeight - groupChatViewport.scrollTop - groupChatViewport.clientHeight;
+  return distanceToBottom <= threshold;
+}
+
+function mergeChatMessages(existing = [], incoming = []) {
+  const mergedById = new Map();
+  for (const entry of existing) {
+    mergedById.set(String(entry.message_id), entry);
+  }
+  for (const entry of incoming) {
+    mergedById.set(String(entry.message_id), entry);
+  }
+
+  return [...mergedById.values()].sort((left, right) => {
+    const leftTime = new Date(left.created_at || 0).getTime();
+    const rightTime = new Date(right.created_at || 0).getTime();
+    if (leftTime !== rightTime) return leftTime - rightTime;
+    return String(left.message_id || "").localeCompare(String(right.message_id || ""));
+  });
+}
+
+async function refreshGroupChatLiveMessages(options = {}) {
+  const { silent = true } = options;
+  if (!selectedGroupId || !groupChatState.groupId) return;
+  if (String(selectedGroupId) !== groupChatState.groupId) return;
+  if (groupChatState.loadingOlder || groupChatState.refreshing) return;
+
+  groupChatState.refreshing = true;
+  try {
+    const payload = await fetchGroupMessages(selectedGroupId, { limit: 40 });
+    if (String(selectedGroupId || "") !== groupChatState.groupId) return;
+
+    const latestMessages = Array.isArray(payload.messages) ? payload.messages : [];
+    const nextMessages = mergeChatMessages(groupChatState.messages, latestMessages);
+    const hadMessagesBefore = groupChatState.messages.length > 0;
+    const wasNearBottom = isGroupChatNearBottom();
+    groupChatState.messages = nextMessages;
+
+    if (!groupChatState.hasLoadedOlderHistory) {
+      groupChatState.hasOlder = Boolean(payload.has_older);
+      groupChatState.oldestMessageId = groupChatState.messages.length ? String(groupChatState.messages[0].message_id || "") : null;
+    }
+
+    renderGroupChatMessages();
+    if (!hadMessagesBefore || wasNearBottom) {
+      requestAnimationFrame(() => {
+        groupChatViewport.scrollTop = groupChatViewport.scrollHeight;
+      });
+    }
+  } catch (error) {
+    if (!silent) {
+      setGroupChatStatus(error.message, "error");
+    }
+  } finally {
+    groupChatState.refreshing = false;
+  }
+}
+
+function startGroupChatLiveUpdates() {
+  stopGroupChatLiveUpdates();
+  if (!selectedGroupId || !groupChatState.groupId) return;
+  if (String(selectedGroupId || "") !== groupChatState.groupId) return;
+  groupChatRefreshTimer = setInterval(() => {
+    refreshGroupChatLiveMessages({ silent: true });
+  }, GROUP_CHAT_REFRESH_INTERVAL_MS);
 }
 
 function renderGroupChatMessages() {
@@ -362,6 +444,7 @@ function switchDetailTab(tabName) {
 function showMainView() {
   mainView.hidden = false;
   detailView.hidden = true;
+  stopGroupChatLiveUpdates();
   persistGroupsViewState({ isDetailOpen: false });
 }
 
@@ -663,6 +746,7 @@ function renderGroupDetail(detail) {
   selectedGroupDetail = detail;
 
   if (!detail) {
+    stopGroupChatLiveUpdates();
     groupDetailEmpty.hidden = false;
     groupDetailContent.hidden = true;
     openInviteWindowButton.hidden = true;
@@ -835,12 +919,14 @@ async function loadInitialGroupMessages(groupId) {
   groupChatState.messages = messages;
   groupChatState.hasOlder = Boolean(payload.has_older);
   groupChatState.oldestMessageId = messages.length ? String(messages[0].message_id || "") : null;
+  groupChatState.hasLoadedOlderHistory = false;
   renderGroupChatMessages();
   requestAnimationFrame(() => {
     groupChatViewport.scrollTop = groupChatViewport.scrollHeight;
     requestAnimationFrame(() => {
       groupChatViewport.scrollTop = groupChatViewport.scrollHeight;
       groupChatState.readyForOlderLoad = true;
+      startGroupChatLiveUpdates();
     });
   });
 }
@@ -868,6 +954,9 @@ async function loadOlderGroupMessages() {
       const existingIds = new Set(groupChatState.messages.map((entry) => String(entry.message_id)));
       const dedupedOlder = olderMessages.filter((entry) => !existingIds.has(String(entry.message_id)));
       groupChatState.messages = [...dedupedOlder, ...groupChatState.messages];
+      if (dedupedOlder.length) {
+        groupChatState.hasLoadedOlderHistory = true;
+      }
     }
 
     groupChatState.hasOlder = Boolean(payload.has_older);
@@ -1019,6 +1108,7 @@ async function leaveGroup(groupId) {
 
 async function openGroupDetail(groupId, options = {}) {
   const { resetTab = true } = options;
+  stopGroupChatLiveUpdates();
   selectedGroupId = String(groupId || "");
   if (!selectedGroupId) return;
   selectedFundingId = null;

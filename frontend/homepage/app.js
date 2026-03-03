@@ -1,5 +1,6 @@
 (function initHomepage() {
   const authButton = document.getElementById("top-auth-btn");
+  let syncDesignCarouselLabels = () => {};
   const t = (key, fallback) => {
     const translated = window.FinanzAppLanguage?.t?.(key);
     return translated && translated !== key ? translated : fallback;
@@ -49,6 +50,33 @@
     setAttr("homepage-income-expenses-video", "aria-label", "homepage.income_expenses.aria", "Demo zum Erfassen von Einnahmen und Ausgaben in der FinanzApp");
     setText("homepage-income-expenses-fallback", "homepage.income_expenses.unsupported", "Dein Browser unterstützt dieses Videoformat nicht.");
 
+    setText("homepage-design-tag", "homepage.design.tag", "Minimalist Design");
+    setText("homepage-design-title", "homepage.design.title", "Warum das minimalistische Design so gut funktioniert");
+    setText("homepage-design-body", "homepage.design.body", "Diese Unterpunkte zeigen, wie reduzierte Oberflächen den Fokus auf Entscheidungen legen statt auf visuelle Ablenkung.");
+    setAttr("homepage-design-prev", "aria-label", "homepage.design.prev_aria", "Vorheriges Bild anzeigen");
+    setAttr("homepage-design-next", "aria-label", "homepage.design.next_aria", "Nächstes Bild anzeigen");
+    setAttr("homepage-design-dots", "aria-label", "homepage.design.dots_aria", "Auswahl der Design-Bilder");
+
+    setText("homepage-design-income-title", "homepage.design.income.title", "Klare Einnahmenflächen");
+    setText("homepage-design-income-body", "homepage.design.income.body", "Wichtige Kennzahlen sind sofort lesbar, weil nur die Informationen im Vordergrund stehen, die im Moment relevant sind.");
+    setAttr("homepage-design-income-image", "alt", "homepage.design.income.alt", "Minimalistische Übersicht der Einnahmen im Dashboard");
+
+    setText("homepage-design-expenses-title", "homepage.design.expenses.title", "Ruhige Ausgabenstruktur");
+    setText("homepage-design-expenses-body", "homepage.design.expenses.body", "Die Ausgabenansicht bleibt aufgeräumt und leitet den Blick mit klarer Hierarchie durch Kategorien und Summen.");
+    setAttr("homepage-design-expenses-image", "alt", "homepage.design.expenses.alt", "Reduzierte Ausgabenansicht mit klarem Fokus auf Struktur");
+
+    setText("homepage-design-groupchat-title", "homepage.design.groupchat.title", "Kommunikation ohne Ballast");
+    setText("homepage-design-groupchat-body", "homepage.design.groupchat.body", "Der Gruppenchat wirkt bewusst schlicht, damit Absprachen schnell erfassbar bleiben und nicht im UI untergehen.");
+    setAttr("homepage-design-groupchat-image", "alt", "homepage.design.groupchat.alt", "Schlanker Gruppenchat mit reduziertem Interface");
+
+    setText("homepage-design-stock1-title", "homepage.design.stock1.title", "Fokus im Aktienbereich");
+    setText("homepage-design-stock1-body", "homepage.design.stock1.body", "Charts und Werte sind so angeordnet, dass Trends direkt erfassbar sind und die Orientierung auch bei schnellen Checks bleibt.");
+    setAttr("homepage-design-stock1-image", "alt", "homepage.design.stock1.alt", "Minimalistisches Aktien-Panel mit Fokus auf Kernwerten");
+
+    setText("homepage-design-stock2-title", "homepage.design.stock2.title", "Weniger Reibung, mehr Tempo");
+    setText("homepage-design-stock2-body", "homepage.design.stock2.body", "Kontraste, Abstände und Typografie unterstützen schnelle Entscheidungen und halten den gesamten Flow konsistent.");
+    setAttr("homepage-design-stock2-image", "alt", "homepage.design.stock2.alt", "Reduzierte Marktansicht mit klaren Kontrasten und Datenpunkten");
+
     setText("homepage-serverless-tag", "homepage.serverless.tag", "Serverless Computing");
     setText("homepage-serverless-title", "homepage.serverless.title", "Instant Elastic Runtime");
     setText("homepage-serverless-body", "homepage.serverless.body", "Event-basierte Dienste reagieren in Echtzeit auf Lastspitzen und entkoppeln Nutzung von statischer Infrastruktur. Die Plattform bleibt performant, auch wenn die Nutzerzahlen explodieren.");
@@ -83,6 +111,8 @@
     setText("homepage-aws-title", "homepage.aws.title", "Cloud Operations with Production Discipline");
     setText("homepage-aws-body", "homepage.aws.body", "Der Backend-Stack ist cloud-fokussiert aufgebaut: reproduzierbare Deployments, stabile Betriebsprozesse und eine Infrastruktur, die auf Verfügbarkeit ausgelegt ist.");
     setAttr("homepage-aws-image", "alt", "homepage.aws.alt", "Cloud-Infrastruktur auf AWS mit Services, Datenebene und Monitoring");
+
+    syncDesignCarouselLabels();
   }
 
   async function updateAuthButtonVisibility() {
@@ -162,7 +192,133 @@
     for (const video of videos) observer.observe(video);
   }
 
+  function initDesignCarousel() {
+    const carousel = document.getElementById("homepage-design-carousel");
+    const dotsHost = document.getElementById("homepage-design-dots");
+    const prevButton = document.getElementById("homepage-design-prev");
+    const nextButton = document.getElementById("homepage-design-next");
+    if (!carousel || !dotsHost || !prevButton || !nextButton) return () => {};
+
+    const slides = Array.from(carousel.querySelectorAll(".design-card"));
+    if (!slides.length) return () => {};
+    const animationMs = 320;
+
+    let activeIndex = slides.findIndex((slide) => slide.classList.contains("is-active"));
+    if (activeIndex < 0) activeIndex = 0;
+    let isAnimating = false;
+
+    const dotButtons = slides.map((_, index) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "design-dot";
+      dot.dataset.index = String(index);
+      dot.addEventListener("click", () => {
+        if (index === activeIndex) return;
+        const direction = index > activeIndex ? "right" : "left";
+        animateTo(index, direction);
+      });
+      dotsHost.append(dot);
+      return dot;
+    });
+
+    function clearMotionClasses(slide) {
+      slide.classList.remove("is-enter-from-right", "is-enter-from-left", "is-leave-to-left", "is-leave-to-right");
+    }
+
+    function renderSlides() {
+      slides.forEach((slide, index) => {
+        const isActive = index === activeIndex;
+        clearMotionClasses(slide);
+        slide.classList.toggle("is-active", isActive);
+        slide.setAttribute("aria-hidden", String(!isActive));
+      });
+
+      dotButtons.forEach((dot, index) => {
+        const isActive = index === activeIndex;
+        dot.classList.toggle("is-active", isActive);
+        dot.setAttribute("aria-current", isActive ? "true" : "false");
+      });
+    }
+
+    function renderDots() {
+      dotButtons.forEach((dot, index) => {
+        const isActive = index === activeIndex;
+        dot.classList.toggle("is-active", isActive);
+        dot.setAttribute("aria-current", isActive ? "true" : "false");
+      });
+    }
+
+    function animateTo(nextIndex, direction) {
+      if (isAnimating || nextIndex === activeIndex) return;
+      const currentSlide = slides[activeIndex];
+      const nextSlide = slides[nextIndex];
+      if (!currentSlide || !nextSlide) return;
+
+      isAnimating = true;
+      const leaveClass = direction === "right" ? "is-leave-to-left" : "is-leave-to-right";
+      const enterClass = direction === "right" ? "is-enter-from-right" : "is-enter-from-left";
+
+      clearMotionClasses(currentSlide);
+      clearMotionClasses(nextSlide);
+      nextSlide.classList.remove("is-active");
+      nextSlide.classList.add(enterClass);
+      nextSlide.setAttribute("aria-hidden", "false");
+
+      requestAnimationFrame(() => {
+        currentSlide.classList.remove("is-active");
+        currentSlide.classList.add(leaveClass);
+        nextSlide.classList.remove(enterClass);
+        nextSlide.classList.add("is-active");
+      });
+
+      const previousIndex = activeIndex;
+      activeIndex = nextIndex;
+      renderDots();
+
+      window.setTimeout(() => {
+        clearMotionClasses(slides[previousIndex]);
+        slides[previousIndex].classList.remove("is-active");
+        slides[previousIndex].setAttribute("aria-hidden", "true");
+        clearMotionClasses(nextSlide);
+        nextSlide.classList.add("is-active");
+        nextSlide.setAttribute("aria-hidden", "false");
+        isAnimating = false;
+      }, animationMs + 30);
+    }
+
+    function syncLabels() {
+      dotButtons.forEach((dot, index) => {
+        dot.setAttribute("aria-label", `${t("homepage.design.dot_aria", "Zu Bild wechseln")} ${index + 1}`);
+      });
+    }
+
+    prevButton.addEventListener("click", () => {
+      const nextIndex = (activeIndex - 1 + slides.length) % slides.length;
+      animateTo(nextIndex, "left");
+    });
+
+    nextButton.addEventListener("click", () => {
+      const nextIndex = (activeIndex + 1) % slides.length;
+      animateTo(nextIndex, "right");
+    });
+
+    carousel.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        prevButton.click();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        nextButton.click();
+      }
+    });
+
+    syncLabels();
+    renderSlides();
+    return syncLabels;
+  }
+
   renderHomepageCopy();
+  syncDesignCarouselLabels = initDesignCarousel();
   window.addEventListener("finanzapp:locale-changed", () => {
     renderHomepageCopy();
     updateAuthButtonVisibility();

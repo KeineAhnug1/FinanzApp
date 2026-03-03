@@ -171,6 +171,161 @@ body {
   object-fit: contain;
 }
 
+.design-highlights {
+  border: 1px solid var(--ui-border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--ui-surface) 90%, var(--ui-surface-soft) 10%);
+  box-shadow: var(--ui-shadow-soft);
+  padding: clamp(20px, 3vw, 34px);
+  display: grid;
+  gap: 20px;
+}
+
+.design-highlights-head {
+  display: grid;
+  gap: 8px;
+  max-width: 76ch;
+}
+
+.design-highlights-head h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.2vw, 2rem);
+  line-height: 1.2;
+}
+
+.design-highlights-head p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  line-height: 1.58;
+}
+
+.design-carousel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.design-viewport {
+  display: grid;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.design-card {
+  grid-area: 1 / 1;
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--ui-surface) 92%, var(--ui-surface-soft) 8%);
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  transform: translateX(18%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 320ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1), visibility 320ms ease;
+}
+
+.design-card.is-active {
+  opacity: 1;
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.design-card.is-enter-from-right {
+  opacity: 0;
+  transform: translateX(18%);
+  visibility: visible;
+}
+
+.design-card.is-enter-from-left {
+  opacity: 0;
+  transform: translateX(-18%);
+  visibility: visible;
+}
+
+.design-card.is-leave-to-left {
+  opacity: 0;
+  transform: translateX(-18%);
+  visibility: visible;
+}
+
+.design-card.is-leave-to-right {
+  opacity: 0;
+  transform: translateX(18%);
+  visibility: visible;
+}
+
+.design-card img {
+  width: 100%;
+  height: min(52vw, 360px);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-strong) 65%, transparent);
+  object-fit: cover;
+  background: color-mix(in srgb, var(--ui-surface-soft) 85%, var(--ui-surface) 15%);
+}
+
+.design-card h3 {
+  margin: 0;
+  font-size: 1.06rem;
+  line-height: 1.25;
+}
+
+.design-card p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  line-height: 1.55;
+}
+
+.design-nav {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-strong);
+  background: color-mix(in srgb, var(--ui-surface) 88%, var(--ui-surface-soft) 12%);
+  color: var(--ui-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: var(--ui-shadow-soft);
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.design-nav:hover,
+.design-nav:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--ui-shadow-strong);
+  background: color-mix(in srgb, var(--ui-surface) 72%, var(--ui-surface-soft) 28%);
+}
+
+.design-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.design-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--ui-surface-soft) 72%, transparent);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.design-dot.is-active {
+  transform: scale(1.15);
+  background: var(--ui-primary);
+  border-color: color-mix(in srgb, var(--ui-primary) 70%, var(--ui-border-strong) 30%);
+}
+
 .video-story {
   position: relative;
   height: 220vh;
@@ -288,6 +443,27 @@ body {
     border-left: none;
     border-right: none;
     border-top: 1px solid var(--ui-border);
+  }
+
+  .design-carousel {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .design-nav {
+    justify-self: center;
+  }
+
+  .design-nav-prev {
+    order: 1;
+  }
+
+  .design-viewport {
+    order: 2;
+  }
+
+  .design-nav-next {
+    order: 3;
   }
 
   .video-story {
