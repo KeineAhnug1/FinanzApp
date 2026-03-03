@@ -23,139 +23,159 @@
 </head>
 <body>
   <header class="homepage-topbar">
-    <a class="brand-link" href="/homepage/" aria-label="Zur FinanzApp Homepage">
+    <a id="homepage-brand-link" class="brand-link" href="/homepage/" aria-label="">
       <span class="brand-mark">FinanzApp</span>
-      <span class="brand-sub">Homepage</span>
+      <span id="homepage-brand-sub" class="brand-sub"></span>
     </a>
+    <div class="topbar-actions header-controls">
+      <a id="top-auth-btn" class="top-auth-btn" href="/"></a>
+    </div>
   </header>
-
-  <a id="top-auth-btn" class="floating-auth-btn" href="/" hidden>Anmelden / Registrieren</a>
 
   <main class="homepage-main">
     <section class="hero reveal-from-bottom is-visible">
-      <p class="hero-kicker">The Next Generation Finance Platform</p>
-      <h1>Wenn Finanzmanagement wie ein Enterprise-System denkt, aber schnell wie ein Startup liefert.</h1>
-      <p>
-        FinanzApp verbindet AI Assist, Cloud-Native Skalierung und belastbare Security zu einer Plattform,
-        die fuer persoenliche und kollaborative Finanzen gleichermassen gebaut ist.
-      </p>
-      <a class="hero-cta" href="#ai-enhancement">Zur Capability Tour</a>
+      <p id="homepage-hero-kicker" class="hero-kicker"></p>
+      <h1 id="homepage-hero-title"></h1>
+      <p id="homepage-hero-body"></p>
+      <a id="homepage-hero-cta" class="hero-cta" href="#ai-enhancement"></a>
     </section>
 
     <section id="ai-enhancement" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">AI Enhancement</p>
-        <h2>Adaptive Finance Intelligence</h2>
-        <p>
-          Unsere AI-Layer priorisieren relevante Ausgabenmuster, kategorisieren dynamisch und
-          liefern Kontext, bevor man aktiv suchen muss. Ergebnis: weniger Rauschen, mehr Entscheidungen.
-        </p>
+        <p id="homepage-ai-tag" class="showcase-tag"></p>
+        <h2 id="homepage-ai-title"></h2>
+        <p id="homepage-ai-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/ai-enhancement.svg" alt="Abstrakte KI-Analyse mit Score-Linien und Vorhersagefenstern" loading="lazy" />
+        <img id="homepage-ai-image" src="./images/ai-enhancement.svg" alt="" loading="lazy" />
+      </figure>
+    </section>
+
+    <section id="quick-register" class="video-story">
+      <div class="video-story-sticky">
+        <video
+          class="video-story-media js-autoplay-on-visible"
+          muted
+          playsinline
+          loop
+          preload="metadata"
+          id="homepage-register-video"
+          aria-label=""
+        >
+          <source src="./videos/register.mp4" type="video/mp4" />
+          <span id="homepage-video-fallback"></span>
+        </video>
+        <div class="video-story-overlay">
+          <p id="homepage-video-tag" class="video-story-tag"></p>
+          <h2 id="homepage-video-title"></h2>
+          <p id="homepage-video-body"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="income-expenses-video" class="showcase reveal-from-bottom">
+      <div class="showcase-content">
+        <p id="homepage-income-expenses-tag" class="showcase-tag"></p>
+        <h2 id="homepage-income-expenses-title"></h2>
+        <p id="homepage-income-expenses-body"></p>
+      </div>
+      <figure class="showcase-media">
+        <video
+          id="homepage-income-expenses-video"
+          class="showcase-video js-autoplay-on-visible"
+          muted
+          playsinline
+          loop
+          preload="metadata"
+          aria-label=""
+        >
+          <source src="./videos/IncomeAndExpenses.mp4" type="video/mp4" />
+          <span id="homepage-income-expenses-fallback"></span>
+        </video>
       </figure>
     </section>
 
     <section id="serverless" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">Serverless Computing</p>
-        <h2>Instant Elastic Runtime</h2>
-        <p>
-          Event-basierte Dienste reagieren in Echtzeit auf Lastspitzen und entkoppeln Nutzung von
-          statischer Infrastruktur. Die Plattform bleibt performant, auch wenn die Nutzerzahlen explodieren.
-        </p>
+        <p id="homepage-serverless-tag" class="showcase-tag"></p>
+        <h2 id="homepage-serverless-title"></h2>
+        <p id="homepage-serverless-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/serverless.svg" alt="Serverlose Infrastruktur mit Event-Flows und verteilten Funktionen" loading="lazy" />
+        <img id="homepage-serverless-image" src="./images/serverless.svg" alt="" loading="lazy" />
       </figure>
     </section>
 
     <section id="quantum" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">Quantum Computing (Roadmap)</p>
-        <h2>Quantum-Ready Core Design</h2>
-        <p>
-          Die Architektur ist modular vorbereitet, um kuenftige Quantum-Optimierung in Analytik und
-          Prognosepfade einzubinden, ohne bestehende Kernprozesse neu aufbauen zu muessen.
-        </p>
+        <p id="homepage-quantum-tag" class="showcase-tag"></p>
+        <h2 id="homepage-quantum-title"></h2>
+        <p id="homepage-quantum-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/quantum-ready.svg" alt="Quantum-inspirierte Netzwerkstruktur mit Knoten und Interferenzmustern" loading="lazy" />
+        <img id="homepage-quantum-image" src="./images/quantum-ready.svg" alt="" loading="lazy" />
       </figure>
     </section>
 
     <section id="blockchain" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">Blockchain</p>
-        <h2>Verifiable Financial Ledger Layer</h2>
-        <p>
-          Kritische Finanzereignisse koennen auditierbar protokolliert werden, um Unveraenderbarkeit,
-          Nachvollziehbarkeit und Vertrauen in sensible Workflows systemseitig abzusichern.
-        </p>
+        <p id="homepage-blockchain-tag" class="showcase-tag"></p>
+        <h2 id="homepage-blockchain-title"></h2>
+        <p id="homepage-blockchain-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/blockchain.svg" alt="Kettenstruktur mit verifizierten Finanzbloecken und Signaturpunkten" loading="lazy" />
+        <img id="homepage-blockchain-image" src="./images/blockchain.svg" alt="" loading="lazy" />
       </figure>
     </section>
 
     <section id="saas" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">SaaS</p>
-        <h2>Continuous Value Delivery</h2>
-        <p>
-          Release-Zyklen, Sicherheitsupdates und Produktverbesserungen laufen kontinuierlich,
-          damit die Plattform ohne Downtime mit den Anforderungen des Markts mitwachsen kann.
-        </p>
+        <p id="homepage-saas-tag" class="showcase-tag"></p>
+        <h2 id="homepage-saas-title"></h2>
+        <p id="homepage-saas-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/saas.svg" alt="SaaS-Bereitstellung mit mehreren Releases, Pipelines und Nutzergruppen" loading="lazy" />
+        <img id="homepage-saas-image" src="./images/saas.svg" alt="" loading="lazy" />
       </figure>
     </section>
 
     <section id="loadbalanced" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">Load Balanced (Roadmap)</p>
-        <h2>Traffic-Aware Service Orchestration</h2>
-        <p>
-          Eingehender Traffic wird intelligent verteilt, um Antwortzeiten stabil zu halten und
-          kritische Service-Komponenten auch unter Peak-Bedingungen robust betreiben zu koennen.
-        </p>
+        <p id="homepage-loadbalanced-tag" class="showcase-tag"></p>
+        <h2 id="homepage-loadbalanced-title"></h2>
+        <p id="homepage-loadbalanced-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/load-balanced.svg" alt="Load-Balancer mit verteilten Datenstroemen auf mehrere Service-Knoten" loading="lazy" />
+        <img id="homepage-loadbalanced-image" src="./images/load-balanced.svg" alt="" loading="lazy" />
       </figure>
     </section>
 
     <section id="scalable" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">Scalable Architecture</p>
-        <h2>Horizontal Growth Without Friction</h2>
-        <p>
-          Services werden horizontal skaliert und klar getrennt deployt. So bleibt die Plattform
-          unter Last erweiterbar, wartbar und fuer neue Module offen.
-        </p>
+        <p id="homepage-scalable-tag" class="showcase-tag"></p>
+        <h2 id="homepage-scalable-title"></h2>
+        <p id="homepage-scalable-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/scalable.svg" alt="Skalierende Cluster-Topologie mit wachsendem Service-Gitter" loading="lazy" />
+        <img id="homepage-scalable-image" src="./images/scalable.svg" alt="" loading="lazy" />
       </figure>
     </section>
 
     <section id="aws" class="showcase reveal-from-bottom">
       <div class="showcase-content">
-        <p class="showcase-tag">Backend on AWS</p>
-        <h2>Cloud Operations with Production Discipline</h2>
-        <p>
-          Der Backend-Stack ist cloud-fokussiert aufgebaut: reproduzierbare Deployments,
-          stabile Betriebsprozesse und eine Infrastruktur, die auf Verfuegbarkeit ausgelegt ist.
-        </p>
+        <p id="homepage-aws-tag" class="showcase-tag"></p>
+        <h2 id="homepage-aws-title"></h2>
+        <p id="homepage-aws-body"></p>
       </div>
       <figure class="showcase-media">
-        <img src="./images/aws-backend.svg" alt="Cloud-Infrastruktur auf AWS mit Services, Datenebene und Monitoring" loading="lazy" />
+        <img id="homepage-aws-image" src="./images/aws-backend.svg" alt="" loading="lazy" />
       </figure>
     </section>
   </main>
 
   <script src="/shared/js/theme-utils.js"></script>
+  <script src="/shared/js/language-utils.js"></script>
+  <script src="/shared/js/global-settings.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
