@@ -47,7 +47,15 @@
 		return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
 	});
 	const sAllStocksDataPath = "/global-information/Allstocks.json";
-	const aCommonTradingExchanges = ["NASDAQ", "NYSE", "AMEX", "LSE", "XETR", "TSX", "SIX", "EURONEXT"];
+	const aCommonTradingExchanges = [
+		"XSTU", "XDUS", "MUNICH", "MTA", "FSX", "OTC", "NASDAQ", "LSE", "VSE", "CBOE",
+		"XETR", "XBER", "BSE", "NYSE", "JPX", "KRX", "NEO", "NSE", "SZSE", "HKEX",
+		"SSE", "EURONEXT", "TWSE", "XHAM", "XHAN", "BMV", "SIX", "TSX", "ASX", "CXA",
+		"TSXV", "BOVESPA", "OMX", "TASE", "BVS", "MYX", "IDX", "GPW", "SET", "OSE",
+		"CSE", "SGX", "BIST", "JSE", "BCBA", "TADAWUL", "PSX", "BVCC", "NZX", "OMXC",
+		"EGX", "BME", "PSE", "OMXH", "BVL", "MOEX", "ASE", "XKUW", "BVB", "ADX",
+		"ISE", "QE", "BVC", "XSAP", "DFM", "OMXR", "ICEX", "OMXV", "OMXT",
+	];
 	let sTradingExchange = fnNormalizeTradingExchange(window.SHAREVIEW_DEFAULT_STOCK_EXCHANGE || "NASDAQ");
 	const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 	const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";

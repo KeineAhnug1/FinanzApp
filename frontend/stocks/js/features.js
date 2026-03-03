@@ -666,7 +666,15 @@
 		const fnRenderExchangeOptions = () => {
 			const aExchanges = typeof fnGetCommonTradingExchanges === "function"
 				? fnGetCommonTradingExchanges()
-				: ["NASDAQ", "NYSE", "AMEX", "LSE", "XETR", "TSX", "SIX", "EURONEXT"];
+				: [
+					"XSTU", "XDUS", "MUNICH", "MTA", "FSX", "OTC", "NASDAQ", "LSE", "VSE", "CBOE",
+					"XETR", "XBER", "BSE", "NYSE", "JPX", "KRX", "NEO", "NSE", "SZSE", "HKEX",
+					"SSE", "EURONEXT", "TWSE", "XHAM", "XHAN", "BMV", "SIX", "TSX", "ASX", "CXA",
+					"TSXV", "BOVESPA", "OMX", "TASE", "BVS", "MYX", "IDX", "GPW", "SET", "OSE",
+					"CSE", "SGX", "BIST", "JSE", "BCBA", "TADAWUL", "PSX", "BVCC", "NZX", "OMXC",
+					"EGX", "BME", "PSE", "OMXH", "BVL", "MOEX", "ASE", "XKUW", "BVB", "ADX",
+					"ISE", "QE", "BVC", "XSAP", "DFM", "OMXR", "ICEX", "OMXV", "OMXT",
+				];
 			const sNormalizedSelectedExchange = String(
 				sSelectedExchange === sNoExchangeValue
 					? sNoExchangeValue
