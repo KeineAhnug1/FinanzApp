@@ -60,7 +60,7 @@
 	const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 	const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 	const iCacheTtlMs = 5 * 60 * 1000;
-	let sLocale = window.FinanzAppLanguage?.getLocale?.() || "de-DE";
+	let sLocale = window.FinanzAppLanguage?.getLocale?.(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id) || "de-DE";
 	const oShareViewCacheUtils = window.FinanzAppShareViewCacheUtils || {};
 	const oShareViewAccountUtils = window.FinanzAppShareViewAccountUtils || {};
 	const oShareViewChartUtils = window.FinanzAppShareViewChartUtils || {};
@@ -287,7 +287,7 @@
 	 * @returns {string}
 	 */
 	function fnGetLocale() {
-		return window.FinanzAppLanguage?.getLocale?.() || sLocale || "de-DE";
+		return window.FinanzAppLanguage?.getLocale?.(fnGetCurrentSessionUserId()) || sLocale || "de-DE";
 	}
 
 	function fnNormalizeTradingExchange(sExchangeRaw) {

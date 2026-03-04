@@ -188,6 +188,12 @@ const NORMALIZED_BLOCKED_NAME_TERMS = Object.freeze(
     .filter(Boolean)
 );
 
+const NORMALIZED_BLOCKED_MESSAGE_TERMS = Object.freeze(
+  BLOCKED_NAME_TERMS
+    .map((entry) => normalizeNameValue(entry))
+    .filter((entry) => /[a-z]/.test(entry))
+);
+
 export function detectBlockedRegistrationName({ username, firstName, lastName }) {
   const combinedCandidate = [
     username,
@@ -199,6 +205,19 @@ export function detectBlockedRegistrationName({ username, firstName, lastName })
 
   for (const blockedTerm of NORMALIZED_BLOCKED_NAME_TERMS) {
     if (normalizedCandidate.includes(blockedTerm)) {
+      return blockedTerm;
+    }
+  }
+
+  return null;
+}
+
+export function detectBlockedMessageTerm(message) {
+  const normalizedMessage = normalizeNameValue(message);
+  if (!normalizedMessage) return null;
+
+  for (const blockedTerm of NORMALIZED_BLOCKED_MESSAGE_TERMS) {
+    if (normalizedMessage.includes(blockedTerm)) {
       return blockedTerm;
     }
   }

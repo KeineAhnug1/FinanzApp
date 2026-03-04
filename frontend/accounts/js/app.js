@@ -41,13 +41,16 @@
 
   function fnFormatMoney(nAmount) {
     const amount = Number(nAmount) || 0;
+    const userId = window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id;
+    const locale = window.FinanzAppLanguage?.getLocale?.(userId) || "de-DE";
+    const currency = window.FinanzAppCurrency?.getPreferredCurrency?.(userId) || "EUR";
     try {
       if (window.FinanzAppCurrency?.formatFromEur) {
-        return window.FinanzAppCurrency.formatFromEur(amount, { locale: "de-DE", currency: "EUR" });
+        return window.FinanzAppCurrency.formatFromEur(amount, { locale, currency });
       }
-      return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
+      return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
     } catch {
-      return `${amount.toFixed(2)} EUR`;
+      return `${amount.toFixed(2)} ${currency}`;
     }
   }
 
@@ -221,6 +224,11 @@
       fnRenderList(elShareList, aShareAccounts, t("accounts.share_accounts", "Aktienkonten"));
       fnRenderList(elBankList, aBankAccounts, t("accounts.bank_accounts", "Bankkonten"));
     };
+
+    window.addEventListener("finanzapp:locale-changed", () => {
+      fnRenderList(elShareList, aShareAccounts, t("accounts.share_accounts", "Aktienkonten"));
+      fnRenderList(elBankList, aBankAccounts, t("accounts.bank_accounts", "Bankkonten"));
+    });
 
     elCreateShareBtn.addEventListener("click", async () => {
       const sLabel = String(elShareNameInput.value || "").trim();

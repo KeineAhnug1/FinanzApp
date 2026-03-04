@@ -79,9 +79,10 @@
   }
 
   function getLocale(userId) {
+    const dashboardLocale = readDashboardLocale(userId || getCurrentUserId());
+    if (dashboardLocale && LOCALES.has(dashboardLocale)) return dashboardLocale;
     const stored = String(window.localStorage.getItem(STORAGE_KEY) || "").trim();
     if (stored && LOCALES.has(stored)) return stored;
-    const dashboardLocale = readDashboardLocale(userId || getCurrentUserId());
     return normalizeLocale(dashboardLocale || defaultLocale);
   }
 

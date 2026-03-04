@@ -562,7 +562,14 @@
       const raw = window.localStorage.getItem(settingsStorageKey(userId));
       const parsed = raw ? JSON.parse(raw) : {};
       const currency = CURRENCIES.some((item) => item.value === parsed?.currency) ? parsed.currency : DEFAULT_SETTINGS.currency;
-      const locale = window.FinanzAppLanguage?.LOCALES?.includes(parsed?.locale) ? parsed.locale : (window.FinanzAppLanguage?.getLocale?.(userId) || DEFAULT_SETTINGS.locale);
+      const supportedLocales = window.FinanzAppLanguage?.LOCALES;
+      const isSupportedLocale =
+        supportedLocales instanceof Set
+          ? supportedLocales.has(parsed?.locale)
+          : Array.isArray(supportedLocales)
+            ? supportedLocales.includes(parsed?.locale)
+            : false;
+      const locale = isSupportedLocale ? parsed.locale : (window.FinanzAppLanguage?.getLocale?.(userId) || DEFAULT_SETTINGS.locale);
       const themeMode = window.FinanzAppTheme?.getStoredThemeMode?.() || DEFAULT_SETTINGS.themeMode;
       return { ...parsed, currency, locale, themeMode };
     } catch {

@@ -22,7 +22,7 @@ function escapeHtml(value) {
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  const locale = window.FinanzAppLanguage?.getLocale?.() || "de-DE";
+  const locale = window.FinanzAppLanguage?.getLocale?.(detailState.user?.id) || "de-DE";
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
@@ -254,6 +254,9 @@ async function bootstrap() {
   }
 
   document.addEventListener("click", handleDetailClick);
+  window.addEventListener("finanzapp:locale-changed", async () => {
+    await refreshQuestion();
+  });
   await refreshQuestion();
 }
 

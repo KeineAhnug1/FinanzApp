@@ -27,6 +27,7 @@ export const LOGO_DEV_API_KEY = String(process.env.LOGO_DEV_API_KEY || process.e
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
+export const OPENROUTER_API_KEY_2 = String(process.env.OPENROUTER_API_KEY_2 || "").trim();
 export const OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free";
 export const OPENROUTER_SITE_URL = String(process.env.OPENROUTER_SITE_URL || "http://localhost:3000").trim();
 export const OPENROUTER_APP_NAME = String(process.env.OPENROUTER_APP_NAME || "FinanzApp").trim();

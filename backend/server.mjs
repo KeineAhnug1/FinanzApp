@@ -19,6 +19,7 @@ import {
   MIME_BY_EXT,
   MONGO_URI,
   OPENROUTER_API_KEY,
+  OPENROUTER_API_KEY_2,
   OPENROUTER_APP_NAME,
   OPENROUTER_BASE_URL,
   OPENROUTER_MODEL,
@@ -45,7 +46,7 @@ import {
   TWELVE_DATA_BASE_URL,
   VERIFICATION_TTL_MINUTES
 } from "./config/runtime.mjs";
-import { detectBlockedRegistrationName } from "./config/blocked-names.mjs";
+import { detectBlockedMessageTerm, detectBlockedRegistrationName } from "./config/blocked-names.mjs";
 import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
 import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
 import {
@@ -1788,6 +1789,9 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
 
   const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
   if (!message) return sendJson(res, 400, { ok: false, message: "Message is required and must be short enough" });
+  if (detectBlockedMessageTerm(message)) {
+    return sendJson(res, 400, { ok: false, message: "Die Nachricht enthaelt verbotene Begriffe und kann nicht gesendet werden." });
+  }
 
   const createdAt = new Date();
   const insertResult = await db.collection(COLLECTIONS.groupMessages).insertOne({
@@ -2329,7 +2333,8 @@ async function ensureFinzbroUserId() {
 }
 
 async function generateFinzbroAnswer(thema, message) {
-  if (!OPENROUTER_API_KEY) {
+  const openRouterKeys = [OPENROUTER_API_KEY, OPENROUTER_API_KEY_2].filter(Boolean);
+  if (openRouterKeys.length === 0) {
     return "Es gibt momentan leider Probleme mit dieser AI. Wir werden sie in kürze beheben.";
   }
 
@@ -2347,41 +2352,45 @@ async function generateFinzbroAnswer(thema, message) {
 
   const userPrompt = `Thema: ${String(thema || "").trim()}\nFrage: ${String(message || "").trim()}`;
 
-  try {
-    const upstreamResponse = await fetch(upstreamUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": OPENROUTER_SITE_URL,
-        "X-Title": OPENROUTER_APP_NAME
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        temperature: 0.4,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ]
-      })
-    });
+  for (const [index, apiKey] of openRouterKeys.entries()) {
+    try {
+      const upstreamResponse = await fetch(upstreamUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": OPENROUTER_SITE_URL,
+          "X-Title": OPENROUTER_APP_NAME
+        },
+        body: JSON.stringify({
+          model: OPENROUTER_MODEL,
+          temperature: 0.4,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ]
+        })
+      });
 
-    const payload = await upstreamResponse.json().catch(() => null);
-    if (!upstreamResponse.ok) {
-      const detail = payload?.error?.message || payload?.message || `HTTP ${upstreamResponse.status}`;
-      console.error("Finzbro AI request failed:", detail);
-      return "Ich bin Finzbro und konnte gerade keine KI-Antwort erzeugen. Versuch es bitte gleich nochmal.";
+      const payload = await upstreamResponse.json().catch(() => null);
+      if (!upstreamResponse.ok) {
+        const detail = payload?.error?.message || payload?.message || `HTTP ${upstreamResponse.status}`;
+        console.error(`Finzbro AI request failed with key #${index + 1}:`, detail);
+        continue;
+      }
+
+      const content = String(payload?.choices?.[0]?.message?.content || "").trim();
+      const normalized = parseLongText(content, ANSWER_MESSAGE_MAX_LENGTH);
+      if (normalized) return normalized;
+      if (content) return content.slice(0, ANSWER_MESSAGE_MAX_LENGTH).trim();
+
+      console.warn(`Finzbro AI returned no usable content with key #${index + 1}.`);
+    } catch (error) {
+      console.error(`Finzbro AI request crashed with key #${index + 1}:`, error);
     }
-
-    const content = String(payload?.choices?.[0]?.message?.content || "").trim();
-    const normalized = parseLongText(content, ANSWER_MESSAGE_MAX_LENGTH);
-    if (normalized) return normalized;
-    if (content) return content.slice(0, ANSWER_MESSAGE_MAX_LENGTH).trim();
-    return "Ich bin Finzbro und konnte leider keine verwertbare Antwort erzeugen.";
-  } catch (error) {
-    console.error("Finzbro AI request crashed:", error);
-    return "Ich bin Finzbro und der KI-Dienst ist gerade nicht erreichbar.";
   }
+
+  return "Ich bin Finzbro und konnte gerade keine KI-Antwort erzeugen. Versuch es bitte gleich nochmal.";
 }
 
 async function maybeCreateFinzbroAutoAnswer(questionId, thema, message) {

@@ -25,8 +25,21 @@ function escapeHtml(value) {
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  const locale = window.FinanzAppLanguage?.getLocale?.() || "de-DE";
+  const locale = window.FinanzAppLanguage?.getLocale?.(state.user?.id) || "de-DE";
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function refreshFormLocaleTexts() {
+  const submitBtn = document.getElementById("question-submit-btn");
+  const cancelBtn = document.getElementById("question-cancel-btn");
+  if (submitBtn) {
+    submitBtn.textContent = state.editingQuestionId
+      ? t("questions.submit_save", "Frage speichern")
+      : t("questions.submit_create", "Frage erstellen");
+  }
+  if (cancelBtn) {
+    cancelBtn.hidden = !state.editingQuestionId;
+  }
 }
 
 function setStatus(type, text) {
@@ -241,6 +254,10 @@ async function bootstrap() {
   }
   wireSearchInput();
   if (list) list.addEventListener("click", handleListClick);
+  window.addEventListener("finanzapp:locale-changed", () => {
+    refreshFormLocaleTexts();
+    renderQuestions();
+  });
 
   setCreateMode();
   renderQuestions();
