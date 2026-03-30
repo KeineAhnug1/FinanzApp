@@ -42,6 +42,7 @@
     "data:prepare:v4": "node database/dataset-v4/prepare-data.mjs",
 
     "backend:start": "node backend/server.mjs",
+    "backend:start:dev": "DEV_AUTO_LOGIN=true node backend/server.mjs",
     "web:start": "node backend/server.mjs",
     "groups:start": "node backend/server.mjs",
     "stocks:server": "node backend/server.mjs",

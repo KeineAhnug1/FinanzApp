@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { dbName, withDb } from "./db-client.mjs";
+import { hashPassword } from "../../backend/utils/password.mjs";
 import {
   createAnswerLikeEntity,
   createBankAccountEntity,
@@ -101,7 +102,7 @@ function buildUsers() {
       _id: ids.users.test,
       username: "test",
       email: TEST_EMAIL,
-      password: "test123456",
+      password: hashPassword("test123456"),
       first_name: "Test",
       last_name: "User",
       age: 29,
@@ -112,7 +113,7 @@ function buildUsers() {
       _id: ids.users.lisa,
       username: "lisa.demo",
       email: "lisa.demo@test.test",
-      password: "lisa123456",
+      password: hashPassword("lisa123456"),
       first_name: "Lisa",
       last_name: "Mayer",
       age: 27,
@@ -123,7 +124,7 @@ function buildUsers() {
       _id: ids.users.marco,
       username: "marco.demo",
       email: "marco.demo@test.test",
-      password: "marco123456",
+      password: hashPassword("marco123456"),
       first_name: "Marco",
       last_name: "Schulz",
       age: 31,
@@ -134,7 +135,7 @@ function buildUsers() {
       _id: ids.users.nina,
       username: "nina.demo",
       email: "nina.demo@test.test",
-      password: "nina123456",
+      password: hashPassword("nina123456"),
       first_name: "Nina",
       last_name: "Becker",
       age: 25,
@@ -145,7 +146,7 @@ function buildUsers() {
       _id: ids.users.finzbro,
       username: "finzbro",
       email: "finzbro@finanzapp.local",
-      password: "finzbro123456",
+      password: hashPassword("finzbro123456"),
       first_name: "Finzbro",
       last_name: "Bot",
       age: null,

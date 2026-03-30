@@ -30,6 +30,10 @@ export function verifyPassword(plainPassword, storedPassword) {
 
   if (!stored) return false;
 
+  // Reject attempts to log in using a hash string directly.
+  // A valid plain password must never start with a known hash prefix.
+  if (isScryptPasswordHash(plain) || isSha256PasswordHash(plain)) return false;
+
   if (isScryptPasswordHash(stored)) {
     const parts = stored.split("$");
     if (parts.length !== 3) return false;

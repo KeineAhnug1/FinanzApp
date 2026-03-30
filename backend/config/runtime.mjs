@@ -6,6 +6,8 @@ export const MONGO_URI = process.env.MONGODB_URI;
 
 export const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
 export const DEV_EXPOSE_VERIFICATION_CODE = process.env.DEV_EXPOSE_VERIFICATION_CODE === "true";
+export const DEV_AUTO_LOGIN = process.env.DEV_AUTO_LOGIN === "true";
+export const DEV_AUTO_LOGIN_USER_ID = process.env.DEV_AUTO_LOGIN_USER_ID || "77a100000000000000000001";
 export const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
 export const SESSION_COOKIE_NAME = "finanzapp_session";
 

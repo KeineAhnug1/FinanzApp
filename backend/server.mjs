@@ -10,6 +10,8 @@ import {
   ANSWER_MESSAGE_MAX_LENGTH,
   COLLECTIONS,
   DB_NAME,
+  DEV_AUTO_LOGIN,
+  DEV_AUTO_LOGIN_USER_ID,
   DEV_EXPOSE_VERIFICATION_CODE,
   EXCHANGE_RATE_API_KEY,
   EXCHANGE_RATE_BASE_URL,
@@ -102,6 +104,13 @@ const {
   ttlMinutes: SESSION_TTL_MINUTES
 });
 
+function badRequest(res, message) { return sendJson(res, 400, { ok: false, message }); }
+function unauthorized(res, message) { return sendJson(res, 401, { ok: false, message }); }
+function forbidden(res, message) { return sendJson(res, 403, { ok: false, message }); }
+function notFound(res, message) { return sendJson(res, 404, { ok: false, message }); }
+function conflict(res, message) { return sendJson(res, 409, { ok: false, message }); }
+function unprocessable(res, message) { return sendJson(res, 422, { ok: false, message }); }
+
 async function getSessionUser(req) {
   const cookies = parseCookies(req);
   const token = cookies[SESSION_COOKIE_NAME];
@@ -135,7 +144,7 @@ async function getSessionUser(req) {
 async function requireSessionUser(req, res) {
   const session = await getSessionUser(req);
   if (!session) {
-    sendJson(res, 401, { ok: false, message: "Session abgelaufen oder nicht vorhanden" });
+    unauthorized(res, "Session abgelaufen oder nicht vorhanden");
     return null;
   }
   return session;
@@ -185,16 +194,14 @@ async function deleteBankAccountAssociations(accountId) {
   ]);
 }
 
-function serializeIncomeEntry(entry, userId = null) {
-  const receivedAtDate =
-    entry.received_at instanceof Date
-      ? entry.received_at
-      : entry.pay_date instanceof Date
-        ? entry.pay_date
-        : entry.created_at instanceof Date
-          ? entry.created_at
-          : null;
+function resolveEntryDate(entry, ...dateFields) {
+  for (const field of dateFields) {
+    if (entry[field] instanceof Date) return entry[field];
+  }
+  return null;
+}
 
+function serializeEntryBase(entry, userId) {
   return {
     id: String(entry._id),
     user_id: String(userId || entry.user_id || ""),
@@ -204,39 +211,20 @@ function serializeIncomeEntry(entry, userId = null) {
     amount: toNumber(entry.amount),
     recurrence: entry.recurrence || entry.cycle || "once",
     is_active: typeof entry.is_active === "boolean" ? entry.is_active : entry.state !== "paused",
-    received_at: receivedAtDate ? receivedAtDate.toISOString() : null,
     note: entry.note || entry.info || "",
     created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : null,
     updated_at: entry.updated_at instanceof Date ? entry.updated_at.toISOString() : null
   };
 }
 
-function serializeExpenseEntry(entry, userId = null) {
-  const spentAtDate =
-    entry.spent_at instanceof Date
-      ? entry.spent_at
-      : entry.pay_date instanceof Date
-        ? entry.pay_date
-        : entry.due_date instanceof Date
-          ? entry.due_date
-          : entry.created_at instanceof Date
-            ? entry.created_at
-            : null;
+function serializeIncomeEntry(entry, userId = null) {
+  const date = resolveEntryDate(entry, "received_at", "pay_date", "created_at");
+  return { ...serializeEntryBase(entry, userId), received_at: date ? date.toISOString() : null };
+}
 
-  return {
-    id: String(entry._id),
-    user_id: String(userId || entry.user_id || ""),
-    bank_account_id: entry.bank_account_id ? String(entry.bank_account_id) : null,
-    source: entry.source || entry.info || "",
-    category: entry.category || "other",
-    amount: toNumber(entry.amount),
-    recurrence: entry.recurrence || entry.cycle || "once",
-    is_active: typeof entry.is_active === "boolean" ? entry.is_active : entry.state !== "paused",
-    spent_at: spentAtDate ? spentAtDate.toISOString() : null,
-    note: entry.note || entry.info || "",
-    created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : null,
-    updated_at: entry.updated_at instanceof Date ? entry.updated_at.toISOString() : null
-  };
+function serializeExpenseEntry(entry, userId = null) {
+  const date = resolveEntryDate(entry, "spent_at", "pay_date", "due_date", "created_at");
+  return { ...serializeEntryBase(entry, userId), category: entry.category || "other", spent_at: date ? date.toISOString() : null };
 }
 
 async function listUserBankAccounts(userId) {
@@ -416,14 +404,14 @@ async function handleLogin(req, res) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const email = normalizeEmail(payload.email);
   const password = String(payload.password || "");
 
   if (!email || !password) {
-    return sendJson(res, 400, { ok: false, message: "Email und Passwort sind Pflichtfelder" });
+    return badRequest(res, "Email und Passwort sind Pflichtfelder");
   }
 
   const user = await db.collection(COLLECTIONS.users).findOne(
@@ -432,15 +420,12 @@ async function handleLogin(req, res) {
   );
 
   if (!user) {
-    return sendJson(res, 401, { ok: false, message: "E-Mail oder Passwort falsch" });
+    return unauthorized(res, "E-Mail oder Passwort falsch");
   }
 
-  let isValid = verifyPassword(password, user.password);
-  if (!isValid && typeof user.hashed_passwort === "string" && user.hashed_passwort) {
-    isValid = hashValue(password) === user.hashed_passwort;
-  }
+  const isValid = verifyPassword(password, user.password);
 
-  if (!isValid) return sendJson(res, 401, { ok: false, message: "E-Mail oder Passwort falsch" });
+  if (!isValid) return unauthorized(res, "E-Mail oder Passwort falsch");
 
   // Erfolgreiche Logins migrieren alte Passwortformate sofort auf scrypt.
   if (!isScryptPasswordHash(user.password)) {
@@ -481,7 +466,7 @@ async function handleSession(req, res) {
 
   const session = await getSessionUser(req);
   if (!session) {
-    return sendJson(res, 401, { ok: false, message: "Session abgelaufen oder nicht vorhanden" }, { "Set-Cookie": clearSessionCookie() });
+    return unauthorized(res, "Session abgelaufen oder nicht vorhanden", { "Set-Cookie": clearSessionCookie() });
   }
 
   return sendJson(res, 200, { ok: true, session_user: session.user });
@@ -509,7 +494,7 @@ async function handleRegister(req, res) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const username = String(payload.username || "").trim().toLowerCase();
@@ -520,10 +505,7 @@ async function handleRegister(req, res) {
   const income = parseIncome(payload.income ?? 0);
 
   if (!username || !email || !password || !firstName || !lastName) {
-    return sendJson(res, 400, {
-      ok: false,
-      message: "Username, Vorname, Nachname, E-Mail und Passwort sind Pflichtfelder"
-    });
+    return badRequest(res, "Username, Vorname, Nachname, E-Mail und Passwort sind Pflichtfelder");
   }
   if (detectBlockedRegistrationName({ username, firstName, lastName })) {
     return sendJson(res, 400, {
@@ -533,17 +515,17 @@ async function handleRegister(req, res) {
     });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return sendJson(res, 400, { ok: false, message: "Bitte eine gueltige E-Mail-Adresse angeben" });
+    return badRequest(res, "Bitte eine gueltige E-Mail-Adresse angeben");
   }
   if (password.length < 6) {
-    return sendJson(res, 400, { ok: false, message: "Passwort muss mindestens 6 Zeichen haben" });
+    return badRequest(res, "Passwort muss mindestens 6 Zeichen haben");
   }
   if (income == null) {
-    return sendJson(res, 400, { ok: false, message: "Income muss eine Zahl >= 0 sein" });
+    return badRequest(res, "Income muss eine Zahl >= 0 sein");
   }
 
   const existingUser = await db.collection(COLLECTIONS.users).findOne({ $or: [{ email }, { username }] }, { projection: { _id: 1 } });
-  if (existingUser) return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
+  if (existingUser) return conflict(res, "Username oder E-Mail existiert bereits");
 
   const code = createVerificationCode();
   const now = new Date();
@@ -597,15 +579,15 @@ async function handleRegisterVerify(req, res) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const email = normalizeEmail(payload.email);
   const code = String(payload.code || "").trim();
-  if (!email || !code) return sendJson(res, 400, { ok: false, message: "E-Mail und Code sind Pflichtfelder" });
+  if (!email || !code) return badRequest(res, "E-Mail und Code sind Pflichtfelder");
 
   const verification = await db.collection(COLLECTIONS.emailVerifications).findOne({ email });
-  if (!verification) return sendJson(res, 404, { ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" });
+  if (!verification) return notFound(res, "Keine offene Verifizierung fuer diese E-Mail");
   if (detectBlockedRegistrationName({
     username: verification.username,
     firstName: verification.first_name,
@@ -629,7 +611,7 @@ async function handleRegisterVerify(req, res) {
 
   if (hashValue(code) !== verification.code_hash) {
     await db.collection(COLLECTIONS.emailVerifications).updateOne({ email }, { $inc: { attempts: 1 } });
-    return sendJson(res, 400, { ok: false, message: "Verifizierungscode ist ungueltig" });
+    return badRequest(res, "Verifizierungscode ist ungueltig");
   }
 
   const passwordHash = isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)
@@ -657,14 +639,14 @@ async function handleRegisterVerify(req, res) {
       user: { id: String(insert.insertedId), username: userDoc.username, email: userDoc.email }
     });
   } catch (error) {
-    if (error && error.code === 11000) return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
+    if (error && error.code === 11000) return conflict(res, "Username oder E-Mail existiert bereits");
     throw error;
   }
 }
 
 async function handleCategories(req, res, session) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
   const userAccounts = await listUserBankAccounts(userId);
   const accountIds = userAccounts.map((account) => account._id);
 
@@ -703,24 +685,24 @@ async function handleCategories(req, res, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const kind = String(payload.kind || "").trim().toLowerCase();
   if (kind !== "income" && kind !== "expense") {
-    return sendJson(res, 400, { ok: false, message: "kind muss income oder expense sein" });
+    return badRequest(res, "kind muss income oder expense sein");
   }
 
   const category = normalizeCategoryValue(payload.category);
-  if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
+  if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
 
   const presetSet = kind === "income" ? PRESET_INCOME_CATEGORY_KEYS : PRESET_EXPENSE_CATEGORY_KEYS;
   if (presetSet.has(category.toLowerCase())) {
-    return sendJson(res, 400, { ok: false, message: "Standardkategorien koennen nicht geloescht werden" });
+    return badRequest(res, "Standardkategorien koennen nicht geloescht werden");
   }
 
   const fallbackCategory = normalizeCategoryValue(payload.replace_with || "other");
-  if (!fallbackCategory) return sendJson(res, 400, { ok: false, message: "replace_with ist ungueltig" });
+  if (!fallbackCategory) return badRequest(res, "replace_with ist ungueltig");
 
   const collectionName = kind === "income" ? COLLECTIONS.incomeEntries : COLLECTIONS.expenseEntries;
   const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
@@ -746,7 +728,7 @@ async function handleCategories(req, res, session) {
 
 async function handleIncomeEntries(req, res, session) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
   const userAccounts = await ensureUserFinanceRoots(userId);
   const accountIds = userAccounts.map((account) => account._id);
 
@@ -773,7 +755,7 @@ async function handleIncomeEntries(req, res, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const source = String(payload.source || "").trim();
@@ -784,11 +766,11 @@ async function handleIncomeEntries(req, res, session) {
   const recurrence = normalizeRecurrence(payload.recurrence);
   const isActive = parseBoolean(payload.is_active, true);
 
-  if (!source) return sendJson(res, 400, { ok: false, message: "Quelle ist ein Pflichtfeld" });
-  if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
-  if (!Number.isFinite(amountNumber) || amountNumber <= 0) return sendJson(res, 400, { ok: false, message: "Betrag muss groesser 0 sein" });
-  if (Number.isNaN(receivedAt.getTime())) return sendJson(res, 400, { ok: false, message: "Datum ist ungueltig" });
-  if (!recurrence) return sendJson(res, 400, { ok: false, message: "Wiederholung muss once, weekly oder monthly sein" });
+  if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
+  if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
+  if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest(res, "Betrag muss groesser 0 sein");
+  if (Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
+  if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
   await rememberUserCategory(userId, "income", category);
   const selectedBankAccountId = parseObjectId(payload.bank_account_id);
@@ -821,12 +803,12 @@ async function handleIncomeEntries(req, res, session) {
 
 async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   const entryId = parseObjectId(entryIdRaw);
-  if (!entryId) return sendJson(res, 400, { ok: false, message: "entry_id ist ungueltig" });
+  if (!entryId) return badRequest(res, "entry_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
   const accountIds = (await listUserBankAccounts(userId)).map((account) => account._id);
-  if (accountIds.length === 0) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  if (accountIds.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
   const accountFilter = { bank_account_id: { $in: accountIds } };
 
   if (req.method === "DELETE") {
@@ -834,10 +816,10 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
       { _id: entryId, ...accountFilter },
       { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
     );
-    if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+    if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
 
     const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({ _id: entryId, ...accountFilter });
-    if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+    if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Eintrag wurde nicht gefunden");
     await incrementBankAccountBalance(existing.bank_account_id, -Number((toNumber(existing.amount) || 0).toFixed(2)));
     return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
   }
@@ -852,7 +834,7 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const source = String(payload.source || "").trim();
@@ -864,11 +846,11 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
   const isActive = parseBoolean(payload.is_active, true);
   const requestedBankAccountId = parseObjectId(payload.bank_account_id);
 
-  if (!source) return sendJson(res, 400, { ok: false, message: "Quelle ist ein Pflichtfeld" });
-  if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
-  if (!Number.isFinite(amountNumber) || amountNumber <= 0) return sendJson(res, 400, { ok: false, message: "Betrag muss groesser 0 sein" });
-  if (!receivedAt || Number.isNaN(receivedAt.getTime())) return sendJson(res, 400, { ok: false, message: "Datum ist ungueltig" });
-  if (!recurrence) return sendJson(res, 400, { ok: false, message: "Wiederholung muss once, weekly oder monthly sein" });
+  if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
+  if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
+  if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest(res, "Betrag muss groesser 0 sein");
+  if (!receivedAt || Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
+  if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
   await rememberUserCategory(userId, "income", category);
 
@@ -876,7 +858,7 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
     { _id: entryId, ...accountFilter },
     { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
   );
-  if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
 
   const nextBankAccountId = requestedBankAccountId && accountIds.some((id) => String(id) === String(requestedBankAccountId))
     ? requestedBankAccountId
@@ -904,7 +886,7 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
     { returnDocument: "after" }
   );
 
-  if (!updated) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  if (!updated) return notFound(res, "Eintrag wurde nicht gefunden");
 
   const previousAmount = Number((toNumber(existing.amount) || 0).toFixed(2));
   const nextAmount = Number(amountNumber.toFixed(2));
@@ -920,7 +902,7 @@ async function handleIncomeEntryById(req, res, entryIdRaw, session) {
 
 async function handleExpenseEntries(req, res, session) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
   const userAccounts = await ensureUserFinanceRoots(userId);
   const accountIds = userAccounts.map((account) => account._id);
 
@@ -947,7 +929,7 @@ async function handleExpenseEntries(req, res, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const source = String(payload.source || "").trim();
@@ -958,11 +940,11 @@ async function handleExpenseEntries(req, res, session) {
   const recurrence = normalizeRecurrence(payload.recurrence);
   const isActive = parseBoolean(payload.is_active, true);
 
-  if (!source) return sendJson(res, 400, { ok: false, message: "Quelle ist ein Pflichtfeld" });
-  if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
-  if (amountNumber == null) return sendJson(res, 400, { ok: false, message: "Betrag muss groesser 0 sein" });
-  if (Number.isNaN(spentAt.getTime())) return sendJson(res, 400, { ok: false, message: "Datum ist ungueltig" });
-  if (!recurrence) return sendJson(res, 400, { ok: false, message: "Wiederholung muss once, weekly oder monthly sein" });
+  if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
+  if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
+  if (amountNumber == null) return badRequest(res, "Betrag muss groesser 0 sein");
+  if (Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
+  if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
   await rememberUserCategory(userId, "expense", category);
   const selectedBankAccountId = parseObjectId(payload.bank_account_id);
@@ -997,12 +979,12 @@ async function handleExpenseEntries(req, res, session) {
 
 async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   const entryId = parseObjectId(entryIdRaw);
-  if (!entryId) return sendJson(res, 400, { ok: false, message: "entry_id ist ungueltig" });
+  if (!entryId) return badRequest(res, "entry_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
   const accountIds = (await listUserBankAccounts(userId)).map((account) => account._id);
-  if (accountIds.length === 0) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  if (accountIds.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
   const accountFilter = { bank_account_id: { $in: accountIds } };
 
   if (req.method === "DELETE") {
@@ -1010,10 +992,10 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
       { _id: entryId, ...accountFilter },
       { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
     );
-    if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+    if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
 
     const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({ _id: entryId, ...accountFilter });
-    if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+    if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Eintrag wurde nicht gefunden");
     await incrementBankAccountBalance(existing.bank_account_id, Number((toNumber(existing.amount) || 0).toFixed(2)));
     return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
   }
@@ -1028,7 +1010,7 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const source = String(payload.source || "").trim();
@@ -1040,11 +1022,11 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
   const isActive = parseBoolean(payload.is_active, true);
   const requestedBankAccountId = parseObjectId(payload.bank_account_id);
 
-  if (!source) return sendJson(res, 400, { ok: false, message: "Quelle ist ein Pflichtfeld" });
-  if (!category) return sendJson(res, 400, { ok: false, message: "Kategorie ist ein Pflichtfeld" });
-  if (amountNumber == null) return sendJson(res, 400, { ok: false, message: "Betrag muss groesser 0 sein" });
-  if (!spentAt || Number.isNaN(spentAt.getTime())) return sendJson(res, 400, { ok: false, message: "Datum ist ungueltig" });
-  if (!recurrence) return sendJson(res, 400, { ok: false, message: "Wiederholung muss once, weekly oder monthly sein" });
+  if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
+  if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
+  if (amountNumber == null) return badRequest(res, "Betrag muss groesser 0 sein");
+  if (!spentAt || Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
+  if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
   await rememberUserCategory(userId, "expense", category);
 
@@ -1052,7 +1034,7 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
     { _id: entryId, ...accountFilter },
     { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
   );
-  if (!existing) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
 
   const nextBankAccountId = requestedBankAccountId && accountIds.some((id) => String(id) === String(requestedBankAccountId))
     ? requestedBankAccountId
@@ -1082,7 +1064,7 @@ async function handleExpenseEntryById(req, res, entryIdRaw, session) {
     { returnDocument: "after" }
   );
 
-  if (!updated) return sendJson(res, 404, { ok: false, message: "Eintrag wurde nicht gefunden" });
+  if (!updated) return notFound(res, "Eintrag wurde nicht gefunden");
 
   const previousAmount = Number((toNumber(existing.amount) || 0).toFixed(2));
   const nextAmount = Number(amountNumber.toFixed(2));
@@ -1143,7 +1125,7 @@ function recurrenceMonthlyContribution(entry) {
   return 0;
 }
 
-function resolveEntryDate(entry, dateField) {
+function resolveEntryDateForFilter(entry, dateField) {
   if (dateField === "received_at") return entry?.received_at ?? entry?.pay_date ?? entry?.created_at ?? null;
   if (dateField === "spent_at") return entry?.spent_at ?? entry?.pay_date ?? entry?.due_date ?? entry?.created_at ?? null;
   return entry?.[dateField] ?? null;
@@ -1161,7 +1143,7 @@ function isDateInCurrentMonth(value) {
 function calculateCurrentMonthTotal(entries, dateField) {
   const oneTime = entries
     .filter((entry) => (normalizeRecurrence(entry?.recurrence ?? entry?.cycle ?? "once") ?? "once") === "once")
-    .filter((entry) => isDateInCurrentMonth(resolveEntryDate(entry, dateField)))
+    .filter((entry) => isDateInCurrentMonth(resolveEntryDateForFilter(entry, dateField)))
     .reduce((sum, entry) => sum + (toNullableNumber(entry?.amount) ?? 0), 0);
 
   const recurring = entries.reduce((sum, entry) => sum + recurrenceMonthlyContribution(entry), 0);
@@ -1423,14 +1405,14 @@ async function handleCreateGroupActivity(req, res, groupIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const info = String(payload.info || "").trim();
-  if (!info) return sendJson(res, 400, { ok: false, message: "Activity info is required" });
+  if (!info) return badRequest(res, "Activity info is required");
 
   const date = toNullableDate(payload.date);
-  if (payload.date && !date) return sendJson(res, 400, { ok: false, message: "Activity date is invalid" });
+  if (payload.date && !date) return badRequest(res, "Activity date is invalid");
 
   const createdAt = new Date();
   const insertResult = await db.collection(COLLECTIONS.groupActivities).insertOne({ group_id: context.groupId, info, date, created_at: createdAt });
@@ -1455,7 +1437,7 @@ async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const info = String(payload.info || "").trim() || null;
@@ -1464,9 +1446,9 @@ async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
   const activityIdRaw = String(payload.group_activity_id || "").trim();
   if (activityIdRaw) {
     groupActivityId = parseObjectId(activityIdRaw);
-    if (!groupActivityId) return sendJson(res, 400, { ok: false, message: "Invalid linked activity id" });
+    if (!groupActivityId) return badRequest(res, "Invalid linked activity id");
     const linkedActivity = await db.collection(COLLECTIONS.groupActivities).findOne({ _id: groupActivityId, group_id: context.groupId });
-    if (!linkedActivity) return sendJson(res, 400, { ok: false, message: "Linked activity does not exist in this group" });
+    if (!linkedActivity) return badRequest(res, "Linked activity does not exist in this group");
   }
 
   if (!groupActivityId) {
@@ -1512,38 +1494,38 @@ async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
 
   const fundingId = parseObjectId(fundingIdRaw);
-  if (!fundingId) return sendJson(res, 400, { ok: false, message: "Invalid funding id" });
+  if (!fundingId) return badRequest(res, "Invalid funding id");
 
   const funding = await db.collection(COLLECTIONS.groupFunding).findOne(
     { _id: fundingId, group_id: context.groupId },
     { projection: { _id: 1, amount: 1, info: 1 } }
   );
-  if (!funding) return sendJson(res, 404, { ok: false, message: "Funding not found for this group" });
+  if (!funding) return notFound(res, "Funding not found for this group");
 
   let payload;
   try {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const normalizedAmount = parsePositiveAmount(payload.amount);
   if (normalizedAmount == null) {
-    return sendJson(res, 400, { ok: false, message: "Donation amount must be a positive number" });
+    return badRequest(res, "Donation amount must be a positive number");
   }
   const amount = toDecimal(normalizedAmount);
 
   const donationBalance = await calculateDashboardStyleDonationBalance(context.user._id);
   const currentBalance = Math.max(0, donationBalance.availableDonationBalance);
   if (normalizedAmount > currentBalance) {
-    return sendJson(res, 400, { ok: false, message: "Not enough available balance based on your dashboard entries for this donation" });
+    return badRequest(res, "Not enough available balance based on your dashboard entries for this donation");
   }
 
   const bankAccount = donationBalance.userAccounts[0] ?? null;
 
   if (!bankAccount?._id) {
-    return sendJson(res, 400, { ok: false, message: "No bank account available for this user" });
+    return badRequest(res, "No bank account available for this user");
   }
 
   const existingParticipant = await db.collection(COLLECTIONS.fundingParticipants).findOne({
@@ -1626,36 +1608,36 @@ async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
 
   const context = await getGroupContext(groupIdRaw, session.user.id);
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can create group expenses" });
+  if (context.membership.role !== "admin") return forbidden(res, "Only admins can create group expenses");
 
   let payload;
   try {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const fundingId = parseObjectId(payload.group_funding_id);
-  if (!fundingId) return sendJson(res, 400, { ok: false, message: "A valid funding is required" });
+  if (!fundingId) return badRequest(res, "A valid funding is required");
 
   const funding = await db.collection(COLLECTIONS.groupFunding).findOne(
     { _id: fundingId, group_id: context.groupId },
     { projection: { _id: 1, amount: 1 } }
   );
-  if (!funding) return sendJson(res, 404, { ok: false, message: "Funding not found in this group" });
+  if (!funding) return notFound(res, "Funding not found in this group");
 
   const normalizedAmount = parsePositiveAmount(payload.amount);
-  if (normalizedAmount == null) return sendJson(res, 400, { ok: false, message: "Expense amount must be a positive number" });
+  if (normalizedAmount == null) return badRequest(res, "Expense amount must be a positive number");
 
   const payDate = toNullableDate(payload.due_date || payload.pay_date);
   if ((payload.due_date || payload.pay_date) && !payDate) {
-    return sendJson(res, 400, { ok: false, message: "Expense due date is invalid" });
+    return badRequest(res, "Expense due date is invalid");
   }
 
   const info = String(payload.info || "").trim() || null;
   const fundingBalance = toNullableNumber(funding.amount) ?? 0;
-  if (normalizedAmount > fundingBalance) return sendJson(res, 400, { ok: false, message: "Funding balance is too low for this expense" });
+  if (normalizedAmount > fundingBalance) return badRequest(res, "Funding balance is too low for this expense");
 
   const createdAt = new Date();
   const amountDecimal = toDecimal(normalizedAmount);
@@ -1715,13 +1697,13 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
     const filter = { group_id: context.groupId };
     if (beforeMessageIdRaw) {
       const beforeMessageId = parseObjectId(beforeMessageIdRaw);
-      if (!beforeMessageId) return sendJson(res, 400, { ok: false, message: "Invalid before_message_id" });
+      if (!beforeMessageId) return badRequest(res, "Invalid before_message_id");
 
       const beforeMessage = await db.collection(COLLECTIONS.groupMessages).findOne(
         { _id: beforeMessageId, group_id: context.groupId },
         { projection: { _id: 1, created_at: 1 } }
       );
-      if (!beforeMessage) return sendJson(res, 404, { ok: false, message: "Cursor message not found in this group" });
+      if (!beforeMessage) return notFound(res, "Cursor message not found in this group");
 
       const beforeCreatedAt = beforeMessage.created_at ?? null;
       if (beforeCreatedAt) {
@@ -1784,13 +1766,13 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
-  if (!message) return sendJson(res, 400, { ok: false, message: "Message is required and must be short enough" });
+  if (!message) return badRequest(res, "Message is required and must be short enough");
   if (detectBlockedMessageTerm(message)) {
-    return sendJson(res, 400, { ok: false, message: "Die Nachricht enthaelt verbotene Begriffe und kann nicht gesendet werden." });
+    return badRequest(res, "Die Nachricht enthaelt verbotene Begriffe und kann nicht gesendet werden.");
   }
 
   const createdAt = new Date();
@@ -1828,24 +1810,24 @@ async function handleInviteUser(req, res, groupIdRaw, session) {
 
   const context = await getGroupContext(groupIdRaw, session.user.id);
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can invite users" });
+  if (context.membership.role !== "admin") return forbidden(res, "Only admins can invite users");
 
   let payload;
   try {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const username = String(payload.username || "").trim().toLowerCase();
-  if (!username) return sendJson(res, 400, { ok: false, message: "Username is required" });
+  if (!username) return badRequest(res, "Username is required");
 
   const inviteUser = await db.collection(COLLECTIONS.users).findOne(
     { username },
     { projection: { _id: 1, username: 1, first_name: 1, last_name: 1 } }
   );
-  if (!inviteUser) return sendJson(res, 404, { ok: false, message: "User not found" });
+  if (!inviteUser) return notFound(res, "User not found");
 
   const existingMembership = await db.collection(COLLECTIONS.groupMembers).findOne({ group_id: context.groupId, user_id: inviteUser._id });
   if (existingMembership) {
@@ -1865,10 +1847,10 @@ async function handleInviteUser(req, res, groupIdRaw, session) {
     }
 
     if (existingMembership.status === "invited") {
-      return sendJson(res, 409, { ok: false, message: "User already has a pending invitation" });
+      return conflict(res, "User already has a pending invitation");
     }
 
-    return sendJson(res, 409, { ok: false, message: "User is already in this group" });
+    return conflict(res, "User is already in this group");
   }
 
   await db.collection(COLLECTIONS.groupMembers).insertOne({ group_id: context.groupId, user_id: inviteUser._id, role: "member", status: "invited" });
@@ -1893,7 +1875,7 @@ async function handleGetInvitations(req, res, session) {
   }
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   const invitations = await db.collection(COLLECTIONS.groupMembers).aggregate([
     { $match: { user_id: userId, status: "invited" } },
@@ -1933,14 +1915,14 @@ async function handleInvitationDecision(req, res, groupIdRaw, decision, session)
   }
 
   if (decision !== "accept" && decision !== "deny") {
-    return sendJson(res, 400, { ok: false, message: "Invalid invitation decision" });
+    return badRequest(res, "Invalid invitation decision");
   }
 
   const groupId = parseObjectId(groupIdRaw);
-  if (!groupId) return sendJson(res, 400, { ok: false, message: "Invalid group id" });
+  if (!groupId) return badRequest(res, "Invalid group id");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   const targetStatus = decision === "accept" ? "accepted" : "denied";
   const result = await db.collection(COLLECTIONS.groupMembers).updateOne(
@@ -1949,7 +1931,7 @@ async function handleInvitationDecision(req, res, groupIdRaw, decision, session)
   );
 
   if (result.matchedCount === 0) {
-    return sendJson(res, 404, { ok: false, message: "Invitation not found or already handled" });
+    return notFound(res, "Invitation not found or already handled");
   }
 
   return sendJson(res, 200, { ok: true, status: targetStatus });
@@ -1963,17 +1945,17 @@ async function handleRemoveMember(req, res, groupIdRaw, userIdRaw, session) {
 
   const context = await getGroupContext(groupIdRaw, session.user.id);
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can remove participants" });
+  if (context.membership.role !== "admin") return forbidden(res, "Only admins can remove participants");
 
   const targetUserId = parseObjectId(userIdRaw);
-  if (!targetUserId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
+  if (!targetUserId) return badRequest(res, "Invalid user id");
   if (String(targetUserId) === String(context.user._id)) {
-    return sendJson(res, 400, { ok: false, message: "You can only remove other participants" });
+    return badRequest(res, "You can only remove other participants");
   }
 
   const deleteResult = await db.collection(COLLECTIONS.groupMembers).deleteOne({ group_id: context.groupId, user_id: targetUserId });
   if (deleteResult.deletedCount === 0) {
-    return sendJson(res, 404, { ok: false, message: "Participant not found in this group" });
+    return notFound(res, "Participant not found in this group");
   }
 
   return sendJson(res, 200, { ok: true });
@@ -1987,19 +1969,19 @@ async function handlePromoteMemberToAdmin(req, res, groupIdRaw, userIdRaw, sessi
 
   const context = await getGroupContext(groupIdRaw, session.user.id);
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can assign admin role" });
+  if (context.membership.role !== "admin") return forbidden(res, "Only admins can assign admin role");
 
   const targetUserId = parseObjectId(userIdRaw);
-  if (!targetUserId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
-  if (String(targetUserId) === String(context.user._id)) return sendJson(res, 400, { ok: false, message: "You are already an admin" });
+  if (!targetUserId) return badRequest(res, "Invalid user id");
+  if (String(targetUserId) === String(context.user._id)) return badRequest(res, "You are already an admin");
 
   const targetMembership = await db.collection(COLLECTIONS.groupMembers).findOne({
     group_id: context.groupId,
     user_id: targetUserId,
     ...activeMembershipFilter()
   });
-  if (!targetMembership) return sendJson(res, 404, { ok: false, message: "Participant not found in this group" });
-  if (targetMembership.role === "admin") return sendJson(res, 409, { ok: false, message: "User is already admin" });
+  if (!targetMembership) return notFound(res, "Participant not found in this group");
+  if (targetMembership.role === "admin") return conflict(res, "User is already admin");
 
   await db.collection(COLLECTIONS.groupMembers).updateOne(
     { _id: targetMembership._id },
@@ -2045,7 +2027,7 @@ async function handleLeaveGroup(req, res, groupIdRaw, session) {
 
   const leaveResult = await db.collection(COLLECTIONS.groupMembers).deleteOne({ _id: context.membership._id });
   if (leaveResult.deletedCount === 0) {
-    return sendJson(res, 404, { ok: false, message: "Membership not found" });
+    return notFound(res, "Membership not found");
   }
 
   if (context.membership.role === "admin") {
@@ -2090,7 +2072,7 @@ async function handleDeleteGroup(req, res, groupIdRaw, session) {
 
   const context = await getGroupContext(groupIdRaw, session.user.id);
   if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-  if (context.membership.role !== "admin") return sendJson(res, 403, { ok: false, message: "Only admins can delete groups" });
+  if (context.membership.role !== "admin") return forbidden(res, "Only admins can delete groups");
 
   await deleteGroupCascade(context.groupId);
 
@@ -2099,7 +2081,7 @@ async function handleDeleteGroup(req, res, groupIdRaw, session) {
 
 async function handleGroups(req, res, session) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "GET") {
     const memberships = await db.collection(COLLECTIONS.groupMembers).aggregate([
@@ -2140,12 +2122,12 @@ async function handleGroups(req, res, session) {
       payload = await readBody(req);
     } catch (error) {
       if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+      return badRequest(res, "Invalid JSON body");
     }
 
     const name = String(payload.name || "").trim();
     const address = String(payload.address || "").trim();
-    if (!name) return sendJson(res, 400, { ok: false, message: "Group name is required" });
+    if (!name) return badRequest(res, "Group name is required");
 
     const now = new Date();
     const groupResult = await db.collection(COLLECTIONS.groups).insertOne({ name, address: address || null, created_at: now });
@@ -2584,7 +2566,7 @@ async function listQuestionsWithRelations(userId, searchRaw = "") {
 
 async function handleQuestions(req, res, session, url) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "GET") {
     const search = String(url.searchParams.get("search") || "").trim();
@@ -2602,16 +2584,16 @@ async function handleQuestions(req, res, session, url) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const thema = parseQuestionTopic(payload.thema);
   const message = parseLongText(payload.message, QUESTION_MESSAGE_MAX_LENGTH);
   if (!thema) {
-    return sendJson(res, 400, { ok: false, message: `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).` });
+    return badRequest(res, `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).`);
   }
   if (!message) {
-    return sendJson(res, 400, { ok: false, message: "Frage ist erforderlich und darf nicht zu lang sein." });
+    return badRequest(res, "Frage ist erforderlich und darf nicht zu lang sein.");
   }
 
   const now = new Date();
@@ -2645,15 +2627,15 @@ async function handleQuestions(req, res, session, url) {
 
 async function handleQuestionById(req, res, questionIdRaw, session) {
   const questionId = parseObjectId(questionIdRaw);
-  if (!questionId) return sendJson(res, 400, { ok: false, message: "question_id ist ungueltig" });
+  if (!questionId) return badRequest(res, "question_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "GET") {
     const questions = await listQuestionsWithRelations(userId);
     const question = questions.find((item) => item.id === String(questionId));
-    if (!question) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+    if (!question) return notFound(res, "Frage nicht gefunden");
     return sendJson(res, 200, { ok: true, question });
   }
 
@@ -2666,9 +2648,9 @@ async function handleQuestionById(req, res, questionIdRaw, session) {
     { _id: questionId },
     { projection: { _id: 1, from_user_id: 1 } }
   );
-  if (!existing) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+  if (!existing) return notFound(res, "Frage nicht gefunden");
   if (String(existing.from_user_id) !== String(userId)) {
-    return sendJson(res, 403, { ok: false, message: "Nur der Ersteller darf diese Frage bearbeiten" });
+    return forbidden(res, "Nur der Ersteller darf diese Frage bearbeiten");
   }
 
   let payload;
@@ -2676,16 +2658,16 @@ async function handleQuestionById(req, res, questionIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const thema = parseQuestionTopic(payload.thema);
   const message = parseLongText(payload.message, QUESTION_MESSAGE_MAX_LENGTH);
   if (!thema) {
-    return sendJson(res, 400, { ok: false, message: `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).` });
+    return badRequest(res, `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).`);
   }
   if (!message) {
-    return sendJson(res, 400, { ok: false, message: "Frage ist erforderlich und darf nicht zu lang sein." });
+    return badRequest(res, "Frage ist erforderlich und darf nicht zu lang sein.");
   }
 
   const updated = await db.collection(COLLECTIONS.globalQuestions).findOneAndUpdate(
@@ -2701,7 +2683,7 @@ async function handleQuestionById(req, res, questionIdRaw, session) {
     { returnDocument: "after" }
   );
 
-  if (!updated) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+  if (!updated) return notFound(res, "Frage nicht gefunden");
   const questions = await listQuestionsWithRelations(userId);
   const question = questions.find((item) => item.id === String(questionId));
   return sendJson(res, 200, { ok: true, question });
@@ -2714,24 +2696,24 @@ async function handleQuestionAnswerCreate(req, res, questionIdRaw, session) {
   }
 
   const questionId = parseObjectId(questionIdRaw);
-  if (!questionId) return sendJson(res, 400, { ok: false, message: "question_id ist ungueltig" });
+  if (!questionId) return badRequest(res, "question_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
-  if (!question) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+  if (!question) return notFound(res, "Frage nicht gefunden");
 
   let payload;
   try {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
-  if (!message) return sendJson(res, 400, { ok: false, message: "Antwort ist erforderlich und darf nicht zu lang sein." });
+  if (!message) return badRequest(res, "Antwort ist erforderlich und darf nicht zu lang sein.");
 
   const now = new Date();
   await db.collection(COLLECTIONS.globalAnswers).insertOne({
@@ -2755,18 +2737,18 @@ async function handleQuestionAnswerCreate(req, res, questionIdRaw, session) {
 
 async function handleAnswerById(req, res, answerIdRaw, session) {
   const answerId = parseObjectId(answerIdRaw);
-  if (!answerId) return sendJson(res, 400, { ok: false, message: "answer_id ist ungueltig" });
+  if (!answerId) return badRequest(res, "answer_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   const answer = await db.collection(COLLECTIONS.globalAnswers).findOne(
     { _id: answerId },
     { projection: { _id: 1, from_user_id: 1, question_id: 1 } }
   );
-  if (!answer) return sendJson(res, 404, { ok: false, message: "Antwort nicht gefunden" });
+  if (!answer) return notFound(res, "Antwort nicht gefunden");
   if (String(answer.from_user_id) !== String(userId)) {
-    return sendJson(res, 403, { ok: false, message: "Nur der Ersteller darf diese Antwort bearbeiten oder loeschen" });
+    return forbidden(res, "Nur der Ersteller darf diese Antwort bearbeiten oder loeschen");
   }
 
   if (req.method === "DELETE") {
@@ -2799,11 +2781,11 @@ async function handleAnswerById(req, res, answerIdRaw, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
-  if (!message) return sendJson(res, 400, { ok: false, message: "Antwort ist erforderlich und darf nicht zu lang sein." });
+  if (!message) return badRequest(res, "Antwort ist erforderlich und darf nicht zu lang sein.");
 
   await db.collection(COLLECTIONS.globalAnswers).updateOne(
     { _id: answerId, from_user_id: userId },
@@ -2822,13 +2804,13 @@ async function handleQuestionLike(req, res, questionIdRaw, session) {
   }
 
   const questionId = parseObjectId(questionIdRaw);
-  if (!questionId) return sendJson(res, 400, { ok: false, message: "question_id ist ungueltig" });
+  if (!questionId) return badRequest(res, "question_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
-  if (!question) return sendJson(res, 404, { ok: false, message: "Frage nicht gefunden" });
+  if (!question) return notFound(res, "Frage nicht gefunden");
 
   const existing = await db.collection(COLLECTIONS.questionLikes).findOne({ question_id: questionId, user_id: userId }, { projection: { _id: 1 } });
   let liked = false;
@@ -2850,13 +2832,13 @@ async function handleAnswerLike(req, res, answerIdRaw, session) {
   }
 
   const answerId = parseObjectId(answerIdRaw);
-  if (!answerId) return sendJson(res, 400, { ok: false, message: "answer_id ist ungueltig" });
+  if (!answerId) return badRequest(res, "answer_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   const answer = await db.collection(COLLECTIONS.globalAnswers).findOne({ _id: answerId }, { projection: { _id: 1 } });
-  if (!answer) return sendJson(res, 404, { ok: false, message: "Antwort nicht gefunden" });
+  if (!answer) return notFound(res, "Antwort nicht gefunden");
 
   const existing = await db.collection(COLLECTIONS.answerLikes).findOne({ answer_id: answerId, user_id: userId }, { projection: { _id: 1 } });
   let liked = false;
@@ -2970,7 +2952,7 @@ async function handlePositions(req, res, url, session) {
 
 async function handleBankAccounts(req, res, session) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "GET") {
     const accounts = await loadUserBankAccounts(session.user.id);
@@ -2987,11 +2969,11 @@ async function handleBankAccounts(req, res, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const label = String(payload?.label || payload?.name || "").trim();
-  if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+  if (!label) return badRequest(res, "Kontoname ist erforderlich");
 
   const createdAt = new Date();
   const insert = await db.collection(COLLECTIONS.bankAccounts).insertOne({
@@ -3009,10 +2991,10 @@ async function handleBankAccounts(req, res, session) {
 
 async function handleBankAccountById(req, res, accountIdRaw, session) {
   const accountId = parseObjectId(accountIdRaw);
-  if (!accountId) return sendJson(res, 400, { ok: false, message: "bank_account_id ist ungueltig" });
+  if (!accountId) return badRequest(res, "bank_account_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "PATCH") {
     let payload;
@@ -3020,18 +3002,18 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
       payload = await readBody(req);
     } catch (error) {
       if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+      return badRequest(res, "Invalid JSON body");
     }
 
     const label = String(payload?.label || payload?.name || "").trim();
-    if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+    if (!label) return badRequest(res, "Kontoname ist erforderlich");
 
     const updated = await db.collection(COLLECTIONS.bankAccounts).findOneAndUpdate(
       { _id: accountId, user_id: userId },
       { $set: { label } },
       { returnDocument: "after", projection: { _id: 1, label: 1, name: 1, balance: 1 } }
     );
-    if (!updated) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
+    if (!updated) return notFound(res, "Bankkonto nicht gefunden");
 
     return sendJson(res, 200, {
       ok: true,
@@ -3048,7 +3030,7 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
       { _id: accountId, user_id: userId },
       { projection: { _id: 1, label: 1, balance: 1 } }
     );
-    if (!sourceAccount) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
+    if (!sourceAccount) return notFound(res, "Bankkonto nicht gefunden");
 
     let payload = {};
     try {
@@ -3056,7 +3038,7 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
     } catch (error) {
       if (error.message !== "invalid_json") {
         if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-        return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+        return badRequest(res, "Invalid JSON body");
       }
       payload = {};
     }
@@ -3096,14 +3078,14 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
 
     if (transferRequested) {
       if (String(transferTargetId) === String(accountId)) {
-        return sendJson(res, 400, { ok: false, message: "Zielkonto muss ein anderes Konto sein" });
+        return badRequest(res, "Zielkonto muss ein anderes Konto sein");
       }
       const targetAccount = await db.collection(COLLECTIONS.bankAccounts).findOne(
         { _id: transferTargetId, user_id: userId },
         { projection: { _id: 1 } }
       );
       if (!targetAccount) {
-        return sendJson(res, 400, { ok: false, message: "Zielkonto wurde nicht gefunden" });
+        return badRequest(res, "Zielkonto wurde nicht gefunden");
       }
 
       if (sourceBalance !== 0) {
@@ -3114,7 +3096,7 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
     await deleteBankAccountAssociations(accountId);
 
     const deletion = await db.collection(COLLECTIONS.bankAccounts).deleteOne({ _id: accountId, user_id: userId });
-    if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Bankkonto nicht gefunden" });
+    if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Bankkonto nicht gefunden");
     return sendJson(res, 200, { ok: true, message: "Bankkonto geloescht" });
   }
 
@@ -3124,7 +3106,7 @@ async function handleBankAccountById(req, res, accountIdRaw, session) {
 
 async function handleShareAccounts(req, res, session) {
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "GET") {
     const accounts = await loadUserShareAccounts(session.user.id);
@@ -3141,11 +3123,11 @@ async function handleShareAccounts(req, res, session) {
     payload = await readBody(req);
   } catch (error) {
     if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-    return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+    return badRequest(res, "Invalid JSON body");
   }
 
   const label = String(payload?.label || payload?.name || "").trim();
-  if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+  if (!label) return badRequest(res, "Kontoname ist erforderlich");
 
   const createdAt = new Date();
   const insert = await db.collection(COLLECTIONS.shareAccounts).insertOne({
@@ -3162,10 +3144,10 @@ async function handleShareAccounts(req, res, session) {
 
 async function handleShareAccountById(req, res, accountIdRaw, session) {
   const accountId = parseObjectId(accountIdRaw);
-  if (!accountId) return sendJson(res, 400, { ok: false, message: "share_account_id ist ungueltig" });
+  if (!accountId) return badRequest(res, "share_account_id ist ungueltig");
 
   const userId = parseObjectId(session.user.id);
-  if (!userId) return sendJson(res, 401, { ok: false, message: "Session user invalid" });
+  if (!userId) return unauthorized(res, "Session user invalid");
 
   if (req.method === "PATCH") {
     let payload;
@@ -3173,11 +3155,11 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
       payload = await readBody(req);
     } catch (error) {
       if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+      return badRequest(res, "Invalid JSON body");
     }
 
     const label = String(payload?.label || payload?.name || "").trim();
-    if (!label) return sendJson(res, 400, { ok: false, message: "Kontoname ist erforderlich" });
+    if (!label) return badRequest(res, "Kontoname ist erforderlich");
 
     const updated = await db.collection(COLLECTIONS.shareAccounts).findOneAndUpdate(
       { _id: accountId, user_id: userId },
@@ -3192,7 +3174,7 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
         { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } }
       );
     }
-    if (!updatedDoc) return sendJson(res, 404, { ok: false, message: "Aktienkonto nicht gefunden" });
+    if (!updatedDoc) return notFound(res, "Aktienkonto nicht gefunden");
 
     return sendJson(res, 200, {
       ok: true,
@@ -3211,7 +3193,7 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
       { _id: accountId, user_id: userId },
       { projection: { _id: 1, label: 1, name: 1 } }
     );
-    if (!sourceAccount) return sendJson(res, 404, { ok: false, message: "Aktienkonto nicht gefunden" });
+    if (!sourceAccount) return notFound(res, "Aktienkonto nicht gefunden");
 
     let payload = {};
     try {
@@ -3219,7 +3201,7 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
     } catch (error) {
       if (error.message !== "invalid_json") {
         if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-        return sendJson(res, 400, { ok: false, message: "Invalid JSON body" });
+        return badRequest(res, "Invalid JSON body");
       }
       payload = {};
     }
@@ -3265,7 +3247,7 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
 
     if (transferRequested) {
       if (String(transferTargetId) === String(accountId)) {
-        return sendJson(res, 400, { ok: false, message: "Zielkonto muss ein anderes Konto sein" });
+        return badRequest(res, "Zielkonto muss ein anderes Konto sein");
       }
 
       const targetAccount = await db.collection(COLLECTIONS.shareAccounts).findOne(
@@ -3276,7 +3258,7 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
         { projection: { _id: 1 } }
       );
       if (!targetAccount) {
-        return sendJson(res, 400, { ok: false, message: "Zielkonto wurde nicht gefunden" });
+        return badRequest(res, "Zielkonto wurde nicht gefunden");
       }
 
       await Promise.all([
@@ -3290,7 +3272,7 @@ async function handleShareAccountById(req, res, accountIdRaw, session) {
     if (!deletion || deletion.deletedCount !== 1) {
       deletion = await db.collection(COLLECTIONS.depots).deleteOne({ _id: accountId, user_id: userId });
     }
-    if (!deletion || deletion.deletedCount !== 1) return sendJson(res, 404, { ok: false, message: "Aktienkonto nicht gefunden" });
+    if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Aktienkonto nicht gefunden");
     return sendJson(res, 200, { ok: true, message: "Aktienkonto geloescht" });
   }
 
@@ -3415,7 +3397,7 @@ async function handleStockSearchProxy(req, res, requestUrl, session) {
 
   const query = String(requestUrl.searchParams.get("q") || "").trim();
   if (!query) {
-    return sendJson(res, 400, { ok: false, message: "Query-Parameter 'q' fehlt." });
+    return badRequest(res, "Query-Parameter 'q' fehlt.");
   }
 
   const requestedExchange = String(requestUrl.searchParams.get("exchange") || "")
@@ -3560,7 +3542,7 @@ async function handleStockLogoProxy(req, res, requestUrl, session) {
   const size = Number.isFinite(sizeRaw) ? Math.max(16, Math.min(128, Math.round(sizeRaw))) : 28;
 
   if (!symbol && !domainFromQuery) {
-    return sendJson(res, 400, { ok: false, message: "Query-Parameter 'symbol' oder 'domain' fehlt." });
+    return badRequest(res, "Query-Parameter 'symbol' oder 'domain' fehlt.");
   }
 
   let domain = domainFromQuery;
@@ -3581,7 +3563,7 @@ async function handleStockLogoProxy(req, res, requestUrl, session) {
   }
 
   if (!logoCandidates.length) {
-    return sendJson(res, 404, { ok: false, message: "Kein Logo-Kandidat gefunden." });
+    return notFound(res, "Kein Logo-Kandidat gefunden.");
   }
 
   const queryVariants = [
@@ -3718,6 +3700,25 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", "http://localhost");
     const pathname = url.pathname;
 
+    if (DEV_AUTO_LOGIN) {
+      const cookies = parseCookies(req);
+      if (!cookies[SESSION_COOKIE_NAME]) {
+        const devUser = await db.collection(COLLECTIONS.users).findOne(
+          { _id: parseObjectId(DEV_AUTO_LOGIN_USER_ID) },
+          { projection: { _id: 1 } }
+        );
+        if (devUser) {
+          const token = createSession(String(devUser._id));
+          res.writeHead(302, {
+            "Set-Cookie": buildSessionCookie(token),
+            "Location": "/dashboard.html"
+          });
+          res.end();
+          return;
+        }
+      }
+    }
+
     if (pathname === "/api/login") return await handleLogin(req, res);
     if (pathname === "/api/register") return await handleRegister(req, res);
     if (pathname === "/api/register/verify") return await handleRegisterVerify(req, res);
@@ -3833,11 +3834,7 @@ async function start() {
   await ensureIndexes();
 
   server.listen(PORT, () => {
-    console.log(`FinanzApp backend running on http://localhost:${PORT}`);
-    console.log(`Login: http://localhost:${PORT}/`);
-    console.log(`Dashboard: http://localhost:${PORT}/dashboard.html`);
-    console.log(`Groups: http://localhost:${PORT}/groups`);
-    console.log(`Aktien: http://localhost:${PORT}/aktien`);
+    console.log(`FinanzApp läuft auf http://localhost:${PORT}`);
   });
 }
 
