@@ -87,6 +87,74 @@
   --ui-shadow-strong: 0 22px 48px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
+/* ═══════════════════════════════════════════
+   DESIGN THEMES — gesteuert via data-design
+   ═══════════════════════════════════════════ */
+
+/* Ocean – Teal/Cyan */
+:root[data-design="ocean"] {
+  --ui-primary: #0d7377;
+  --ui-primary-dark: #095f63;
+  --ui-text-on-primary: #e8fafa;
+  --ui-accent-blue: #14a085;
+  --ui-accent-violet: #3dbfb8;
+  --ui-focus-ring: rgba(13, 115, 119, 0.28);
+  --ui-bg-atmo-cool: rgba(13, 115, 119, 0.12);
+  --ui-bg-atmo-warm: rgba(20, 160, 133, 0.1);
+}
+:root[data-design="ocean"][data-theme="dark"] {
+  --ui-primary: #14a085;
+  --ui-primary-dark: #0d7377;
+  --ui-text-on-primary: #e6faf7;
+  --ui-accent-blue: #3dbfb8;
+  --ui-accent-violet: #5dd6cf;
+  --ui-focus-ring: rgba(20, 160, 133, 0.36);
+}
+
+/* Forest – Grün/Erde */
+:root[data-design="forest"] {
+  --ui-primary: #2d6a4f;
+  --ui-primary-dark: #1b4332;
+  --ui-text-on-primary: #ecf6f0;
+  --ui-accent-blue: #52b788;
+  --ui-accent-orange: #d4a373;
+  --ui-accent-violet: #74c69d;
+  --ui-focus-ring: rgba(45, 106, 79, 0.28);
+  --ui-bg-atmo-cool: rgba(45, 106, 79, 0.14);
+  --ui-bg-atmo-warm: rgba(212, 163, 115, 0.18);
+}
+:root[data-design="forest"][data-theme="dark"] {
+  --ui-primary: #52b788;
+  --ui-primary-dark: #2d6a4f;
+  --ui-text-on-primary: #e6f5ec;
+  --ui-accent-blue: #74c69d;
+  --ui-accent-orange: #e9c46a;
+  --ui-accent-violet: #95d5b2;
+  --ui-focus-ring: rgba(82, 183, 136, 0.36);
+}
+
+/* Sunset – Orange/Rose */
+:root[data-design="sunset"] {
+  --ui-primary: #c1440e;
+  --ui-primary-dark: #9c3009;
+  --ui-text-on-primary: #fff3ee;
+  --ui-accent-blue: #e07a5f;
+  --ui-accent-orange: #f2cc8f;
+  --ui-accent-violet: #e8998d;
+  --ui-focus-ring: rgba(193, 68, 14, 0.26);
+  --ui-bg-atmo-cool: rgba(224, 122, 95, 0.12);
+  --ui-bg-atmo-warm: rgba(242, 204, 143, 0.22);
+}
+:root[data-design="sunset"][data-theme="dark"] {
+  --ui-primary: #e07a5f;
+  --ui-primary-dark: #c1440e;
+  --ui-text-on-primary: #fff0eb;
+  --ui-accent-blue: #f2a58e;
+  --ui-accent-orange: #f2cc8f;
+  --ui-accent-violet: #e8998d;
+  --ui-focus-ring: rgba(224, 122, 95, 0.38);
+}
+
 :root {
   --bg-c1: var(--ui-bg-c1);
   --bg-c2: var(--ui-bg-c2);

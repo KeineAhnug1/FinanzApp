@@ -5,6 +5,19 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width,initial-scale=1" />
 	<title>Aktienansicht | FinanzApp</title>
+	<script>
+		(function () {
+			try {
+				var stored = window.localStorage.getItem("finanzapp.themeMode");
+				var mode = (stored === "light" || stored === "dark" || stored === "auto") ? stored : "auto";
+				var resolved = mode === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : mode;
+				document.documentElement.dataset.theme = resolved;
+				document.documentElement.dataset.themeMode = mode;
+				var d = window.localStorage.getItem("finanzapp.designTheme");
+				if (d && d !== "classic" && (d === "ocean" || d === "forest" || d === "sunset")) document.documentElement.dataset.design = d;
+			} catch (_) {}
+		})();
+	</script>
 	<link rel="stylesheet" href="css/ShareView.css">
 	<link rel="stylesheet" href="/shared/unified-ui.css">
 </head>

@@ -3655,6 +3655,31 @@ async function handleStatic(req, res, pathname) {
   }
 }
 
+async function handleDeleteUserAccount(req, res, session) {
+  if (req.method !== "DELETE") return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return unauthorized(res, "Session user invalid");
+
+  await Promise.all([
+    db.collection(COLLECTIONS.incomeEntries).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.expenseEntries).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.userCategories).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.bankAccounts).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.shareAccounts).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.transactions).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.groupMembers).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.questionLikes).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.answerLikes).deleteMany({ user_id: userId }),
+    db.collection(COLLECTIONS.emailVerifications).deleteMany({ user_id: userId })
+  ]);
+
+  await db.collection(COLLECTIONS.users).deleteOne({ _id: userId });
+  destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
+
+  return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
+}
+
 const API_HANDLERS = {
   handleCategories,
   handleIncomeEntries,
@@ -3690,7 +3715,8 @@ const API_HANDLERS = {
   handleTwelveDataProxy,
   handleStockSearchProxy,
   handleStockLogoProxy,
-  handleExchangeRates
+  handleExchangeRates,
+  handleDeleteUserAccount
 };
 
 const server = http.createServer(async (req, res) => {

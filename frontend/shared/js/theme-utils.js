@@ -4,33 +4,22 @@
  */
 (function initSharedThemeUtilities() {
   const sThemeStorageKey = "finanzapp.themeMode";
+  const sDesignStorageKey = "finanzapp.designTheme";
   const oThemeOptions = new Set(["light", "dark", "auto"]);
+  const oDesignOptions = new Set(["classic", "ocean", "forest", "sunset"]);
   const oPrefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-  /**
-   * Liest den gespeicherten Theme-Modus aus localStorage.
-   * @returns {"light"|"dark"|"auto"} Gespeicherter oder fallback Modus.
-   */
   function fnGetStoredThemeMode() {
     const sStoredMode = window.localStorage.getItem(sThemeStorageKey);
     if (sStoredMode && oThemeOptions.has(sStoredMode)) return sStoredMode;
     return "auto";
   }
 
-  /**
-   * Loest den effektiven Theme-Wert auf.
-   * @param {"light"|"dark"|"auto"} sThemeMode Gewuenschter Modus.
-   * @returns {"light"|"dark"} Effektiver Modus fuer das DOM.
-   */
   function fnResolveThemeMode(sThemeMode) {
     if (sThemeMode === "auto") return oPrefersDarkQuery.matches ? "dark" : "light";
     return sThemeMode;
   }
 
-  /**
-   * Aktualisiert alle Theme-Buttons (active state + aria-pressed).
-   * @param {"light"|"dark"|"auto"} sThemeMode Aktiver Modus.
-   */
   function fnUpdateThemeButtons(sThemeMode) {
     const aThemeButtons = document.querySelectorAll(".theme-option");
     for (const oThemeButton of aThemeButtons) {
@@ -40,11 +29,6 @@
     }
   }
 
-  /**
-   * Setzt Theme-Attribute am `documentElement` und synchronisiert die Buttons.
-   * @param {"light"|"dark"|"auto"} sThemeMode Gewuenschter Modus.
-   * @returns {"light"|"dark"} Effektiv gesetzter Modus.
-   */
   function fnApplyThemeMode(sThemeMode) {
     const sResolvedThemeMode = fnResolveThemeMode(sThemeMode);
     document.documentElement.dataset.theme = sResolvedThemeMode;
@@ -54,23 +38,12 @@
     return sResolvedThemeMode;
   }
 
-  /**
-   * Speichert den Theme-Modus persistent und setzt ihn sofort.
-   * @param {"light"|"dark"|"auto"} sThemeMode Neuer Modus.
-   * @returns {"light"|"dark"} Effektiv gesetzter Modus.
-   */
   function fnSaveAndApplyThemeMode(sThemeMode) {
     if (!oThemeOptions.has(sThemeMode)) return fnApplyThemeMode(fnGetStoredThemeMode());
     window.localStorage.setItem(sThemeStorageKey, sThemeMode);
     return fnApplyThemeMode(sThemeMode);
   }
 
-  /**
-   * Initialisiert den Theme-Switcher auf der aktuellen Seite.
-   * - Setzt den gespeicherten Modus.
-   * - Bindet Click-Events an `.theme-option`.
-   * - Reagiert auf OS-Theme-Wechsel bei `auto`.
-   */
   function fnInitThemeSwitcher() {
     fnApplyThemeMode(fnGetStoredThemeMode());
 
@@ -95,12 +68,51 @@
     }
   }
 
+  /* ── Design-Theme-Funktionen ── */
+
+  function fnGetStoredDesign() {
+    const sStored = window.localStorage.getItem(sDesignStorageKey);
+    if (sStored && oDesignOptions.has(sStored)) return sStored;
+    return "classic";
+  }
+
+  function fnApplyDesign(sDesign) {
+    const sResolved = oDesignOptions.has(sDesign) ? sDesign : "classic";
+    if (sResolved === "classic") {
+      delete document.documentElement.dataset.design;
+    } else {
+      document.documentElement.dataset.design = sResolved;
+    }
+    const aDesignCards = document.querySelectorAll(".design-card");
+    for (const oCard of aDesignCards) {
+      oCard.classList.toggle("is-active", oCard.dataset.design === sResolved);
+      oCard.setAttribute("aria-pressed", String(oCard.dataset.design === sResolved));
+    }
+    window.dispatchEvent(new CustomEvent("finanzapp:design-changed", { detail: { design: sResolved } }));
+    return sResolved;
+  }
+
+  function fnSaveAndApplyDesign(sDesign) {
+    const sResolved = oDesignOptions.has(sDesign) ? sDesign : "classic";
+    window.localStorage.setItem(sDesignStorageKey, sResolved);
+    return fnApplyDesign(sResolved);
+  }
+
+  function fnInitDesign() {
+    fnApplyDesign(fnGetStoredDesign());
+  }
+
   window.FinanzAppTheme = {
     getStoredThemeMode: fnGetStoredThemeMode,
     resolveThemeMode: fnResolveThemeMode,
     updateThemeButtons: fnUpdateThemeButtons,
     applyThemeMode: fnApplyThemeMode,
     saveAndApplyThemeMode: fnSaveAndApplyThemeMode,
-    initThemeSwitcher: fnInitThemeSwitcher
+    initThemeSwitcher: fnInitThemeSwitcher,
+    getStoredDesign: fnGetStoredDesign,
+    applyDesign: fnApplyDesign,
+    saveAndApplyDesign: fnSaveAndApplyDesign,
+    initDesign: fnInitDesign
   };
 })();
+

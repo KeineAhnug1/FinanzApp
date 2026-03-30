@@ -55,5 +55,10 @@ export async function dispatchFinanceRoutes(ctx) {
     return true;
   }
 
+  if (pathname === "/api/user/account") {
+    await handlers.handleDeleteUserAccount(req, res, session);
+    return true;
+  }
+
   return false;
 }

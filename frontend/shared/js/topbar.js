@@ -778,8 +778,22 @@
     for (const wrap of wraps) {
       const button = wrap.querySelector(".profile-btn");
       const menu = wrap.querySelector(".profile-menu");
-      const logout = wrap.querySelector(".logout-btn");
-      if (!button || !menu || !logout) continue;
+      if (!button || !menu) continue;
+
+      // Logout-Button aus dem Dropdown entfernen – Abmelden erfolgt über die Einstellungsseite
+      const logout = menu.querySelector(".logout-btn");
+      if (logout) logout.remove();
+
+      if (!menu.querySelector(".settings-link")) {
+        const link = document.createElement("a");
+        link.href = "/einstellungen/";
+        link.className = "settings-link";
+        link.textContent = t("nav_settings", "Einstellungen");
+        if (window.location.pathname.startsWith("/einstellungen/")) {
+          link.setAttribute("aria-current", "page");
+        }
+        menu.appendChild(link);
+      }
 
       button.addEventListener("click", () => {
         const willOpen = menu.hidden;
@@ -808,18 +822,6 @@
         }
       }
     });
-
-    if (document.documentElement.dataset.logoutBound !== "1") {
-      document.documentElement.dataset.logoutBound = "1";
-      document.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        const logoutButton = target.closest(".logout-btn");
-        if (!logoutButton) return;
-        event.preventDefault();
-        window.FinanzAppSession.logoutAndRedirect();
-      });
-    }
   }
 
   async function initTopbar() {
