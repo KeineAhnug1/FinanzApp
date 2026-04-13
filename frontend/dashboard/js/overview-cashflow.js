@@ -149,7 +149,7 @@ function renderExpenseItem(entry) {
 function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessage) {
   if (!list) return;
   if (!grouped.length) {
-    list.innerHTML = `<li><p class="income-empty">${emptyMessage}</p></li>`;
+    list.innerHTML = `<li><p class="income-empty">${escapeHtml(emptyMessage)}</p></li>`;
     return;
   }
 

@@ -3,59 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FinanzApp Login</title>
+  <title>FinanzApp</title>
+  <script>
+    (function applyStoredThemeEarly() {
+      try {
+        var mode = localStorage.getItem("finanzapp.themeMode") || "auto";
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themeMode = mode;
+      } catch {
+        document.documentElement.dataset.theme = "light";
+        document.documentElement.dataset.themeMode = "auto";
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="/shared/unified-ui.css" />
 </head>
 <body>
-  <main class="auth-layout">
-    <header class="layout-toolbar">
-      <div class="topbar-left">
-        <a class="brand-link" href="/homepage/" aria-label="Zur FinanzApp Homepage">
+  <div class="auth-page">
+
+    <aside class="auth-brand-panel" aria-hidden="true"></aside>
+
+    <main class="auth-form-panel">
+      <header class="auth-topbar">
+        <a class="brand-link auth-brand-link" href="/homepage/">
           <span class="brand-mark">FinanzApp</span>
-          <span class="brand-sub">Login</span>
         </a>
-      </div>
-      <div class="toolbar-actions">
-        <nav class="app-nav-links" aria-label="App-Navigation">
-          <a class="app-nav-link is-active" href="/">Login</a>
-          <a class="app-nav-link" href="/dashboard.html">Dashboard</a>
-          <a class="app-nav-link" href="/konten/">Kontenverwaltung</a>
-          <a class="app-nav-link" href="/groups/">Gruppen</a>
-          <a class="app-nav-link" href="/aktien/">Aktien</a>
-        </nav>
-      </div>
-    </header>
+        <div class="toolbar-actions auth-topbar-actions"></div>
+      </header>
 
-    <section class="intro-panel">
-      <h1 class="intro-title">Moderne Finanzuebersicht fuer Alltag und WG.</h1>
-      <p class="intro-copy">
-        Verfolge Ausgaben, offene Forderungen und Sparziele zentral in einem klaren Dashboard.
-      </p>
-
-      <div class="metric-grid">
-        <article class="metric-card">
-          <p class="metric-label">Datenbasis</p>
-          <p class="metric-value">MongoDB Live</p>
-          <p class="metric-trend neutral">Nur echte Datensaetze</p>
-        </article>
-        <article class="metric-card">
-          <p class="metric-label">Account-Flows</p>
-          <p class="metric-value">Login + Registrierung</p>
-          <p class="metric-trend neutral">inkl. E-Mail-Verifizierung</p>
-        </article>
-        <article class="metric-card">
-          <p class="metric-label">Dashboard</p>
-          <p class="metric-value">Dynamische Kennzahlen</p>
-          <p class="metric-trend neutral">aus deinen gespeicherten Eintraegen</p>
-        </article>
+      <div class="auth-form-center">
+        <users-login>Login wird geladen...</users-login>
       </div>
-    </section>
+    </main>
 
-    <section class="login-panel">
-      <users-login>Login wird geladen...</users-login>
-    </section>
-  </main>
+  </div>
+
   <script src="/shared/js/theme-utils.js"></script>
   <script src="/shared/js/session-utils.js"></script>
   <script src="/shared/js/language-utils.js"></script>

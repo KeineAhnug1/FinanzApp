@@ -38,6 +38,7 @@
         ok: response.ok && Boolean(data?.ok),
         status: response.status,
         responseOk: response.ok,
+        retryAfter: response.headers.has("Retry-After") ? Number(response.headers.get("Retry-After")) : null,
         data
       };
     } catch {

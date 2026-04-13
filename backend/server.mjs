@@ -88,6 +88,10 @@ if (!MONGO_URI) {
   throw new Error("MONGODB_URI is not set in the environment");
 }
 
+if (!PORT || !Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error(`PORT is invalid: "${process.env.PORT}"`);
+}
+
 const client = new MongoClient(MONGO_URI);
 let db;
 let mailTransporter;
@@ -110,6 +114,59 @@ function forbidden(res, message) { return sendJson(res, 403, { ok: false, messag
 function notFound(res, message) { return sendJson(res, 404, { ok: false, message }); }
 function conflict(res, message) { return sendJson(res, 409, { ok: false, message }); }
 function unprocessable(res, message) { return sendJson(res, 422, { ok: false, message }); }
+
+// In-memory rate limiter with separate buckets per key (IP + endpoint-group).
+// Behind a trusted reverse proxy, the real client IP is in X-Forwarded-For.
+// IMPORTANT: Only enable TRUST_PROXY if the server is actually behind a proxy
+// you control — otherwise clients can spoof their IP via that header.
+const TRUST_PROXY = process.env.TRUST_PROXY === "true";
+
+function getClientIp(req) {
+  if (TRUST_PROXY) {
+    const forwarded = req.headers["x-forwarded-for"];
+    if (forwarded) return String(forwarded).split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress || "unknown";
+}
+
+const _rateLimitBuckets = new Map();
+
+/**
+ * Sliding-window rate limiter.
+ * @param {string} key     — unique bucket key (e.g. "login:1.2.3.4")
+ * @param {number} maxAttempts
+ * @param {number} windowMs
+ * @returns {boolean}      — true = allowed, false = blocked (response already sent)
+ */
+function rateLimitBucket(res, key, maxAttempts, windowMs) {
+  const now = Date.now();
+  let rec = _rateLimitBuckets.get(key);
+  if (!rec || now - rec.windowStart > windowMs) {
+    rec = { windowStart: now, count: 0 };
+  }
+  rec.count++;
+  _rateLimitBuckets.set(key, rec);
+  if (rec.count > maxAttempts) {
+    const retryAfter = Math.ceil((rec.windowStart + windowMs - now) / 1000);
+    sendJson(res, 429, { ok: false, message: "Zu viele Anfragen. Bitte warte kurz und versuche es erneut." },
+      { "Retry-After": String(retryAfter) });
+    return false;
+  }
+  return true;
+}
+
+function checkRateLimit(req, res, { maxAttempts = 10, windowMs = 60_000, group = "general" } = {}) {
+  const ip = getClientIp(req);
+  return rateLimitBucket(res, `${group}:${ip}`, maxAttempts, windowMs);
+}
+
+// Cleanup stale buckets every 2 minutes to avoid memory leak
+setInterval(() => {
+  const cutoff = Date.now() - 300_000;
+  for (const [key, rec] of _rateLimitBuckets) {
+    if (rec.windowStart < cutoff) _rateLimitBuckets.delete(key);
+  }
+}, 120_000).unref();
 
 async function getSessionUser(req) {
   const cookies = parseCookies(req);
@@ -300,17 +357,26 @@ function createVerificationCode() {
 async function sendVerificationEmail(toEmail, firstName, code) {
   const mailer = getMailer();
   if (!mailer) {
-    console.warn(`[verification] SMTP not configured. Code for ${toEmail}: ${code}`);
+    if (DEV_EXPOSE_VERIFICATION_CODE) {
+      console.warn(`[verification] SMTP not configured. Code for ${toEmail}: ${code}`);
+    } else {
+      console.warn(`[verification] SMTP not configured. Verification code for ${toEmail} was not sent.`);
+    }
     return false;
   }
 
   const greetingName = firstName || "Nutzer";
+  const safeGreetingName = String(greetingName)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
   await mailer.sendMail({
     from: SMTP_FROM,
     to: toEmail,
     subject: "FinanzApp - Dein Verifizierungscode",
     text: `Hallo ${greetingName}, dein Verifizierungscode lautet: ${code}. Der Code ist ${VERIFICATION_TTL_MINUTES} Minuten gueltig.`,
-    html: `<p>Hallo ${greetingName},</p><p>dein Verifizierungscode lautet:</p><p style=\"font-size:24px;font-weight:700;letter-spacing:2px;\">${code}</p><p>Der Code ist ${VERIFICATION_TTL_MINUTES} Minuten gueltig.</p>`
+    html: `<p>Hallo ${safeGreetingName},</p><p>dein Verifizierungscode lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Der Code ist ${VERIFICATION_TTL_MINUTES} Minuten gueltig.</p>`
   });
   return true;
 }
@@ -398,6 +464,8 @@ async function handleLogin(req, res) {
     res.setHeader("Allow", "POST");
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
+
+  if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "login" })) return;
 
   let payload;
   try {
@@ -489,6 +557,8 @@ async function handleRegister(req, res) {
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
+  if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "register" })) return;
+
   let payload;
   try {
     payload = await readBody(req);
@@ -517,8 +587,8 @@ async function handleRegister(req, res) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return badRequest(res, "Bitte eine gueltige E-Mail-Adresse angeben");
   }
-  if (password.length < 6) {
-    return badRequest(res, "Passwort muss mindestens 6 Zeichen haben");
+  if (password.length < 8) {
+    return badRequest(res, "Passwort muss mindestens 8 Zeichen haben");
   }
   if (income == null) {
     return badRequest(res, "Income muss eine Zahl >= 0 sein");
@@ -3638,7 +3708,14 @@ async function handleStatic(req, res, pathname) {
   try {
     const file = await readFile(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { "Content-Type": MIME_BY_EXT[ext] || "application/octet-stream" });
+    const isImmutable = [".css", ".js", ".mjs", ".png", ".ico", ".svg"].includes(ext);
+    const cacheControl = isImmutable ? "public, max-age=86400" : "no-cache";
+    res.writeHead(200, {
+      "Content-Type": MIME_BY_EXT[ext] || "application/octet-stream",
+      "Cache-Control": cacheControl,
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "SAMEORIGIN"
+    });
     if (req.method === "HEAD") {
       res.end();
       return;

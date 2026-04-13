@@ -3,6 +3,8 @@ export function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
     ...extraHeaders
   });
   res.end(body);
@@ -10,16 +12,20 @@ export function sendJson(res, statusCode, payload, extraHeaders = {}) {
 
 export function readBody(req) {
   return new Promise((resolve, reject) => {
-    let raw = "";
+    const chunks = [];
+    let totalBytes = 0;
     req.on("data", (chunk) => {
-      raw += chunk;
-      if (raw.length > 1_000_000) {
+      totalBytes += chunk.length;
+      if (totalBytes > 1_000_000) {
         reject(new Error("payload_too_large"));
         req.destroy();
+        return;
       }
+      chunks.push(chunk);
     });
     req.on("end", () => {
       try {
+        const raw = Buffer.concat(chunks).toString("utf8");
         resolve(raw ? JSON.parse(raw) : {});
       } catch {
         reject(new Error("invalid_json"));

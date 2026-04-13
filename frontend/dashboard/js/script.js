@@ -88,6 +88,12 @@ class UsersLogin extends HTMLElement {
     const password = String(formData.get("password") || "");
 
     const result = await postJson("/api/login", { email, password });
+
+    if (result.status === 429) {
+      startRateLimitCountdown(this, status, result.retryAfter ?? 60);
+      return;
+    }
+
     if (!result.ok) {
       setStatus(status, "error", result.message || tr("auth.login_failed", "E-Mail oder Passwort ist falsch."));
       return;
@@ -127,6 +133,11 @@ class UsersLogin extends HTMLElement {
       password,
       income
     });
+
+    if (result.status === 429) {
+      startRateLimitCountdown(this, status, result.retryAfter ?? 60);
+      return;
+    }
 
     if (!result.ok) {
       setStatus(status, "error", result.message || tr("auth.register_failed", "Konto konnte nicht erstellt werden."));
@@ -171,28 +182,34 @@ class UsersLogin extends HTMLElement {
 
     this.innerHTML = `
       <section class="login-card">
-        <span class="login-badge">FinanzApp Access</span>
         <h1 class="login-title">
-          ${isLogin ? tr("auth.title_login", "Willkommen zur FinanzApp") : isRegister ? tr("auth.title_register", "Neues Konto erstellen") : tr("auth.title_verify", "E-Mail verifizieren")}
+          ${isLogin
+            ? tr("auth.title_login", "Willkommen zurück")
+            : isRegister
+              ? tr("auth.title_register", "Konto erstellen")
+              : tr("auth.title_verify", "E-Mail bestätigen")}
         </h1>
         <p class="login-subtitle">
-          ${
-            isLogin
-              ? tr("auth.subtitle_login", "Melde dich mit deinen Zugangsdaten an und öffne deine Finanzübersicht.")
-              : isRegister
-                ? tr("auth.subtitle_register", "Lege deinen Account an. Danach bestätigst du ihn mit einem Code per E-Mail.")
-                : tr("auth.subtitle_verify", "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben.")
-          }
+          ${isLogin
+            ? tr("auth.subtitle_login", "Melde dich mit deiner E-Mail und deinem Passwort an.")
+            : isRegister
+              ? tr("auth.subtitle_register", "Füll das Formular aus. Du erhältst danach einen Code per E-Mail.")
+              : tr("auth.subtitle_verify", "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben.")}
         </p>
 
         <form class="login-form">
           ${isLogin ? this.renderLoginFields() : isRegister ? this.renderRegisterFields() : this.renderVerifyFields()}
           <button class="login-button" type="submit">
-            ${isLogin ? tr("auth.submit_login", "Einloggen") : isRegister ? tr("auth.submit_register", "Konto erstellen") : tr("auth.submit_verify", "Code bestätigen")}
+            ${isLogin
+              ? tr("auth.submit_login", "Einloggen")
+              : isRegister
+                ? tr("auth.submit_register", "Konto erstellen")
+                : tr("auth.submit_verify", "Code bestätigen")}
           </button>
         </form>
 
         <p id="login-status" class="login-status"></p>
+        <div class="auth-divider"></div>
         ${this.renderModeActions()}
       </section>
     `;
@@ -234,11 +251,11 @@ class UsersLogin extends HTMLElement {
       <div class="form-row">
         <div>
           <label class="login-label" for="password">${tr("auth.password", "Passwort")}</label>
-          <input class="login-input" id="password" name="password" type="password" required minlength="6" placeholder="${tr("auth.password_min", "mind. 6 Zeichen")}" />
+          <input class="login-input" id="password" name="password" type="password" required minlength="8" placeholder="${tr("auth.password_min", "mind. 8 Zeichen")}" />
         </div>
         <div>
           <label class="login-label" for="confirm_password">${tr("auth.password_repeat", "Passwort wiederholen")}</label>
-          <input class="login-input" id="confirm_password" name="confirm_password" type="password" required minlength="6" placeholder="${tr("auth.password_repeat_placeholder", "wiederholen")}" />
+          <input class="login-input" id="confirm_password" name="confirm_password" type="password" required minlength="8" placeholder="${tr("auth.password_repeat_placeholder", "wiederholen")}" />
         </div>
       </div>
       <div>
@@ -278,19 +295,55 @@ class UsersLogin extends HTMLElement {
 }
 
 async function postJson(url, payload) {
-  const request = window.FinanzAppApi?.requestJsonMerged;
+  const request = window.FinanzAppApi?.requestJson;
   if (typeof request !== "function") {
     return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
   }
   try {
-    return await request(url, {
+    const result = await request(url, {
       method: "POST",
       credentials: "same-origin",
       body: payload
     });
+    const retryAfter = Number(result.retryAfter) || null;
+    return { ...result.data, ok: result.ok, status: result.status, retryAfter };
   } catch {
     return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
   }
+}
+
+function startRateLimitCountdown(component, statusEl, seconds) {
+  const submitButton = component.querySelector('button[type="submit"]');
+  let remaining = Math.max(1, Math.ceil(seconds));
+
+  const update = () => {
+    setStatus(statusEl, "error", tr(
+      "auth.rate_limited",
+      "Zu viele Versuche. Bitte warte {s} Sekunde(n).",
+      { s: remaining }
+    ));
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = tr("auth.rate_limited_btn", "Warte {s}s…", { s: remaining });
+    }
+  };
+
+  update();
+  const interval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(interval);
+      setStatus(statusEl, "idle", "");
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = component.mode === "login"
+          ? tr("auth.submit_login", "Einloggen")
+          : tr("auth.submit_register", "Konto erstellen");
+      }
+    } else {
+      update();
+    }
+  }, 1000);
 }
 
 function setStatus(element, type, text) {
@@ -312,64 +365,9 @@ function escapeAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
-function initAuthNavMenu() {
-  const controls = document.querySelector(".layout-toolbar .toolbar-actions");
-  const nav = controls?.querySelector(".app-nav-links");
-  if (!controls || !nav) return;
-
-  if (!nav.id) nav.id = "auth-topbar-nav";
-
-  let toggle = controls.querySelector(".nav-toggle");
-  if (!toggle) {
-    toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "nav-toggle";
-    toggle.innerHTML = '<span class="nav-toggle-icon" aria-hidden="true">&#9776;</span><span class="nav-toggle-label">Menue</span>';
-    controls.insertBefore(toggle, nav);
-  }
-  toggle.setAttribute("aria-controls", nav.id);
-
-  const closeMenu = () => {
-    controls.classList.remove("is-nav-open");
-    toggle.setAttribute("aria-expanded", "false");
-    const icon = toggle.querySelector(".nav-toggle-icon");
-    if (icon) icon.innerHTML = "&#9776;";
-  };
-
-  const openMenu = () => {
-    controls.classList.add("is-nav-open");
-    toggle.setAttribute("aria-expanded", "true");
-    const icon = toggle.querySelector(".nav-toggle-icon");
-    if (icon) icon.innerHTML = "&times;";
-  };
-
-  toggle.addEventListener("click", () => {
-    const isOpen = controls.classList.contains("is-nav-open");
-    if (isOpen) closeMenu();
-    else openMenu();
-  });
-
-  nav.addEventListener("click", (event) => {
-    const target = event.target;
-    if (target instanceof Element && target.closest("a")) closeMenu();
-  });
-
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Node)) return;
-    if (!controls.contains(target)) closeMenu();
-  });
-
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 960) closeMenu();
-  });
-
-  closeMenu();
-}
 
 customElements.define("users-login", UsersLogin);
 window.FinanzAppTheme.initThemeSwitcher();
-initAuthNavMenu();
 
 (async () => {
   try {
