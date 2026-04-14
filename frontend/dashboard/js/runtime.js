@@ -115,7 +115,16 @@ function setActiveView(view) {
 
   const panels = document.querySelectorAll("[data-view-panel]");
   for (const panel of panels) {
-    panel.hidden = panel.dataset.viewPanel !== nextView;
+    const isNext = panel.dataset.viewPanel === nextView;
+    if (isNext) {
+      panel.hidden = false;
+      panel.classList.remove("is-entering");
+      void panel.offsetWidth; // reflow to restart animation
+      panel.classList.add("is-entering");
+    } else {
+      panel.hidden = true;
+      panel.classList.remove("is-entering");
+    }
   }
 
   window.localStorage.setItem(VIEW_STORAGE_KEY, nextView);

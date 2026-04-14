@@ -339,6 +339,35 @@ body.app-embedded-page {
   line-height: 1.1;
 }
 
+/* Breadcrumb: "FinanzApp › Seitenname" sichtbar machen */
+.topbar-left .brand-link {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar-left .brand-link .brand-mark {
+  flex-shrink: 0;
+}
+
+.topbar-left .brand-link .brand-mark::after {
+  content: " ›";
+  font-weight: 400;
+  opacity: 0.45;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+.topbar-left .brand-link .brand-sub {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ui-primary);
+}
+
+:root[data-theme="dark"] .topbar-left .brand-link .brand-sub {
+  color: var(--ui-text);
+}
+
 .toolbar-actions,
 .topbar-right,
 .header-controls {
@@ -398,7 +427,8 @@ body.app-embedded-page {
 .app-nav-link.is-active {
   border-color: var(--ui-primary);
   color: var(--ui-primary-dark);
-  background: var(--ui-surface-soft);
+  background: color-mix(in srgb, var(--ui-primary) 8%, var(--ui-surface-soft) 92%);
+  font-weight: 700;
 }
 
 :root[data-theme="dark"] .app-nav-link.is-active {
@@ -557,6 +587,18 @@ body.app-embedded-page {
   justify-content: flex-start;
   font-size: 0.84rem;
   white-space: nowrap;
+  position: relative;
+}
+
+.app-side-nav .app-nav-link.is-active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ui-primary);
 }
 
 .app-side-nav .app-sub-nav {
@@ -604,6 +646,19 @@ body.app-embedded-page {
   border-color: var(--ui-border);
   background: var(--ui-surface-soft);
   color: var(--ui-text-strong);
+  font-weight: 650;
+  position: relative;
+}
+
+.app-side-nav .app-sub-nav-link.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--ui-primary);
 }
 
 :root[data-theme="dark"] .app-side-nav {
