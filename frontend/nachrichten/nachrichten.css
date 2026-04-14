@@ -159,6 +159,14 @@
   font-size: 1rem;
   flex-shrink: 0;
   text-transform: uppercase;
+  overflow: hidden;
+}
+
+.msg-conv-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .msg-conv-body {

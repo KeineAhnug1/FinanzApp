@@ -388,6 +388,11 @@ function renderGroupChatMessages() {
     const displayName = nameParts.length ? `${entry.username} (${nameParts.join(" ")})` : (entry.username || t("groups.unknown_user", "unbekannt"));
     const editedSuffix = entry.edited ? ` • ${t("groups.edited", "bearbeitet")}` : "";
 
+    const chatInitial = ((entry.username || "?")[0]).toUpperCase();
+    const chatAvatarHtml = entry.profileImage
+      ? `<div class="chat-avatar"><img src="${escapeHtml(entry.profileImage)}" alt="" /></div>`
+      : `<div class="chat-avatar">${escapeHtml(chatInitial)}</div>`;
+
     const bubble = document.createElement("div");
     bubble.className = "chat-bubble";
 
@@ -406,6 +411,7 @@ function renderGroupChatMessages() {
     meta.textContent = `${formatDate(entry.created_at)}${editedSuffix}`;
     bubble.appendChild(meta);
 
+    item.innerHTML = chatAvatarHtml;
     item.appendChild(bubble);
     groupChatMessages.appendChild(item);
   }
@@ -797,8 +803,13 @@ function renderGroupDetail(detail) {
     const safeRole = escapeHtml(member.role);
     const safeStatus = escapeHtml(formatMemberStatus(member.status));
     const userId = String(member.user_id || "");
+    const memberInitial = escapeHtml((member.username || "?")[0].toUpperCase());
+    const memberAvatarHtml = member.profileImage
+      ? `<div class="member-avatar"><img src="${escapeHtml(member.profileImage)}" alt="" /></div>`
+      : `<div class="member-avatar">${memberInitial}</div>`;
 
     item.innerHTML = `
+      ${memberAvatarHtml}
       <div>
         <p class="member-name">${safeIdentity}</p>
         <p class="meta">${escapeHtml(t("groups.role", "Rolle"))}: ${safeRole} | ${escapeHtml(t("status", "Status"))}: ${safeStatus}</p>

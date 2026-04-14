@@ -1309,6 +1309,7 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
         username: "$user.username",
         first_name: "$user.first_name",
         last_name: "$user.last_name",
+        profileImage: "$user.profileImage",
         role: "$role",
         status: "$status"
       }
@@ -1818,7 +1819,7 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
     const users = uniqueUserIds.length
       ? await db.collection(COLLECTIONS.users).find(
         { _id: { $in: uniqueUserIds } },
-        { projection: { _id: 1, username: 1, first_name: 1, last_name: 1 } }
+        { projection: { _id: 1, username: 1, first_name: 1, last_name: 1, profileImage: 1 } }
       ).toArray()
       : [];
     const usersById = new Map(users.map((user) => [String(user._id), user]));
@@ -1832,6 +1833,7 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
         username: author?.username || null,
         first_name: author?.first_name ?? null,
         last_name: author?.last_name ?? null,
+        profileImage: author?.profileImage || null,
         message: entry.message ?? "",
         status: entry.status ?? null,
         edited: Boolean(entry.edited),
@@ -4069,7 +4071,7 @@ async function handleGetConversations(req, res, session) {
   const partners = partnerIds.length
     ? await db.collection(COLLECTIONS.users).find(
         { _id: { $in: partnerIds } },
-        { projection: { _id: 1, username: 1 } }
+        { projection: { _id: 1, username: 1, profileImage: 1 } }
       ).toArray()
     : [];
   const partnerById = new Map(partners.map((p) => [String(p._id), p]));
@@ -4081,6 +4083,7 @@ async function handleGetConversations(req, res, session) {
     return {
       partnerId: String(partner._id),
       partnerUsername: partner.username,
+      partnerProfileImage: partner.profileImage || null,
       lastMessage: String(msg.content || ""),
       lastMessageAt: msg.sent_at instanceof Date ? msg.sent_at.toISOString() : null,
       unreadCount: r.unreadCount

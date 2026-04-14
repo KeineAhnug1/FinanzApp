@@ -54,6 +54,9 @@
     li.setAttribute("tabindex", "0");
 
     const initial = escapeHtml((conv.partnerUsername || "?")[0].toUpperCase());
+    const avatarHtml = conv.partnerProfileImage
+      ? `<div class="msg-conv-avatar"><img src="${escapeHtml(conv.partnerProfileImage)}" alt="" /></div>`
+      : `<div class="msg-conv-avatar">${initial}</div>`;
     const name = escapeHtml(conv.partnerUsername || conv.partnerId);
     const preview = escapeHtml(conv.lastMessage || "");
     const time = escapeHtml(formatConvTime(conv.lastMessageAt));
@@ -62,7 +65,7 @@
       : "";
 
     li.innerHTML = `
-      <div class="msg-conv-avatar">${initial}</div>
+      ${avatarHtml}
       <div class="msg-conv-body">
         <div class="msg-conv-header">
           <span class="msg-conv-name">${name}</span>
