@@ -15,32 +15,15 @@ function hydrateProfile(user) {
 function initProfileMenu() {
   const profileBtn = document.getElementById("profile-btn");
   const profileMenu = document.getElementById("profile-menu");
-  const logoutBtn = document.getElementById("logout-btn");
-  if (!profileBtn || !profileMenu || !logoutBtn) return;
 
+  // Dropdown-Menü ausblenden – User-Button navigiert direkt zu den Einstellungen
+  if (profileMenu) profileMenu.hidden = true;
+
+  if (!profileBtn) return;
+
+  profileBtn.setAttribute("aria-label", "Einstellungen");
   profileBtn.addEventListener("click", () => {
-    const willOpen = profileMenu.hidden;
-    if (willOpen) {
-      const settingsPanel = document.getElementById("settings-panel");
-      const settingsBtn = document.getElementById("settings-btn");
-      if (settingsPanel) settingsPanel.hidden = true;
-      if (settingsBtn) settingsBtn.setAttribute("aria-expanded", "false");
-    }
-    profileMenu.hidden = !willOpen;
-    profileBtn.setAttribute("aria-expanded", String(willOpen));
-  });
-
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Node)) return;
-    if (!profileMenu.contains(target) && !profileBtn.contains(target)) {
-      profileMenu.hidden = true;
-      profileBtn.setAttribute("aria-expanded", "false");
-    }
-  });
-
-  logoutBtn.addEventListener("click", async () => {
-    await window.FinanzAppSession.logoutAndRedirect();
+    window.location.href = "/einstellungen/";
   });
 }
 

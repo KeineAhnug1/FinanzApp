@@ -461,20 +461,13 @@
           <a class="side-nav-title side-nav-title-link" href="${HOMEPAGE_PATH}">${t("topbar.brand", "FinanzApp")}</a>
         </div>
         <nav class="app-nav-links" aria-label="${t("nav_app", "App-Navigation")}"></nav>
-        <div class="app-side-nav-after-links"></div>
         <div class="app-side-nav-bottom"></div>
       `;
       document.body.prepend(sideNav);
     }
     const nav = sideNav.querySelector(".app-nav-links");
     if (nav) refreshSidebarNav();
-    const sideNavAfterLinks = sideNav.querySelector(".app-side-nav-after-links");
     const sideNavBottom = sideNav.querySelector(".app-side-nav-bottom");
-
-    if (sideNavAfterLinks) {
-      const settingsWrap = controls.querySelector(".settings-wrap");
-      if (settingsWrap) sideNavAfterLinks.appendChild(settingsWrap);
-    }
 
     if (sideNavBottom) {
       const profileWrap = controls.querySelector(".profile-wrap");
@@ -660,113 +653,15 @@
   }
 
   function initGlobalSettings(topbar, sessionUser) {
-    const path = normalizePath(window.location.pathname);
-    if (path === "/dashboard.html") return; // Dashboard nutzt seine eigene bestehende Logik.
-
+    // Settings-Tab entfernt – Einstellungen sind über den User-Button unten links erreichbar.
+    // Bestehende Settings-Wraps entfernen, falls vorhanden.
     const controls = findControls(topbar);
-    if (!controls) return;
-
-    const legacyWrap = controls.querySelector(".global-settings-wrap");
-    if (legacyWrap) legacyWrap.remove();
-
-    // Settings koennen bereits von ensureSidebar in die Side-Nav verschoben worden sein.
-    // In dem Fall nicht erneut erzeugen, sonst entstehen doppelte Einstellungen.
-    if (!document.querySelector(".settings-wrap")) {
-      const wrap = document.createElement("div");
-      wrap.className = "settings-wrap";
-      wrap.innerHTML = createGlobalSettingsMarkup();
-      const profileWrap = controls.querySelector(".profile-wrap");
-      if (profileWrap) {
-        controls.insertBefore(wrap, profileWrap);
-      } else {
-        controls.appendChild(wrap);
-      }
+    if (controls) {
+      const legacyWrap = controls.querySelector(".global-settings-wrap");
+      if (legacyWrap) legacyWrap.remove();
     }
-
-    const settingsBtn = document.getElementById("settings-btn");
-    const settingsPanel = document.getElementById("settings-panel");
-    const settingsForm = document.getElementById("settings-form");
-    const resetBtn = document.getElementById("settings-reset-btn");
-    const status = document.getElementById("settings-status");
-    const currency = document.getElementById("settings-currency");
-    const locale = document.getElementById("settings-locale");
-    const themeMode = document.getElementById("settings-theme-mode");
-    if (!settingsBtn || !settingsPanel || !settingsForm || !resetBtn || !status || !currency || !locale || !themeMode) return;
-
-    const userId = String(sessionUser?.id || "anonymous");
-    renderLocaleOptions(locale);
-    renderThemeOptions(themeMode);
-
-    const applyFormValues = () => {
-      const settings = loadSettings(userId);
-      currency.value = settings.currency;
-      locale.value = settings.locale;
-      themeMode.value = settings.themeMode;
-      status.textContent = "";
-      status.classList.remove("is-error", "is-success");
-    };
-
-    const close = () => {
-      settingsPanel.hidden = true;
-      settingsBtn.setAttribute("aria-expanded", "false");
-    };
-
-    settingsBtn.addEventListener("click", () => {
-      const willOpen = settingsPanel.hidden;
-      if (willOpen) applyFormValues();
-      settingsPanel.hidden = !willOpen;
-      settingsBtn.setAttribute("aria-expanded", String(willOpen));
-    });
-
-    settingsForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const currentLocale = String(window.FinanzAppLanguage?.getLocale?.(userId) || DEFAULT_SETTINGS.locale);
-      const nextSettings = {
-        currency: String(currency.value || DEFAULT_SETTINGS.currency).toUpperCase(),
-        locale: String(locale.value || DEFAULT_SETTINGS.locale),
-        themeMode: THEME_OPTIONS.has(themeMode.value) ? themeMode.value : DEFAULT_SETTINGS.themeMode
-      };
-      saveSettings(userId, nextSettings);
-      if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
-        window.FinanzAppTheme.saveAndApplyThemeMode(nextSettings.themeMode);
-      }
-      if (window.FinanzAppLanguage?.setLocale) {
-        window.FinanzAppLanguage.setLocale(nextSettings.locale, { userId });
-      }
-      status.textContent = t("settings.saved", "Einstellungen gespeichert.");
-      status.classList.remove("is-error");
-      status.classList.add("is-success");
-      if (nextSettings.locale !== currentLocale) {
-        window.location.reload();
-      }
-    });
-
-    resetBtn.addEventListener("click", () => {
-      const resetSettings = { ...DEFAULT_SETTINGS };
-      saveSettings(userId, resetSettings);
-      if (window.FinanzAppTheme?.saveAndApplyThemeMode) {
-        window.FinanzAppTheme.saveAndApplyThemeMode(resetSettings.themeMode);
-      }
-      if (window.FinanzAppLanguage?.setLocale) {
-        window.FinanzAppLanguage.setLocale(resetSettings.locale, { userId });
-      }
-      applyFormValues();
-      status.textContent = t("settings.reset_done", "Einstellungen zurückgesetzt.");
-      status.classList.remove("is-error");
-      status.classList.add("is-success");
-    });
-
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!settingsPanel.contains(target) && !settingsBtn.contains(target)) close();
-    });
-
-    window.addEventListener("finanzapp:locale-changed", () => {
-      renderLocaleOptions(locale);
-      renderThemeOptions(themeMode);
-      applyFormValues();
-    });
+    const settingsWrap = document.querySelector(".settings-wrap");
+    if (settingsWrap) settingsWrap.remove();
   }
 
   function fillProfileElements(sessionUser) {
@@ -791,50 +686,23 @@
     for (const wrap of wraps) {
       const button = wrap.querySelector(".profile-btn");
       const menu = wrap.querySelector(".profile-menu");
-      if (!button || !menu) continue;
 
-      // Logout-Button aus dem Dropdown entfernen – Abmelden erfolgt über die Einstellungsseite
-      const logout = menu.querySelector(".logout-btn");
-      if (logout) logout.remove();
+      // Dropdown-Menü dauerhaft ausblenden
+      if (menu) menu.hidden = true;
 
-      if (!menu.querySelector(".settings-link")) {
-        const link = document.createElement("a");
-        link.href = "/einstellungen/";
-        link.className = "settings-link";
-        link.textContent = t("nav_settings", "Einstellungen");
-        if (window.location.pathname.startsWith("/einstellungen/")) {
-          link.setAttribute("aria-current", "page");
-        }
-        menu.appendChild(link);
+      if (!button || button.dataset.bound === "1") continue;
+      button.dataset.bound = "1";
+
+      if (menu) {
+        const logout = menu.querySelector(".logout-btn");
+        if (logout) logout.remove();
       }
 
+      button.setAttribute("aria-label", t("nav_settings", "Einstellungen"));
       button.addEventListener("click", () => {
-        const willOpen = menu.hidden;
-        for (const otherWrap of wraps) {
-          const otherMenu = otherWrap.querySelector(".profile-menu");
-          const otherButton = otherWrap.querySelector(".profile-btn");
-          if (otherMenu) otherMenu.hidden = true;
-          if (otherButton) otherButton.setAttribute("aria-expanded", "false");
-        }
-        menu.hidden = !willOpen;
-        button.setAttribute("aria-expanded", String(willOpen));
+        window.location.href = "/einstellungen/";
       });
-
     }
-
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      for (const wrap of wraps) {
-        const button = wrap.querySelector(".profile-btn");
-        const menu = wrap.querySelector(".profile-menu");
-        if (!button || !menu) continue;
-        if (!wrap.contains(target)) {
-          menu.hidden = true;
-          button.setAttribute("aria-expanded", "false");
-        }
-      }
-    });
   }
 
   async function updateMessagesBadge() {
@@ -872,6 +740,8 @@
     }
 
     updateBrandSub(topbar);
+    // Settings-Wraps sofort entfernen, bevor die Sidebar gebaut wird
+    for (const el of document.querySelectorAll(".settings-wrap, .global-settings-wrap")) el.remove();
     ensureSidebar(topbar, controls);
     window.addEventListener("hashchange", () => {
       updateBrandSub(topbar);
