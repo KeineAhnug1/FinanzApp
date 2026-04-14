@@ -51,6 +51,7 @@ export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utili
 export const COLLECTIONS = {
   users: "users",
   emailVerifications: "email_verifications",
+  passwordResets: "password_resets",
   incomeEntries: "income",
   expenseEntries: "private_expenses",
   userCategories: "user_categories",

@@ -1,4 +1,7 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+
+const scryptAsync = promisify(scrypt);
 
 const PASSWORD_HASH_PREFIX = "scrypt$";
 export const PASSWORD_HASH_SHA256_PREFIX = "sha256$";
@@ -17,14 +20,14 @@ export function isSha256PasswordHash(value) {
   return typeof value === "string" && value.startsWith(PASSWORD_HASH_SHA256_PREFIX);
 }
 
-export function hashPassword(plainPassword) {
+export async function hashPassword(plainPassword) {
   const password = String(plainPassword || "");
   const salt = randomBytes(PASSWORD_SALT_BYTES).toString("hex");
-  const derived = scryptSync(password, salt, PASSWORD_KEYLEN).toString("hex");
+  const derived = (await scryptAsync(password, salt, PASSWORD_KEYLEN)).toString("hex");
   return `${PASSWORD_HASH_PREFIX}${salt}$${derived}`;
 }
 
-export function verifyPassword(plainPassword, storedPassword) {
+export async function verifyPassword(plainPassword, storedPassword) {
   const plain = String(plainPassword || "");
   const stored = String(storedPassword || "");
 
@@ -43,7 +46,7 @@ export function verifyPassword(plainPassword, storedPassword) {
 
     try {
       const expected = Buffer.from(expectedHex, "hex");
-      const actual = scryptSync(plain, salt, expected.length);
+      const actual = await scryptAsync(plain, salt, expected.length);
       if (actual.length !== expected.length) return false;
       return timingSafeEqual(actual, expected);
     } catch {
@@ -56,5 +59,6 @@ export function verifyPassword(plainPassword, storedPassword) {
     return hashValue(plain) === expectedHash;
   }
 
+  // Plaintext fallback only for legacy migration – never stored new
   return plain === stored;
 }

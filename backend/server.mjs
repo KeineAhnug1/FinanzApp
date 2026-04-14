@@ -10,8 +10,6 @@ import {
   ANSWER_MESSAGE_MAX_LENGTH,
   COLLECTIONS,
   DB_NAME,
-  DEV_AUTO_LOGIN,
-  DEV_AUTO_LOGIN_USER_ID,
   DEV_EXPOSE_VERIFICATION_CODE,
   EXCHANGE_RATE_API_KEY,
   EXCHANGE_RATE_BASE_URL,
@@ -381,6 +379,28 @@ async function sendVerificationEmail(toEmail, firstName, code) {
   return true;
 }
 
+async function sendPasswordResetEmail(toEmail, firstName, code) {
+  const mailer = getMailer();
+  if (!mailer) {
+    console.warn(`[password-reset] SMTP not configured. Reset code for ${toEmail} was not sent.`);
+    return false;
+  }
+  const greetingName = firstName || "Nutzer";
+  const safeGreetingName = String(greetingName)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  await mailer.sendMail({
+    from: SMTP_FROM,
+    to: toEmail,
+    subject: "FinanzApp - Passwort zurücksetzen",
+    text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist 15 Minuten gültig. Falls du kein Zurücksetzen angefordert hast, ignoriere diese E-Mail.`,
+    html: `<p>Hallo ${safeGreetingName},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist 15 Minuten gültig.</p><p>Falls du kein Zurücksetzen angefordert hast, ignoriere diese E-Mail.</p>`
+  });
+  return true;
+}
+
 async function migrateLegacyExpenseEntriesToV3() {
   // Legacy v2 expense migrations are intentionally disabled for v4.
   // v4 private_expenses require bank_account_id, so the old migration would create invalid docs.
@@ -401,7 +421,7 @@ async function migratePlaintextPasswords() {
     if (isScryptPasswordHash(password) || isSha256PasswordHash(password)) {
       nextPassword = password;
     } else if (password) {
-      nextPassword = hashPassword(password);
+      nextPassword = await hashPassword(password);
     } else if (legacyHash) {
       nextPassword = `${PASSWORD_HASH_SHA256_PREFIX}${legacyHash}`;
     }
@@ -435,7 +455,7 @@ async function migratePlaintextPasswords() {
 
     await db.collection(COLLECTIONS.emailVerifications).updateOne(
       { _id: verification._id },
-      { $set: { password: hashPassword(password) } }
+      { $set: { password: await hashPassword(password) } }
     );
     migratedVerifications += 1;
   }
@@ -491,7 +511,7 @@ async function handleLogin(req, res) {
     return unauthorized(res, "E-Mail oder Passwort falsch");
   }
 
-  const isValid = verifyPassword(password, user.password);
+  const isValid = await verifyPassword(password, user.password);
 
   if (!isValid) return unauthorized(res, "E-Mail oder Passwort falsch");
 
@@ -500,7 +520,7 @@ async function handleLogin(req, res) {
     await db.collection(COLLECTIONS.users).updateOne(
       { _id: user._id },
       {
-        $set: { password: hashPassword(password) },
+        $set: { password: await hashPassword(password) },
         $unset: { hashed_passwort: "" }
       }
     );
@@ -600,7 +620,7 @@ async function handleRegister(req, res) {
   const code = createVerificationCode();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000);
-  const passwordHash = hashPassword(password);
+  const passwordHash = await hashPassword(password);
 
   await db.collection(COLLECTIONS.emailVerifications).updateOne(
     { email },
@@ -686,7 +706,7 @@ async function handleRegisterVerify(req, res) {
 
   const passwordHash = isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)
     ? verification.password
-    : hashPassword(verification.password);
+    : await hashPassword(verification.password);
 
   const userDoc = {
     username: verification.username,
@@ -2361,7 +2381,7 @@ async function ensureFinzbroUserId() {
   const userDoc = {
     username: FINZBRO_USERNAME,
     email: FINZBRO_EMAIL,
-    password: hashPassword(randomBytes(24).toString("hex")),
+    password: await hashPassword(randomBytes(24).toString("hex")),
     first_name: "Finzbro",
     last_name: "Bot",
     age: null,
@@ -3757,6 +3777,148 @@ async function handleDeleteUserAccount(req, res, session) {
   return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
 }
 
+async function handlePasswordChange(req, res, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "password-change" })) return;
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return badRequest(res, "Invalid JSON body");
+  }
+
+  const currentPassword = String(payload.current_password || "");
+  const newPassword = String(payload.new_password || "");
+
+  if (!currentPassword || !newPassword) {
+    return badRequest(res, "Aktuelles und neues Passwort sind Pflichtfelder");
+  }
+  if (newPassword.length < 8) {
+    return badRequest(res, "Neues Passwort muss mindestens 8 Zeichen haben");
+  }
+
+  const userId = parseObjectId(session.user.id);
+  const user = await db.collection(COLLECTIONS.users).findOne(
+    { _id: userId },
+    { projection: { password: 1 } }
+  );
+  if (!user) return unauthorized(res, "Benutzer nicht gefunden");
+
+  const isValid = await verifyPassword(currentPassword, user.password);
+  if (!isValid) return sendJson(res, 400, { ok: false, code: "wrong_password", message: "Aktuelles Passwort ist falsch" });
+
+  await db.collection(COLLECTIONS.users).updateOne(
+    { _id: userId },
+    { $set: { password: await hashPassword(newPassword) } }
+  );
+
+  return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich geändert" });
+}
+
+async function handlePasswordForgot(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "password-forgot" })) return;
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return badRequest(res, "Invalid JSON body");
+  }
+
+  const email = normalizeEmail(payload.email);
+  if (!email) return badRequest(res, "E-Mail ist ein Pflichtfeld");
+
+  // Always respond OK to prevent user enumeration
+  const user = await db.collection(COLLECTIONS.users).findOne(
+    { email },
+    { projection: { _id: 1, first_name: 1, email: 1 } }
+  );
+
+  if (user) {
+    const code = createVerificationCode();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+
+    await db.collection(COLLECTIONS.passwordResets).updateOne(
+      { email },
+      { $set: { email, user_id: user._id, code_hash: hashValue(code), attempts: 0, created_at: now, expires_at: expiresAt } },
+      { upsert: true }
+    );
+
+    try {
+      await sendPasswordResetEmail(email, user.first_name, code);
+    } catch (error) {
+      console.error("Password reset email sending failed:", error);
+    }
+  }
+
+  return sendJson(res, 200, { ok: true, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." });
+}
+
+async function handlePasswordReset(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "password-reset" })) return;
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return badRequest(res, "Invalid JSON body");
+  }
+
+  const email = normalizeEmail(payload.email);
+  const code = String(payload.code || "").trim();
+  const newPassword = String(payload.new_password || "");
+
+  if (!email || !code || !newPassword) {
+    return badRequest(res, "E-Mail, Code und neues Passwort sind Pflichtfelder");
+  }
+  if (newPassword.length < 8) {
+    return badRequest(res, "Neues Passwort muss mindestens 8 Zeichen haben");
+  }
+
+  const reset = await db.collection(COLLECTIONS.passwordResets).findOne({ email });
+  if (!reset) return badRequest(res, "Kein aktiver Reset-Code für diese E-Mail");
+
+  if (reset.expires_at && new Date(reset.expires_at).getTime() < Date.now()) {
+    await db.collection(COLLECTIONS.passwordResets).deleteOne({ email });
+    return sendJson(res, 410, { ok: false, message: "Code abgelaufen. Bitte erneut anfordern." });
+  }
+  if ((reset.attempts || 0) >= 5) {
+    return sendJson(res, 429, { ok: false, message: "Zu viele Fehlversuche. Bitte erneut anfordern." });
+  }
+
+  if (hashValue(code) !== reset.code_hash) {
+    await db.collection(COLLECTIONS.passwordResets).updateOne({ email }, { $inc: { attempts: 1 } });
+    return badRequest(res, "Code ist ungültig");
+  }
+
+  await db.collection(COLLECTIONS.users).updateOne(
+    { _id: reset.user_id },
+    { $set: { password: await hashPassword(newPassword) } }
+  );
+  await db.collection(COLLECTIONS.passwordResets).deleteOne({ email });
+
+  return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich zurückgesetzt" });
+}
+
 const API_HANDLERS = {
   handleCategories,
   handleIncomeEntries,
@@ -3793,7 +3955,8 @@ const API_HANDLERS = {
   handleStockSearchProxy,
   handleStockLogoProxy,
   handleExchangeRates,
-  handleDeleteUserAccount
+  handleDeleteUserAccount,
+  handlePasswordChange
 };
 
 const server = http.createServer(async (req, res) => {
@@ -3803,30 +3966,13 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", "http://localhost");
     const pathname = url.pathname;
 
-    if (DEV_AUTO_LOGIN) {
-      const cookies = parseCookies(req);
-      if (!cookies[SESSION_COOKIE_NAME]) {
-        const devUser = await db.collection(COLLECTIONS.users).findOne(
-          { _id: parseObjectId(DEV_AUTO_LOGIN_USER_ID) },
-          { projection: { _id: 1 } }
-        );
-        if (devUser) {
-          const token = createSession(String(devUser._id));
-          res.writeHead(302, {
-            "Set-Cookie": buildSessionCookie(token),
-            "Location": "/dashboard.html"
-          });
-          res.end();
-          return;
-        }
-      }
-    }
-
     if (pathname === "/api/login") return await handleLogin(req, res);
     if (pathname === "/api/register") return await handleRegister(req, res);
     if (pathname === "/api/register/verify") return await handleRegisterVerify(req, res);
     if (pathname === "/api/session") return await handleSession(req, res);
     if (pathname === "/api/logout") return await handleLogout(req, res);
+    if (pathname === "/api/password/forgot") return await handlePasswordForgot(req, res);
+    if (pathname === "/api/password/reset") return await handlePasswordReset(req, res);
 
     if (isProtectedUiPath(pathname)) {
       const session = await getSessionUser(req);
@@ -3873,6 +4019,14 @@ async function ensureIndexes() {
   await db.collection(COLLECTIONS.emailVerifications).createIndex(
     { expires_at: 1 },
     { expireAfterSeconds: 0, name: "email_verifications_expires_ttl" }
+  );
+  await db.collection(COLLECTIONS.passwordResets).createIndex(
+    { email: 1 },
+    { unique: true, name: "password_resets_email_unique" }
+  );
+  await db.collection(COLLECTIONS.passwordResets).createIndex(
+    { expires_at: 1 },
+    { expireAfterSeconds: 0, name: "password_resets_expires_ttl" }
   );
   await db.collection(COLLECTIONS.incomeEntries).createIndex(
     { bank_account_id: 1, pay_date: -1, created_at: -1 },

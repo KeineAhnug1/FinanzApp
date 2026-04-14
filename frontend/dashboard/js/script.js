@@ -38,7 +38,7 @@ class UsersLogin extends HTMLElement {
     for (const button of modeButtons) {
       button.addEventListener("click", () => {
         const targetMode = button.dataset.authMode;
-        if (targetMode === "login" || targetMode === "register" || targetMode === "verify") {
+        if (targetMode === "login" || targetMode === "register" || targetMode === "verify" || targetMode === "forgot" || targetMode === "reset") {
           this.mode = targetMode;
           this.flash = null;
           this.render();
@@ -72,6 +72,16 @@ class UsersLogin extends HTMLElement {
         if (this.mode === "register") {
           setStatus(status, "idle", tr("auth.preparing_account", "Konto wird vorbereitet..."));
           await this.submitRegister(form, status);
+          return;
+        }
+        if (this.mode === "forgot") {
+          setStatus(status, "idle", "Code wird angefordert...");
+          await this.submitForgot(form, status);
+          return;
+        }
+        if (this.mode === "reset") {
+          setStatus(status, "idle", "Passwort wird zurückgesetzt...");
+          await this.submitReset(form, status);
           return;
         }
         setStatus(status, "idle", tr("auth.verifying_code", "Code wird geprüft..."));
@@ -176,36 +186,107 @@ class UsersLogin extends HTMLElement {
     this.bindEvents();
   }
 
+  async submitForgot(form, status) {
+    const formData = new FormData(form);
+    const email = String(formData.get("email") || "").trim().toLowerCase();
+
+    const result = await postJson("/api/password/forgot", { email });
+
+    if (result.status === 429) {
+      startRateLimitCountdown(this, status, result.retryAfter ?? 60);
+      return;
+    }
+
+    this.pendingEmail = email;
+    this.mode = "reset";
+    this.flash = {
+      type: "success",
+      text: result.message || "Falls ein Konto existiert, wurde ein Code versendet."
+    };
+    this.render();
+    this.bindEvents();
+  }
+
+  async submitReset(form, status) {
+    const formData = new FormData(form);
+    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const code = String(formData.get("code") || "").trim();
+    const newPassword = String(formData.get("new_password") || "");
+    const confirmPassword = String(formData.get("confirm_password") || "");
+
+    if (newPassword !== confirmPassword) {
+      setStatus(status, "error", "Die neuen Passwörter stimmen nicht überein.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setStatus(status, "error", "Neues Passwort muss mindestens 8 Zeichen haben.");
+      return;
+    }
+
+    const result = await postJson("/api/password/reset", { email, code, new_password: newPassword });
+
+    if (result.status === 429) {
+      startRateLimitCountdown(this, status, result.retryAfter ?? 60);
+      return;
+    }
+
+    if (!result.ok) {
+      setStatus(status, "error", result.message || "Fehler beim Zurücksetzen.");
+      return;
+    }
+
+    this.pendingEmail = email;
+    this.mode = "login";
+    this.flash = {
+      type: "success",
+      text: "Passwort erfolgreich zurückgesetzt. Bitte jetzt einloggen."
+    };
+    this.render();
+    this.bindEvents();
+  }
+
   render() {
     const isLogin = this.mode === "login";
     const isRegister = this.mode === "register";
+    const isForgot = this.mode === "forgot";
+    const isReset = this.mode === "reset";
+
+    let title, subtitle, fields, submitLabel;
+    if (isLogin) {
+      title = tr("auth.title_login", "Willkommen zurück");
+      subtitle = tr("auth.subtitle_login", "Melde dich mit deiner E-Mail und deinem Passwort an.");
+      fields = this.renderLoginFields();
+      submitLabel = tr("auth.submit_login", "Einloggen");
+    } else if (isRegister) {
+      title = tr("auth.title_register", "Konto erstellen");
+      subtitle = tr("auth.subtitle_register", "Füll das Formular aus. Du erhältst danach einen Code per E-Mail.");
+      fields = this.renderRegisterFields();
+      submitLabel = tr("auth.submit_register", "Konto erstellen");
+    } else if (isForgot) {
+      title = "Passwort vergessen";
+      subtitle = "Gib deine E-Mail-Adresse ein. Wir senden dir einen Code zum Zurücksetzen.";
+      fields = this.renderForgotFields();
+      submitLabel = "Code anfordern";
+    } else if (isReset) {
+      title = "Neues Passwort setzen";
+      subtitle = "Gib den Code aus der E-Mail und dein neues Passwort ein.";
+      fields = this.renderResetFields();
+      submitLabel = "Passwort zurücksetzen";
+    } else {
+      title = tr("auth.title_verify", "E-Mail bestätigen");
+      subtitle = tr("auth.subtitle_verify", "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben.");
+      fields = this.renderVerifyFields();
+      submitLabel = tr("auth.submit_verify", "Code bestätigen");
+    }
 
     this.innerHTML = `
       <section class="login-card">
-        <h1 class="login-title">
-          ${isLogin
-            ? tr("auth.title_login", "Willkommen zurück")
-            : isRegister
-              ? tr("auth.title_register", "Konto erstellen")
-              : tr("auth.title_verify", "E-Mail bestätigen")}
-        </h1>
-        <p class="login-subtitle">
-          ${isLogin
-            ? tr("auth.subtitle_login", "Melde dich mit deiner E-Mail und deinem Passwort an.")
-            : isRegister
-              ? tr("auth.subtitle_register", "Füll das Formular aus. Du erhältst danach einen Code per E-Mail.")
-              : tr("auth.subtitle_verify", "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben.")}
-        </p>
+        <h1 class="login-title">${title}</h1>
+        <p class="login-subtitle">${subtitle}</p>
 
         <form class="login-form">
-          ${isLogin ? this.renderLoginFields() : isRegister ? this.renderRegisterFields() : this.renderVerifyFields()}
-          <button class="login-button" type="submit">
-            ${isLogin
-              ? tr("auth.submit_login", "Einloggen")
-              : isRegister
-                ? tr("auth.submit_register", "Konto erstellen")
-                : tr("auth.submit_verify", "Code bestätigen")}
-          </button>
+          ${fields}
+          <button class="login-button" type="submit">${submitLabel}</button>
         </form>
 
         <p id="login-status" class="login-status"></p>
@@ -222,8 +303,41 @@ class UsersLogin extends HTMLElement {
         <input class="login-input" id="email" name="email" type="email" required autocomplete="email" placeholder="name@beispiel.de" />
       </div>
       <div>
-        <label class="login-label" for="password">${tr("auth.password", "Passwort")}</label>
+        <div class="login-label-row">
+          <label class="login-label" for="password">${tr("auth.password", "Passwort")}</label>
+          <button class="auth-mode-link auth-mode-link--inline" type="button" data-auth-mode="forgot">Vergessen?</button>
+        </div>
         <input class="login-input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="${tr("auth.password_placeholder", "Passwort eingeben")}" />
+      </div>
+    `;
+  }
+
+  renderForgotFields() {
+    return `
+      <div>
+        <label class="login-label" for="email">${tr("auth.email", "E-Mail")}</label>
+        <input class="login-input" id="email" name="email" type="email" required autocomplete="email" placeholder="name@beispiel.de" value="${escapeAttribute(this.pendingEmail)}" />
+      </div>
+    `;
+  }
+
+  renderResetFields() {
+    return `
+      <div>
+        <label class="login-label" for="email">${tr("auth.email", "E-Mail")}</label>
+        <input class="login-input" id="email" name="email" type="email" required autocomplete="email" value="${escapeAttribute(this.pendingEmail)}" />
+      </div>
+      <div>
+        <label class="login-label" for="code">Code aus der E-Mail</label>
+        <input class="login-input verify-code-input" id="code" name="code" type="text" inputmode="numeric" maxlength="6" required placeholder="123456" />
+      </div>
+      <div>
+        <label class="login-label" for="new_password">Neues Passwort</label>
+        <input class="login-input" id="new_password" name="new_password" type="password" required minlength="8" autocomplete="new-password" placeholder="${tr("auth.password_min", "mind. 8 Zeichen")}" />
+      </div>
+      <div>
+        <label class="login-label" for="confirm_password">Neues Passwort bestätigen</label>
+        <input class="login-input" id="confirm_password" name="confirm_password" type="password" required minlength="8" autocomplete="new-password" placeholder="wiederholen" />
       </div>
     `;
   }
@@ -284,6 +398,17 @@ class UsersLogin extends HTMLElement {
     }
     if (this.mode === "register") {
       return `<button class="auth-mode-link" type="button" data-auth-mode="login">${tr("auth.switch_to_login", "Schon ein Konto? Zum Login")}</button>`;
+    }
+    if (this.mode === "forgot") {
+      return `<button class="auth-mode-link" type="button" data-auth-mode="login">${tr("auth.back_to_login", "Zurück zum Login")}</button>`;
+    }
+    if (this.mode === "reset") {
+      return `
+        <div class="auth-mode-row">
+          <button class="auth-mode-link" type="button" data-auth-mode="forgot">Code erneut anfordern</button>
+          <button class="auth-mode-link" type="button" data-auth-mode="login">${tr("auth.back_to_login", "Zurück zum Login")}</button>
+        </div>
+      `;
     }
     return `
       <div class="auth-mode-row">

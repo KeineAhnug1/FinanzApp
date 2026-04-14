@@ -18,13 +18,30 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="/shared/unified-ui.css" />
+  <link rel="stylesheet" href="./style.css?v=4" />
 </head>
 <body>
   <div class="auth-page">
-
-    <aside class="auth-brand-panel" aria-hidden="true"></aside>
+    <aside class="auth-brand-panel" aria-hidden="true">
+      <div class="auth-brand-content">
+        <a class="brand-link auth-brand-link-side" href="/homepage/">
+          <span class="brand-mark">FinanzApp</span>
+        </a>
+        <div class="auth-brand-tagline">
+          <h2 class="auth-brand-headline">Deine Finanzen.<br>Klar im Blick.</h2>
+          <p class="auth-brand-sub">Ausgaben, Einnahmen und Vermögen — alles an einem Ort.</p>
+        </div>
+        <ul class="auth-feature-list" aria-label="Features">
+          <li><span class="auth-feature-icon" aria-hidden="true">✦</span> Einnahmen &amp; Ausgaben verwalten</li>
+          <li><span class="auth-feature-icon" aria-hidden="true">✦</span> Aktien &amp; Portfolio verfolgen</li>
+          <li><span class="auth-feature-icon" aria-hidden="true">✦</span> Gruppen &amp; geteilte Finanzen</li>
+        </ul>
+        <div class="auth-brand-image-wrap" aria-hidden="true">
+          <img class="auth-brand-image" src="/homepage/images/DashboardIncome.png" alt="" loading="lazy" />
+        </div>
+      </div>
+    </aside>
 
     <main class="auth-form-panel">
       <header class="auth-topbar">
@@ -38,7 +55,6 @@
         <users-login>Login wird geladen...</users-login>
       </div>
     </main>
-
   </div>
 
   <script src="/shared/js/theme-utils.js"></script>

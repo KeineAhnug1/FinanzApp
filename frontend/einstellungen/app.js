@@ -104,6 +104,66 @@
     });
   }
 
+  /* ── Passwort ändern ── */
+  function initPasswordChange() {
+    const form = document.getElementById("pw-change-form");
+    const btn = document.getElementById("pw-change-btn");
+    const status = document.getElementById("pw-change-status");
+    if (!form || !status) return;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const currentPassword = document.getElementById("pw-current").value;
+      const newPassword = document.getElementById("pw-new").value;
+      const confirmPassword = document.getElementById("pw-new-confirm").value;
+
+      status.className = "form-status";
+      status.textContent = "";
+
+      if (newPassword !== confirmPassword) {
+        status.textContent = "Die neuen Passwörter stimmen nicht überein.";
+        status.className = "form-status is-error";
+        return;
+      }
+      if (newPassword.length < 8) {
+        status.textContent = "Neues Passwort muss mindestens 8 Zeichen haben.";
+        status.className = "form-status is-error";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Wird gespeichert…";
+
+      try {
+        const response = await fetch("/api/password/change", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.ok) {
+          form.reset();
+          status.textContent = "Passwort erfolgreich geändert.";
+          status.className = "form-status is-success";
+        } else if (data.code === "wrong_password") {
+          status.textContent = "Das aktuelle Passwort ist falsch.";
+          status.className = "form-status is-error";
+        } else {
+          status.textContent = data.message || "Fehler beim Ändern des Passworts.";
+          status.className = "form-status is-error";
+        }
+      } catch {
+        status.textContent = "Ein Fehler ist aufgetreten. Bitte versuche es erneut.";
+        status.className = "form-status is-error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Passwort ändern";
+      }
+    });
+  }
+
   /* ── Abmelden ── */
   function initLogout() {
     const logoutBtn = document.getElementById("logout-btn");
@@ -209,6 +269,7 @@
     }
 
     initDesignCards();
+    initPasswordChange();
     initLogout();
     initDeleteAccount();
     initSectionHighlight();

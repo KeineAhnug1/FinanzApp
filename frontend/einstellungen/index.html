@@ -49,6 +49,7 @@
         <a class="einst-nav-link" href="#s-profil">Profil</a>
         <a class="einst-nav-link" href="#s-design">Design</a>
         <a class="einst-nav-link" href="#s-sprache">Sprache & Format</a>
+        <a class="einst-nav-link" href="#s-sicherheit">Sicherheit</a>
         <a class="einst-nav-link" href="#s-konto">Konto</a>
       </nav>
     </aside>
@@ -178,6 +179,32 @@
               <button type="submit" class="btn-primary">Speichern</button>
             </div>
             <p id="sprache-status" class="form-status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- Konto -->
+      <section class="einst-section" id="s-sicherheit">
+        <h2 class="einst-section-title">Sicherheit</h2>
+        <div class="einst-card">
+          <h3 class="einst-subsection-title">Passwort ändern</h3>
+          <form id="pw-change-form" class="einst-form" autocomplete="off">
+            <div class="einst-field">
+              <label class="field-label" for="pw-current">Aktuelles Passwort</label>
+              <input class="field-input" type="password" id="pw-current" name="current_password" autocomplete="current-password" required />
+            </div>
+            <div class="einst-field">
+              <label class="field-label" for="pw-new">Neues Passwort</label>
+              <input class="field-input" type="password" id="pw-new" name="new_password" autocomplete="new-password" required minlength="8" />
+            </div>
+            <div class="einst-field">
+              <label class="field-label" for="pw-new-confirm">Neues Passwort bestätigen</label>
+              <input class="field-input" type="password" id="pw-new-confirm" name="new_password_confirm" autocomplete="new-password" required minlength="8" />
+            </div>
+            <div class="einst-actions">
+              <button type="submit" class="btn-primary" id="pw-change-btn">Passwort ändern</button>
+            </div>
+            <p id="pw-change-status" class="form-status" aria-live="polite"></p>
           </form>
         </div>
       </section>

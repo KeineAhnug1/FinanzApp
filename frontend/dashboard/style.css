@@ -2,48 +2,135 @@
    AUTH PAGE — Login & Registrierung
    ===================================================== */
 
-body {
-  min-height: 100vh;
-}
-
+/* ── Seitenlayout ─────────────────────────────────── */
 .auth-page {
-  min-height: calc(100vh - 40px);
-  margin: 20px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  min-height: 100vh;
+  display: flex;
 }
 
-/* ── Linkes Markenpanel ───────────────────────────── */
+/* ── Linke Brand-Spalte ───────────────────────────── */
 .auth-brand-panel {
-  position: sticky;
-  top: 0;
-  height: calc(100vh - 40px);
-  background: var(--primary-dark);
-  border-radius: 12px;
+  display: none;
+  flex: 0 0 44%;
+  position: relative;
   overflow: hidden;
-}
-.auth-brand-panel::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 20% 15%, rgba(255,255,255,0.08) 0%, transparent 55%);
-  pointer-events: none;
+  border-right: 1px solid var(--ui-border);
+  /* Gleicher Hintergrund wie body — exakt kopiert */
+  background-color: var(--ui-bg-c2);
+  background-image:
+    radial-gradient(140% 110% at 6% -12%, var(--ui-bg-atmo-cool) 0%, transparent 64%),
+    radial-gradient(130% 108% at 104% 14%, var(--ui-bg-atmo-warm) 0%, transparent 66%),
+    radial-gradient(140% 118% at 50% 118%, var(--ui-bg-atmo-depth) 0%, transparent 70%),
+    linear-gradient(180deg, var(--ui-bg-c1) 0%, var(--ui-bg-c2) 55%, var(--ui-bg-c3) 100%),
+    radial-gradient(140% 120% at 50% 50%, transparent 58%, var(--ui-bg-vignette) 100%);
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
-/* ── Rechtes Formular-Panel ───────────────────────── */
-.auth-form-panel {
+.auth-brand-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 24px;
-  overflow-y: auto;
+  gap: 24px;
+  height: 100%;
+  padding: 48px 52px;
+  box-sizing: border-box;
 }
 
+.auth-brand-link-side {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.auth-brand-link-side .brand-mark {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ui-text);
+}
+
+.auth-brand-tagline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-brand-headline {
+  margin: 0;
+  font-size: clamp(1.8rem, 2.6vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--ui-text);
+}
+
+.auth-brand-sub {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--ui-text-muted);
+}
+
+.auth-feature-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ui-text-muted);
+}
+
+.auth-feature-icon {
+  font-size: 0.55rem;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ── Brand-Bild ───────────────────────────────────── */
+.auth-brand-image-wrap {
+  flex: 1;
+  min-height: 0;
+  border-radius: 14px 14px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-bottom: none;
+  box-shadow: var(--ui-shadow-soft);
+  align-self: stretch;
+  margin: 0 -8px -48px;
+}
+
+.auth-brand-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
+/* ── Rechte Form-Spalte ───────────────────────────── */
+.auth-form-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Topbar ───────────────────────────────────────── */
 .auth-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 48px 0;
+  padding: 28px 40px;
   flex-shrink: 0;
 }
 
@@ -52,60 +139,72 @@ body {
   align-items: center;
 }
 
-/* Auf Mobil: FinanzApp-Logo links in der Topbar */
 .auth-brand-link {
   text-decoration: none;
 }
 
 .auth-brand-link .brand-mark {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 800;
-  letter-spacing: -0.025em;
-  color: var(--text-strong);
+  letter-spacing: -0.02em;
+  color: var(--ui-text);
 }
 
-/* Formular vertikal zentriert */
+/* Brand im Topbar ausblenden wenn linke Spalte sichtbar */
+@media (min-width: 820px) {
+  .auth-brand-panel {
+    display: flex;
+  }
+  .auth-topbar .auth-brand-link {
+    display: none;
+  }
+}
+
+/* ── Form-Zentrierung ─────────────────────────────── */
 .auth-form-center {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: safe center;
   justify-content: center;
-  padding: 40px 64px 64px;
-}
-
-users-login {
-  display: block;
-  width: 100%;
-  max-width: 460px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 40px 44px;
-  box-shadow: var(--shadow-soft);
+  padding: 24px 40px 48px;
+  overflow-y: auto;
 }
 
 /* ── Login-Karte ──────────────────────────────────── */
+users-login {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+}
+
 .login-card {
   width: 100%;
-  animation: fade-up 280ms ease;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 20px;
+  padding: 44px 48px 40px;
+  box-shadow: var(--ui-shadow-soft);
+  animation: fade-up 260ms ease;
+  box-sizing: border-box;
 }
+
 .login-title {
   margin: 0 0 8px;
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 750;
   line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: var(--text-strong);
+  letter-spacing: -0.025em;
+  color: var(--ui-text);
 }
 
 .login-subtitle {
-  margin: 0 0 32px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  margin: 0 0 28px;
+  color: var(--ui-text-muted);
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
-/* ── Formular ──────────────────────────────────── */
+/* ── Formular ─────────────────────────────────────── */
 .login-form {
   display: grid;
   gap: 16px;
@@ -114,95 +213,108 @@ users-login {
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
 }
 
 .login-label {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-strong);
+  color: var(--ui-text);
+  letter-spacing: 0.01em;
 }
 
 .login-input {
   width: 100%;
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
-  color: var(--text-strong);
-  border-radius: 8px;
+  border: 1.5px solid var(--ui-border);
+  background: var(--ui-surface-soft);
+  color: var(--ui-text);
+  border-radius: 10px;
   padding: 11px 14px;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   outline: none;
-  transition: border-color 120ms, box-shadow 120ms;
+  box-sizing: border-box;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
 
 .login-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-ring);
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
 }
 
 .login-input::placeholder {
-  color: var(--text-muted);
+  color: var(--ui-text-muted);
   opacity: 0.6;
 }
 
-.login-button {
-  margin-top: 6px;
-  width: calc(100% - 32px);
-  margin-left: 16px;
-  margin-right: 16px;
-  border: 0;
-  border-radius: 8px;
-  padding: 12px;
-  background: var(--primary);
-  color: var(--text-on-primary);
-  font: inherit;
-  font-size: 0.93rem;
-  font-weight: 650;
-  cursor: pointer;
-  transition: opacity 120ms, transform 120ms;
+.login-input[readonly] {
+  opacity: 0.7;
+  cursor: default;
 }
 
-.login-button:hover {
-  opacity: 0.86;
+/* ── Submit-Button ────────────────────────────────── */
+.login-button {
+  margin-top: 6px;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 12.5px;
+  background: var(--ui-primary);
+  color: var(--ui-text-on-primary);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.login-button:hover:not(:disabled) {
+  opacity: 0.88;
   transform: translateY(-1px);
 }
 
+.login-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 .login-button:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
 }
 
-/* ── Status & Aktionen ─────────────────────────── */
+/* ── Status & Divider ─────────────────────────────── */
 .login-status {
   min-height: 1.2em;
   margin: 12px 0 0;
-  font-size: 0.86rem;
-  color: var(--text-muted);
-  line-height: 1.45;
+  font-size: 0.84rem;
+  color: var(--ui-text-muted);
+  line-height: 1.5;
 }
 
-.login-status.is-success { color: var(--success); }
-.login-status.is-error   { color: var(--error); }
+.login-status.is-success { color: var(--ui-success); }
+.login-status.is-error   { color: var(--ui-error); }
 
 .auth-divider {
   height: 1px;
-  background: var(--border);
+  background: var(--ui-border);
   margin: 20px 0 0;
 }
 
+/* ── Mode-Links ───────────────────────────────────── */
 .auth-mode-link {
   display: inline-block;
   margin-top: 16px;
   border: 0;
   background: transparent;
   padding: 0;
-  color: var(--primary);
+  color: var(--ui-primary);
   font: inherit;
-  font-size: 0.84rem;
+  font-size: 0.83rem;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
@@ -213,58 +325,63 @@ users-login {
   text-decoration: underline;
 }
 
+.login-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.login-label-row .login-label {
+  margin-bottom: 0;
+}
+
+.auth-mode-link--inline {
+  margin-top: 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--ui-text-muted);
+}
+
+.auth-mode-link--inline:hover {
+  color: var(--ui-primary);
+  text-decoration: none;
+}
+
 .auth-mode-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 2px;
 }
 
+/* ── Verifizierungscode ───────────────────────────── */
 .verify-code-input {
-  letter-spacing: 0.3em;
+  letter-spacing: 0.35em;
   text-align: center;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
+/* ── Animationen ──────────────────────────────────── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Responsive ───────────────────────────────── */
-@media (max-width: 900px) {
-  .auth-page {
-    grid-template-columns: 0.6fr 1fr;
-  }
-
-  .auth-form-center {
-    padding: 36px 48px 56px;
-  }
-}
-
+/* ── Responsive ───────────────────────────────────── */
 @media (max-width: 640px) {
-  .auth-page {
-    grid-template-columns: 1fr;
-    margin: 12px;
-    gap: 0;
-  }
-
-  .auth-brand-panel {
-    display: none;
-  }
-
   .auth-topbar {
-    padding: 20px 20px 0;
+    padding: 20px;
   }
 
   .auth-form-center {
-    padding: 20px 16px 48px;
-    align-items: flex-start;
+    padding: 16px 20px 48px;
   }
 
-  users-login {
-    padding: 28px 24px;
+  .login-card {
+    padding: 32px 28px 28px;
+    border-radius: 16px;
   }
 
   .form-row {
