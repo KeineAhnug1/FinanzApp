@@ -13,12 +13,14 @@
         document.documentElement.dataset.theme = resolved;
         document.documentElement.dataset.themeMode = mode;
         var d = window.localStorage.getItem("finanzapp.designTheme");
-        if (d && d !== "classic" && (d === "ocean" || d === "forest" || d === "sunset")) document.documentElement.dataset.design = d;
+        if (d === "forest") document.documentElement.dataset.design = d;
+        var c = window.localStorage.getItem("finanzapp.contrast");
+        if (c === "high") document.documentElement.dataset.contrast = "high";
       } catch (_) {}
     })();
   </script>
-  <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="/shared/unified-ui.css" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <header class="page-topbar">
@@ -108,16 +110,6 @@
               <span class="design-check" aria-hidden="true">✓</span>
             </button>
 
-            <button type="button" class="design-card" data-design="ocean" aria-pressed="false">
-              <div class="design-preview">
-                <span class="design-swatch" style="background:#0d7377"></span>
-                <span class="design-swatch" style="background:#d0f0ef"></span>
-                <span class="design-swatch" style="background:#14a085"></span>
-              </div>
-              <span class="design-label">Ocean</span>
-              <span class="design-check" aria-hidden="true">✓</span>
-            </button>
-
             <button type="button" class="design-card" data-design="forest" aria-pressed="false">
               <div class="design-preview">
                 <span class="design-swatch" style="background:#2d6a4f"></span>
@@ -125,16 +117,6 @@
                 <span class="design-swatch" style="background:#52b788"></span>
               </div>
               <span class="design-label">Forest</span>
-              <span class="design-check" aria-hidden="true">✓</span>
-            </button>
-
-            <button type="button" class="design-card" data-design="sunset" aria-pressed="false">
-              <div class="design-preview">
-                <span class="design-swatch" style="background:#c1440e"></span>
-                <span class="design-swatch" style="background:#fde8de"></span>
-                <span class="design-swatch" style="background:#e07a5f"></span>
-              </div>
-              <span class="design-label">Sunset</span>
               <span class="design-check" aria-hidden="true">✓</span>
             </button>
 
@@ -153,6 +135,18 @@
             <button type="button" class="theme-option" data-theme-choice="auto" aria-pressed="false">
               <span class="theme-mode-icon" aria-hidden="true">⊙</span>
               Automatisch
+            </button>
+          </div>
+
+          <h3 class="einst-subsection-title" style="margin-top:var(--ui-space-5)">Barrierefreiheit</h3>
+          <div class="contrast-mode-group" role="group" aria-label="Kontrastmodus wählen">
+            <button type="button" class="contrast-option" data-contrast-choice="normal" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">◑</span>
+              Normal
+            </button>
+            <button type="button" class="contrast-option" data-contrast-choice="high" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">◉</span>
+              Hoher Kontrast
             </button>
           </div>
         </div>

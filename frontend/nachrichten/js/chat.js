@@ -5,6 +5,8 @@
 (function initChat() {
   let activeParnerId = null;
   let lastMessageCount = 0;
+  let activePartnerImage = null;
+  let activePartnerInitial = "?";
 
   // ── DOM refs ──────────────────────────────────────────────
   const chatEmpty = document.getElementById("chatEmpty");
@@ -83,6 +85,20 @@
 
       const li = document.createElement("li");
       li.className = "msg-bubble-row" + (msg.isOwn ? " is-own" : "");
+
+      if (!msg.isOwn) {
+        const avatar = document.createElement("div");
+        avatar.className = "msg-bubble-avatar";
+        if (activePartnerImage) {
+          const img = document.createElement("img");
+          img.src = escapeHtml(activePartnerImage);
+          img.alt = "";
+          avatar.appendChild(img);
+        } else {
+          avatar.textContent = activePartnerInitial;
+        }
+        li.appendChild(avatar);
+      }
 
       const bubble = document.createElement("div");
       bubble.className = "msg-bubble";
@@ -170,9 +186,11 @@
 
   // ── Public API ────────────────────────────────────────────
   window.FinanzAppChat = {
-    openChat(partnerId, partnerUsername) {
+    openChat(partnerId, partnerUsername, partnerProfileImage) {
       activeParnerId = partnerId;
       lastMessageCount = 0;
+      activePartnerImage = partnerProfileImage || null;
+      activePartnerInitial = (partnerUsername || partnerId || "?")[0].toUpperCase();
 
       if (chatEmpty) chatEmpty.hidden = true;
       if (chatContent) chatContent.hidden = false;
@@ -189,6 +207,8 @@
     closeChat() {
       activeParnerId = null;
       lastMessageCount = 0;
+      activePartnerImage = null;
+      activePartnerInitial = "?";
       if (chatEmpty) chatEmpty.hidden = false;
       if (chatContent) chatContent.hidden = true;
       if (chatMessages) chatMessages.innerHTML = "";

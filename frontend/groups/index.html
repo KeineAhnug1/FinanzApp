@@ -13,7 +13,9 @@
           document.documentElement.dataset.theme = resolved;
           document.documentElement.dataset.themeMode = mode;
           var d = window.localStorage.getItem("finanzapp.designTheme");
-          if (d && d !== "classic" && (d === "ocean" || d === "forest" || d === "sunset")) document.documentElement.dataset.design = d;
+          if (d === "forest") document.documentElement.dataset.design = d;
+          var c = window.localStorage.getItem("finanzapp.contrast");
+          if (c === "high") document.documentElement.dataset.contrast = "high";
         } catch (_) {}
       })();
       document.documentElement.classList.add("groups-view-preload");

@@ -1,6 +1,6 @@
 (function initEinstellungenPage() {
   const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
-  const DESIGN_OPTIONS = new Set(["classic", "ocean", "forest", "sunset"]);
+  const DESIGN_OPTIONS = new Set(["classic", "forest"]);
   const CURRENCIES = ["EUR", "USD", "GBP", "CHF"];
 
   function settingsKey(userId) {
@@ -370,6 +370,9 @@
     }
     if (window.FinanzAppTheme?.initDesign) {
       window.FinanzAppTheme.initDesign();
+    }
+    if (window.FinanzAppTheme?.initContrast) {
+      window.FinanzAppTheme.initContrast();
     }
 
     initDesignCards();

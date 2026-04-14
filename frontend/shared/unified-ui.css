@@ -48,68 +48,48 @@
 }
 
 :root[data-theme="dark"] {
-  --ui-bg-c1: #0f1014;
-  --ui-bg-c2: #131419;
-  --ui-bg-c3: #17191f;
-  --ui-bg-stripe-a: rgba(255, 255, 255, 0.012);
-  --ui-bg-stripe-b: rgba(255, 255, 255, 0.008);
-  --ui-bg-grid: rgba(188, 196, 214, 0.05);
-  --ui-bg-atmo-cool: rgba(98, 105, 120, 0.2);
-  --ui-bg-atmo-warm: rgba(90, 84, 74, 0.11);
-  --ui-bg-atmo-depth: rgba(56, 60, 70, 0.18);
-  --ui-bg-vignette: rgba(0, 0, 0, 0.56);
-  --ui-surface: #1a1c22;
-  --ui-surface-soft: #202329;
-  --ui-text: #e5e7ec;
-  --ui-text-muted: #9ca2ad;
-  --ui-border: rgba(255, 255, 255, 0.09);
-  --ui-border-strong: rgba(255, 255, 255, 0.17);
-  --ui-primary: #7c8396;
-  --ui-primary-dark: #666e84;
-  --ui-text-on-primary: #f3f5f9;
-  --ui-accent-blue: #84a0b0;
-  --ui-accent-orange: #e8986e;
-  --ui-accent-violet: #8f85a8;
-  --ui-focus-ring: rgba(124, 131, 150, 0.34);
-  --ui-success: #49d69f;
-  --ui-success-soft: #122a24;
-  --ui-success-border: #2a7b63;
-  --ui-warning: #e7c07f;
+  --ui-bg-c1: #111318;
+  --ui-bg-c2: #15171d;
+  --ui-bg-c3: #191b22;
+  --ui-bg-stripe-a: rgba(255, 255, 255, 0.015);
+  --ui-bg-stripe-b: rgba(255, 255, 255, 0.01);
+  --ui-bg-grid: rgba(188, 196, 214, 0.07);
+  --ui-bg-atmo-cool: rgba(77, 158, 255, 0.08);
+  --ui-bg-atmo-warm: rgba(90, 84, 74, 0.1);
+  --ui-bg-atmo-depth: rgba(56, 60, 70, 0.2);
+  --ui-bg-vignette: rgba(0, 0, 0, 0.5);
+  --ui-surface: #1c1e26;
+  --ui-surface-soft: #22242d;
+  --ui-text: #f0f2f7;
+  --ui-text-muted: #8a92a0;
+  --ui-border: rgba(255, 255, 255, 0.13);
+  --ui-border-strong: rgba(255, 255, 255, 0.22);
+  --ui-primary: #4d9eff;
+  --ui-primary-dark: #2e86f5;
+  --ui-text-on-primary: #ffffff;
+  --ui-accent-blue: #6db4ff;
+  --ui-accent-orange: #f5a876;
+  --ui-accent-violet: #a99dff;
+  --ui-focus-ring: rgba(77, 158, 255, 0.38);
+  --ui-success: #4dd9a5;
+  --ui-success-soft: #0e2820;
+  --ui-success-border: #2a8060;
+  --ui-warning: #f0ca82;
   --ui-warning-soft: #2d2415;
-  --ui-warning-border: #796140;
+  --ui-warning-border: #856a3a;
   --ui-danger: #ff7f8c;
   --ui-danger-strong: #e05567;
   --ui-danger-soft: #311720;
   --ui-danger-border: #8e3e4d;
   --ui-error: #ff7f8c;
-  --ui-overlay: rgba(4, 5, 8, 0.74);
-  --ui-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.44), 0 0 0 1px rgba(255, 255, 255, 0.03);
-  --ui-shadow-strong: 0 22px 48px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --ui-overlay: rgba(4, 5, 8, 0.78);
+  --ui-shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --ui-shadow-strong: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 
 /* ═══════════════════════════════════════════
    DESIGN THEMES — gesteuert via data-design
    ═══════════════════════════════════════════ */
-
-/* Ocean – Teal/Cyan */
-:root[data-design="ocean"] {
-  --ui-primary: #0d7377;
-  --ui-primary-dark: #095f63;
-  --ui-text-on-primary: #e8fafa;
-  --ui-accent-blue: #14a085;
-  --ui-accent-violet: #3dbfb8;
-  --ui-focus-ring: rgba(13, 115, 119, 0.28);
-  --ui-bg-atmo-cool: rgba(13, 115, 119, 0.12);
-  --ui-bg-atmo-warm: rgba(20, 160, 133, 0.1);
-}
-:root[data-design="ocean"][data-theme="dark"] {
-  --ui-primary: #14a085;
-  --ui-primary-dark: #0d7377;
-  --ui-text-on-primary: #e6faf7;
-  --ui-accent-blue: #3dbfb8;
-  --ui-accent-violet: #5dd6cf;
-  --ui-focus-ring: rgba(20, 160, 133, 0.36);
-}
 
 /* Forest – Grün/Erde */
 :root[data-design="forest"] {
@@ -124,35 +104,57 @@
   --ui-bg-atmo-warm: rgba(212, 163, 115, 0.18);
 }
 :root[data-design="forest"][data-theme="dark"] {
-  --ui-primary: #52b788;
-  --ui-primary-dark: #2d6a4f;
+  --ui-primary: #57c48e;
+  --ui-primary-dark: #3aac72;
   --ui-text-on-primary: #e6f5ec;
-  --ui-accent-blue: #74c69d;
+  --ui-accent-blue: #7dd4a8;
   --ui-accent-orange: #e9c46a;
   --ui-accent-violet: #95d5b2;
-  --ui-focus-ring: rgba(82, 183, 136, 0.36);
+  --ui-focus-ring: rgba(87, 196, 142, 0.4);
+  --ui-bg-atmo-cool: rgba(87, 196, 142, 0.1);
 }
 
-/* Sunset – Orange/Rose */
-:root[data-design="sunset"] {
-  --ui-primary: #c1440e;
-  --ui-primary-dark: #9c3009;
-  --ui-text-on-primary: #fff3ee;
-  --ui-accent-blue: #e07a5f;
-  --ui-accent-orange: #f2cc8f;
-  --ui-accent-violet: #e8998d;
-  --ui-focus-ring: rgba(193, 68, 14, 0.26);
-  --ui-bg-atmo-cool: rgba(224, 122, 95, 0.12);
-  --ui-bg-atmo-warm: rgba(242, 204, 143, 0.22);
+/* ═══════════════════════════════════════════
+   HIGH CONTRAST — gesteuert via data-contrast
+   ═══════════════════════════════════════════ */
+
+:root[data-contrast="high"] {
+  --ui-radius-sm: 3px;
+  --ui-radius-md: 4px;
+  --ui-radius-lg: 6px;
+  --ui-border: rgba(0, 0, 0, 0.7);
+  --ui-border-strong: rgba(0, 0, 0, 0.9);
+  --ui-text: #000000;
+  --ui-text-muted: #111111;
+  --ui-surface: #ffffff;
+  --ui-surface-soft: #f0f0f0;
+  --ui-bg-c1: #e8e8e8;
+  --ui-bg-c2: #d8d8d8;
+  --ui-bg-c3: #cccccc;
+  --ui-primary: #0040c0;
+  --ui-primary-dark: #003099;
+  --ui-text-on-primary: #ffffff;
+  --ui-focus-ring: rgba(0, 64, 192, 0.5);
+  --ui-shadow-soft: 0 2px 6px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(0, 0, 0, 0.15);
+  --ui-shadow-strong: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(0, 0, 0, 0.2);
 }
-:root[data-design="sunset"][data-theme="dark"] {
-  --ui-primary: #e07a5f;
-  --ui-primary-dark: #c1440e;
-  --ui-text-on-primary: #fff0eb;
-  --ui-accent-blue: #f2a58e;
-  --ui-accent-orange: #f2cc8f;
-  --ui-accent-violet: #e8998d;
-  --ui-focus-ring: rgba(224, 122, 95, 0.38);
+
+:root[data-contrast="high"][data-theme="dark"] {
+  --ui-text: #ffffff;
+  --ui-text-muted: #eeeeee;
+  --ui-surface: #000000;
+  --ui-surface-soft: #101010;
+  --ui-bg-c1: #0a0a0a;
+  --ui-bg-c2: #141414;
+  --ui-bg-c3: #1a1a1a;
+  --ui-border: rgba(255, 255, 255, 0.8);
+  --ui-border-strong: rgba(255, 255, 255, 0.95);
+  --ui-primary: #66b3ff;
+  --ui-primary-dark: #4d9eff;
+  --ui-text-on-primary: #000000;
+  --ui-focus-ring: rgba(102, 179, 255, 0.6);
+  --ui-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.2);
+  --ui-shadow-strong: 0 4px 20px rgba(0, 0, 0, 0.9), 0 0 0 2px rgba(255, 255, 255, 0.25);
 }
 
 :root {
@@ -965,6 +967,7 @@ body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-chevron {
 button,
 .app-nav-link,
 .theme-option,
+.contrast-option,
 .profile-btn,
 .settings-btn,
 .logout-btn,

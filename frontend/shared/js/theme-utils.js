@@ -5,8 +5,10 @@
 (function initSharedThemeUtilities() {
   const sThemeStorageKey = "finanzapp.themeMode";
   const sDesignStorageKey = "finanzapp.designTheme";
+  const sContrastStorageKey = "finanzapp.contrast";
   const oThemeOptions = new Set(["light", "dark", "auto"]);
-  const oDesignOptions = new Set(["classic", "ocean", "forest", "sunset"]);
+  const oDesignOptions = new Set(["classic", "forest"]);
+  const oContrastOptions = new Set(["normal", "high"]);
   const oPrefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
   function fnGetStoredThemeMode() {
@@ -102,6 +104,50 @@
     fnApplyDesign(fnGetStoredDesign());
   }
 
+  /* ── Kontrast-Funktionen ── */
+
+  function fnGetStoredContrast() {
+    const sStored = window.localStorage.getItem(sContrastStorageKey);
+    if (sStored && oContrastOptions.has(sStored)) return sStored;
+    return "normal";
+  }
+
+  function fnApplyContrast(sContrast) {
+    const sResolved = oContrastOptions.has(sContrast) ? sContrast : "normal";
+    if (sResolved === "normal") {
+      delete document.documentElement.dataset.contrast;
+    } else {
+      document.documentElement.dataset.contrast = sResolved;
+    }
+    const aContrastButtons = document.querySelectorAll(".contrast-option");
+    for (const oBtn of aContrastButtons) {
+      const bIsActive = oBtn.dataset.contrastChoice === sResolved;
+      oBtn.classList.toggle("is-active", bIsActive);
+      oBtn.setAttribute("aria-pressed", String(bIsActive));
+    }
+    window.dispatchEvent(new CustomEvent("finanzapp:contrast-changed", { detail: { contrast: sResolved } }));
+    return sResolved;
+  }
+
+  function fnSaveAndApplyContrast(sContrast) {
+    const sResolved = oContrastOptions.has(sContrast) ? sContrast : "normal";
+    window.localStorage.setItem(sContrastStorageKey, sResolved);
+    return fnApplyContrast(sResolved);
+  }
+
+  function fnInitContrast() {
+    fnApplyContrast(fnGetStoredContrast());
+
+    const aContrastButtons = document.querySelectorAll(".contrast-option");
+    for (const oBtn of aContrastButtons) {
+      oBtn.addEventListener("click", () => {
+        const sContrast = oBtn.dataset.contrastChoice;
+        if (!sContrast || !oContrastOptions.has(sContrast)) return;
+        fnSaveAndApplyContrast(sContrast);
+      });
+    }
+  }
+
   window.FinanzAppTheme = {
     getStoredThemeMode: fnGetStoredThemeMode,
     resolveThemeMode: fnResolveThemeMode,
@@ -112,7 +158,10 @@
     getStoredDesign: fnGetStoredDesign,
     applyDesign: fnApplyDesign,
     saveAndApplyDesign: fnSaveAndApplyDesign,
-    initDesign: fnInitDesign
+    initDesign: fnInitDesign,
+    getStoredContrast: fnGetStoredContrast,
+    applyContrast: fnApplyContrast,
+    saveAndApplyContrast: fnSaveAndApplyContrast,
+    initContrast: fnInitContrast
   };
 })();
-

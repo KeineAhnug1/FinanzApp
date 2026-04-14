@@ -293,8 +293,54 @@
   box-shadow: 0 0 0 3px var(--ui-focus-ring);
 }
 
+.theme-option.is-active:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+}
+
 .theme-mode-icon {
   font-size: 1rem;
+}
+
+/* ── Kontrastmodus-Buttons (gleiche Basis wie theme-option) ── */
+.contrast-mode-group {
+  display: flex;
+  gap: var(--ui-space-2);
+  flex-wrap: wrap;
+}
+
+.contrast-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--ui-space-2) var(--ui-space-4);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-soft);
+  color: var(--ui-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.contrast-option:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+}
+
+.contrast-option.is-active {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
+
+.contrast-option.is-active:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
 }
 
 /* ── Formular ── */

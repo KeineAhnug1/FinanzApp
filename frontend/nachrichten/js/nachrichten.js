@@ -76,11 +76,11 @@
       ${badgeHtml}
     `;
 
-    li.addEventListener("click", () => openConversation(conv.partnerId, conv.partnerUsername));
+    li.addEventListener("click", () => openConversation(conv.partnerId, conv.partnerUsername, conv.partnerProfileImage));
     li.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        openConversation(conv.partnerId, conv.partnerUsername);
+        openConversation(conv.partnerId, conv.partnerUsername, conv.partnerProfileImage);
       }
     });
 
@@ -104,7 +104,7 @@
     noConvEl.hidden = conversations.length > 0;
   }
 
-  function openConversation(partnerId, partnerUsername) {
+  function openConversation(partnerId, partnerUsername, partnerProfileImage) {
     currentPartnerId = partnerId;
 
     // Mark active in list
@@ -116,7 +116,7 @@
     sidebar.classList.add("is-hidden-mobile");
     chatArea.classList.remove("is-hidden-mobile");
 
-    window.FinanzAppChat?.openChat(partnerId, partnerUsername);
+    window.FinanzAppChat?.openChat(partnerId, partnerUsername, partnerProfileImage);
 
     // Reset poll so we poll immediately on open
     startPolling();
