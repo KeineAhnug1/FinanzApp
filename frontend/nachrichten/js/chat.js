@@ -85,6 +85,7 @@
 
       const li = document.createElement("li");
       li.className = "msg-bubble-row" + (msg.isOwn ? " is-own" : "");
+      if (msg._id) li.dataset.messageId = msg._id;
 
       if (!msg.isOwn) {
         const avatar = document.createElement("div");
@@ -102,8 +103,15 @@
 
       const bubble = document.createElement("div");
       bubble.className = "msg-bubble";
-      // Use textContent to prevent XSS — no innerHTML with user content
-      bubble.textContent = msg.content;
+      if (msg.deleted_at) {
+        const deletedSpan = document.createElement("span");
+        deletedSpan.className = "msg-deleted";
+        deletedSpan.textContent = t("messages.deleted", "Nachricht gelöscht");
+        bubble.appendChild(deletedSpan);
+      } else {
+        // Use textContent to prevent XSS — no innerHTML with user content
+        bubble.textContent = msg.content;
+      }
 
       const meta = document.createElement("div");
       meta.className = "msg-bubble-meta";
@@ -116,7 +124,42 @@
 
       li.appendChild(bubble);
       li.appendChild(meta);
+
+      if (msg.isOwn && !msg.deleted_at && msg._id) {
+        const menu = document.createElement("div");
+        menu.className = "msg-context-menu";
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "msg-context-delete";
+        deleteBtn.textContent = t("messages.delete", "Löschen");
+        deleteBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          deleteMessage(msg._id);
+          menu.hidden = true;
+        });
+        menu.appendChild(deleteBtn);
+        menu.hidden = true;
+        li.appendChild(menu);
+
+        bubble.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = !menu.hidden;
+          // Close all other open menus
+          chatMessages.querySelectorAll(".msg-context-menu").forEach((m) => { m.hidden = true; });
+          menu.hidden = isOpen;
+        });
+      }
+
       chatMessages.appendChild(li);
+    }
+  }
+
+  async function deleteMessage(messageId) {
+    const result = await window.FinanzAppApi.requestJson(
+      `/api/messages/${encodeURIComponent(messageId)}`,
+      { method: "DELETE" }
+    );
+    if (result.ok && activeParnerId) {
+      await loadMessages(activeParnerId, false);
     }
   }
 
@@ -158,6 +201,13 @@
 
     return true;
   }
+
+  // ── Close context menus on outside click ──────────────────
+  document.addEventListener("click", () => {
+    if (chatMessages) {
+      chatMessages.querySelectorAll(".msg-context-menu").forEach((m) => { m.hidden = true; });
+    }
+  });
 
   // ── Form submit ───────────────────────────────────────────
   if (chatForm) {

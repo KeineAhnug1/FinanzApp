@@ -53,6 +53,12 @@ export async function dispatchGroupRoutes(ctx) {
     return true;
   }
 
+  const groupMessageItemMatch = pathname.match(/^\/api\/groups\/([^/]+)\/messages\/([^/]+)$/);
+  if (groupMessageItemMatch) {
+    await handlers.handleDeleteGroupMessage(req, res, groupMessageItemMatch[1], groupMessageItemMatch[2], session);
+    return true;
+  }
+
   const promoteAdminMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)\/promote-admin$/);
   if (promoteAdminMatch) {
     await handlers.handlePromoteMemberToAdmin(req, res, promoteAdminMatch[1], promoteAdminMatch[2], session);

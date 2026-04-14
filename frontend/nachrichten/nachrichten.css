@@ -401,6 +401,44 @@
   border-radius: 50%;
 }
 
+.msg-deleted {
+  color: var(--ui-text-muted, #64748b);
+  font-style: italic;
+}
+
+.msg-bubble-row {
+  position: relative;
+}
+
+.msg-context-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  background: var(--ui-surface, #fff);
+  border: 1px solid var(--ui-border, #d5dce3);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 10;
+  min-width: 110px;
+  overflow: hidden;
+}
+
+.msg-context-delete {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--ui-danger, #bb0000);
+  cursor: pointer;
+}
+
+.msg-context-delete:hover {
+  background: color-mix(in srgb, var(--ui-danger, #bb0000) 10%, transparent);
+}
+
 /* date separator */
 .msg-date-separator {
   text-align: center;

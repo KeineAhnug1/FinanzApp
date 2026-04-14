@@ -385,6 +385,10 @@ html.groups-view-preload #detailView {
   display: none;
 }
 
+.chat-item.is-own .chat-author {
+  display: none;
+}
+
 .chat-avatar {
   width: 32px;
   height: 32px;
@@ -413,6 +417,7 @@ html.groups-view-preload #detailView {
   border-radius: 12px;
   padding: 10px 12px;
   background: var(--bg-surface);
+  position: relative;
 }
 
 .chat-item.is-own .chat-bubble {
@@ -437,6 +442,40 @@ html.groups-view-preload #detailView {
   margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+.chat-message.is-deleted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.msg-context-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 10;
+  min-width: 110px;
+  overflow: hidden;
+}
+
+.msg-context-delete {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--danger, #bb0000);
+  cursor: pointer;
+}
+
+.msg-context-delete:hover {
+  background: color-mix(in srgb, var(--danger, #bb0000) 10%, transparent);
 }
 
 .group-chat-form {

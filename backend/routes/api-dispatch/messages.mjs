@@ -27,5 +27,11 @@ export async function dispatchMessageRoutes(ctx) {
     return true;
   }
 
+  const privateMessageMatch = pathname.match(/^\/api\/messages\/([^/]+)$/);
+  if (privateMessageMatch && req.method === "DELETE") {
+    await handlers.handleDeletePrivateMessage(req, res, privateMessageMatch[1], session);
+    return true;
+  }
+
   return false;
 }

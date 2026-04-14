@@ -1805,7 +1805,7 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
     const rows = await db.collection(COLLECTIONS.groupMessages)
       .find(
         filter,
-        { projection: { _id: 1, from_user_id: 1, message: 1, status: 1, edited: 1, created_at: 1 } }
+        { projection: { _id: 1, from_user_id: 1, message: 1, status: 1, edited: 1, created_at: 1, deleted_at: 1 } }
       )
       .sort({ created_at: -1, _id: -1 })
       .limit(limit + 1)
@@ -1837,7 +1837,8 @@ async function handleGroupMessages(req, res, groupIdRaw, session) {
         message: entry.message ?? "",
         status: entry.status ?? null,
         edited: Boolean(entry.edited),
-        created_at: entry.created_at ?? null
+        created_at: entry.created_at ?? null,
+        deleted_at: entry.deleted_at instanceof Date ? entry.deleted_at.toISOString() : null
       };
     });
 
@@ -4123,7 +4124,7 @@ async function handleGetConversation(req, res, partnerIdRaw, session) {
           { sender_id: partnerId, recipient_id: userId }
         ]
       },
-      { projection: { _id: 1, sender_id: 1, content: 1, sent_at: 1, read_at: 1 } }
+      { projection: { _id: 1, sender_id: 1, content: 1, sent_at: 1, read_at: 1, deleted_at: 1 } }
     )
     .sort({ sent_at: 1, _id: 1 })
     .toArray();
@@ -4134,7 +4135,8 @@ async function handleGetConversation(req, res, partnerIdRaw, session) {
     content: String(m.content || ""),
     sent_at: m.sent_at instanceof Date ? m.sent_at.toISOString() : null,
     read_at: m.read_at instanceof Date ? m.read_at.toISOString() : null,
-    isOwn: String(m.sender_id) === String(userId)
+    isOwn: String(m.sender_id) === String(userId),
+    deleted_at: m.deleted_at instanceof Date ? m.deleted_at.toISOString() : null
   }));
 
   return sendJson(res, 200, { ok: true, messages: result });
@@ -4280,6 +4282,61 @@ async function handleUserSearch(req, res, url, session) {
   });
 }
 
+async function handleDeletePrivateMessage(req, res, messageIdRaw, session) {
+  if (req.method !== "DELETE") {
+    res.setHeader("Allow", "DELETE");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return unauthorized(res, "Session invalid");
+  const messageId = parseObjectId(messageIdRaw);
+  if (!messageId) return sendJson(res, 400, { ok: false, message: "Ungültige Nachrichten-ID" });
+
+  const existing = await db.collection(COLLECTIONS.privateMessages).findOne(
+    { _id: messageId },
+    { projection: { _id: 1, sender_id: 1, deleted_at: 1 } }
+  );
+  if (!existing) return notFound(res, "Nachricht nicht gefunden");
+  if (String(existing.sender_id) !== String(userId))
+    return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
+  if (existing.deleted_at)
+    return sendJson(res, 400, { ok: false, message: "Nachricht wurde bereits gelöscht" });
+
+  await db.collection(COLLECTIONS.privateMessages).updateOne(
+    { _id: messageId },
+    { $set: { content: null, deleted_at: new Date() } }
+  );
+  return sendJson(res, 200, { ok: true, message: "Nachricht gelöscht" });
+}
+
+async function handleDeleteGroupMessage(req, res, groupIdRaw, messageIdRaw, session) {
+  if (req.method !== "DELETE") {
+    res.setHeader("Allow", "DELETE");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return unauthorized(res, "Session invalid");
+  const groupId = parseObjectId(groupIdRaw);
+  const messageId = parseObjectId(messageIdRaw);
+  if (!groupId || !messageId) return sendJson(res, 400, { ok: false, message: "Ungültige ID" });
+
+  const existing = await db.collection(COLLECTIONS.groupMessages).findOne(
+    { _id: messageId, group_id: groupId },
+    { projection: { _id: 1, from_user_id: 1, deleted_at: 1 } }
+  );
+  if (!existing) return notFound(res, "Nachricht nicht gefunden");
+  if (String(existing.from_user_id) !== String(userId))
+    return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
+  if (existing.deleted_at)
+    return sendJson(res, 400, { ok: false, message: "Nachricht wurde bereits gelöscht" });
+
+  await db.collection(COLLECTIONS.groupMessages).updateOne(
+    { _id: messageId },
+    { $set: { message: null, deleted_at: new Date() } }
+  );
+  return sendJson(res, 200, { ok: true, message: "Nachricht gelöscht" });
+}
+
 const API_HANDLERS = {
   handleCategories,
   handleIncomeEntries,
@@ -4323,7 +4380,9 @@ const API_HANDLERS = {
   handleGetConversation,
   handleSendMessage,
   handleUnreadCount,
-  handleUserSearch
+  handleUserSearch,
+  handleDeletePrivateMessage,
+  handleDeleteGroupMessage
 };
 
 const server = http.createServer(async (req, res) => {
