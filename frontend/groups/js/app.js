@@ -252,6 +252,8 @@ function setDetailStatus(message, type = "") {
     detailStatus.classList.add(type);
   }
   detailStatus.textContent = message || "";
+  if (type === "ok" && message)    window.FinanzAppToast?.success(message);
+  if (type === "error" && message) window.FinanzAppToast?.error(message);
 }
 
 function setInboxStatus(message, type = "") {
@@ -260,6 +262,8 @@ function setInboxStatus(message, type = "") {
     inboxStatus.classList.add(type);
   }
   inboxStatus.textContent = message || "";
+  if (type === "ok" && message)    window.FinanzAppToast?.success(message);
+  if (type === "error" && message) window.FinanzAppToast?.error(message);
 }
 
 function setGroupChatStatus(message, type = "") {
@@ -268,6 +272,8 @@ function setGroupChatStatus(message, type = "") {
     groupChatStatus.classList.add(type);
   }
   groupChatStatus.textContent = message || "";
+  if (type === "ok" && message)    window.FinanzAppToast?.success(message);
+  if (type === "error" && message) window.FinanzAppToast?.error(message);
 }
 
 function resetGroupChatState(groupId = "") {
@@ -561,14 +567,34 @@ function renderFundingSelects(fundings = []) {
   }
 }
 
+function createEmptyBlock(icon, title, hint) {
+  const wrap = document.createElement("div");
+  wrap.className = "empty-block";
+  const iconEl = document.createElement("span");
+  iconEl.className = "empty-block-icon";
+  iconEl.setAttribute("aria-hidden", "true");
+  iconEl.textContent = icon;
+  const titleEl = document.createElement("p");
+  titleEl.className = "empty-block-title";
+  titleEl.textContent = title;
+  wrap.append(iconEl, titleEl);
+  if (hint) {
+    const hintEl = document.createElement("p");
+    hintEl.className = "empty-block-hint";
+    hintEl.textContent = hint;
+    wrap.appendChild(hintEl);
+  }
+  return wrap;
+}
+
 function renderActivities(activities = []) {
   groupActivitiesList.innerHTML = "";
 
   if (!activities.length) {
-    const empty = document.createElement("li");
-    empty.className = "member-item";
-    empty.innerHTML = `<p class="meta">${t("groups.no_activities_yet", "Noch keine Aktivitaeten.")}</p>`;
-    groupActivitiesList.appendChild(empty);
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "member-item";
+    emptyLi.appendChild(createEmptyBlock("📅", t("groups.no_activities_yet", "Keine Aktivitäten"), "Füge eine Aktivität über das Formular hinzu."));
+    groupActivitiesList.appendChild(emptyLi);
     return;
   }
 
@@ -593,10 +619,10 @@ function renderFundings(fundings = []) {
   groupFundingsList.innerHTML = "";
 
   if (!fundings.length) {
-    const empty = document.createElement("li");
-    empty.className = "member-item";
-    empty.innerHTML = `<p class="meta">${t("no_fundings_yet", "Noch keine Finanzierungen.")}</p>`;
-    groupFundingsList.appendChild(empty);
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "member-item";
+    emptyLi.appendChild(createEmptyBlock("💰", t("no_fundings_yet", "Keine Finanzierungen"), "Erstelle eine Finanzierung für diese Gruppe."));
+    groupFundingsList.appendChild(emptyLi);
     return;
   }
 
@@ -662,10 +688,10 @@ function renderExpenses(expenses = []) {
   groupExpensesList.innerHTML = "";
 
   if (!expenses.length) {
-    const empty = document.createElement("li");
-    empty.className = "member-item";
-    empty.innerHTML = `<p class="meta">${t("no_paid_expenses_yet", "Noch keine aus Finanzierungen bezahlten Ausgaben.")}</p>`;
-    groupExpensesList.appendChild(empty);
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "member-item";
+    emptyLi.appendChild(createEmptyBlock("🧾", t("no_paid_expenses_yet", "Keine Ausgaben"), "Ausgaben erscheinen hier sobald Zahlungen vorhanden sind."));
+    groupExpensesList.appendChild(emptyLi);
     return;
   }
 
@@ -696,10 +722,10 @@ function renderFundingTransactions(transactions = []) {
   fundingTransactionsList.innerHTML = "";
 
   if (!transactions.length) {
-    const empty = document.createElement("li");
-    empty.className = "member-item";
-    empty.innerHTML = `<p class="meta">${t("no_funding_payments_yet", "Noch keine Finanzierungszahlungen.")}</p>`;
-    fundingTransactionsList.appendChild(empty);
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "member-item";
+    emptyLi.appendChild(createEmptyBlock("📋", t("no_funding_payments_yet", "Keine Zahlungen")));
+    fundingTransactionsList.appendChild(emptyLi);
     return;
   }
 
@@ -726,10 +752,7 @@ function renderGroups(groups) {
   groupsList.innerHTML = "";
 
   if (!groups.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = t("no_memberships_for_user", "Keine Gruppenmitgliedschaften fuer deinen Sitzungsnutzer gefunden.");
-    groupsList.appendChild(empty);
+    groupsList.appendChild(createEmptyBlock("🏘", t("no_memberships_for_user", "Noch keine Gruppen"), "Erstelle eine Gruppe oder warte auf eine Einladung."));
     return;
   }
 
@@ -759,10 +782,10 @@ function renderInvitations(invitations) {
   inboxInvitations.innerHTML = "";
 
   if (!invitations.length) {
-    const empty = document.createElement("li");
-    empty.className = "member-item";
-    empty.innerHTML = `<p class="meta">${t("no_open_invitations", "Keine offenen Einladungen.")}</p>`;
-    inboxInvitations.appendChild(empty);
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "member-item";
+    emptyLi.appendChild(createEmptyBlock("✉", t("no_open_invitations", "Keine offenen Einladungen")));
+    inboxInvitations.appendChild(emptyLi);
     return;
   }
 
@@ -1202,7 +1225,9 @@ groupChatForm.addEventListener("submit", async (event) => {
   const content = groupChatInput.value.trim();
   if (!content) return;
 
+  const sendBtn = groupChatForm.querySelector("button[type=submit]");
   groupChatInput.disabled = true;
+  sendBtn?.classList.add("btn-loading");
   setGroupChatStatus(t("groups.chat_sending", "Nachricht wird gesendet..."));
   try {
     const payload = await createGroupMessage(selectedGroupId, content);
@@ -1229,6 +1254,7 @@ groupChatForm.addEventListener("submit", async (event) => {
     setGroupChatStatus(error.message, "error");
   } finally {
     groupChatInput.disabled = false;
+    sendBtn?.classList.remove("btn-loading");
     groupChatInput.focus();
   }
 });

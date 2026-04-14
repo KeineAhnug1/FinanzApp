@@ -68,6 +68,7 @@ function initExpenseForm() {
   setExpenseFormModeCreate();
   initRecurrenceToggle("expense-recurrence", "expense-active");
   initCategorySelector("expense-category", "expense-custom-wrap", "expense-category-custom");
+  initInlineValidation(form);
 
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
@@ -79,7 +80,7 @@ function initExpenseForm() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!appState.user?.id) return;
-    if (submitBtn) submitBtn.disabled = true;
+    setButtonLoading(submitBtn, true);
 
     const formData = new FormData(form);
     const payload = {
@@ -101,7 +102,7 @@ function initExpenseForm() {
 
     if (!result.ok) {
       setStatus("expense-form-status", "error", result.message || expenseT("save_failed", "Speichern fehlgeschlagen."));
-      if (submitBtn) submitBtn.disabled = false;
+      setButtonLoading(submitBtn, false);
       return;
     }
 
@@ -109,6 +110,6 @@ function initExpenseForm() {
     await refreshCategoryData();
     setExpenseFormModeCreate();
     await refreshDashboardData();
-    if (submitBtn) submitBtn.disabled = false;
+    setButtonLoading(submitBtn, false);
   });
 }

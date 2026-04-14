@@ -58,8 +58,14 @@ function setStatus(statusId, type, text) {
   if (!node) return;
   node.textContent = text;
   node.classList.remove("is-success", "is-error");
-  if (type === "success") node.classList.add("is-success");
-  if (type === "error") node.classList.add("is-error");
+  if (type === "success") {
+    node.classList.add("is-success");
+    if (text) window.FinanzAppToast?.success(text);
+  }
+  if (type === "error") {
+    node.classList.add("is-error");
+    if (text) window.FinanzAppToast?.error(text);
+  }
 }
 
 function recurrenceLabel(recurrence) {
@@ -98,4 +104,26 @@ function compareDescKey(a, b) {
   if (a === "unknown") return 1;
   if (b === "unknown") return -1;
   return b.localeCompare(a);
+}
+
+function setButtonLoading(buttonEl, isLoading) {
+  if (!buttonEl) return;
+  if (isLoading) {
+    buttonEl.disabled = true;
+    buttonEl.classList.add("btn-loading");
+  } else {
+    buttonEl.disabled = false;
+    buttonEl.classList.remove("btn-loading");
+  }
+}
+
+function initInlineValidation(formEl) {
+  if (!formEl) return;
+  const inputs = formEl.querySelectorAll("input[required], select[required], textarea[required]");
+  for (const input of inputs) {
+    input.addEventListener("blur", () => input.classList.add("touched"));
+  }
+  formEl.addEventListener("submit", () => {
+    for (const input of inputs) input.classList.add("touched");
+  });
 }

@@ -68,6 +68,7 @@ function initIncomeForm() {
   setIncomeFormModeCreate();
   initRecurrenceToggle("income-recurrence", "income-active");
   initCategorySelector("income-category", "income-custom-wrap", "income-category-custom");
+  initInlineValidation(form);
 
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
@@ -79,7 +80,7 @@ function initIncomeForm() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!appState.user?.id) return;
-    if (submitBtn) submitBtn.disabled = true;
+    setButtonLoading(submitBtn, true);
 
     const formData = new FormData(form);
     const payload = {
@@ -101,7 +102,7 @@ function initIncomeForm() {
 
     if (!result.ok) {
       setStatus("income-form-status", "error", result.message || incomeT("save_failed", "Speichern fehlgeschlagen."));
-      if (submitBtn) submitBtn.disabled = false;
+      setButtonLoading(submitBtn, false);
       return;
     }
 
@@ -109,6 +110,6 @@ function initIncomeForm() {
     await refreshCategoryData();
     setIncomeFormModeCreate();
     await refreshDashboardData();
-    if (submitBtn) submitBtn.disabled = false;
+    setButtonLoading(submitBtn, false);
   });
 }

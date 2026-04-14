@@ -113,6 +113,7 @@
 
           statusEl.textContent = "Profilbild gespeichert.";
           statusEl.className = "form-status is-success";
+          window.FinanzAppToast?.success(statusEl.textContent);
         } else {
           statusEl.textContent = data.message || "Fehler beim Hochladen.";
           statusEl.className = "form-status is-error";
@@ -201,6 +202,7 @@
 
       status.textContent = "Einstellungen gespeichert.";
       status.className = "form-status is-success";
+      window.FinanzAppToast?.success(status.textContent);
 
       if (nextLocale !== prevLocale) {
         window.setTimeout(() => window.location.reload(), 600);
@@ -251,6 +253,7 @@
           form.reset();
           status.textContent = "Passwort erfolgreich geändert.";
           status.className = "form-status is-success";
+          window.FinanzAppToast?.success(status.textContent);
         } else if (data.code === "wrong_password") {
           status.textContent = "Das aktuelle Passwort ist falsch.";
           status.className = "form-status is-error";
