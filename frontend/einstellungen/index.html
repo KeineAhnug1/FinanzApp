@@ -61,12 +61,19 @@
         <h2 class="einst-section-title">Profil</h2>
         <div class="einst-card">
           <div class="profil-header">
-            <div class="profil-avatar-large" id="profil-avatar-large">U</div>
+            <div class="profil-avatar-wrap">
+              <div class="profil-avatar-large" id="profil-avatar-large">U</div>
+              <button type="button" class="profil-avatar-edit-btn" id="profil-avatar-edit-btn" aria-label="Profilbild ändern" title="Profilbild ändern">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <input type="file" id="profil-image-input" accept="image/jpeg,image/png,image/webp" hidden />
+            </div>
             <div class="profil-info">
               <p class="profil-fullname" id="profil-fullname">-</p>
               <p class="profil-email-top" id="profil-email-top">-</p>
             </div>
           </div>
+          <p id="profil-image-status" class="form-status" aria-live="polite" style="margin-bottom: var(--ui-space-3);"></p>
           <dl class="profil-details">
             <div class="profil-row">
               <dt>Benutzername</dt>
@@ -254,7 +261,7 @@
   <script src="/shared/js/session-utils.js"></script>
   <script src="/shared/js/language-utils.js"></script>
   <script src="/shared/js/currency-utils.js"></script>
-  <script src="/shared/js/topbar.js?v=2"></script>
+  <script src="/shared/js/topbar.js?v=3"></script>
   <script src="./app.js"></script>
 </body>
 </html>

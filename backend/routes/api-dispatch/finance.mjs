@@ -65,5 +65,10 @@ export async function dispatchFinanceRoutes(ctx) {
     return true;
   }
 
+  if (pathname === "/api/user/profile-image") {
+    await handlers.handleProfileImageUpload(req, res, session);
+    return true;
+  }
+
   return false;
 }

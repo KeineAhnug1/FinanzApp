@@ -831,6 +831,7 @@ body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-chevron {
   border: 1px solid var(--ui-border);
   font-size: 0.76rem;
   font-weight: 700;
+  overflow: hidden;
 }
 
 .profile-name {

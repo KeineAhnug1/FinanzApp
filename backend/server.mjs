@@ -173,7 +173,7 @@ async function getSessionUser(req) {
 
   const user = await db.collection(COLLECTIONS.users).findOne(
     { _id: parseObjectId(rec.userId) },
-    { projection: { _id: 1, username: 1, email: 1, first_name: 1, last_name: 1, income: 1, created_at: 1 } }
+    { projection: { _id: 1, username: 1, email: 1, first_name: 1, last_name: 1, income: 1, created_at: 1, profileImage: 1 } }
   );
 
   if (!user) {
@@ -190,7 +190,8 @@ async function getSessionUser(req) {
       first_name: user.first_name || null,
       last_name: user.last_name || null,
       income: toNumber(user.income),
-      created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null
+      created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null,
+      profileImage: user.profileImage || null
     }
   };
 }
@@ -3876,6 +3877,52 @@ async function handlePasswordChange(req, res, session) {
   return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich geändert" });
 }
 
+async function handleProfileImageUpload(req, res, session) {
+  if (req.method !== "PUT") {
+    res.setHeader("Allow", "PUT");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "profile-image" })) return;
+
+  let payload;
+  try {
+    payload = await readBody(req, { maxBytes: 300_000 });
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Bild ist zu groß (max. 200 KB)" });
+    return badRequest(res, "Invalid JSON body");
+  }
+
+  const profileImage = payload.profileImage;
+
+  if (!profileImage || typeof profileImage !== "string") {
+    return badRequest(res, "profileImage ist ein Pflichtfeld");
+  }
+
+  // Validate data URL format and MIME type
+  const dataUrlMatch = profileImage.match(/^data:(image\/(?:jpeg|png|webp));base64,/);
+  if (!dataUrlMatch) {
+    return badRequest(res, "Nur JPEG, PNG und WebP sind erlaubt");
+  }
+
+  // Validate base64 payload size (after header) – max ~200 KB encoded
+  const base64Data = profileImage.slice(profileImage.indexOf(",") + 1);
+  const approxBytes = Math.ceil(base64Data.length * 0.75);
+  if (approxBytes > 210_000) {
+    return sendJson(res, 413, { ok: false, message: "Bild ist zu groß (max. 200 KB)" });
+  }
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return unauthorized(res, "Session user invalid");
+
+  await db.collection(COLLECTIONS.users).updateOne(
+    { _id: userId },
+    { $set: { profileImage } }
+  );
+
+  return sendJson(res, 200, { ok: true, message: "Profilbild gespeichert" });
+}
+
 async function handlePasswordForgot(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -4268,6 +4315,7 @@ const API_HANDLERS = {
   handleExchangeRates,
   handleDeleteUserAccount,
   handlePasswordChange,
+  handleProfileImageUpload,
   handleGetConversations,
   handleGetConversation,
   handleSendMessage,

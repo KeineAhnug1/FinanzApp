@@ -28,7 +28,13 @@
     const since = user.created_at ? new Date(user.created_at).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" }) : "-";
 
     const avatar = document.getElementById("profil-avatar-large");
-    if (avatar) avatar.textContent = initials;
+    if (avatar) {
+      if (user.profileImage) {
+        avatar.innerHTML = `<img src="${user.profileImage}" alt="Profilbild" />`;
+      } else {
+        avatar.textContent = initials;
+      }
+    }
 
     const fullnameEl = document.getElementById("profil-fullname");
     if (fullnameEl) fullnameEl.textContent = fullName;
@@ -44,6 +50,104 @@
 
     const sinceEl = document.getElementById("profil-since");
     if (sinceEl) sinceEl.textContent = since;
+  }
+
+  /* ── Profilbild hochladen ── */
+  function initProfileImageUpload() {
+    const editBtn = document.getElementById("profil-avatar-edit-btn");
+    const fileInput = document.getElementById("profil-image-input");
+    const statusEl = document.getElementById("profil-image-status");
+
+    if (!editBtn || !fileInput) return;
+
+    editBtn.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        statusEl.textContent = "Nur JPEG, PNG und WebP sind erlaubt.";
+        statusEl.className = "form-status is-error";
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        statusEl.textContent = "Datei ist zu groß (max. 2 MB).";
+        statusEl.className = "form-status is-error";
+        return;
+      }
+
+      statusEl.textContent = "Wird hochgeladen…";
+      statusEl.className = "form-status";
+
+      try {
+        const base64 = await compressImage(file, 200, 200);
+
+        const response = await fetch("/api/user/profile-image", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profileImage: base64 })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.ok) {
+          const avatar = document.getElementById("profil-avatar-large");
+          if (avatar) avatar.innerHTML = `<img src="${base64}" alt="Profilbild" />`;
+
+          // Update topbar avatars
+          const topbarAvatars = document.querySelectorAll("[data-profile-avatar]");
+          for (const el of topbarAvatars) {
+            el.innerHTML = `<img src="${base64}" alt="Profilbild" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+          }
+
+          // Persist updated image in session storage
+          try {
+            const stored = window.sessionStorage.getItem("finanzapp.currentUser");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              parsed.profileImage = base64;
+              window.sessionStorage.setItem("finanzapp.currentUser", JSON.stringify(parsed));
+            }
+          } catch { /* ignore */ }
+
+          statusEl.textContent = "Profilbild gespeichert.";
+          statusEl.className = "form-status is-success";
+        } else {
+          statusEl.textContent = data.message || "Fehler beim Hochladen.";
+          statusEl.className = "form-status is-error";
+        }
+      } catch {
+        statusEl.textContent = "Ein Fehler ist aufgetreten. Bitte versuche es erneut.";
+        statusEl.className = "form-status is-error";
+      } finally {
+        fileInput.value = "";
+      }
+    });
+  }
+
+  /** Compresses an image File to a Base64 data URL at max maxW×maxH px. */
+  function compressImage(file, maxW, maxH) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Lesefehler"));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Bildfehler"));
+        img.onload = () => {
+          const scale = Math.min(1, maxW / img.width, maxH / img.height);
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.85));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   /* ── Design-Karten ── */
@@ -273,6 +377,7 @@
     initLogout();
     initDeleteAccount();
     initSectionHighlight();
+    initProfileImageUpload();
 
     try {
       const user = await window.FinanzAppSession.fetchSessionUser();

@@ -720,7 +720,13 @@
     for (const element of mailElements) element.textContent = sessionUser.email || "-";
 
     const avatarElements = document.querySelectorAll("[data-profile-avatar], #profile-avatar");
-    for (const element of avatarElements) element.textContent = avatarInitials;
+    for (const element of avatarElements) {
+      if (sessionUser.profileImage) {
+        element.innerHTML = `<img src="${sessionUser.profileImage}" alt="Profilbild" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+      } else {
+        element.textContent = avatarInitials;
+      }
+    }
   }
 
   function initProfileMenus() {
