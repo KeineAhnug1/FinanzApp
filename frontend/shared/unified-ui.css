@@ -590,6 +590,28 @@ body.app-embedded-page {
   position: relative;
 }
 
+.app-side-nav button.app-nav-link {
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  background: none;
+  border: 1px solid var(--ui-border);
+}
+
+.app-side-nav .app-nav-chevron {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--ui-text-muted);
+  transition: transform 180ms ease;
+}
+
+.app-side-nav button.app-nav-link[aria-expanded="true"] .app-nav-chevron {
+  transform: rotate(180deg);
+}
+
 .app-side-nav .app-nav-link.is-active::before {
   content: "";
   position: absolute;
@@ -635,6 +657,7 @@ body.app-embedded-page {
   text-decoration: none;
   font-size: 0.78rem;
   font-weight: 560;
+  position: relative;
 }
 
 .app-side-nav .app-sub-nav-link:hover {
@@ -740,6 +763,10 @@ body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-link {
 }
 
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-sub-nav {
+  display: none;
+}
+
+body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-chevron {
   display: none;
 }
 

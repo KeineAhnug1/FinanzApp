@@ -22,7 +22,7 @@
   ];
   const NAV_ITEMS = [
     {
-      href: "/dashboard.html",
+      href: null,
       labelKey: "nav_dashboard",
       fallback: "Dashboard",
       key: "dashboard",
@@ -43,40 +43,44 @@
       iconPath: "/shared/images/nav-groups.svg"
     },
     {
-      href: "/aktien/",
+      href: null,
       labelKey: "nav_stocks",
       fallback: "Aktien",
       key: "stocks",
       iconPath: "/shared/images/nav-stocks.svg"
     },
     {
-      href: "/fragen/",
-      labelKey: "nav_questions",
-      fallback: "Fragen",
-      key: "questions",
-      iconPath: "/shared/images/nav-questions.svg"
-    },
-    {
-      href: "/nachrichten/",
-      labelKey: "nav_messages",
-      fallback: "Nachrichten",
-      key: "messages",
+      href: null,
+      labelKey: "nav_kommunikation",
+      fallback: "Kommunikation",
+      key: "kommunikation",
       iconPath: "/shared/images/nav-messages.svg"
     }
   ];
   const SUB_NAV_ITEMS = {
     dashboard: [
-      { href: "/dashboard.html#overview", key: "overview", labelKey: "overview", fallback: "Uebersicht" },
+      { href: "/dashboard.html#overview", key: "overview", labelKey: "overview", fallback: "Übersicht" },
       { href: "/dashboard.html#income", key: "income", labelKey: "income_short", fallback: "Einnahmen" },
       { href: "/dashboard.html#expense", key: "expense", labelKey: "expense_short", fallback: "Ausgaben" }
     ],
     stocks: [
-      { href: "/aktien/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtsdepot" },
+      { href: "/aktien/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtdepot" },
       { href: "/aktien/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" },
       { href: "/aktien/#futureanalysis", key: "futureanalysis", labelKey: "stocks.future_outlook", fallback: "Zukunftsaussicht" }
+    ],
+    kommunikation: [
+      { href: "/fragen/",      key: "questions", labelKey: "nav_questions", fallback: "Fragen" },
+      { href: "/nachrichten/", key: "messages",  labelKey: "nav_messages",  fallback: "Nachrichten" }
     ]
   };
-  const NAV_PATHS = new Set(NAV_ITEMS.map((item) => normalizePath(item.href)));
+  const NAV_PATHS = new Set([
+    "/dashboard.html",
+    "/konten/",
+    "/groups/",
+    "/aktien/",
+    "/fragen/",
+    "/nachrichten/"
+  ]);
   let contentFrame = null;
   let contentFrameHost = null;
   let isSoftNavigating = false;
@@ -120,14 +124,14 @@
     return raw;
   }
 
-  function currentNavKey() {
-    const path = normalizePath(window.location.pathname);
+  function currentNavKey(pathname) {
+    const path = normalizePath(pathname || window.location.pathname);
     if (path === "/dashboard.html") return "dashboard";
     if (path.startsWith("/groups/")) return "groups";
     if (path.startsWith("/aktien/")) return "stocks";
     if (path.startsWith("/konten/")) return "accounts";
-    if (path.startsWith("/fragen/")) return "questions";
-    if (path.startsWith("/nachrichten/")) return "messages";
+    if (path.startsWith("/fragen/")) return "kommunikation";
+    if (path.startsWith("/nachrichten/")) return "kommunikation";
     return "";
   }
 
@@ -137,8 +141,8 @@
     if (path.startsWith("/groups/")) return t("nav_groups", "Gruppen");
     if (path.startsWith("/aktien/")) return t("nav_stocks", "Aktien");
     if (path.startsWith("/konten/")) return t("nav_accounts", "Kontenverwaltung");
-    if (path.startsWith("/fragen/")) return t("nav_questions", "Fragen");
-    if (path.startsWith("/nachrichten/")) return t("nav_messages", "Nachrichten");
+    if (path.startsWith("/fragen/")) return t("nav_kommunikation", "Kommunikation");
+    if (path.startsWith("/nachrichten/")) return t("nav_kommunikation", "Kommunikation");
     return t("topbar.brand", "FinanzApp");
   }
 
@@ -190,7 +194,10 @@
           const isSubActive = String(activeSubKey || "").toLowerCase() === sSubKey;
           const activeClass = isSubActive ? " is-active" : "";
           const currentAttr = isSubActive ? ' aria-current="page"' : "";
-          return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}</a>`;
+          const badgeMarkup = subItem.key === "messages"
+            ? `<span class="app-nav-unread-badge" id="messages-nav-badge" hidden></span>`
+            : "";
+          return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}${badgeMarkup}</a>`;
         }).join("")}
       </div>
     `;
@@ -207,27 +214,58 @@
       }
     }
     const activeStocksSubKey = activeKey === "stocks" ? (activeHash || "depot") : activeHash;
-    return { activeDashboardSubKey, activeStocksSubKey };
+    const activeAccountsSubKey = activeKey === "accounts" ? "konten" : "";
+    const activeGroupsSubKey = activeKey === "groups" ? "groups" : "";
+    let activeKommunikationSubKey = "";
+    if (activeKey === "kommunikation") {
+      const path = normalizePath(window.location.pathname);
+      if (path.startsWith("/fragen/")) activeKommunikationSubKey = "questions";
+      else if (path.startsWith("/nachrichten/")) activeKommunikationSubKey = "messages";
+    }
+    return { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey, activeKommunikationSubKey };
   }
 
   function navMarkup() {
     const activeKey = currentNavKey();
     const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
-    const { activeDashboardSubKey, activeStocksSubKey } = activeSubKeys(activeKey, activeHash);
+    const { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey, activeKommunikationSubKey } = activeSubKeys(activeKey, activeHash);
     return NAV_ITEMS.map((item) => {
-      const active = item.key === activeKey ? " is-active" : "";
-      const sActiveSubKey = item.key === "dashboard" ? activeDashboardSubKey : activeStocksSubKey;
+      const isActive = item.key === activeKey;
+      const activeClass = isActive ? " is-active" : "";
+      const sActiveSubKey =
+        item.key === "dashboard" ? activeDashboardSubKey
+        : item.key === "stocks" ? activeStocksSubKey
+        : item.key === "accounts" ? activeAccountsSubKey
+        : item.key === "groups" ? activeGroupsSubKey
+        : item.key === "kommunikation" ? activeKommunikationSubKey
+        : activeHash;
       const isSubNavParent = Boolean(SUB_NAV_ITEMS[item.key]?.length);
-      const subMarkup = isSubNavParent ? subNavMarkup(item.key, sActiveSubKey, activeKey === item.key) : "";
-      const badgeMarkup = item.key === "messages"
-        ? `<span class="app-nav-unread-badge" id="messages-nav-badge" hidden></span>`
+      const subMarkup = isSubNavParent ? subNavMarkup(item.key, sActiveSubKey, isActive) : "";
+
+      const iconHtml = `<span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>`;
+      const labelHtml = `<span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>`;
+      const chevronHtml = isSubNavParent
+        ? `<span class="app-nav-chevron" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
         : "";
-      if (item.key === activeKey) {
+
+      if (!item.href) {
         return `
           <div class="app-nav-item">
-            <span class="app-nav-link${active}" aria-current="page">
-              <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true">${badgeMarkup}</span>
-              <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
+            <button class="app-nav-link${activeClass}" type="button" data-subnav-toggle="${item.key}" aria-expanded="${isActive ? "true" : "false"}">
+              ${iconHtml}
+              ${labelHtml}
+              ${chevronHtml}
+            </button>
+            ${subMarkup}
+          </div>
+        `;
+      }
+      if (isActive) {
+        return `
+          <div class="app-nav-item">
+            <span class="app-nav-link${activeClass}" aria-current="page">
+              ${iconHtml}
+              ${labelHtml}
             </span>
             ${subMarkup}
           </div>
@@ -235,9 +273,9 @@
       }
       return `
         <div class="app-nav-item">
-          <a class="app-nav-link${active}" href="${item.href}">
-            <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true">${badgeMarkup}</span>
-            <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
+          <a class="app-nav-link${activeClass}" href="${item.href}">
+            ${iconHtml}
+            ${labelHtml}
           </a>
         </div>
       `;
@@ -257,49 +295,58 @@
   }
 
   function bindSubNavExitAnimation() {
-    if (document.documentElement.dataset.subNavExitAnimationBound === "1") return;
-    document.documentElement.dataset.subNavExitAnimationBound = "1";
+    // Sub-Navs werden beim Seitenwechsel nicht mehr geschlossen.
+  }
 
+  function bindSubNavToggle() {
+    if (document.documentElement.dataset.subNavToggleBound === "1") return;
+    document.documentElement.dataset.subNavToggleBound = "1";
     document.addEventListener("click", (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const navLink = target.closest("a.app-nav-link[href]");
-      if (!(navLink instanceof HTMLAnchorElement)) return;
-      if (event.defaultPrevented) return;
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-
-      let nextUrl;
-      try {
-        nextUrl = new URL(navLink.href, window.location.origin);
-      } catch {
-        return;
+      const btn = target.closest("button.app-nav-link[data-subnav-toggle]");
+      if (!btn) return;
+      const parentKey = btn.dataset.subnavToggle;
+      const subNav = btn.closest(".app-nav-item")?.querySelector(`.app-sub-nav[data-parent-key="${parentKey}"]`);
+      if (!(subNav instanceof HTMLElement)) return;
+      const isOpen = subNav.classList.contains("is-open");
+      if (isOpen) {
+        subNav.classList.remove("is-open");
+        subNav.classList.add("is-closing");
+        btn.setAttribute("aria-expanded", "false");
+        window.setTimeout(() => subNav.classList.remove("is-closing"), SUB_NAV_CLOSE_DURATION_MS);
+      } else {
+        subNav.classList.add("is-open");
+        subNav.classList.remove("is-closing");
+        btn.setAttribute("aria-expanded", "true");
       }
-      if (nextUrl.origin !== window.location.origin) return;
-      if (normalizePath(nextUrl.pathname) === normalizePath(window.location.pathname)) return;
-      if (navLink.closest(".app-side-nav") && canSoftNavigateTo(nextUrl)) return;
-
-      const openSubNav = document.querySelector(".app-side-nav .app-sub-nav.is-open");
-      if (!(openSubNav instanceof HTMLElement)) return;
-
-      event.preventDefault();
-      openSubNav.classList.remove("is-open");
-      openSubNav.classList.add("is-closing");
-
-      window.setTimeout(() => {
-        window.location.assign(nextUrl.pathname + nextUrl.search + nextUrl.hash);
-      }, SUB_NAV_CLOSE_DURATION_MS);
     });
   }
 
   function refreshSidebarNav() {
     const nav = document.querySelector(".app-side-nav .app-nav-links");
     if (!nav) return;
-    const activeKey = currentNavKey();
     const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
-    const signature = `${activeKey || "-"}|${activeHash || "-"}`;
+    const signature = `${normalizePath(window.location.pathname)}|${activeHash || "-"}`;
     if (nav.dataset.signature === signature) return;
+
+    const openKeys = new Set(
+      Array.from(nav.querySelectorAll(".app-sub-nav.is-open[data-parent-key]"))
+        .map((el) => el.dataset.parentKey)
+    );
+
     nav.innerHTML = navMarkup();
     nav.dataset.signature = signature;
+
+    for (const key of openKeys) {
+      const subNav = nav.querySelector(`.app-sub-nav[data-parent-key="${key}"]`);
+      const btn = nav.querySelector(`button.app-nav-link[data-subnav-toggle="${key}"]`);
+      if (subNav && !subNav.classList.contains("is-open")) {
+        subNav.classList.add("is-open");
+        subNav.classList.remove("is-closing");
+        if (btn) btn.setAttribute("aria-expanded", "true");
+      }
+    }
   }
 
   function canSoftNavigateTo(url) {
@@ -429,11 +476,6 @@
         return;
       }
 
-      const openSubNav = document.querySelector(".app-side-nav .app-sub-nav.is-open");
-      if (openSubNav instanceof HTMLElement) {
-        openSubNav.classList.remove("is-open");
-        openSubNav.classList.add("is-closing");
-      }
       navigateInContentFrame(nextUrl, { pushState: true });
     });
 
@@ -755,6 +797,7 @@
     initProfileMenus();
     disableActiveNavLinkClicks();
     bindSubNavExitAnimation();
+    bindSubNavToggle();
     bindSidebarSoftNavigation();
 
     // Start unread messages badge polling (every 30 s)

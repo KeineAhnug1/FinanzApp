@@ -423,30 +423,6 @@
   min-height: 1.2em;
 }
 
-/* ── Nav unread badge ── */
-.app-nav-unread-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  box-sizing: border-box;
-  border-radius: 999px;
-  background: var(--ui-danger, #bb0000);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  pointer-events: none;
-}
-
-.app-nav-icon {
-  position: relative;
-  display: inline-flex;
-}
-
 /* ── Responsive: mobile single-column ── */
 @media (max-width: 720px) {
   .msg-layout {
