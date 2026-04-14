@@ -1,7 +1,7 @@
 # Sicherheits-Audit: FinanzApp
 
 > Erstellt am: 2026-04-14
-> Stand: Entwicklungsphase (nicht produktiv)
+> Zuletzt aktualisiert: 2026-04-14
 
 ---
 
@@ -10,10 +10,10 @@
 | Symbol | Bedeutung |
 |--------|-----------|
 | 🔴 KRITISCH | Echtes Sicherheitsproblem – muss vor Go-Live behoben werden |
-| 🟠 HOCH | Echtes Problem oder gefährliches Dev-Feature |
+| 🟠 HOCH | Echtes Problem |
 | 🟡 MITTEL | Sicherheitsschwäche, sollte behoben werden |
 | 🟢 LOW | Kleinere Schwäche oder Best-Practice-Abweichung |
-| 🔵 DEV | Bewusster Entwicklungs-Kompromiss – **muss vor Production deaktiviert sein** |
+| ✅ BEHOBEN | Problem wurde behoben |
 
 ---
 
@@ -65,7 +65,7 @@ return plain === stored;  // Plaintext-Vergleich!
 
 **Datei:** `backend/utils/password.mjs`, Zeile 56
 
-Der Vergleich von SHA256-Hashes verwendet `===` statt `timingSafeEqual`. Das Scrypt-Vergleich verwendet korrekt `timingSafeEqual`, der SHA256-Pfad jedoch nicht:
+Der Vergleich von SHA256-Hashes verwendet `===` statt `timingSafeEqual`. Der Scrypt-Vergleich verwendet korrekt `timingSafeEqual`, der SHA256-Pfad jedoch nicht:
 
 ```javascript
 return hashValue(plain) === expectedHash;  // UNSICHER: timing-sensitiv
@@ -115,7 +115,7 @@ Gleiches gilt für den Exchange-Rate-Endpoint.
 
 **Risiko:** Interne Systeminformationen (Stack-Traces, Library-Namen, URLs) können für gezielte Angriffe genutzt werden.
 
-**Fix:** `detail`-Feld in Production entfernen oder nur eine generische Fehlermeldung senden. Details nur ins Server-Log schreiben.
+**Fix:** `detail`-Feld entfernen. Details nur ins Server-Log schreiben.
 
 ---
 
@@ -150,7 +150,7 @@ Das Rate-Limiting basiert nur auf der IP-Adresse. Ein Angreifer, der verschieden
 
 ### 🟡 [MITTEL] Session-Timeout zu lang (180 Minuten)
 
-**Datei:** `backend/config/runtime.mjs`, Zeile 11
+**Datei:** `backend/config/runtime.mjs`
 
 ```javascript
 export const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
@@ -158,13 +158,13 @@ export const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180
 
 180 Minuten ist für eine Finanz-Applikation zu lang. Eine gestohlene Session bleibt lange gültig.
 
-**Empfehlung:** 30-60 Minuten mit automatischer Verlängerung bei Aktivität.
+**Empfehlung:** 30-60 Minuten mit automatischer Verlängerung bei Aktivität (Sliding Expiry ist bereits implementiert).
 
 ---
 
 ### 🟡 [MITTEL] SameSite=Lax statt Strict bei Session-Cookie
 
-**Datei:** `backend/utils/session-store.mjs`, Zeilen 41-46
+**Datei:** `backend/utils/session-store.mjs`
 
 ```javascript
 "SameSite=Lax"  // Sollte für eine Finanz-App Strict sein
@@ -205,7 +205,7 @@ Erfolgreiche und fehlgeschlagene Login-Versuche werden nicht geloggt. Im Angriff
 
 ### 🟢 [LOW] Verifikationscode hat geringe Entropie
 
-**Datei:** `backend/server.mjs`, Zeile ~354
+**Datei:** `backend/server.mjs`
 
 ```javascript
 function createVerificationCode() {
@@ -221,7 +221,7 @@ function createVerificationCode() {
 
 ### 🟢 [LOW] Scrypt ohne explizite Parameter
 
-**Datei:** `backend/utils/password.mjs`, Zeile ~18
+**Datei:** `backend/utils/password.mjs`
 
 `scryptSync` wird ohne explizite `N`, `r`, `p`-Parameter aufgerufen (Node.js-Defaults: N=16384, r=8, p=1). Das ist akzeptabel, aber nicht zukunftssicher.
 
@@ -231,7 +231,7 @@ function createVerificationCode() {
 
 ### 🟢 [LOW] Passwort-Komplexität nicht geprüft
 
-**Datei:** `backend/server.mjs`, Zeilen ~590-591
+**Datei:** `backend/server.mjs`
 
 Nur Mindestlänge (8 Zeichen) wird geprüft. Keine Anforderungen an Komplexität.
 
@@ -239,81 +239,46 @@ Für eine Finanz-App wäre eine Empfehlung zu stärkeren Passwörtern (oder ein 
 
 ---
 
-## Teil 2: Entwicklungs-Kompromisse
-
-Diese Features sind **bewusst** für die Entwicklung eingebaut, stellen aber **kritische Risiken** dar, wenn sie in Production aktiv sind.
+## Teil 2: Behobene Probleme
 
 ---
 
-### 🔵 [DEV] Automatischer Login ohne Credentials (`DEV_AUTO_LOGIN`)
+### ✅ [BEHOBEN] Fallback zu Plaintext-Passwortvergleich
 
-**Datei:** `backend/server.mjs`, Zeilen ~3806-3822
-**Konfiguration:** `backend/config/runtime.mjs`, Zeilen 9-10
-
-```javascript
-if (DEV_AUTO_LOGIN) {
-  // Loggt automatisch einen vordefinierten Benutzer ein, ohne Passwort
-}
-```
-
-**Warum es jetzt okay ist:** Beschleunigt die Entwicklung enorm – kein Login-Formular bei jedem Reload.
-
-**Warum es gefährlich ist:** In Production könnten sich alle Benutzer als der konfigurierte Dev-User einloggen.
-
-**Sicherung vor Production:**
-- `DEV_AUTO_LOGIN=true` darf in Production-`.env` **nie** gesetzt sein
-- Empfehlung: Guard im Code: `if (process.env.NODE_ENV === 'production' && DEV_AUTO_LOGIN) throw new Error("DEV_AUTO_LOGIN in production!")`
+Der Plaintext-Fallback (`return plain === stored`) wurde entfernt. Wenn ein gespeichertes Passwort kein bekanntes Hash-Format hat, schlägt der Login jetzt mit `false` fehl.
 
 ---
 
-### 🔵 [DEV] Verifikationscode im Server-Log (`DEV_EXPOSE_VERIFICATION_CODE`)
+### ✅ [BEHOBEN] Timing-Angriff beim SHA256-Passwortvergleich
 
-**Datei:** `backend/server.mjs`, Zeilen ~360-361
-**Konfiguration:** `backend/config/runtime.mjs`, Zeile 8
+Der SHA256-Vergleich verwendet jetzt `timingSafeEqual` statt `===`:
 
 ```javascript
-if (DEV_EXPOSE_VERIFICATION_CODE) {
-  console.warn(`[verification] Code for ${toEmail}: ${code}`);
-}
+const actualBuf = Buffer.from(hashValue(plain), "hex");
+const expectedBuf = Buffer.from(expectedHash, "hex");
+if (actualBuf.length !== expectedBuf.length) return false;
+return timingSafeEqual(actualBuf, expectedBuf);
 ```
-
-**Warum es jetzt okay ist:** Erlaubt die Registrierung ohne echte SMTP-Konfiguration.
-
-**Warum es gefährlich ist:** In Production würde jeder mit Zugriff auf Server-Logs alle Verifikationscodes sehen und Accounts übernehmen können.
-
-**Sicherung:** Gleiche Guard-Logik wie bei `DEV_AUTO_LOGIN` empfohlen.
 
 ---
 
-### 🔵 [DEV] Sessions nur im RAM gespeichert
-
-**Datei:** `backend/utils/session-store.mjs`, Zeilen 3-38
-
-```javascript
-const sessions = new Map();  // In-Memory, geht bei Neustart verloren
-```
-
-**Warum es jetzt okay ist:** Einfach, keine externe Abhängigkeit, für Einzelserver-Dev ausreichend.
-
-**Warum es in Production problematisch ist:**
-- Alle Sessions gehen bei Server-Neustart verloren (alle Benutzer werden ausgeloggt)
-- Kein Horizontal Scaling möglich (mehrere Server-Instanzen teilen keine Sessions)
-
-**Fix für Production:** Redis oder Datenbankbasierte Sessions.
+`DEV_AUTO_LOGIN` und `DEV_AUTO_LOGIN_USER_ID` wurden vollständig aus `runtime.mjs` und dem gesamten Codebase entfernt. Der Auto-Login-Mechanismus existiert nicht mehr.
 
 ---
 
-### 🔵 [DEV] `Secure`-Flag bei Cookies fehlt außerhalb Production
+### ✅ [BEHOBEN] Verifikationscode im Server-Log (`DEV_EXPOSE_VERIFICATION_CODE`)
 
-**Datei:** `backend/utils/session-store.mjs`, Zeile 48/54
+`DEV_EXPOSE_VERIFICATION_CODE` wurde vollständig entfernt. Codes werden nicht mehr geloggt oder an den Client zurückgegeben. Ohne SMTP-Konfiguration schlägt die Registrierung mit einer klaren Fehlermeldung fehl.
 
-```javascript
-if (process.env.NODE_ENV === "production") attrs.push("Secure");
-```
+---
 
-**Warum es jetzt okay ist:** HTTPS läuft lokal meist nicht, `Secure` würde Cookies blockieren.
+### ✅ [BEHOBEN] Sessions nur im RAM gespeichert
 
-**Sicherung:** Sicherstellen, dass in Production `NODE_ENV=production` gesetzt ist.
+Sessions werden jetzt in der MongoDB `sessions`-Collection persistiert. Vorteile:
+- Sessions überleben Server-Neustarts
+- Angemeldet bleiben beim Schließen des Tabs/Browsers (bis TTL abläuft)
+- MongoDB TTL-Index übernimmt automatisches Aufräumen abgelaufener Sessions
+- Sliding Expiry: jeder Request verlängert die Session
 
 ---
 
@@ -321,16 +286,13 @@ if (process.env.NODE_ENV === "production") attrs.push("Secure");
 
 | Schweregrad | Anzahl | Soforthandlungsbedarf |
 |-------------|--------|----------------------|
-| 🔴 KRITISCH | 2 | Ja – vor jedem weiteren Commit |
-| 🟠 HOCH | 3 | Ja – vor Go-Live |
+| 🔴 KRITISCH | 0 | — |
+| 🟠 HOCH | 1 | Ja – vor Go-Live |
 | 🟡 MITTEL | 5 | Vor Go-Live |
-| 🟢 LOW | 4 | Kann warten |
-| 🔵 DEV | 4 | Muss vor Production-Deployment deaktiviert sein |
+| 🟢 LOW | 3 | Kann warten |
+| ✅ BEHOBEN | 5 | Erledigt |
 
-### Sofortmaßnahmen (in Reihenfolge)
+### Offene Sofortmaßnahmen (in Reihenfolge)
 
 1. **`.env` aus Git-History entfernen und alle Secrets rotieren** — DRINGEND
-2. **Plaintext-Passwort-Fallback entfernen**
-3. **SHA256-Timing-Attack fixen** mit `timingSafeEqual`
-4. **Fehlerdetails nicht an Client senden** in Production
-5. Guards für `DEV_AUTO_LOGIN` und `DEV_EXPOSE_VERIFICATION_CODE` einbauen
+2. **Fehlerdetails nicht an Client senden** (Proxy-Endpoints)

@@ -1,13 +1,14 @@
 import path from "node:path";
 
-const PROTECTED_UI_PATHS = new Set(["/dashboard.html", "/fragen", "/groups", "/konten", "/aktien", "/einstellungen"]);
-const PROTECTED_UI_PREFIXES = ["/fragen/", "/groups/", "/konten/", "/aktien/", "/js/", "/einstellungen/"];
+const PROTECTED_UI_PATHS = new Set(["/dashboard.html", "/fragen", "/groups", "/konten", "/aktien", "/einstellungen", "/nachrichten"]);
+const PROTECTED_UI_PREFIXES = ["/fragen/", "/groups/", "/konten/", "/aktien/", "/js/", "/einstellungen/", "/nachrichten/"];
 const UI_ROOT_REDIRECTS = new Map([
   ["/groups", "/groups/"],
   ["/fragen", "/fragen/"],
   ["/aktien", "/aktien/"],
   ["/konten", "/konten/"],
   ["/einstellungen", "/einstellungen/"],
+  ["/nachrichten", "/nachrichten/"],
   ["/homepage", "/homepage/"]
 ]);
 const STATIC_EXACT_FILES = new Map([
@@ -23,7 +24,8 @@ const STATIC_SECTION_ROUTES = [
   { basePath: "/fragen", directory: path.join("frontend", "questions"), indexFile: "index.html" },
   { basePath: "/aktien", directory: path.join("frontend", "stocks"), indexFile: "ShareView.html" },
   { basePath: "/konten", directory: path.join("frontend", "accounts"), indexFile: "index.html" },
-  { basePath: "/einstellungen", directory: path.join("frontend", "einstellungen"), indexFile: "index.html" }
+  { basePath: "/einstellungen", directory: path.join("frontend", "einstellungen"), indexFile: "index.html" },
+  { basePath: "/nachrichten", directory: path.join("frontend", "nachrichten"), indexFile: "index.html" }
 ];
 
 export function isProtectedUiPath(pathname) {

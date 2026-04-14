@@ -56,9 +56,11 @@ export async function verifyPassword(plainPassword, storedPassword) {
 
   if (isSha256PasswordHash(stored)) {
     const expectedHash = stored.slice(PASSWORD_HASH_SHA256_PREFIX.length);
-    return hashValue(plain) === expectedHash;
+    const actualBuf = Buffer.from(hashValue(plain), "hex");
+    const expectedBuf = Buffer.from(expectedHash, "hex");
+    if (actualBuf.length !== expectedBuf.length) return false;
+    return timingSafeEqual(actualBuf, expectedBuf);
   }
 
-  // Plaintext fallback only for legacy migration – never stored new
-  return plain === stored;
+  return false;
 }

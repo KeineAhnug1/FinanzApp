@@ -1,40 +1,56 @@
 import { randomBytes } from "node:crypto";
 
+/**
+ * MongoDB-backed session store.
+ *
+ * Sessions are persisted in the `sessions` collection so they survive
+ * server restarts and tab/browser closes.  The TTL index on `expiresAt`
+ * lets MongoDB clean up expired documents automatically.
+ *
+ * Call `init(db)` once after the database connection is ready.
+ */
 export function createSessionStore({ cookieName, ttlMinutes }) {
-  const sessions = new Map();
+  let col = null;
 
-  function sessionExpiresAt() {
-    return Date.now() + ttlMinutes * 60 * 1000;
+  /** Must be called once the MongoDB connection is established. */
+  async function init(db) {
+    col = db.collection("sessions");
+    // TTL index — MongoDB removes expired documents automatically
+    await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await col.createIndex({ token: 1 }, { unique: true });
   }
 
-  function createSession(userId) {
+  function sessionExpiresAt() {
+    return new Date(Date.now() + ttlMinutes * 60 * 1000);
+  }
+
+  async function createSession(userId) {
     const token = randomBytes(32).toString("hex");
-    sessions.set(token, { userId: String(userId), expiresAt: sessionExpiresAt() });
+    await col.insertOne({
+      token,
+      userId: String(userId),
+      expiresAt: sessionExpiresAt(),
+      createdAt: new Date()
+    });
     return token;
   }
 
-  function destroySession(token) {
+  async function destroySession(token) {
     if (!token) return;
-    sessions.delete(token);
+    await col.deleteOne({ token });
   }
 
-  function getSessionRecord(token) {
+  async function getSessionRecord(token) {
     if (!token) return null;
-    const rec = sessions.get(token);
+    const rec = await col.findOne({ token });
     if (!rec) return null;
-    if (rec.expiresAt <= Date.now()) {
-      sessions.delete(token);
+    if (rec.expiresAt <= new Date()) {
+      await col.deleteOne({ token });
       return null;
     }
-    rec.expiresAt = sessionExpiresAt();
-    return rec;
-  }
-
-  function gcSessions() {
-    const now = Date.now();
-    for (const [token, rec] of sessions.entries()) {
-      if (!rec || rec.expiresAt <= now) sessions.delete(token);
-    }
+    // Sliding expiry: update expiresAt on each access
+    await col.updateOne({ token }, { $set: { expiresAt: sessionExpiresAt() } });
+    return { userId: rec.userId };
   }
 
   function buildSessionCookie(token) {
@@ -55,7 +71,12 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     return attrs.join("; ");
   }
 
+  // gcSessions is kept for API compatibility but is a no-op —
+  // MongoDB's TTL index handles cleanup.
+  function gcSessions() {}
+
   return {
+    init,
     buildSessionCookie,
     clearSessionCookie,
     createSession,

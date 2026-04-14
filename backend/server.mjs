@@ -10,7 +10,6 @@ import {
   ANSWER_MESSAGE_MAX_LENGTH,
   COLLECTIONS,
   DB_NAME,
-  DEV_EXPOSE_VERIFICATION_CODE,
   EXCHANGE_RATE_API_KEY,
   EXCHANGE_RATE_BASE_URL,
   FINZBRO_EMAIL,
@@ -95,11 +94,11 @@ let db;
 let mailTransporter;
 
 const {
+  init,
   buildSessionCookie,
   clearSessionCookie,
   createSession,
   destroySession,
-  gcSessions,
   getSessionRecord
 } = createSessionStore({
   cookieName: SESSION_COOKIE_NAME,
@@ -169,7 +168,7 @@ setInterval(() => {
 async function getSessionUser(req) {
   const cookies = parseCookies(req);
   const token = cookies[SESSION_COOKIE_NAME];
-  const rec = getSessionRecord(token);
+  const rec = await getSessionRecord(token);
   if (!rec) return null;
 
   const user = await db.collection(COLLECTIONS.users).findOne(
@@ -178,7 +177,7 @@ async function getSessionUser(req) {
   );
 
   if (!user) {
-    destroySession(token);
+    await destroySession(token);
     return null;
   }
 
@@ -355,11 +354,7 @@ function createVerificationCode() {
 async function sendVerificationEmail(toEmail, firstName, code) {
   const mailer = getMailer();
   if (!mailer) {
-    if (DEV_EXPOSE_VERIFICATION_CODE) {
-      console.warn(`[verification] SMTP not configured. Code for ${toEmail}: ${code}`);
-    } else {
-      console.warn(`[verification] SMTP not configured. Verification code for ${toEmail} was not sent.`);
-    }
+    console.warn(`[verification] SMTP not configured. Verification code for ${toEmail} was not sent.`);
     return false;
   }
 
@@ -526,7 +521,7 @@ async function handleLogin(req, res) {
     );
   }
 
-  const token = createSession(user._id);
+  const token = await createSession(user._id);
   return sendJson(
     res,
     200,
@@ -567,7 +562,7 @@ async function handleLogout(req, res) {
   }
 
   const cookies = parseCookies(req);
-  destroySession(cookies[SESSION_COOKIE_NAME]);
+  await destroySession(cookies[SESSION_COOKIE_NAME]);
   return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
 }
 
@@ -652,9 +647,8 @@ async function handleRegister(req, res) {
   const response = {
     ok: true,
     pending_email: email,
-    message: delivered ? "Verifizierungscode wurde per E-Mail versendet" : "SMTP nicht konfiguriert. Der Code wurde im Server-Log ausgegeben."
+    message: delivered ? "Verifizierungscode wurde per E-Mail versendet" : "SMTP nicht konfiguriert. Der Code wurde nicht versendet."
   };
-  if (!delivered && DEV_EXPOSE_VERIFICATION_CODE) response.debug_code = code;
   return sendJson(res, 200, response);
 }
 
@@ -3772,7 +3766,7 @@ async function handleDeleteUserAccount(req, res, session) {
   ]);
 
   await db.collection(COLLECTIONS.users).deleteOne({ _id: userId });
-  destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
+  await destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
 
   return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
 }
@@ -3919,6 +3913,218 @@ async function handlePasswordReset(req, res) {
   return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich zurückgesetzt" });
 }
 
+// ─── Private Messages ─────────────────────────────────────────────────────────
+
+async function handleGetConversations(req, res, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
+
+  // Aggregate: for each partner, get the latest message and unread count
+  const rows = await db.collection(COLLECTIONS.privateMessages).aggregate([
+    {
+      $match: {
+        $or: [{ sender_id: userId }, { recipient_id: userId }]
+      }
+    },
+    {
+      $addFields: {
+        partnerId: {
+          $cond: [{ $eq: ["$sender_id", userId] }, "$recipient_id", "$sender_id"]
+        }
+      }
+    },
+    { $sort: { sent_at: -1 } },
+    {
+      $group: {
+        _id: "$partnerId",
+        lastMessage: { $first: "$$ROOT" },
+        unreadCount: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$recipient_id", userId] }, { $eq: ["$read_at", null] }] },
+              1,
+              0
+            ]
+          }
+        }
+      }
+    },
+    { $sort: { "lastMessage.sent_at": -1 } }
+  ]).toArray();
+
+  const partnerIds = rows.map((r) => r._id).filter(Boolean);
+  const partners = partnerIds.length
+    ? await db.collection(COLLECTIONS.users).find(
+        { _id: { $in: partnerIds } },
+        { projection: { _id: 1, username: 1 } }
+      ).toArray()
+    : [];
+  const partnerById = new Map(partners.map((p) => [String(p._id), p]));
+
+  const conversations = rows.map((r) => {
+    const partner = partnerById.get(String(r._id));
+    if (!partner) return null;
+    const msg = r.lastMessage;
+    return {
+      partnerId: String(partner._id),
+      partnerUsername: partner.username,
+      lastMessage: String(msg.content || ""),
+      lastMessageAt: msg.sent_at instanceof Date ? msg.sent_at.toISOString() : null,
+      unreadCount: r.unreadCount
+    };
+  }).filter(Boolean);
+
+  return sendJson(res, 200, { ok: true, conversations });
+}
+
+async function handleGetConversation(req, res, partnerIdRaw, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const userId = parseObjectId(session.user.id);
+  const partnerId = parseObjectId(partnerIdRaw);
+  if (!userId || !partnerId) return badRequest(res, "Invalid user id");
+
+  const partnerUser = await db.collection(COLLECTIONS.users).findOne(
+    { _id: partnerId },
+    { projection: { _id: 1 } }
+  );
+  if (!partnerUser) return notFound(res, "Nutzer nicht gefunden");
+
+  // Mark all incoming unread messages as read
+  await db.collection(COLLECTIONS.privateMessages).updateMany(
+    { sender_id: partnerId, recipient_id: userId, read_at: null },
+    { $set: { read_at: new Date() } }
+  );
+
+  const messages = await db.collection(COLLECTIONS.privateMessages)
+    .find(
+      {
+        $or: [
+          { sender_id: userId, recipient_id: partnerId },
+          { sender_id: partnerId, recipient_id: userId }
+        ]
+      },
+      { projection: { _id: 1, sender_id: 1, content: 1, sent_at: 1, read_at: 1 } }
+    )
+    .sort({ sent_at: 1, _id: 1 })
+    .toArray();
+
+  const result = messages.map((m) => ({
+    _id: String(m._id),
+    sender_id: String(m.sender_id),
+    content: String(m.content || ""),
+    sent_at: m.sent_at instanceof Date ? m.sent_at.toISOString() : null,
+    read_at: m.read_at instanceof Date ? m.read_at.toISOString() : null,
+    isOwn: String(m.sender_id) === String(userId)
+  }));
+
+  return sendJson(res, 200, { ok: true, messages: result });
+}
+
+async function handleSendMessage(req, res, session) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  let payload;
+  try {
+    payload = await readBody(req);
+  } catch (error) {
+    if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return badRequest(res, "Invalid JSON body");
+  }
+
+  const userId = parseObjectId(session.user.id);
+  const recipientId = parseObjectId(String(payload.recipientId || ""));
+  const content = String(payload.content || "").trim();
+
+  if (!recipientId) return badRequest(res, "recipientId fehlt oder ist ungültig");
+  if (!content) return badRequest(res, "Nachricht darf nicht leer sein");
+  if (content.length > 2000) return badRequest(res, "Nachricht ist zu lang (max. 2000 Zeichen)");
+  if (String(userId) === String(recipientId)) return badRequest(res, "Du kannst dir keine Nachrichten an dich selbst senden");
+
+  const recipient = await db.collection(COLLECTIONS.users).findOne(
+    { _id: recipientId },
+    { projection: { _id: 1 } }
+  );
+  if (!recipient) return notFound(res, "Empfänger nicht gefunden");
+
+  const now = new Date();
+  const doc = {
+    sender_id: userId,
+    recipient_id: recipientId,
+    content,
+    sent_at: now,
+    read_at: null
+  };
+  const result = await db.collection(COLLECTIONS.privateMessages).insertOne(doc);
+
+  return sendJson(res, 201, {
+    ok: true,
+    message: {
+      _id: String(result.insertedId),
+      sender_id: String(userId),
+      content,
+      sent_at: now.toISOString(),
+      read_at: null,
+      isOwn: true
+    }
+  });
+}
+
+async function handleUnreadCount(req, res, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
+
+  const count = await db.collection(COLLECTIONS.privateMessages).countDocuments({
+    recipient_id: userId,
+    read_at: null
+  });
+
+  return sendJson(res, 200, { ok: true, count });
+}
+
+async function handleUserSearch(req, res, url, session) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+  }
+
+  const q = String(url.searchParams.get("q") || "").trim();
+  if (!q) return sendJson(res, 200, { ok: true, users: [] });
+
+  const userId = parseObjectId(session.user.id);
+  const users = await db.collection(COLLECTIONS.users)
+    .find(
+      {
+        _id: { $ne: userId },
+        username: { $regex: escapeRegex(q), $options: "i" }
+      },
+      { projection: { _id: 1, username: 1 } }
+    )
+    .limit(10)
+    .toArray();
+
+  return sendJson(res, 200, {
+    ok: true,
+    users: users.map((u) => ({ _id: String(u._id), username: u.username }))
+  });
+}
+
 const API_HANDLERS = {
   handleCategories,
   handleIncomeEntries,
@@ -3956,13 +4162,16 @@ const API_HANDLERS = {
   handleStockLogoProxy,
   handleExchangeRates,
   handleDeleteUserAccount,
-  handlePasswordChange
+  handlePasswordChange,
+  handleGetConversations,
+  handleGetConversation,
+  handleSendMessage,
+  handleUnreadCount,
+  handleUserSearch
 };
 
 const server = http.createServer(async (req, res) => {
   try {
-    gcSessions();
-
     const url = new URL(req.url || "/", "http://localhost");
     const pathname = url.pathname;
 
@@ -4086,6 +4295,7 @@ async function start() {
   await client.connect();
   db = client.db(DB_NAME);
 
+  await init(db);
   await migratePlaintextPasswords();
   await migrateLegacyExpenseEntriesToV3();
   await ensureIndexes();

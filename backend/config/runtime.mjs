@@ -5,9 +5,6 @@ export const DB_NAME = process.env.MONGODB_DB_V4 || `${BASE_DB_NAME}_v4`;
 export const MONGO_URI = process.env.MONGODB_URI;
 
 export const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
-export const DEV_EXPOSE_VERIFICATION_CODE = process.env.DEV_EXPOSE_VERIFICATION_CODE === "true";
-export const DEV_AUTO_LOGIN = process.env.DEV_AUTO_LOGIN === "true";
-export const DEV_AUTO_LOGIN_USER_ID = process.env.DEV_AUTO_LOGIN_USER_ID || "77a100000000000000000001";
 export const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
 export const SESSION_COOKIE_NAME = "finanzapp_session";
 
@@ -50,6 +47,7 @@ export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utili
 
 export const COLLECTIONS = {
   users: "users",
+  sessions: "sessions",
   emailVerifications: "email_verifications",
   passwordResets: "password_resets",
   incomeEntries: "income",
@@ -70,7 +68,8 @@ export const COLLECTIONS = {
   globalQuestions: "global_questions",
   globalAnswers: "global_answers",
   questionLikes: "question_likes",
-  answerLikes: "answer_likes"
+  answerLikes: "answer_likes",
+  privateMessages: "private_messages"
 };
 
 export const MIME_BY_EXT = {

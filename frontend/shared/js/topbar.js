@@ -55,6 +55,13 @@
       fallback: "Fragen",
       key: "questions",
       iconPath: "/shared/images/nav-questions.svg"
+    },
+    {
+      href: "/nachrichten/",
+      labelKey: "nav_messages",
+      fallback: "Nachrichten",
+      key: "messages",
+      iconPath: "/shared/images/nav-messages.svg"
     }
   ];
   const SUB_NAV_ITEMS = {
@@ -109,6 +116,7 @@
     if (raw === "/aktien") return "/aktien/";
     if (raw === "/konten") return "/konten/";
     if (raw === "/fragen") return "/fragen/";
+    if (raw === "/nachrichten") return "/nachrichten/";
     return raw;
   }
 
@@ -119,6 +127,7 @@
     if (path.startsWith("/aktien/")) return "stocks";
     if (path.startsWith("/konten/")) return "accounts";
     if (path.startsWith("/fragen/")) return "questions";
+    if (path.startsWith("/nachrichten/")) return "messages";
     return "";
   }
 
@@ -129,6 +138,7 @@
     if (path.startsWith("/aktien/")) return t("nav_stocks", "Aktien");
     if (path.startsWith("/konten/")) return t("nav_accounts", "Kontenverwaltung");
     if (path.startsWith("/fragen/")) return t("nav_questions", "Fragen");
+    if (path.startsWith("/nachrichten/")) return t("nav_messages", "Nachrichten");
     return t("topbar.brand", "FinanzApp");
   }
 
@@ -209,11 +219,14 @@
       const sActiveSubKey = item.key === "dashboard" ? activeDashboardSubKey : activeStocksSubKey;
       const isSubNavParent = Boolean(SUB_NAV_ITEMS[item.key]?.length);
       const subMarkup = isSubNavParent ? subNavMarkup(item.key, sActiveSubKey, activeKey === item.key) : "";
+      const badgeMarkup = item.key === "messages"
+        ? `<span class="app-nav-unread-badge" id="messages-nav-badge" hidden></span>`
+        : "";
       if (item.key === activeKey) {
         return `
           <div class="app-nav-item">
             <span class="app-nav-link${active}" aria-current="page">
-              <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
+              <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true">${badgeMarkup}</span>
               <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
             </span>
             ${subMarkup}
@@ -223,7 +236,7 @@
       return `
         <div class="app-nav-item">
           <a class="app-nav-link${active}" href="${item.href}">
-            <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true"></span>
+            <span class="app-nav-icon"><img class="app-nav-icon-img" src="${item.iconPath}" alt="" aria-hidden="true">${badgeMarkup}</span>
             <span class="app-nav-label">${t(item.labelKey, item.fallback)}</span>
           </a>
         </div>
@@ -824,6 +837,25 @@
     });
   }
 
+  async function updateMessagesBadge() {
+    try {
+      const res = await fetch("/api/messages/unread-count", { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const count = Number(data?.count ?? 0);
+      const badge = document.getElementById("messages-nav-badge");
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.hidden = false;
+      } else {
+        badge.hidden = true;
+      }
+    } catch {
+      // silently ignore network errors
+    }
+  }
+
   async function initTopbar() {
     if (isEmbeddedPageContext()) {
       removeTopbarForEmbeddedContext();
@@ -854,6 +886,10 @@
     disableActiveNavLinkClicks();
     bindSubNavExitAnimation();
     bindSidebarSoftNavigation();
+
+    // Start unread messages badge polling (every 30 s)
+    updateMessagesBadge();
+    setInterval(updateMessagesBadge, 30_000);
 
     try {
       const sessionUser = await window.FinanzAppSession.fetchSessionUser();
