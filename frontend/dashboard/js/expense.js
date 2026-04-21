@@ -83,10 +83,16 @@ function initExpenseForm() {
     setButtonLoading(submitBtn, true);
 
     const formData = new FormData(form);
+    const inputCurrency = String(formData.get("input_currency") || "EUR").trim().toUpperCase();
+    const rawAmount = Number(formData.get("amount"));
+    const amountInEur = window.FinanzAppCurrency?.convertAmount
+      ? window.FinanzAppCurrency.convertAmount(rawAmount, inputCurrency, "EUR")
+      : rawAmount;
+
     const payload = {
       source: String(formData.get("source") || "").trim(),
       category: resolveCategoryFromForm(formData),
-      amount: Number(formData.get("amount")),
+      amount: Number.isFinite(amountInEur) ? amountInEur : rawAmount,
       spent_at: String(formData.get("spent_at") || "").trim(),
       bank_account_id: String(formData.get("bank_account_id") || "").trim(),
       note: String(formData.get("note") || "").trim(),

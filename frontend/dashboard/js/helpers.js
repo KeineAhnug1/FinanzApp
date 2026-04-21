@@ -100,12 +100,6 @@ function entryMatchesQuery(entry, query, dateField) {
   return haystack.includes(query);
 }
 
-function compareDescKey(a, b) {
-  if (a === "unknown") return 1;
-  if (b === "unknown") return -1;
-  return b.localeCompare(a);
-}
-
 function setButtonLoading(buttonEl, isLoading) {
   if (!buttonEl) return;
   if (isLoading) {

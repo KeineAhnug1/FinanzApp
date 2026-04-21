@@ -181,6 +181,7 @@ function getIncomeFormElements() {
   const cancelBtn = document.getElementById("income-cancel-btn");
   const source = document.getElementById("income-source");
   const amount = document.getElementById("income-amount");
+  const currency = document.getElementById("income-currency");
   const date = document.getElementById("income-date");
   const recurrence = document.getElementById("income-recurrence");
   const category = document.getElementById("income-category");
@@ -189,13 +190,13 @@ function getIncomeFormElements() {
   const active = document.getElementById("income-active");
   const note = document.getElementById("income-note");
   const bankAccount = document.getElementById("income-bank-account");
-  return { form, submitBtn, cancelBtn, source, amount, date, recurrence, category, categoryCustomWrap, categoryCustom, active, note, bankAccount };
+  return { form, submitBtn, cancelBtn, source, amount, currency, date, recurrence, category, categoryCustomWrap, categoryCustom, active, note, bankAccount };
 }
 
 // Setzt das Income-Formular auf "neu anlegen".
 function setIncomeFormModeCreate() {
   incomeState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, recurrence, active, bankAccount } = getIncomeFormElements();
+  const { form, submitBtn, cancelBtn, date, recurrence, active, bankAccount, currency } = getIncomeFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", "", "salary");
@@ -205,6 +206,7 @@ function setIncomeFormModeCreate() {
     active.checked = true;
     active.disabled = !recurrence || recurrence.value === "once";
   }
+  if (currency) currency.value = getCurrency();
   if (submitBtn) submitBtn.textContent = "Einnahme speichern";
   if (cancelBtn) cancelBtn.hidden = true;
   if (bankAccount && appState.bankAccounts.length) {
@@ -215,10 +217,17 @@ function setIncomeFormModeCreate() {
 // Fuellt das Income-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 function setIncomeFormModeEdit(entry) {
   incomeState.editingId = entry.id;
-  const { source, amount, date, recurrence, active, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
+  const { source, amount, currency, date, recurrence, active, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
   if (source) source.value = entry.source || "";
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", entry.category, "salary");
-  if (amount) amount.value = Number(entry.amount) || 0;
+  const preferredCurrency = getCurrency();
+  if (currency) currency.value = preferredCurrency;
+  if (amount) {
+    const converted = window.FinanzAppCurrency?.convertFromEur
+      ? window.FinanzAppCurrency.convertFromEur(Number(entry.amount) || 0, preferredCurrency)
+      : Number(entry.amount) || 0;
+    amount.value = Math.round(converted * 100) / 100;
+  }
   if (date) date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
   if (recurrence) recurrence.value = entry.recurrence || "once";
   if (active) {
@@ -243,18 +252,19 @@ function getExpenseFormElements() {
   const categoryCustomWrap = document.getElementById("expense-custom-wrap");
   const categoryCustom = document.getElementById("expense-category-custom");
   const amount = document.getElementById("expense-amount");
+  const currency = document.getElementById("expense-currency");
   const date = document.getElementById("expense-date");
   const recurrence = document.getElementById("expense-recurrence");
   const active = document.getElementById("expense-active");
   const note = document.getElementById("expense-note");
   const bankAccount = document.getElementById("expense-bank-account");
-  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, date, recurrence, active, note, bankAccount };
+  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, currency, date, recurrence, active, note, bankAccount };
 }
 
 // Setzt das Expense-Formular auf "neu anlegen".
 function setExpenseFormModeCreate() {
   expenseState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, recurrence, active, bankAccount } = getExpenseFormElements();
+  const { form, submitBtn, cancelBtn, date, recurrence, active, bankAccount, currency } = getExpenseFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", "", "rent");
@@ -264,6 +274,7 @@ function setExpenseFormModeCreate() {
     active.checked = true;
     active.disabled = !recurrence || recurrence.value === "once";
   }
+  if (currency) currency.value = getCurrency();
   if (submitBtn) submitBtn.textContent = "Ausgabe speichern";
   if (cancelBtn) cancelBtn.hidden = true;
   if (bankAccount && appState.bankAccounts.length) {
@@ -274,10 +285,17 @@ function setExpenseFormModeCreate() {
 // Fuellt das Expense-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 function setExpenseFormModeEdit(entry) {
   expenseState.editingId = entry.id;
-  const { source, amount, date, recurrence, active, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
+  const { source, amount, currency, date, recurrence, active, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
   if (source) source.value = entry.source || "";
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", entry.category, "rent");
-  if (amount) amount.value = Number(entry.amount) || 0;
+  const preferredCurrency = getCurrency();
+  if (currency) currency.value = preferredCurrency;
+  if (amount) {
+    const converted = window.FinanzAppCurrency?.convertFromEur
+      ? window.FinanzAppCurrency.convertFromEur(Number(entry.amount) || 0, preferredCurrency)
+      : Number(entry.amount) || 0;
+    amount.value = Math.round(converted * 100) / 100;
+  }
   if (date) date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());
   if (recurrence) recurrence.value = entry.recurrence || "once";
   if (active) {

@@ -30,6 +30,7 @@ async function bootstrap() {
 
   initThemeSwitcher();
   initSectionTabs();
+  initEntryTabs();
   const bUseSharedTopbar = Boolean(window.FinanzAppSharedTopbar);
   if (!bUseSharedTopbar) {
     initDashboardMobileNav();

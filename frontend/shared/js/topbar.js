@@ -60,8 +60,7 @@
   const SUB_NAV_ITEMS = {
     dashboard: [
       { href: "/dashboard.html#overview", key: "overview", labelKey: "overview", fallback: "Übersicht" },
-      { href: "/dashboard.html#income", key: "income", labelKey: "income_short", fallback: "Einnahmen" },
-      { href: "/dashboard.html#expense", key: "expense", labelKey: "expense_short", fallback: "Ausgaben" }
+      { href: "/dashboard.html#income", key: "income", labelKey: "income_expense_short", fallback: "Ein/Ausgaben" }
     ],
     stocks: [
       { href: "/aktien/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtdepot" },

@@ -99,16 +99,18 @@
             </div>
           </section>
 
-          <section class="detail-tab-panel" data-detail-tab-content="activities">
-            <h3 class="sub-title">Aktivitaeten</h3>
+          <div id="memberActionsPanel" hidden></div>
+
+          <section class="detail-tab-panel" data-detail-tab-content="activities" hidden>
+            <h3 class="sub-title">Gruppenaktivitaeten</h3>
             <ul id="groupActivitiesList" class="members-list"></ul>
 
-            <div id="memberActionsPanel" class="member-panel">
+            <div class="member-panel">
               <h3 class="sub-title">Aktivitaet erstellen</h3>
               <form id="activityForm" class="group-form">
                 <label class="field">
-                  <span>Neue Gruppenaktivitaet</span>
-                  <input id="activityInfoInput" type="text" required maxlength="180" placeholder="z. B. Kochabend am Samstag" />
+                  <span>Aktivitaetsinfo (optional)</span>
+                  <input id="activityInfoInput" type="text" maxlength="180" placeholder="z. B. Gemeinsames Abendessen" />
                 </label>
                 <label class="field">
                   <span>Datum (optional)</span>
@@ -119,7 +121,7 @@
             </div>
           </section>
 
-          <section class="detail-tab-panel" data-detail-tab-content="fundings">
+          <section class="detail-tab-panel" data-detail-tab-content="fundings" hidden>
             <div class="funding-split">
               <div>
                 <h3 class="sub-title">Finanzierungen</h3>
@@ -150,9 +152,9 @@
                   <input id="fundingInfoInput" type="text" maxlength="180" placeholder="z. B. Gemeinsames Lebensmittelbudget" />
                 </label>
                 <label class="field">
-                  <span>Mit vorhandener Aktivitaet verknuepfen (optional)</span>
+                  <span>Verknuepfte Aktivitaet (optional)</span>
                   <select id="fundingActivitySelect">
-                    <option value="">Keine verknuepfte Aktivitaet</option>
+                    <option value="">Keine Aktivitaet</option>
                   </select>
                 </label>
                 <button type="submit">Finanzierung erstellen</button>
@@ -202,7 +204,7 @@
             </div>
           </section>
 
-          <section class="detail-tab-panel" data-detail-tab-content="chat">
+          <section class="detail-tab-panel" data-detail-tab-content="chat" hidden>
             <h3 class="sub-title">Gruppenchat</h3>
             <div class="group-chat-shell">
               <div id="groupChatViewport" class="group-chat-viewport">

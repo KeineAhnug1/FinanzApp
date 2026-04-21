@@ -93,7 +93,6 @@
 
     const conversations = result.data?.conversations ?? [];
 
-    // Preserve active state
     convList.innerHTML = "";
     conversations.forEach((conv) => {
       const li = renderConvItem(conv);

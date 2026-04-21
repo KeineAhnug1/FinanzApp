@@ -523,16 +523,15 @@ function formatActivityOption(activity) {
 }
 
 function renderFundingActivityOptions(activities = []) {
+  if (!fundingActivitySelect) return;
   fundingActivitySelect.innerHTML = "";
-
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
-  emptyOption.textContent = t("linked_activity_none", "Keine verknuepfte Aktivitaet");
+  emptyOption.textContent = t("select_activity", "Keine Aktivitaet");
   fundingActivitySelect.appendChild(emptyOption);
-
   for (const activity of activities) {
     const option = document.createElement("option");
-    option.value = activity.activity_id;
+    option.value = activity.group_activity_id;
     option.textContent = formatActivityOption(activity);
     fundingActivitySelect.appendChild(option);
   }
@@ -588,26 +587,27 @@ function createEmptyBlock(icon, title, hint) {
 }
 
 function renderActivities(activities = []) {
+  if (!groupActivitiesList) return;
   groupActivitiesList.innerHTML = "";
 
   if (!activities.length) {
     const emptyLi = document.createElement("li");
     emptyLi.className = "member-item";
-    emptyLi.appendChild(createEmptyBlock("📅", t("groups.no_activities_yet", "Keine Aktivitäten"), "Füge eine Aktivität über das Formular hinzu."));
+    emptyLi.appendChild(createEmptyBlock("📅", t("no_activities_yet", "Keine Aktivitaeten"), "Erstelle eine Aktivitaet fuer diese Gruppe."));
     groupActivitiesList.appendChild(emptyLi);
     return;
   }
 
   for (const activity of activities) {
-    const infoLabel = escapeHtml(activity.info || t("groups.activity_unnamed", "Unbenannte Aktivitaet"));
-    const activityDate = escapeHtml(formatDate(activity.date));
+    const info = escapeHtml(activity.info || t("groups.activity_unnamed", "Unbenannte Aktivitaet"));
+    const date = escapeHtml(formatDate(activity.date));
     const createdAt = escapeHtml(formatDate(activity.created_at));
     const item = document.createElement("li");
     item.className = "member-item";
     item.innerHTML = `
       <div>
-        <p class="member-name">${infoLabel}</p>
-        <p class="meta">${escapeHtml(t("date", "Datum"))}: ${activityDate}</p>
+        <p class="member-name">${info}</p>
+        <p class="meta">${escapeHtml(t("groups.date", "Datum"))}: ${date}</p>
         <p class="meta">${escapeHtml(t("groups.created", "Erstellt: {value}", { value: createdAt }))}</p>
       </div>
     `;
@@ -822,8 +822,8 @@ function renderGroupDetail(detail) {
     openInviteWindowButton.hidden = true;
     leaveGroupButton.hidden = true;
     selectedFundingId = null;
-    groupActivitiesList.innerHTML = "";
     groupFundingsList.innerHTML = "";
+    if (groupActivitiesList) groupActivitiesList.innerHTML = "";
     fundingDetailEmpty.hidden = false;
     fundingDetailContent.hidden = true;
     renderFundingActivityOptions([]);
@@ -841,7 +841,6 @@ function renderGroupDetail(detail) {
   groupDetailCreated.textContent = t("groups.created", "Erstellt: {value}", { value: formatDate(detail.group.created_at) });
   leaveGroupButton.hidden = false;
 
-  memberActionsPanel.hidden = false;
   adminPanel.hidden = !detail.is_admin;
   expensePanel.hidden = !detail.is_admin;
   openInviteWindowButton.hidden = !detail.is_admin;
@@ -867,10 +866,14 @@ function renderGroupDetail(detail) {
     const safeRole = escapeHtml(member.role);
     const safeStatus = escapeHtml(formatMemberStatus(member.status));
     const userId = String(member.user_id || "");
-    const memberInitial = escapeHtml((member.username || "?")[0].toUpperCase());
+    const memberInitials = escapeHtml(
+      member.first_name && member.last_name
+        ? `${member.first_name[0]}${member.last_name[0]}`.toUpperCase()
+        : (member.first_name || member.last_name || member.username || "?")[0].toUpperCase()
+    );
     const memberAvatarHtml = member.profileImage
       ? `<div class="member-avatar"><img src="${escapeHtml(member.profileImage)}" alt="" /></div>`
-      : `<div class="member-avatar">${memberInitial}</div>`;
+      : `<div class="member-avatar">${memberInitials}</div>`;
 
     item.innerHTML = `
       ${memberAvatarHtml}
@@ -1394,7 +1397,7 @@ activityForm.addEventListener("submit", async (event) => {
 
   setDetailStatus(t("groups.activity_creating", "Aktivitaet wird erstellt..."));
   try {
-    await createGroupActivity(selectedGroupId, activityInfoInput.value, activityDateInput.value);
+    await createGroupActivity(selectedGroupId, activityInfoInput.value.trim(), activityDateInput.value || null);
     activityForm.reset();
     await loadGroupDetail(selectedGroupId);
     setDetailStatus(t("groups.activity_created", "Gruppenaktivitaet erstellt."), "ok");
@@ -1412,7 +1415,7 @@ fundingForm.addEventListener("submit", async (event) => {
     await createGroupFunding(
       selectedGroupId,
       fundingInfoInput.value.trim(),
-      fundingActivitySelect.value
+      fundingActivitySelect.value || null
     );
     fundingForm.reset();
     await loadGroupDetail(selectedGroupId);

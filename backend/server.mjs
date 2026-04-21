@@ -290,14 +290,16 @@ async function listUserBankAccounts(userId) {
 }
 
 async function listUserShareAccounts(userId) {
-  const shareAccounts = await db.collection(COLLECTIONS.shareAccounts)
-    .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
-    .sort({ created_at: 1, _id: 1 })
-    .toArray();
-  const depots = await db.collection(COLLECTIONS.depots)
-    .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
-    .sort({ created_at: 1, _id: 1 })
-    .toArray();
+  const [shareAccounts, depots] = await Promise.all([
+    db.collection(COLLECTIONS.shareAccounts)
+      .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
+      .sort({ created_at: 1, _id: 1 })
+      .toArray(),
+    db.collection(COLLECTIONS.depots)
+      .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
+      .sort({ created_at: 1, _id: 1 })
+      .toArray()
+  ]);
 
   const merged = new Map();
   for (const account of [...shareAccounts, ...depots]) {
@@ -1410,6 +1412,7 @@ async function handleGroupDetail(req, res, groupIdRaw, session) {
       username: member.username,
       first_name: member.first_name ?? null,
       last_name: member.last_name ?? null,
+      profileImage: member.profileImage ?? null,
       role: member.role,
       status: member.status ?? null
     })),
@@ -2090,17 +2093,23 @@ async function deleteGroupCascade(groupId) {
   }
 
   if (groupExpenseIds.length) {
-    await db.collection(COLLECTIONS.transactions).deleteMany({ group_expense_id: { $in: groupExpenseIds } });
-    await db.collection(COLLECTIONS.groupExpenses).deleteMany({ _id: { $in: groupExpenseIds } });
+    await Promise.all([
+      db.collection(COLLECTIONS.transactions).deleteMany({ group_expense_id: { $in: groupExpenseIds } }),
+      db.collection(COLLECTIONS.groupExpenses).deleteMany({ _id: { $in: groupExpenseIds } })
+    ]);
   }
   if (fundingIds.length) {
-    await db.collection(COLLECTIONS.fundingParticipants).deleteMany({ group_funding_id: { $in: fundingIds } });
-    await db.collection(COLLECTIONS.groupFunding).deleteMany({ _id: { $in: fundingIds } });
+    await Promise.all([
+      db.collection(COLLECTIONS.fundingParticipants).deleteMany({ group_funding_id: { $in: fundingIds } }),
+      db.collection(COLLECTIONS.groupFunding).deleteMany({ _id: { $in: fundingIds } })
+    ]);
   }
 
-  await db.collection(COLLECTIONS.groupMessages).deleteMany({ group_id: groupId });
-  await db.collection(COLLECTIONS.groupActivities).deleteMany({ group_id: groupId });
-  await db.collection(COLLECTIONS.groupMembers).deleteMany({ group_id: groupId });
+  await Promise.all([
+    db.collection(COLLECTIONS.groupMessages).deleteMany({ group_id: groupId }),
+    db.collection(COLLECTIONS.groupActivities).deleteMany({ group_id: groupId }),
+    db.collection(COLLECTIONS.groupMembers).deleteMany({ group_id: groupId })
+  ]);
   await db.collection(COLLECTIONS.groups).deleteOne({ _id: groupId });
 }
 

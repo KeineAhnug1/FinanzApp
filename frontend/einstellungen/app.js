@@ -95,13 +95,11 @@
           const avatar = document.getElementById("profil-avatar-large");
           if (avatar) avatar.innerHTML = `<img src="${base64}" alt="Profilbild" />`;
 
-          // Update topbar avatars
           const topbarAvatars = document.querySelectorAll("[data-profile-avatar]");
           for (const el of topbarAvatars) {
             el.innerHTML = `<img src="${base64}" alt="Profilbild" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
           }
 
-          // Persist updated image in session storage
           try {
             const stored = window.sessionStorage.getItem("finanzapp.currentUser");
             if (stored) {

@@ -94,6 +94,7 @@
     }
     elContainer.innerHTML = aAccounts.map((oAccount) => `
       <div class="account-row" data-account-id="${fnEscapeHtml(oAccount.id)}" data-type="${fnEscapeHtml(sType)}">
+        <button class="account-name-link" type="button" data-view-account="${fnEscapeHtml(oAccount.id)}" data-view-type="${fnEscapeHtml(sType)}">${fnEscapeHtml(oAccount.label)}</button>
         <input class="account-name-input" type="text" value="${fnEscapeHtml(oAccount.label)}" />
         <span class="account-balance">${oAccount.balance == null ? "-" : fnEscapeHtml(fnFormatMoney(oAccount.balance))}</span>
         <button class="action" data-action="rename">${t("accounts.rename", "Umbenennen")}</button>
@@ -198,6 +199,93 @@
       document.addEventListener("keydown", onKeyDown);
       elSelect.focus();
     });
+  }
+
+  function fnFormatDate(sValue) {
+    const oDate = new Date(typeof sValue === "number" ? sValue * 1000 : sValue);
+    if (Number.isNaN(oDate.getTime())) return "-";
+    return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(oDate);
+  }
+
+  async function fnOpenAccountDetail(sAccountId, sType) {
+    const elBackdrop = fnById("accountDetailBackdrop");
+    const elContent = fnById("accountDetailContent");
+    const elTitle = fnById("accountDetailTitle");
+    const elClose = fnById("accountDetailCloseBtn");
+    if (!elBackdrop || !elContent) return;
+
+    const isShare = sType === t("accounts.share_accounts", "Aktienkonten");
+    const accountList = isShare ? aShareAccounts : aBankAccounts;
+    const oAccount = accountList.find((a) => a.id === sAccountId);
+    const sLabel = oAccount ? oAccount.label : sAccountId;
+
+    if (elTitle) elTitle.textContent = sLabel;
+    elContent.innerHTML = `<p class="muted">Wird geladen...</p>`;
+    elBackdrop.hidden = false;
+
+    const onClose = () => { elBackdrop.hidden = true; };
+    elClose.addEventListener("click", onClose, { once: true });
+    elBackdrop.addEventListener("click", (e) => { if (e.target === elBackdrop) onClose(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") onClose(); }, { once: true });
+
+    try {
+      if (isShare) {
+        const aData = await fnApiRequest([`/api/positions?share_account_id=${encodeURIComponent(sAccountId)}`]);
+        const aPositions = Array.isArray(aData) ? aData : [];
+        if (!aPositions.length) {
+          elContent.innerHTML = `<p class="muted">Keine Positionen in diesem Aktienkonto.</p>`;
+          return;
+        }
+        elContent.innerHTML = `
+          <table class="detail-table">
+            <thead><tr><th>Symbol</th><th>Anzahl</th><th>Kaufpreis/Stück</th><th>Gekauft am</th></tr></thead>
+            <tbody>
+              ${aPositions.map((pos) => `
+                <tr>
+                  <td><strong>${fnEscapeHtml(pos.symbol)}</strong></td>
+                  <td>${fnEscapeHtml(String(pos.amount))}</td>
+                  <td>${fnEscapeHtml(fnFormatMoney(pos.worthwhenbought))}</td>
+                  <td>${fnEscapeHtml(fnFormatDate(pos.created_at))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      } else {
+        const [oIncome, oExpense] = await Promise.all([
+          fnApiRequest([`/api/income-entries?bank_account_id=${encodeURIComponent(sAccountId)}`]),
+          fnApiRequest([`/api/expense-entries?bank_account_id=${encodeURIComponent(sAccountId)}`])
+        ]);
+        const aIncome = Array.isArray(oIncome?.entries) ? oIncome.entries : [];
+        const aExpense = Array.isArray(oExpense?.entries) ? oExpense.entries : [];
+        const aAll = [
+          ...aIncome.map((e) => ({ ...e, _kind: "income", _date: e.received_at })),
+          ...aExpense.map((e) => ({ ...e, _kind: "expense", _date: e.spent_at }))
+        ].sort((a, b) => new Date(b._date) - new Date(a._date));
+
+        if (!aAll.length) {
+          elContent.innerHTML = `<p class="muted">Keine Transaktionen für dieses Konto.</p>`;
+          return;
+        }
+        elContent.innerHTML = `
+          <table class="detail-table">
+            <thead><tr><th>Datum</th><th>Typ</th><th>Quelle / Kategorie</th><th>Betrag</th></tr></thead>
+            <tbody>
+              ${aAll.map((e) => `
+                <tr>
+                  <td>${fnEscapeHtml(fnFormatDate(e._date))}</td>
+                  <td class="${e._kind === "income" ? "tx-income" : "tx-expense"}">${e._kind === "income" ? "Einnahme" : "Ausgabe"}</td>
+                  <td>${fnEscapeHtml(e.source || e.category || "-")}${e.note ? `<br><small class="muted">${fnEscapeHtml(e.note)}</small>` : ""}</td>
+                  <td class="${e._kind === "income" ? "tx-income" : "tx-expense"}">${e._kind === "income" ? "+" : "−"}${fnEscapeHtml(fnFormatMoney(e.amount))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      }
+    } catch (oError) {
+      elContent.innerHTML = `<p class="muted">Fehler: ${fnEscapeHtml(String(oError?.message || oError))}</p>`;
+    }
   }
 
   async function fnInit() {
@@ -367,6 +455,16 @@
     } catch (oError) {
       elFeedback.textContent = t("accounts.load_failed", "Konten konnten nicht geladen werden: {error}", { error: String(oError?.message || oError) });
     }
+
+    // Open account detail on name click
+    document.addEventListener("click", async (oEvent) => {
+      const elBtn = oEvent.target instanceof Element ? oEvent.target.closest("[data-view-account]") : null;
+      if (!elBtn) return;
+      const sAccountId = String(elBtn.dataset.viewAccount || "");
+      const sViewType = String(elBtn.dataset.viewType || "");
+      if (!sAccountId) return;
+      await fnOpenAccountDetail(sAccountId, sViewType);
+    });
   }
 
   fnInit();

@@ -106,16 +106,19 @@ function getViewFromHash() {
 function setActiveView(view) {
   const nextView = VIEW_OPTIONS.has(view) ? view : "overview";
 
+  // expense is now a sub-tab inside the income panel
+  const panelView = nextView === "expense" ? "income" : nextView;
+
   const tabs = document.querySelectorAll("[data-view-tab]");
   for (const tab of tabs) {
-    const isActive = tab.dataset.viewTab === nextView;
+    const isActive = tab.dataset.viewTab === nextView || (nextView === "expense" && tab.dataset.viewTab === "income");
     tab.classList.toggle("is-active", isActive);
     tab.setAttribute("aria-selected", String(isActive));
   }
 
   const panels = document.querySelectorAll("[data-view-panel]");
   for (const panel of panels) {
-    const isNext = panel.dataset.viewPanel === nextView;
+    const isNext = panel.dataset.viewPanel === panelView;
     if (isNext) {
       panel.hidden = false;
       panel.classList.remove("is-entering");
@@ -127,7 +130,34 @@ function setActiveView(view) {
     }
   }
 
+  if (nextView === "expense" || nextView === "income") {
+    setActiveEntryTab(nextView === "expense" ? "expense" : "income");
+  }
+
   window.localStorage.setItem(VIEW_STORAGE_KEY, nextView);
+}
+
+function setActiveEntryTab(tab) {
+  const entryTabBtns = document.querySelectorAll("[data-entry-tab]");
+  const entryTabPanels = document.querySelectorAll("[data-entry-tab-panel]");
+  for (const btn of entryTabBtns) {
+    btn.classList.toggle("is-active", btn.dataset.entryTab === tab);
+  }
+  for (const panel of entryTabPanels) {
+    panel.hidden = panel.dataset.entryTabPanel !== tab;
+  }
+}
+
+function initEntryTabs() {
+  const entryTabBtns = document.querySelectorAll("[data-entry-tab]");
+  for (const btn of entryTabBtns) {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.entryTab;
+      if (!tab) return;
+      setActiveEntryTab(tab);
+      window.localStorage.setItem(VIEW_STORAGE_KEY, tab);
+    });
+  }
 }
 
 function initSectionTabs() {

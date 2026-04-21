@@ -89,11 +89,6 @@
             <p class="kpi-value" id="kpi-saving-rate">0%</p>
             <p class="kpi-trend neutral" id="kpi-saving-rate-trend">Keine Daten</p>
           </article>
-          <article class="kpi-card">
-            <p id="kpi-liquid-label" class="kpi-label">Liquiditaet (Monat)</p>
-            <p class="kpi-value" id="kpi-liquid">0 EUR</p>
-            <p class="kpi-trend neutral" id="kpi-liquid-trend">Einnahmen - Ausgaben</p>
-          </article>
         </section>
 
         <section class="detail-grid">
@@ -123,180 +118,203 @@
       </section>
 
       <section class="view-panel" data-view-panel="income" hidden>
-        <section class="income-grid">
-          <article class="panel">
-            <h2 class="panel-title">Einnahme erfassen</h2>
-            <form id="income-form" class="income-form">
-              <div>
-                <label class="field-label" for="income-source">Quelle</label>
-                <input class="field-input" id="income-source" name="source" type="text" required placeholder="z. B. Gehalt, Freelance, Rueckzahlung" />
-                <span class="field-hint">Bitte eine Quelle eingeben.</span>
-              </div>
-              <div class="form-two-cols">
-                <div>
-                  <label class="field-label" for="income-category">Kategorie</label>
-                  <select class="field-input" id="income-category" name="category" required>
-                    <option value="salary">Gehalt</option>
-                    <option value="freelance">Freelance</option>
-                    <option value="bonus">Bonus</option>
-                    <option value="refund">Rueckzahlung</option>
-                    <option value="investment">Kapitalertraege</option>
-                    <option value="other">Sonstiges</option>
-                    <option value="custom">Eigene Kategorie...</option>
-                  </select>
-                </div>
-                <div id="income-custom-wrap" hidden>
-                  <label class="field-label" for="income-category-custom">Eigene Kategorie</label>
-                  <input class="field-input field-custom" id="income-category-custom" name="category_custom" type="text" placeholder="z. B. Vermietung" />
-                </div>
-              </div>
-              <div class="form-two-cols">
-                <div>
-                  <label class="field-label" for="income-amount">Betrag (EUR)</label>
-                  <input class="field-input" id="income-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
-                  <span class="field-hint">Betrag muss größer als 0 sein.</span>
-                </div>
-                <div>
-                  <label class="field-label" for="income-date">Datum & Uhrzeit</label>
-                  <input class="field-input" id="income-date" name="received_at" type="datetime-local" required />
-                </div>
-              </div>
-              <div class="form-two-cols">
-                <div>
-                  <label class="field-label" for="income-recurrence">Wiederholung</label>
-                  <select class="field-input" id="income-recurrence" name="recurrence">
-                    <option value="once">Einmalig</option>
-                    <option value="weekly">Woechentlich</option>
-                    <option value="monthly">Monatlich</option>
-                  </select>
-                </div>
-                <div class="field-checkbox-wrap">
-                  <label class="field-label">Status</label>
-                  <label class="field-checkbox">
-                    <input id="income-active" name="is_active" type="checkbox" checked />
-                    <span>Aktiv (nur fuer wiederkehrend)</span>
-                  </label>
-                </div>
-              </div>
-              <div>
-                <label class="field-label" for="income-bank-account">Konto</label>
-                <select class="field-input" id="income-bank-account" name="bank_account_id" required></select>
-              </div>
-              <div>
-                <label class="field-label" for="income-note">Notiz (optional)</label>
-                <textarea class="field-input field-textarea" id="income-note" name="note" rows="2" placeholder="z. B. Bonus fuer Projekt X"></textarea>
-              </div>
-              <div class="income-actions">
-                <button class="submit-income" type="submit" id="income-submit-btn">Einnahme speichern</button>
-                <button class="cancel-income" type="button" id="income-cancel-btn" hidden>Bearbeitung abbrechen</button>
-              </div>
-            </form>
-            <p id="income-form-status" class="form-status"></p>
-            <div class="category-manager">
-              <p class="field-label">Eigene Kategorien verwalten</p>
-              <ul id="income-category-list" class="category-list"></ul>
-              <p id="income-category-status" class="form-status"></p>
-            </div>
-          </article>
+        <nav class="entry-tab-nav" aria-label="Buchungstyp">
+          <button type="button" class="entry-tab-btn is-active" data-entry-tab="income">Einnahmen</button>
+          <button type="button" class="entry-tab-btn" data-entry-tab="expense">Ausgaben</button>
+        </nav>
 
-          <article class="panel">
-            <h2 class="panel-title">Letzte Einnahmen</h2>
-            <p class="panel-subtitle">Monat aufklappen, Eintraege durchsuchen, dann bearbeiten oder loeschen.</p>
-            <div class="list-tools">
-              <input class="field-input list-search" id="income-search" type="search" placeholder="Einnahmen durchsuchen (Quelle, Kategorie, Notiz...)" />
-            </div>
-            <ul id="income-list" class="income-list"></ul>
-          </article>
-        </section>
-      </section>
+        <div class="entry-tab-panel" data-entry-tab-panel="income">
+          <section class="income-grid">
+            <article class="panel">
+              <h2 class="panel-title">Einnahme erfassen</h2>
+              <form id="income-form" class="income-form">
+                <div>
+                  <label class="field-label" for="income-source">Quelle</label>
+                  <input class="field-input" id="income-source" name="source" type="text" required placeholder="z. B. Gehalt, Freelance, Rueckzahlung" />
+                  <span class="field-hint">Bitte eine Quelle eingeben.</span>
+                </div>
+                <div class="form-two-cols">
+                  <div>
+                    <label class="field-label" for="income-category">Kategorie</label>
+                    <select class="field-input" id="income-category" name="category" required>
+                      <option value="salary">Gehalt</option>
+                      <option value="freelance">Freelance</option>
+                      <option value="bonus">Bonus</option>
+                      <option value="refund">Rueckzahlung</option>
+                      <option value="investment">Kapitalertraege</option>
+                      <option value="other">Sonstiges</option>
+                      <option value="custom">Eigene Kategorie...</option>
+                    </select>
+                  </div>
+                  <div id="income-custom-wrap" hidden>
+                    <label class="field-label" for="income-category-custom">Eigene Kategorie</label>
+                    <input class="field-input field-custom" id="income-category-custom" name="category_custom" type="text" placeholder="z. B. Vermietung" />
+                  </div>
+                </div>
+                <div class="form-two-cols">
+                  <div>
+                    <label class="field-label" for="income-amount">Betrag</label>
+                    <div class="amount-currency-wrap">
+                      <input class="field-input" id="income-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
+                      <select class="field-input amount-currency-select" id="income-currency" name="input_currency">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="CHF">CHF</option>
+                      </select>
+                    </div>
+                    <span class="field-hint">Betrag muss größer als 0 sein.</span>
+                  </div>
+                  <div>
+                    <label class="field-label" for="income-date">Datum & Uhrzeit</label>
+                    <input class="field-input" id="income-date" name="received_at" type="datetime-local" required />
+                  </div>
+                </div>
+                <div class="form-two-cols">
+                  <div>
+                    <label class="field-label" for="income-recurrence">Wiederholung</label>
+                    <select class="field-input" id="income-recurrence" name="recurrence">
+                      <option value="once">Einmalig</option>
+                      <option value="weekly">Woechentlich</option>
+                      <option value="monthly">Monatlich</option>
+                    </select>
+                  </div>
+                  <div class="field-checkbox-wrap">
+                    <label class="field-label">Status</label>
+                    <label class="field-checkbox">
+                      <input id="income-active" name="is_active" type="checkbox" checked />
+                      <span>Aktiv (nur fuer wiederkehrend)</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label class="field-label" for="income-bank-account">Konto</label>
+                  <select class="field-input" id="income-bank-account" name="bank_account_id" required></select>
+                </div>
+                <div>
+                  <label class="field-label" for="income-note">Notiz (optional)</label>
+                  <textarea class="field-input field-textarea" id="income-note" name="note" rows="2" placeholder="z. B. Bonus fuer Projekt X"></textarea>
+                </div>
+                <div class="income-actions">
+                  <button class="submit-income" type="submit" id="income-submit-btn">Einnahme speichern</button>
+                  <button class="cancel-income" type="button" id="income-cancel-btn" hidden>Bearbeitung abbrechen</button>
+                </div>
+              </form>
+              <p id="income-form-status" class="form-status"></p>
+              <div class="category-manager">
+                <p class="field-label">Eigene Kategorien verwalten</p>
+                <ul id="income-category-list" class="category-list"></ul>
+                <p id="income-category-status" class="form-status"></p>
+              </div>
+            </article>
 
-      <section class="view-panel" data-view-panel="expense" hidden>
-        <section class="income-grid">
-          <article class="panel">
-            <h2 class="panel-title">Ausgabe erfassen</h2>
-            <form id="expense-form" class="income-form">
-              <div>
-                <label class="field-label" for="expense-source">Quelle</label>
-                <input class="field-input" id="expense-source" name="source" type="text" required placeholder="z. B. Vermieter, Supermarkt, Stromanbieter" />
-                <span class="field-hint">Bitte eine Quelle eingeben.</span>
+            <article class="panel">
+              <h2 class="panel-title">Letzte Einnahmen</h2>
+              <p class="panel-subtitle">Monat aufklappen, Eintraege durchsuchen, dann bearbeiten oder loeschen.</p>
+              <div class="list-tools">
+                <input class="field-input list-search" id="income-search" type="search" placeholder="Einnahmen durchsuchen (Quelle, Kategorie, Notiz...)" />
               </div>
-              <div class="form-two-cols">
-                <div>
-                  <label class="field-label" for="expense-category">Kategorie</label>
-                  <select class="field-input" id="expense-category" name="category" required>
-                    <option value="rent">Miete</option>
-                    <option value="groceries">Lebensmittel</option>
-                    <option value="utilities">Nebenkosten</option>
-                    <option value="transport">Mobilitaet</option>
-                    <option value="health">Gesundheit</option>
-                    <option value="entertainment">Freizeit</option>
-                    <option value="other">Sonstiges</option>
-                    <option value="custom">Eigene Kategorie...</option>
-                  </select>
-                </div>
-                <div id="expense-custom-wrap" hidden>
-                  <label class="field-label" for="expense-category-custom">Eigene Kategorie</label>
-                  <input class="field-input field-custom" id="expense-category-custom" name="category_custom" type="text" placeholder="z. B. Versicherungen" />
-                </div>
-              </div>
-              <div class="form-two-cols">
-                <div>
-                  <label class="field-label" for="expense-amount">Betrag (EUR)</label>
-                  <input class="field-input" id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
-                  <span class="field-hint">Betrag muss größer als 0 sein.</span>
-                </div>
-                <div>
-                  <label class="field-label" for="expense-date">Datum & Uhrzeit</label>
-                  <input class="field-input" id="expense-date" name="spent_at" type="datetime-local" required />
-                </div>
-              </div>
-              <div class="form-two-cols">
-                <div>
-                  <label class="field-label" for="expense-recurrence">Wiederholung</label>
-                  <select class="field-input" id="expense-recurrence" name="recurrence">
-                    <option value="once">Einmalig</option>
-                    <option value="weekly">Woechentlich</option>
-                    <option value="monthly">Monatlich</option>
-                  </select>
-                </div>
-                <div class="field-checkbox-wrap">
-                  <label class="field-label">Status</label>
-                  <label class="field-checkbox">
-                    <input id="expense-active" name="is_active" type="checkbox" checked />
-                    <span>Aktiv (nur fuer wiederkehrend)</span>
-                  </label>
-                </div>
-              </div>
-              <div>
-                <label class="field-label" for="expense-bank-account">Konto</label>
-                <select class="field-input" id="expense-bank-account" name="bank_account_id" required></select>
-              </div>
-              <div>
-                <label class="field-label" for="expense-note">Notiz (optional)</label>
-                <textarea class="field-input field-textarea" id="expense-note" name="note" rows="2" placeholder="z. B. Abschlag Strom"></textarea>
-              </div>
-              <div class="income-actions">
-                <button class="submit-income" type="submit" id="expense-submit-btn">Ausgabe speichern</button>
-                <button class="cancel-income" type="button" id="expense-cancel-btn" hidden>Bearbeitung abbrechen</button>
-              </div>
-            </form>
-            <p id="expense-form-status" class="form-status"></p>
-            <div class="category-manager">
-              <p class="field-label">Eigene Kategorien verwalten</p>
-              <ul id="expense-category-list" class="category-list"></ul>
-              <p id="expense-category-status" class="form-status"></p>
-            </div>
-          </article>
+              <ul id="income-list" class="income-list"></ul>
+            </article>
+          </section>
+        </div>
 
-          <article class="panel">
-            <h2 class="panel-title">Letzte Ausgaben</h2>
-            <p class="panel-subtitle">Monat aufklappen, Eintraege durchsuchen, dann bearbeiten oder loeschen.</p>
-            <div class="list-tools">
-              <input class="field-input list-search" id="expense-search" type="search" placeholder="Ausgaben durchsuchen (Quelle, Kategorie, Notiz...)" />
-            </div>
-            <ul id="expense-list" class="income-list"></ul>
-          </article>
-        </section>
+        <div class="entry-tab-panel" data-entry-tab-panel="expense" hidden>
+          <section class="income-grid">
+            <article class="panel">
+              <h2 class="panel-title">Ausgabe erfassen</h2>
+              <form id="expense-form" class="income-form">
+                <div>
+                  <label class="field-label" for="expense-source">Quelle</label>
+                  <input class="field-input" id="expense-source" name="source" type="text" required placeholder="z. B. Vermieter, Supermarkt, Stromanbieter" />
+                  <span class="field-hint">Bitte eine Quelle eingeben.</span>
+                </div>
+                <div class="form-two-cols">
+                  <div>
+                    <label class="field-label" for="expense-category">Kategorie</label>
+                    <select class="field-input" id="expense-category" name="category" required>
+                      <option value="rent">Miete</option>
+                      <option value="groceries">Lebensmittel</option>
+                      <option value="utilities">Nebenkosten</option>
+                      <option value="transport">Mobilitaet</option>
+                      <option value="health">Gesundheit</option>
+                      <option value="entertainment">Freizeit</option>
+                      <option value="other">Sonstiges</option>
+                      <option value="custom">Eigene Kategorie...</option>
+                    </select>
+                  </div>
+                  <div id="expense-custom-wrap" hidden>
+                    <label class="field-label" for="expense-category-custom">Eigene Kategorie</label>
+                    <input class="field-input field-custom" id="expense-category-custom" name="category_custom" type="text" placeholder="z. B. Versicherungen" />
+                  </div>
+                </div>
+                <div class="form-two-cols">
+                  <div>
+                    <label class="field-label" for="expense-amount">Betrag</label>
+                    <div class="amount-currency-wrap">
+                      <input class="field-input" id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
+                      <select class="field-input amount-currency-select" id="expense-currency" name="input_currency">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="CHF">CHF</option>
+                      </select>
+                    </div>
+                    <span class="field-hint">Betrag muss größer als 0 sein.</span>
+                  </div>
+                  <div>
+                    <label class="field-label" for="expense-date">Datum & Uhrzeit</label>
+                    <input class="field-input" id="expense-date" name="spent_at" type="datetime-local" required />
+                  </div>
+                </div>
+                <div class="form-two-cols">
+                  <div>
+                    <label class="field-label" for="expense-recurrence">Wiederholung</label>
+                    <select class="field-input" id="expense-recurrence" name="recurrence">
+                      <option value="once">Einmalig</option>
+                      <option value="weekly">Woechentlich</option>
+                      <option value="monthly">Monatlich</option>
+                    </select>
+                  </div>
+                  <div class="field-checkbox-wrap">
+                    <label class="field-label">Status</label>
+                    <label class="field-checkbox">
+                      <input id="expense-active" name="is_active" type="checkbox" checked />
+                      <span>Aktiv (nur fuer wiederkehrend)</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label class="field-label" for="expense-bank-account">Konto</label>
+                  <select class="field-input" id="expense-bank-account" name="bank_account_id" required></select>
+                </div>
+                <div>
+                  <label class="field-label" for="expense-note">Notiz (optional)</label>
+                  <textarea class="field-input field-textarea" id="expense-note" name="note" rows="2" placeholder="z. B. Abschlag Strom"></textarea>
+                </div>
+                <div class="income-actions">
+                  <button class="submit-income" type="submit" id="expense-submit-btn">Ausgabe speichern</button>
+                  <button class="cancel-income" type="button" id="expense-cancel-btn" hidden>Bearbeitung abbrechen</button>
+                </div>
+              </form>
+              <p id="expense-form-status" class="form-status"></p>
+              <div class="category-manager">
+                <p class="field-label">Eigene Kategorien verwalten</p>
+                <ul id="expense-category-list" class="category-list"></ul>
+                <p id="expense-category-status" class="form-status"></p>
+              </div>
+            </article>
+
+            <article class="panel">
+              <h2 class="panel-title">Letzte Ausgaben</h2>
+              <p class="panel-subtitle">Monat aufklappen, Eintraege durchsuchen, dann bearbeiten oder loeschen.</p>
+              <div class="list-tools">
+                <input class="field-input list-search" id="expense-search" type="search" placeholder="Ausgaben durchsuchen (Quelle, Kategorie, Notiz...)" />
+              </div>
+              <ul id="expense-list" class="income-list"></ul>
+            </article>
+          </section>
+        </div>
       </section>
 
     </main>
