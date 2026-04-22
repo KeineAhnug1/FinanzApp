@@ -4,30 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FinanzApp Übersicht</title>
-  <script>
-    (function () {
-      try {
-        var THEME_STORAGE_KEY = "finanzapp.themeMode";
-        var THEME_OPTIONS = { light: true, dark: true, auto: true };
-        var stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-        var mode = THEME_OPTIONS[stored] ? stored : "auto";
-        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        var resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
-        document.documentElement.dataset.theme = resolved;
-        document.documentElement.dataset.themeMode = mode;
-        var DESIGN_OPTIONS = { classic: true, forest: true };
-        var storedDesign = window.localStorage.getItem("finanzapp.designTheme");
-        if (storedDesign && DESIGN_OPTIONS[storedDesign] && storedDesign !== "classic") {
-          document.documentElement.dataset.design = storedDesign;
-        }
-        var c = window.localStorage.getItem("finanzapp.contrast");
-        if (c === "high") document.documentElement.dataset.contrast = "high";
-      } catch (_) {
-        document.documentElement.dataset.theme = "light";
-        document.documentElement.dataset.themeMode = "auto";
-      }
-    })();
-  </script>
+  <script src="/shared/js/theme-init.js"></script>
   <script>
     document.documentElement.classList.add("dashboard-view-preload");
   </script>
@@ -344,7 +321,7 @@
   <script src="./js/overview-cashflow.js"></script>
   <script src="./js/profile-menu.js?v=2"></script>
   <script src="./js/settings-menu.js"></script>
-  <script src="./js/api-client.js"></script>
+  <script src="./js/dashboard-api.js"></script>
   <script src="./js/modal.js"></script>
   <script src="./js/income.js"></script>
   <script src="./js/expense.js"></script>
