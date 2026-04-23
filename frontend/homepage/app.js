@@ -26,12 +26,11 @@
     document.title = t("homepage.page_title", "FinanzApp | Homepage");
 
     setAttr("homepage-brand-link", "aria-label", "homepage.brand_aria", "Zur FinanzApp Homepage");
-    setText("homepage-brand-sub", "homepage.brand_sub", "Homepage");
 
     setText("homepage-hero-kicker", "homepage.hero.kicker", "The Next Generation Finance Platform");
     setText("homepage-hero-title", "homepage.hero.title", "Wenn Finanzmanagement wie ein Enterprise-System denkt, aber schnell wie ein Startup liefert.");
     setText("homepage-hero-body", "homepage.hero.body", "FinanzApp verbindet AI Assist, Cloud-Native Skalierung und belastbare Security zu einer Plattform, die für persönliche und kollaborative Finanzen gleichermaßen gebaut ist.");
-    setText("homepage-hero-cta", "homepage.hero.cta", "Zur Capability Tour");
+    setText("homepage-hero-cta", "homepage.hero.cta", "Features entdecken");
 
     setText("homepage-ai-tag", "homepage.ai.tag", "AI Enhancement");
     setText("homepage-ai-title", "homepage.ai.title", "Adaptive Finance Intelligence");
@@ -79,37 +78,37 @@
 
     setText("homepage-serverless-tag", "homepage.serverless.tag", "Serverless Computing");
     setText("homepage-serverless-title", "homepage.serverless.title", "Instant Elastic Runtime");
-    setText("homepage-serverless-body", "homepage.serverless.body", "Event-basierte Dienste reagieren in Echtzeit auf Lastspitzen und entkoppeln Nutzung von statischer Infrastruktur. Die Plattform bleibt performant, auch wenn die Nutzerzahlen explodieren.");
+    setText("homepage-serverless-body", "homepage.serverless.body", "Event-basierte Dienste reagieren in Echtzeit auf Lastspitzen und entkoppeln Nutzung von statischer Infrastruktur.");
     setAttr("homepage-serverless-image", "alt", "homepage.serverless.alt", "Serverlose Infrastruktur mit Event-Flows und verteilten Funktionen");
 
     setText("homepage-quantum-tag", "homepage.quantum.tag", "Quantum Computing (Roadmap)");
     setText("homepage-quantum-title", "homepage.quantum.title", "Quantum-Ready Core Design");
-    setText("homepage-quantum-body", "homepage.quantum.body", "Die Architektur ist modular vorbereitet, um künftige Quantum-Optimierung in Analytik und Prognosepfade einzubinden, ohne bestehende Kernprozesse neu aufbauen zu müssen.");
+    setText("homepage-quantum-body", "homepage.quantum.body", "Die Architektur ist modular vorbereitet, um künftige Quantum-Optimierung in Analytik und Prognosepfade einzubinden.");
     setAttr("homepage-quantum-image", "alt", "homepage.quantum.alt", "Quantum-inspirierte Netzwerkstruktur mit Knoten und Interferenzmustern");
 
     setText("homepage-blockchain-tag", "homepage.blockchain.tag", "Blockchain");
     setText("homepage-blockchain-title", "homepage.blockchain.title", "Verifiable Financial Ledger Layer");
-    setText("homepage-blockchain-body", "homepage.blockchain.body", "Kritische Finanzereignisse können auditierbar protokolliert werden, um Unveränderbarkeit, Nachvollziehbarkeit und Vertrauen in sensible Workflows systemseitig abzusichern.");
+    setText("homepage-blockchain-body", "homepage.blockchain.body", "Kritische Finanzereignisse können auditierbar protokolliert werden, um Unveränderbarkeit und Vertrauen abzusichern.");
     setAttr("homepage-blockchain-image", "alt", "homepage.blockchain.alt", "Kettenstruktur mit verifizierten Finanzblöcken und Signaturpunkten");
 
     setText("homepage-saas-tag", "homepage.saas.tag", "SaaS");
     setText("homepage-saas-title", "homepage.saas.title", "Continuous Value Delivery");
-    setText("homepage-saas-body", "homepage.saas.body", "Release-Zyklen, Sicherheitsupdates und Produktverbesserungen laufen kontinuierlich, damit die Plattform ohne Downtime mit den Anforderungen des Markts mitwachsen kann.");
+    setText("homepage-saas-body", "homepage.saas.body", "Release-Zyklen, Sicherheitsupdates und Produktverbesserungen laufen kontinuierlich, damit die Plattform ohne Downtime mitwächst.");
     setAttr("homepage-saas-image", "alt", "homepage.saas.alt", "SaaS-Bereitstellung mit mehreren Releases, Pipelines und Nutzergruppen");
 
     setText("homepage-loadbalanced-tag", "homepage.loadbalanced.tag", "Load Balanced (Roadmap)");
     setText("homepage-loadbalanced-title", "homepage.loadbalanced.title", "Traffic-Aware Service Orchestration");
-    setText("homepage-loadbalanced-body", "homepage.loadbalanced.body", "Eingehender Traffic wird intelligent verteilt, um Antwortzeiten stabil zu halten und kritische Service-Komponenten auch unter Peak-Bedingungen robust betreiben zu können.");
+    setText("homepage-loadbalanced-body", "homepage.loadbalanced.body", "Eingehender Traffic wird intelligent verteilt, um Antwortzeiten stabil zu halten und kritische Services robust zu betreiben.");
     setAttr("homepage-loadbalanced-image", "alt", "homepage.loadbalanced.alt", "Load-Balancer mit verteilten Datenströmen auf mehrere Service-Knoten");
 
     setText("homepage-scalable-tag", "homepage.scalable.tag", "Scalable Architecture");
     setText("homepage-scalable-title", "homepage.scalable.title", "Horizontal Growth Without Friction");
-    setText("homepage-scalable-body", "homepage.scalable.body", "Services werden horizontal skaliert und klar getrennt deployt. So bleibt die Plattform unter Last erweiterbar, wartbar und für neue Module offen.");
+    setText("homepage-scalable-body", "homepage.scalable.body", "Services werden horizontal skaliert und klar getrennt deployt — erweiterbar, wartbar und für neue Module offen.");
     setAttr("homepage-scalable-image", "alt", "homepage.scalable.alt", "Skalierende Cluster-Topologie mit wachsendem Service-Gitter");
 
     setText("homepage-aws-tag", "homepage.aws.tag", "Backend on AWS");
     setText("homepage-aws-title", "homepage.aws.title", "Cloud Operations with Production Discipline");
-    setText("homepage-aws-body", "homepage.aws.body", "Der Backend-Stack ist cloud-fokussiert aufgebaut: reproduzierbare Deployments, stabile Betriebsprozesse und eine Infrastruktur, die auf Verfügbarkeit ausgelegt ist.");
+    setText("homepage-aws-body", "homepage.aws.body", "Der Backend-Stack ist cloud-fokussiert aufgebaut: reproduzierbare Deployments, stabile Betriebsprozesse und hohe Verfügbarkeit.");
     setAttr("homepage-aws-image", "alt", "homepage.aws.alt", "Cloud-Infrastruktur auf AWS mit Services, Datenebene und Monitoring");
 
     syncDesignCarouselLabels();
@@ -123,16 +122,16 @@
       const isLoggedIn = Boolean(response.ok && payload?.ok && payload?.session_user);
       authButton.textContent = isLoggedIn
         ? t("homepage.auth.dashboard", "Dashboard")
-        : t("homepage.auth.login_register", "Anmelden / Registrieren");
+        : t("homepage.auth.login_register", "Anmelden");
       authButton.href = isLoggedIn ? "/dashboard.html" : "/";
     } catch {
-      authButton.textContent = t("homepage.auth.login_register", "Anmelden / Registrieren");
+      authButton.textContent = t("homepage.auth.login_register", "Anmelden");
       authButton.href = "/";
     }
   }
 
   function initRevealAnimations() {
-    const revealNodes = Array.from(document.querySelectorAll(".reveal-from-bottom"));
+    const revealNodes = Array.from(document.querySelectorAll(".reveal-up"));
     if (!revealNodes.length) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -147,10 +146,7 @@
         entry.target.classList.add("is-visible");
         obs.unobserve(entry.target);
       }
-    }, {
-      threshold: 0.18,
-      rootMargin: "0px 0px -10% 0px"
-    });
+    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
 
     for (const node of revealNodes) {
       if (node.classList.contains("is-visible")) continue;
@@ -161,16 +157,10 @@
   function initScrollAutoplayVideos() {
     const videos = Array.from(document.querySelectorAll(".js-autoplay-on-visible"));
     if (!videos.length) return;
-
-    for (const video of videos) {
-      video.muted = true;
-      video.playsInline = true;
-    }
+    for (const video of videos) { video.muted = true; video.playsInline = true; }
 
     if (!("IntersectionObserver" in window)) {
-      for (const video of videos) {
-        video.play().catch(() => {});
-      }
+      for (const video of videos) video.play().catch(() => {});
       return;
     }
 
@@ -184,10 +174,7 @@
           video.pause();
         }
       }
-    }, {
-      threshold: [0, 0.2, 0.8],
-      rootMargin: "0px"
-    });
+    }, { threshold: [0, 0.2, 0.8] });
 
     for (const video of videos) observer.observe(video);
   }
@@ -199,11 +186,11 @@
     const nextButton = document.getElementById("homepage-design-next");
     if (!carousel || !dotsHost || !prevButton || !nextButton) return () => {};
 
-    const slides = Array.from(carousel.querySelectorAll(".design-card"));
+    const slides = Array.from(carousel.querySelectorAll(".hp-carousel__slide"));
     if (!slides.length) return () => {};
-    const animationMs = 320;
+    const animationMs = 360;
 
-    let activeIndex = slides.findIndex((slide) => slide.classList.contains("is-active"));
+    let activeIndex = slides.findIndex((s) => s.classList.contains("is-active"));
     if (activeIndex < 0) activeIndex = 0;
     let isAnimating = false;
 
@@ -214,37 +201,35 @@
       dot.dataset.index = String(index);
       dot.addEventListener("click", () => {
         if (index === activeIndex) return;
-        const direction = index > activeIndex ? "right" : "left";
-        animateTo(index, direction);
+        animateTo(index, index > activeIndex ? "right" : "left");
       });
       dotsHost.append(dot);
       return dot;
     });
 
     function clearMotionClasses(slide) {
-      slide.classList.remove("is-enter-from-right", "is-enter-from-left", "is-leave-to-left", "is-leave-to-right");
+      slide.classList.remove(
+        "is-enter-from-right", "is-enter-from-left",
+        "is-leave-to-left", "is-leave-to-right"
+      );
     }
 
     function renderSlides() {
       slides.forEach((slide, index) => {
-        const isActive = index === activeIndex;
         clearMotionClasses(slide);
-        slide.classList.toggle("is-active", isActive);
-        slide.setAttribute("aria-hidden", String(!isActive));
+        slide.classList.toggle("is-active", index === activeIndex);
+        slide.setAttribute("aria-hidden", String(index !== activeIndex));
       });
-
       dotButtons.forEach((dot, index) => {
-        const isActive = index === activeIndex;
-        dot.classList.toggle("is-active", isActive);
-        dot.setAttribute("aria-current", isActive ? "true" : "false");
+        dot.classList.toggle("is-active", index === activeIndex);
+        dot.setAttribute("aria-current", index === activeIndex ? "true" : "false");
       });
     }
 
     function renderDots() {
       dotButtons.forEach((dot, index) => {
-        const isActive = index === activeIndex;
-        dot.classList.toggle("is-active", isActive);
-        dot.setAttribute("aria-current", isActive ? "true" : "false");
+        dot.classList.toggle("is-active", index === activeIndex);
+        dot.setAttribute("aria-current", index === activeIndex ? "true" : "false");
       });
     }
 
@@ -293,23 +278,14 @@
     }
 
     prevButton.addEventListener("click", () => {
-      const nextIndex = (activeIndex - 1 + slides.length) % slides.length;
-      animateTo(nextIndex, "left");
+      animateTo((activeIndex - 1 + slides.length) % slides.length, "left");
     });
-
     nextButton.addEventListener("click", () => {
-      const nextIndex = (activeIndex + 1) % slides.length;
-      animateTo(nextIndex, "right");
+      animateTo((activeIndex + 1) % slides.length, "right");
     });
-
     carousel.addEventListener("keydown", (event) => {
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        prevButton.click();
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        nextButton.click();
-      }
+      if (event.key === "ArrowLeft") { event.preventDefault(); prevButton.click(); }
+      else if (event.key === "ArrowRight") { event.preventDefault(); nextButton.click(); }
     });
 
     syncLabels();
@@ -319,10 +295,12 @@
 
   renderHomepageCopy();
   syncDesignCarouselLabels = initDesignCarousel();
+
   window.addEventListener("finanzapp:locale-changed", () => {
     renderHomepageCopy();
     updateAuthButtonVisibility();
   });
+
   updateAuthButtonVisibility();
   initRevealAnimations();
   initScrollAutoplayVideos();
