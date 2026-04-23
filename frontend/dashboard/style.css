@@ -1,5 +1,6 @@
 /* =====================================================
    AUTH PAGE — Login & Registrierung
+   Basis-Font: Outfit via unified-ui.css
    ===================================================== */
 
 /* ── Seitenlayout ─────────────────────────────────── */
@@ -181,27 +182,27 @@ users-login {
   width: 100%;
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
-  border-radius: 20px;
-  padding: 44px 48px 40px;
+  border-radius: 16px;
+  padding: 36px 40px 32px;
   box-shadow: var(--ui-shadow-soft);
-  animation: fade-up 260ms ease;
+  animation: fade-up 240ms ease;
   box-sizing: border-box;
 }
 
 .login-title {
-  margin: 0 0 8px;
-  font-size: 1.5rem;
-  font-weight: 750;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
+  margin: 0 0 6px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
   color: var(--ui-text);
 }
 
 .login-subtitle {
-  margin: 0 0 28px;
+  margin: 0 0 24px;
   color: var(--ui-text-muted);
   font-size: 0.875rem;
-  line-height: 1.6;
+  line-height: 1.58;
 }
 
 /* ── Formular ─────────────────────────────────────── */
@@ -227,16 +228,16 @@ users-login {
 
 .login-input {
   width: 100%;
-  border: 1.5px solid var(--ui-border);
+  border: 1px solid var(--ui-border);
   background: var(--ui-surface-soft);
   color: var(--ui-text);
-  border-radius: 10px;
-  padding: 11px 14px;
+  border-radius: 8px;
+  padding: 10px 12px;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  transition: border-color 130ms ease, box-shadow 130ms ease, background 130ms ease;
 }
 
 .login-input:focus {
@@ -260,16 +261,16 @@ users-login {
   margin-top: 6px;
   width: 100%;
   border: 0;
-  border-radius: 10px;
-  padding: 12.5px;
+  border-radius: 8px;
+  padding: 11px;
   background: var(--ui-primary);
   color: var(--ui-text-on-primary);
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 650;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  letter-spacing: 0.01em;
-  transition: opacity 140ms ease, transform 140ms ease;
+  letter-spacing: -0.01em;
+  transition: opacity 130ms ease, transform 130ms ease;
 }
 
 .login-button:hover:not(:disabled) {

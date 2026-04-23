@@ -56,7 +56,7 @@ html.groups-view-preload #detailView {
   padding: 7px 12px;
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 640;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -78,7 +78,7 @@ html.groups-view-preload #detailView {
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -95,7 +95,7 @@ html.groups-view-preload #detailView {
 .panel {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 16px;
   padding: var(--ui-space-4, 20px);
   box-shadow: var(--shadow);
   min-height: 0;
@@ -153,7 +153,7 @@ html.groups-view-preload #detailView {
 .group-card {
   border: 1px solid var(--border);
   background: var(--bg-soft);
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 14px;
 }
 
@@ -212,7 +212,7 @@ html.groups-view-preload #detailView {
   border-radius: 999px;
   padding: 8px 14px;
   font: inherit;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -242,7 +242,7 @@ html.groups-view-preload #detailView {
 
 .group-chat-shell {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--bg-soft);
   min-height: 0;
   height: 100%;
@@ -261,7 +261,7 @@ html.groups-view-preload #detailView {
 
 .funding-detail-panel {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--bg-soft);
   padding: 12px;
   display: grid;
@@ -283,7 +283,7 @@ html.groups-view-preload #detailView {
 
 .member-item {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--bg-soft);
   padding: 12px;
   display: flex;
@@ -321,7 +321,7 @@ html.groups-view-preload #detailView {
 
 .member-name {
   margin: 0 0 3px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .inbox-actions {
@@ -334,7 +334,7 @@ html.groups-view-preload #detailView {
 .member-panel {
   margin-top: 8px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 12px;
   background: var(--bg-soft);
   display: grid;
@@ -414,7 +414,7 @@ html.groups-view-preload #detailView {
 .chat-bubble {
   max-width: min(78%, 620px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 10px 12px;
   background: var(--bg-surface);
   position: relative;
@@ -455,8 +455,8 @@ html.groups-view-preload #detailView {
   right: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  border-radius: var(--ui-radius-sm, 8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
   z-index: 10;
   min-width: 110px;
   overflow: hidden;
@@ -499,7 +499,7 @@ select {
   color: var(--text-strong);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 10px 12px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
@@ -508,20 +508,26 @@ input:focus,
 select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px var(--primary-ring);
+  box-shadow: 0 0 0 3px var(--primary-ring);
 }
 
 button {
   width: fit-content;
   border: 0;
-  border-radius: 11px;
-  background: linear-gradient(160deg, var(--primary), var(--primary-dark));
+  border-radius: 8px;
+  background: var(--primary);
   color: var(--text-on-primary);
   min-height: 40px;
   padding: 10px 14px;
   font: inherit;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.13s, transform 0.13s;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 .ghost-button {
@@ -554,7 +560,7 @@ button {
 .small-danger-button,
 .danger-button {
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--text-on-primary);
   cursor: pointer;
   font: inherit;
@@ -562,17 +568,17 @@ button {
 
 .small-secondary-button {
   padding: 8px 10px;
-  background: linear-gradient(160deg, var(--primary), var(--primary-dark));
+  background: var(--primary);
 }
 
 .small-danger-button {
   padding: 8px 10px;
-  background: linear-gradient(160deg, var(--danger), var(--danger-strong));
+  background: var(--danger);
 }
 
 .danger-button {
   padding: 10px 14px;
-  background: linear-gradient(160deg, var(--danger), var(--danger-strong));
+  background: var(--danger);
 }
 
 .form-status {
@@ -695,7 +701,7 @@ button {
 .empty-block-title {
   margin: 0;
   font-size: 0.94rem;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-strong, var(--ui-text, #1d2d3e));
 }
 .empty-block-hint {

@@ -9,10 +9,10 @@
   height: calc(100vh - 56px - 32px); /* subtract topbar + vertical margin */
   overflow: hidden;
   margin: 16px;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid var(--ui-border, #d5dce3);
   background: var(--ui-surface, #fff);
-  box-shadow: var(--ui-shadow-soft, 0 2px 8px rgba(29,45,62,0.09));
+  box-shadow: var(--ui-shadow-soft, 0 1px 4px rgba(0,0,0,0.06));
 }
 
 /* ── Sidebar (conversation list) ── */
@@ -24,7 +24,7 @@
   border-right: 1px solid var(--ui-border, #d5dce3);
   background: var(--ui-surface, #fff);
   overflow: hidden;
-  border-radius: 20px 0 0 20px;
+  border-radius: 16px 0 0 16px;
 }
 
 .msg-sidebar-header {
@@ -49,9 +49,9 @@
   gap: var(--ui-space-1, 4px);
   padding: var(--ui-space-1, 4px) var(--ui-space-2, 8px);
   border: none;
-  border-radius: var(--ui-radius-sm, 10px);
-  background: var(--ui-primary, #0a6ed1);
-  color: var(--ui-text-on-primary, #f4fbff);
+  border-radius: var(--ui-radius-sm, 8px);
+  background: var(--ui-primary, #2563eb);
+  color: var(--ui-text-on-primary, #fff);
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
@@ -150,8 +150,8 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--ui-primary, #0a6ed1);
-  color: var(--ui-text-on-primary, #f4fbff);
+  background: var(--ui-primary, #2563eb);
+  color: var(--ui-text-on-primary, #fff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -247,7 +247,7 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--ui-surface-soft, #f7f8f9);
-  border-radius: 0 20px 20px 0;
+  border-radius: 0 16px 16px 0;
 }
 
 .msg-chat-empty {
@@ -348,19 +348,19 @@
 .msg-bubble {
   max-width: 65%;
   padding: var(--ui-space-2, 8px) var(--ui-space-3, 12px);
-  border-radius: var(--ui-radius-md, 14px);
+  border-radius: var(--ui-radius-md, 12px);
   font-size: 0.9rem;
   line-height: 1.5;
   word-break: break-word;
   background: var(--ui-surface, #fff);
   color: var(--ui-text, #1d2d3e);
   border: 1px solid var(--ui-border, #d5dce3);
-  box-shadow: var(--ui-shadow-soft, 0 2px 8px rgba(29,45,62,0.06));
+  box-shadow: var(--ui-shadow-soft, 0 1px 3px rgba(0,0,0,0.06));
 }
 
 .msg-bubble-row.is-own .msg-bubble {
-  background: var(--ui-primary, #0a6ed1);
-  color: var(--ui-text-on-primary, #f4fbff);
+  background: var(--ui-primary, #2563eb);
+  color: var(--ui-text-on-primary, #fff);
   border-color: transparent;
   box-shadow: none;
 }
@@ -381,8 +381,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--ui-primary, #0a6ed1);
-  color: var(--ui-text-on-primary, #f4fbff);
+  background: var(--ui-primary, #2563eb);
+  color: var(--ui-text-on-primary, #fff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -416,8 +416,8 @@
   right: 0;
   background: var(--ui-surface, #fff);
   border: 1px solid var(--ui-border, #d5dce3);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  border-radius: var(--ui-radius-sm, 8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
   z-index: 10;
   min-width: 110px;
   overflow: hidden;
@@ -474,9 +474,9 @@
 .msg-send-btn {
   padding: var(--ui-space-2, 8px) var(--ui-space-4, 16px);
   border: none;
-  border-radius: var(--ui-radius-sm, 10px);
-  background: var(--ui-primary, #0a6ed1);
-  color: var(--ui-text-on-primary, #f4fbff);
+  border-radius: var(--ui-radius-sm, 8px);
+  background: var(--ui-primary, #2563eb);
+  color: var(--ui-text-on-primary, #fff);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -499,7 +499,7 @@
   .msg-layout {
     flex-direction: column;
     margin: 8px;
-    border-radius: 16px;
+    border-radius: 12px;
     height: calc(100vh - 56px - 16px);
   }
 
@@ -507,7 +507,7 @@
     width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--ui-border, #d5dce3);
-    border-radius: 16px 16px 0 0;
+    border-radius: 12px 12px 0 0;
     flex: none;
     max-height: 100%;
   }
@@ -522,7 +522,7 @@
 
   .msg-chat-area {
     height: calc(100vh - 56px - 16px);
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 12px 12px;
   }
 
   .msg-back-btn {
