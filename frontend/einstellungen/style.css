@@ -538,20 +538,108 @@
 @media (max-width: 700px) {
   .einst-layout {
     grid-template-columns: 1fr;
-    padding: 0 var(--ui-space-3);
+    padding: 0 var(--ui-space-2);
+    gap: var(--ui-space-4);
+    margin: var(--ui-space-3) auto;
   }
 
   .einst-nav {
     position: static;
   }
 
+  /* Navigation als horizontaler Scroll */
   .einst-nav nav {
     flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--ui-space-1);
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .einst-nav nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .einst-nav-link {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px var(--ui-space-3);
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .einst-nav-link.is-active {
+    border-color: var(--ui-primary);
+    background: color-mix(in srgb, var(--ui-primary) 8%, var(--ui-surface));
+  }
+
+  /* Karten: etwas kompakter */
+  .einst-card {
+    padding: var(--ui-space-3);
+    border-radius: var(--ui-radius-md);
+  }
+
+  /* Profil Header: vertikal bei sehr kleinen Screens */
+  .profil-header {
     flex-wrap: wrap;
+    gap: var(--ui-space-2);
+  }
+
+  /* Design Karten: 2-spaltig */
+  .design-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Theme Buttons: volle Breite */
+  .theme-mode-group,
+  .contrast-mode-group {
+    flex-direction: column;
     gap: var(--ui-space-1);
   }
 
-  .design-cards {
-    grid-template-columns: repeat(2, 1fr);
+  .theme-option,
+  .contrast-option {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  /* Formular Aktionen: gestapelt */
+  .einst-actions {
+    flex-direction: column;
+  }
+
+  .einst-actions > button {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  /* Profil Row: Labels über dem Wert */
+  .profil-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .profil-row dt {
+    min-width: unset;
+    font-size: 0.7rem;
+  }
+
+  /* Modal Actions: gestapelt */
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: var(--ui-space-1);
+  }
+
+  .modal-actions > button {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
   }
 }

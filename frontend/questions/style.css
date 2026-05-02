@@ -249,7 +249,18 @@
 
 @media (max-width: 760px) {
   .questions-main {
-    width: calc(100% - 24px);
+    width: calc(100% - 16px);
+    padding: 8px 0 16px;
+    gap: 8px;
+  }
+
+  .panel {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .panel-title {
+    font-size: 0.95rem;
   }
 
   .actions {
@@ -259,7 +270,33 @@
   .actions > button,
   .inline-actions > button {
     width: 100%;
-    min-height: 44px;
+    min-height: 48px;
+  }
+
+  /* Buttons: Touch-freundliche Größe */
+  .submit-btn,
+  .ghost-btn,
+  .inline-btn {
+    min-height: 48px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+  }
+
+  /* Inline Actions: Wrap erlauben */
+  .inline-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Inputs: kein iOS Zoom */
+  .field-input,
+  .field-textarea {
+    font-size: 1rem;
+    min-height: 46px;
+  }
+
+  .field-textarea {
+    min-height: 80px;
   }
 }
 
@@ -267,5 +304,10 @@
   .question-head {
     flex-direction: column;
     align-items: flex-start;
+    gap: 6px;
+  }
+
+  .question-detail-main {
+    width: calc(100% - 24px);
   }
 }

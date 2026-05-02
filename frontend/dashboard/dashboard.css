@@ -2716,6 +2716,7 @@ html.dashboard-view-preload .dash-main .view-panel {
 @media (max-width: 720px) {
   .dash-shell {
     margin-bottom: 18px;
+    width: calc(100% - 16px);
   }
 
   .settings-panel {
@@ -2723,8 +2724,13 @@ html.dashboard-view-preload .dash-main .view-panel {
     left: 0;
   }
 
+  /* KPI Cards: 2 nebeneinander, Sparquote darunter voll */
   .kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .kpi-grid > :last-child {
+    grid-column: 1 / -1;
   }
 
   .section-switch {
@@ -2749,7 +2755,102 @@ html.dashboard-view-preload .dash-main .view-panel {
   .income-actions > button,
   .modal-actions > button {
     width: 100%;
-    min-height: 44px;
+    min-height: 48px;
+  }
+
+  /* Hero Card: kompakter auf Mobile */
+  .hero-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .hero-value {
+    font-size: clamp(1.6rem, 8vw, 2.4rem);
+    margin: 6px 0;
+  }
+
+  /* Panel: weniger Innenabstand */
+  .panel {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  /* Einnahmen-Grid: eine Spalte */
+  .income-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Cashflow Chart: niedriger */
+  .cashflow-chart {
+    min-height: 220px;
+  }
+
+  /* Entry Tab Navigation: volle Breite */
+  .entry-tab-nav {
+    width: 100%;
+  }
+
+  .entry-tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+  }
+
+  /* Pie Chart: horizontal gestapelt bei kleinen Screens */
+  .overview-pie-wrap {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .overview-pie-chart-visual {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* KPIs auf kleinen Phones: alle einzeln */
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid > :last-child {
+    grid-column: auto;
+  }
+
+  /* Monatliche Entry Items: kompakter */
+  .income-item {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .income-source {
+    font-size: 0.82rem;
+  }
+
+  .income-amount {
+    font-size: 0.82rem;
+  }
+
+  /* Cashflow Chart noch kleiner */
+  .cashflow-chart {
+    min-height: 180px;
+  }
+
+  /* KPI Karten: weniger Padding */
+  .kpi-card {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .kpi-value {
+    font-size: 1rem;
+  }
+
+  /* Panel Title: etwas kleiner */
+  .panel-title {
+    font-size: 0.88rem;
+    margin-bottom: 8px;
   }
 }
 

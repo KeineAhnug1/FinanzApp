@@ -500,7 +500,7 @@
     flex-direction: column;
     margin: 8px;
     border-radius: 12px;
-    height: calc(100vh - 56px - 16px);
+    height: calc(100dvh - 56px - 16px); /* dvh für Mobile Browser */
   }
 
   .msg-sidebar {
@@ -521,11 +521,72 @@
   }
 
   .msg-chat-area {
-    height: calc(100vh - 56px - 16px);
+    height: calc(100dvh - 56px - 16px);
     border-radius: 0 0 12px 12px;
   }
 
   .msg-back-btn {
     display: flex;
+  }
+
+  /* Chat Input: Touch-optimiert */
+  .msg-chat-form {
+    padding: var(--ui-space-2, 8px) var(--ui-space-3, 12px) calc(var(--ui-space-2, 8px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .msg-chat-input {
+    min-height: 44px;
+    font-size: 1rem; /* kein iOS Zoom */
+  }
+
+  .msg-send-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--ui-space-2) var(--ui-space-3);
+  }
+
+  /* Nachrichten-Blasen: etwas breiter */
+  .msg-bubble {
+    max-width: 80%;
+    font-size: 0.92rem;
+  }
+
+  /* Konversationsliste: Touch-freundliche Höhe */
+  .msg-conv-item {
+    padding: var(--ui-space-3) var(--ui-space-3);
+    min-height: 64px;
+  }
+
+  /* Sidebar Header: Touch-Button größer */
+  .msg-new-btn {
+    min-height: 36px;
+    padding: var(--ui-space-1) var(--ui-space-2);
+  }
+}
+
+@media (max-width: 480px) {
+  .msg-layout {
+    margin: 4px;
+    border-radius: 8px;
+  }
+
+  .msg-chat-area {
+    height: calc(100dvh - 56px - 8px);
+  }
+
+  /* Noch kompaktere Bubbles, aber gut lesbar */
+  .msg-bubble {
+    max-width: 88%;
+    padding: var(--ui-space-2, 8px) var(--ui-space-2, 8px);
+  }
+
+  .msg-bubble-row {
+    gap: 4px;
+  }
+
+  .msg-bubble-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
   }
 }

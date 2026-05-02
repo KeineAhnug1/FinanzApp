@@ -1088,4 +1088,45 @@ body {
   .hp-cta { margin: 0 12px clamp(36px, 5vw, 60px); }
   .hp-video-story { height: 170vh; }
   .hp-video-story__overlay { left: 12px; right: 12px; bottom: 16px; }
+
+  /* Hero: kompakter auf kleinen Screens */
+  .hp-hero {
+    padding: 48px 16px 32px;
+    gap: 20px;
+  }
+
+  .hp-hero__title {
+    font-size: clamp(1.9rem, 9vw, 2.6rem);
+  }
+
+  .hp-hero__body {
+    font-size: 0.95rem;
+  }
+
+  .hp-hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hp-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+
+  /* Nav CTA: Touch-freundlich */
+  .hp-nav__cta {
+    min-height: 40px;
+    padding: 8px 16px;
+  }
+
+  /* Section Spacing: weniger auf Mobile */
+  .hp-section {
+    padding: clamp(36px, 6vw, 64px) clamp(14px, 4vw, 32px);
+  }
+
+  /* Section Head: weniger Margin */
+  .hp-section__head {
+    margin-bottom: 28px;
+  }
 }

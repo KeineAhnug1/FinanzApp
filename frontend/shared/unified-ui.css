@@ -1368,3 +1368,210 @@ input.touched:invalid ~ .field-hint,
 .field-input.touched:invalid ~ .field-hint {
   display: block;
 }
+
+/* ═══════════════════════════════════════════
+   MOBILE — Verbesserungen für ≤ 960px
+   ═══════════════════════════════════════════ */
+
+/* ── Sidebar Overlay Backdrop ── */
+@media (max-width: 960px) {
+  /* Dunkler Backdrop wenn Sidebar offen */
+  body.side-nav-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: var(--ui-overlay);
+    animation: side-backdrop-in 220ms ease;
+    pointer-events: none; /* Toggle-Button bleibt klickbar */
+  }
+
+  @keyframes side-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Sidebar über Backdrop */
+  .app-side-nav {
+    z-index: 70;
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.22);
+  }
+
+  /* Mobile Toggle IMMER sichtbar und über allem */
+  .side-nav-mobile-toggle {
+    z-index: 90;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--ui-radius-md);
+  }
+
+  /* Topbar: Mobile-optimierte Höhe und Padding */
+  .dash-topbar,
+  .layout-toolbar,
+  .page-topbar {
+    min-height: 52px;
+    padding: var(--ui-space-2) var(--ui-space-2) var(--ui-space-2) calc(var(--ui-space-2) + 52px);
+  }
+
+  /* Wenn Sidebar vorhanden: kein doppeltes Padding */
+  body.has-shared-sidebar .dash-topbar,
+  body.has-shared-sidebar .layout-toolbar,
+  body.has-shared-sidebar .page-topbar {
+    display: none;
+  }
+
+  /* Profile Button kompakter auf Mobile */
+  .profile-btn {
+    padding: 4px 8px 4px 4px;
+    gap: 5px;
+  }
+
+  .profile-name {
+    display: none;
+  }
+
+  /* Settings Panel immer full-width auf Mobile */
+  .profile-menu,
+  .settings-panel {
+    width: min(340px, calc(100vw - 24px));
+    right: 0;
+    left: auto;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE ≤ 768px — Kernoptimierungen
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Embedded Pages: Platz für den Fixed Toggle Button oben */
+  body.app-embedded-page {
+    padding-top: 60px !important;
+  }
+
+  /* Seite hat genug Luft durch Safe Area + Content Spacing */
+  body.has-shared-sidebar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Inputs und Selects: Touch-optimierte Größe */
+  input:not([type="checkbox"]):not([type="radio"]):not(.ui-check),
+  select,
+  textarea,
+  .field-input {
+    min-height: 46px;
+    font-size: 1rem; /* verhindert Auto-Zoom auf iOS */
+  }
+
+  /* Alle primären Aktionsbuttons: volle Touch-Größe */
+  .logout-btn,
+  .action,
+  .submit-income,
+  .cancel-income,
+  .settings-reset-btn,
+  .ghost-button,
+  .danger-button,
+  .small-danger-button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    min-height: 48px;
+    padding: 12px var(--ui-space-3);
+  }
+
+  /* Modal Cards: auf Mobile immer von unten als Sheet */
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--ui-radius-lg) var(--ui-radius-lg) 0 0;
+    border-bottom: none;
+    padding: var(--ui-space-4) var(--ui-space-4) calc(var(--ui-space-4) + env(safe-area-inset-bottom, 0px));
+    animation: sheet-in 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes modal-card-in {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Modal Actions: gestapelt auf Mobile */
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: var(--ui-space-1);
+  }
+
+  .modal-actions > button,
+  .modal-cancel,
+  .modal-delete {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  /* Toast: etwas kompakter */
+  .toast {
+    font-size: 0.9rem;
+  }
+
+  /* Profile Menu: Full Screen Bottom Sheet auf Mobile */
+  .profile-menu,
+  .settings-panel {
+    position: fixed;
+    bottom: env(safe-area-inset-bottom, 0px);
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--ui-radius-lg) var(--ui-radius-lg) 0 0;
+    border-bottom: none;
+    padding: var(--ui-space-3) var(--ui-space-3) calc(var(--ui-space-3) + env(safe-area-inset-bottom, 0px));
+    z-index: 200;
+  }
+
+  /* Sidebar nav links: mehr Abstand zum Tippen */
+  .app-side-nav .app-nav-link {
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .app-side-nav .app-sub-nav-link {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE ≤ 480px — Kompakt-Ansicht
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Sidebar etwas schmaler */
+  .app-side-nav {
+    width: min(300px, 88vw) !important;
+  }
+
+  /* Nav toggle näher am Rand */
+  .side-nav-mobile-toggle {
+    left: 8px;
+    top: 8px;
+  }
+
+  /* Formulare: volle Breite */
+  .income-actions {
+    flex-direction: column;
+  }
+
+  .income-actions > button {
+    width: 100%;
+  }
+}

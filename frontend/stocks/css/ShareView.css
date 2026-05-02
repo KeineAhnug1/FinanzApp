@@ -793,6 +793,7 @@ select:focus {
   .app {
     grid-template-columns: 1fr;
     max-width: none;
+    padding: 10px 12px 16px;
   }
 
   .navbtn,
@@ -800,9 +801,39 @@ select:focus {
   .action {
     min-height: 44px;
   }
+
+  /* Depot Top: vertikal */
+  .depot-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* Account Picker: volle Breite */
+  .depot-account-picker {
+    min-width: unset;
+    width: 100%;
+  }
+
+  /* KPIs: Grid auf Mobile */
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+  }
+
+  .kpi {
+    min-width: unset;
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
+  .app {
+    padding: 8px 10px 16px;
+    gap: 10px;
+  }
+
   header {
     flex-direction: column;
     align-items: stretch;
@@ -831,7 +862,8 @@ select:focus {
 
   .row,
   .analysis-top-row,
-  .depot-top {
+  .depot-top,
+  .future-top-row {
     flex-direction: column;
     align-items: stretch;
   }
@@ -851,19 +883,27 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  input,
   input:not(.ui-check),
   select,
   .action {
     width: 100%;
+    min-height: 46px;
+    font-size: 1rem; /* kein iOS Zoom */
   }
 
+  /* Range Bar: horizontal scroll, kein Umbrechen */
   .range-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 6px;
     padding-bottom: 4px;
     margin-right: -2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .range-bar::-webkit-scrollbar {
+    display: none;
   }
 
   .range-btn {
@@ -893,16 +933,32 @@ select:focus {
     max-height: 320px;
   }
 
+  /* KPIs: eine Spalte auf kleinen Screens */
   .kpis {
-    width: 100%;
-    display: grid;
     grid-template-columns: 1fr;
     gap: 8px;
   }
 
-  .kpi {
-    min-width: 100%;
-    width: 100%;
+  /* Sub-Nav: horizontal scroll */
+  nav.sub-nav,
+  .navbtn-group {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  nav.sub-nav::-webkit-scrollbar,
+  .navbtn-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navbtn {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .table {
@@ -914,7 +970,6 @@ select:focus {
     font-size: 13px;
     padding: 10px 7px;
   }
-
 }
 
 @media (max-width: 420px) {
@@ -936,5 +991,4 @@ select:focus {
   .table {
     min-width: 500px;
   }
-
 }

@@ -645,9 +645,26 @@ button:hover:not(:disabled) {
 }
 
 @media (max-width: 680px) {
+  /* Groups-Layout: scrollbar statt overflow: hidden auf Mobile */
+  html,
+  body {
+    overflow: auto;
+    height: auto;
+  }
+
   .groups-layout {
-    width: calc(100% - 24px);
+    width: calc(100% - 16px);
     margin-bottom: 18px;
+    height: auto;
+    overflow: visible;
+    padding: 8px 0 20px;
+    gap: 12px;
+  }
+
+  #mainView,
+  #detailView {
+    height: auto;
+    overflow: visible;
   }
 
   .page-topbar,
@@ -670,16 +687,114 @@ button:hover:not(:disabled) {
   .invite-form button,
   .group-chat-form button {
     width: 100%;
+    min-height: 48px;
+  }
+
+  /* Member Items: besser gestapelt */
+  .member-item {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .member-item > *:not(.member-avatar) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Member Actions: unter dem Namen */
+  .member-item .inbox-actions,
+  .member-item > button {
+    flex: 0 0 100%;
+    width: 100%;
     min-height: 44px;
   }
 
-  .member-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
+  /* Funding Split: eine Spalte */
   .funding-split {
     grid-template-columns: 1fr;
+  }
+
+  /* Panel: weniger Padding */
+  .panel {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  /* Group Chat: Mindesthöhe auf Mobile */
+  .group-chat-shell {
+    min-height: 360px;
+    height: 60vh;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Group Chat Viewport: scrollbar */
+  .group-chat-viewport {
+    height: auto;
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Chat Bubbles: etwas breiter auf Mobile */
+  .chat-bubble {
+    max-width: min(88%, 480px);
+  }
+
+  /* Detail Tabs: horizontal scroll wenn zu viele */
+  .detail-tabs-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .detail-tabs-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .detail-tab-button {
+    flex-shrink: 0;
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+  }
+
+  /* Groups List: eine Spalte */
+  .groups-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  /* Group Card: kompakter */
+  .group-card {
+    padding: 12px;
+  }
+
+  .group-card h3 {
+    font-size: 0.95rem;
+  }
+
+  /* Invite/Group Forms: volle Breite */
+  .invite-form,
+  .group-form {
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Chat Form Input: auf kleinen Screens */
+  .group-chat-form {
+    gap: 8px;
+  }
+
+  .group-chat-form textarea,
+  .group-chat-form input {
+    font-size: 1rem; /* kein Zoom auf iOS */
   }
 }
 
