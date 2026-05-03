@@ -48,8 +48,10 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
       await col.deleteOne({ token });
       return null;
     }
-    // Sliding expiry: update expiresAt on each access
-    await col.updateOne({ token }, { $set: { expiresAt: sessionExpiresAt() } });
+    const halfTtlMs = ttlMinutes * 30 * 1000;
+    if (rec.expiresAt - Date.now() < halfTtlMs) {
+      await col.updateOne({ token }, { $set: { expiresAt: sessionExpiresAt() } });
+    }
     return { userId: rec.userId };
   }
 

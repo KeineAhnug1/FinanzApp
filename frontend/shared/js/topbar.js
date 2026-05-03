@@ -293,10 +293,6 @@
     });
   }
 
-  function bindSubNavExitAnimation() {
-    // Sub-Navs werden beim Seitenwechsel nicht mehr geschlossen.
-  }
-
   function bindSubNavToggle() {
     if (document.documentElement.dataset.subNavToggleBound === "1") return;
     document.documentElement.dataset.subNavToggleBound = "1";
@@ -801,7 +797,6 @@
 
     initProfileMenus();
     disableActiveNavLinkClicks();
-    bindSubNavExitAnimation();
     bindSubNavToggle();
     bindSidebarSoftNavigation();
 
