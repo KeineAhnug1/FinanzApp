@@ -350,6 +350,36 @@
       }
     });
 
+    elShareList.addEventListener("keydown", async (oEvent) => {
+      if (oEvent.key !== "Enter" && oEvent.key !== "Escape") return;
+      const elInput = oEvent.target instanceof Element ? oEvent.target.closest(".account-name-input") : null;
+      if (!elInput) return;
+      const elRow = elInput.closest(".account-row");
+      if (!elRow) return;
+
+      if (oEvent.key === "Escape") {
+        const elNameLink = elRow.querySelector(".account-name-link");
+        elInput.value = elNameLink ? elNameLink.textContent : "";
+        elRow.classList.remove("is-renaming");
+        const elSaveBtn = elRow.querySelector("button[data-action='save']");
+        if (elSaveBtn) { elSaveBtn.textContent = t("accounts.rename", "Umbenennen"); elSaveBtn.dataset.action = "rename"; }
+        return;
+      }
+
+      oEvent.preventDefault();
+      const sId = String(elRow.dataset.accountId || "");
+      const sLabel = String(elInput.value || "").trim();
+      if (!sId) return;
+      if (!sLabel) { elFeedback.textContent = t("accounts.enter_valid_name", "Bitte einen gültigen Kontonamen eingeben."); return; }
+      try {
+        await fnRenameAccount(aShareAccountsEndpoints, sId, sLabel);
+        elFeedback.textContent = t("accounts.share_renamed", "Aktienkonto umbenannt.");
+        await fnRefresh();
+      } catch (oError) {
+        elFeedback.textContent = t("accounts.action_failed", "Aktion fehlgeschlagen: {error}", { error: String(oError?.message || oError) });
+      }
+    });
+
     elShareList.addEventListener("click", async (oEvent) => {
       const elButton = oEvent.target instanceof Element ? oEvent.target.closest("button[data-action]") : null;
       if (!elButton) return;
@@ -358,11 +388,21 @@
 
       const sId = String(elRow.dataset.accountId || "");
       const sAction = String(elButton.dataset.action || "");
-      const sLabel = String(elRow.querySelector(".account-name-input")?.value || "").trim();
       if (!sId) return;
 
+      if (sAction === "rename") {
+        elRow.classList.add("is-renaming");
+        const elInput = elRow.querySelector(".account-name-input");
+        if (elInput) { elInput.focus(); elInput.select(); }
+        elButton.textContent = t("accounts.save", "Speichern");
+        elButton.dataset.action = "save";
+        return;
+      }
+
+      const sLabel = String(elRow.querySelector(".account-name-input")?.value || "").trim();
+
       try {
-        if (sAction === "rename") {
+        if (sAction === "save") {
           if (!sLabel) {
             elFeedback.textContent = t("accounts.enter_valid_name", "Bitte einen gültigen Kontonamen eingeben.");
             return;
@@ -400,6 +440,36 @@
       }
     });
 
+    elBankList.addEventListener("keydown", async (oEvent) => {
+      if (oEvent.key !== "Enter" && oEvent.key !== "Escape") return;
+      const elInput = oEvent.target instanceof Element ? oEvent.target.closest(".account-name-input") : null;
+      if (!elInput) return;
+      const elRow = elInput.closest(".account-row");
+      if (!elRow) return;
+
+      if (oEvent.key === "Escape") {
+        const elNameLink = elRow.querySelector(".account-name-link");
+        elInput.value = elNameLink ? elNameLink.textContent : "";
+        elRow.classList.remove("is-renaming");
+        const elSaveBtn = elRow.querySelector("button[data-action='save']");
+        if (elSaveBtn) { elSaveBtn.textContent = t("accounts.rename", "Umbenennen"); elSaveBtn.dataset.action = "rename"; }
+        return;
+      }
+
+      oEvent.preventDefault();
+      const sId = String(elRow.dataset.accountId || "");
+      const sLabel = String(elInput.value || "").trim();
+      if (!sId) return;
+      if (!sLabel) { elFeedback.textContent = t("accounts.enter_valid_name", "Bitte einen gültigen Kontonamen eingeben."); return; }
+      try {
+        await fnRenameAccount(aBankAccountsEndpoints, sId, sLabel);
+        elFeedback.textContent = t("accounts.bank_renamed", "Bankkonto umbenannt.");
+        await fnRefresh();
+      } catch (oError) {
+        elFeedback.textContent = t("accounts.action_failed", "Aktion fehlgeschlagen: {error}", { error: String(oError?.message || oError) });
+      }
+    });
+
     elBankList.addEventListener("click", async (oEvent) => {
       const elButton = oEvent.target instanceof Element ? oEvent.target.closest("button[data-action]") : null;
       if (!elButton) return;
@@ -408,11 +478,21 @@
 
       const sId = String(elRow.dataset.accountId || "");
       const sAction = String(elButton.dataset.action || "");
-      const sLabel = String(elRow.querySelector(".account-name-input")?.value || "").trim();
       if (!sId) return;
 
+      if (sAction === "rename") {
+        elRow.classList.add("is-renaming");
+        const elInput = elRow.querySelector(".account-name-input");
+        if (elInput) { elInput.focus(); elInput.select(); }
+        elButton.textContent = t("accounts.save", "Speichern");
+        elButton.dataset.action = "save";
+        return;
+      }
+
+      const sLabel = String(elRow.querySelector(".account-name-input")?.value || "").trim();
+
       try {
-        if (sAction === "rename") {
+        if (sAction === "save") {
           if (!sLabel) {
             elFeedback.textContent = t("accounts.enter_valid_name", "Bitte einen gültigen Kontonamen eingeben.");
             return;

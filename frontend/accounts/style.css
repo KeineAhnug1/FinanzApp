@@ -40,15 +40,25 @@ label {
 
 .account-row {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
+  grid-template-columns: minmax(180px, 1fr) auto auto auto;
   gap: 10px;
   align-items: center;
 }
 
+.account-row.is-renaming .account-name-link {
+  display: none;
+}
+
+.account-row.is-renaming .account-name-input {
+  display: block;
+}
+
 .account-name-link {
-  background: none;
-  border: none;
-  padding: 0;
+  background: var(--ui-surface-soft);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  padding: 8px var(--ui-space-2, 12px);
+  min-height: 38px;
   color: var(--accent, #ef5b2a);
   font: inherit;
   font-weight: 600;
@@ -57,6 +67,8 @@ label {
   text-underline-offset: 2px;
   text-align: left;
   white-space: nowrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .account-name-link:hover {
@@ -65,6 +77,7 @@ label {
 
 .account-name-input {
   min-height: 40px;
+  display: none;
 }
 
 .account-balance {
