@@ -96,6 +96,55 @@ FinanzApp/
   Datastructure.png
 ```
 
+## Testing 🧪
+
+### Was wird getestet – und was nicht?
+
+Getestet wird ausschließlich die **Backend-Logik**: reine Hilfsfunktionen und async Utilities aus `backend/utils/`.  
+Das Frontend (HTML, CSS, JavaScript im Browser) und die Datenbank werden **nicht** automatisch getestet – sie sind zu stark an externe Systeme gekoppelt und erfordern einen laufenden Browser bzw. eine echte MongoDB-Verbindung.
+
+Konkrete Kandidaten für Unit Tests:
+- `backend/utils/data.mjs` – `normalizeEmail`, `parsePositiveAmount`, `parseBoolean`, `normalizeRecurrence`, …
+- `backend/utils/password.mjs` – `hashPassword`, `verifyPassword`
+- `backend/config/blocked-names.mjs` – `detectBlockedRegistrationName`, `detectBlockedMessageTerm`
+
+### Tests starten
+
+```bash
+npm test          # Vitest im Watch-Modus (Terminal)
+npm run test:ui   # Vitest UI im Browser (http://localhost:51204)
+```
+
+### Was ist Mocking und warum brauchen wir es für API-Calls?
+
+Der Server ruft externe Dienste mit `fetch()` auf (Wechselkurs-API, Stock-API, OpenRouter KI-API).  
+Diese Dienste kosten Geld, brauchen echte API-Keys und antworten unterschiedlich schnell – beides macht sie ungeeignet für automatische Tests.
+
+**Mocking** ersetzt den echten `fetch()`-Aufruf durch eine gefakte Funktion, die sofort einen vordefinierten Wert zurückgibt.  
+Dadurch lässt sich testen, wie der Code auf eine Antwort reagiert, ohne das Netzwerk zu benutzen.
+
+In Vitest funktioniert das mit `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ... })`.
+
+### Workflow beim Refactoring
+
+1. Vor dem Refactoring: Tests für die betroffene Funktion schreiben (oder sicherstellen, dass sie existieren).
+2. Refactoring durchführen.
+3. `npm test` laufen lassen – alle Tests müssen weiterhin grün sein.
+4. Schlägt ein Test fehl, zeigt er genau, welches Verhalten sich unbeabsichtigt geändert hat.
+
+### Beispieldatei
+
+`src/tests/examples.test.js` enthält **auskommentierte Code-Beispiele** für alle fünf Patterns:
+- Einfacher Unit Test
+- Async-Funktion testen
+- API-Call mit `vi.spyOn` mocken
+- Fehlerfall testen (`null`-Rückgabe, Exception)
+- `afterEach` mit `vi.restoreAllMocks()` für sauberes Cleanup
+
+Die Beispiele sind direkt auf die Funktionen und Strukturen dieses Projekts zugeschnitten und können als Ausgangspunkt für echte Tests übernommen werden.
+
+---
+
 ## Hinweise 💡
 - Standard-Runtime läuft auf **Dataset v4** (`MONGODB_DB_V4` oder `${MONGODB_DB}_v4`) 🧠
 - Session-Cookie: `finanzapp_session` 🍪
