@@ -2,9 +2,6 @@
   "defaultLocale": "de-DE",
   "locales": [
     "de-DE",
-    "en-US",
-    "en-GB",
-    "fr-FR",
-    "es-ES"
+    "en-US"
   ]
 }

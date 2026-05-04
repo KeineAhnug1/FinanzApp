@@ -76,7 +76,7 @@ const detailTabPanels = Array.from(document.querySelectorAll("[data-detail-tab-c
 const DETAIL_TAB_OPTIONS = new Set(["members", "activities", "fundings", "chat"]);
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 const GROUPS_VIEW_STORAGE_PREFIX = "finanzapp.groupsView";
-const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
+const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US"]);
 const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
 const DEFAULT_GROUPS_VIEW_STATE = {
   isDetailOpen: false,

@@ -3,7 +3,7 @@
   const DASHBOARD_SETTINGS_PREFIX = "finanzapp.dashboardSettings";
   const INDEX_URL = "/shared/i18n/index.json";
   const DEFAULT_LOCALE = "de-DE";
-  const FALLBACK_LOCALES = ["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"];
+  const FALLBACK_LOCALES = ["de-DE", "en-US"];
 
   let defaultLocale = DEFAULT_LOCALE;
   let LOCALES = new Set(FALLBACK_LOCALES);

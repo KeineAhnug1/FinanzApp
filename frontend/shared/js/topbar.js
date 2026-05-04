@@ -674,7 +674,7 @@
 
   function renderLocaleOptions(select) {
     if (!select) return;
-    const locales = Array.from(window.FinanzAppLanguage?.LOCALES || ["de-DE", "en-US", "en-GB", "fr-FR", "es-ES"]);
+    const locales = Array.from(window.FinanzAppLanguage?.LOCALES || ["de-DE", "en-US"]);
     select.innerHTML = locales
       .map((locale) => `<option value="${locale}">${window.FinanzAppLanguage?.t?.(`locale.${locale}`) || locale}</option>`)
       .join("");
