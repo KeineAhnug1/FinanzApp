@@ -86,20 +86,6 @@ function normalizeSearch(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function entryMatchesQuery(entry, query, dateField) {
-  if (!query) return true;
-  const haystack = [
-    entry.source,
-    entry.category,
-    entry.note,
-    entry[dateField] ? formatDate(entry[dateField]) : "",
-    recurrenceLabel(entry.recurrence)
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(query);
-}
-
 function setButtonLoading(buttonEl, isLoading) {
   if (!buttonEl) return;
   if (isLoading) {

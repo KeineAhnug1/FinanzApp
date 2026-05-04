@@ -701,18 +701,6 @@
 		return [oSyntheticPoint, ...aPoints];
 	}
 
-	/**
-	 * Ergänzt einen Ankerpunkt zum frühesten Kaufzeitpunkt.
-	 * Dadurch wirkt der Verlauf nicht so, als wäre erst beim ersten Kursdatenpunkt gekauft worden.
-	 * Scope: [SHARED]
-	 * @param {Array<{t: string, total: number, invested: number, pnl: number, y: number}>} aPoints
-	 * @param {Array<object>} aPositions
-	 * @param {boolean} bPnlOnly
-	 * @returns {Array<{t: string, total: number, invested: number, pnl: number, y: number}>}
-	 */
-	function fnInjectPurchaseAnchorPoint(aPoints, aPositions, bPnlOnly) {
-		return Array.isArray(aPoints) ? aPoints : [];
-	}
 
 	/**
 	 * Leitet aus einem Interval-String die Schrittweite in Millisekunden ab.
