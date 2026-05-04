@@ -14,8 +14,8 @@ import {
   QUESTION_MESSAGE_MAX_LENGTH,
   QUESTION_TOPIC_MAX_LENGTH
 } from "../config/runtime.mjs";
-import { escapeRegex, parseObjectId, toDecimal } from "../utils/data.mjs";
-import { readBody, sendJson } from "../utils/http.mjs";
+import { escapeRegex, parseObjectId, parseLongText, toDecimal } from "../utils/data.mjs";
+import { parseBody, sendJson } from "../utils/http.mjs";
 import { hashPassword } from "../utils/password.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
 
@@ -24,13 +24,6 @@ function parseQuestionTopic(value) {
   if (!topic) return null;
   if (topic.length > QUESTION_TOPIC_MAX_LENGTH) return null;
   return topic;
-}
-
-function parseLongText(value, maxLength) {
-  const text = String(value || "").trim();
-  if (!text) return null;
-  if (text.length > maxLength) return null;
-  return text;
 }
 
 function normalizeSearchText(value) {
@@ -483,13 +476,8 @@ export function createForumHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const thema = parseQuestionTopic(payload.thema);
     const message = parseLongText(payload.message, QUESTION_MESSAGE_MAX_LENGTH);
@@ -552,13 +540,8 @@ export function createForumHandlers(db) {
       return forbidden(res, "Nur der Ersteller darf diese Frage bearbeiten");
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const thema = parseQuestionTopic(payload.thema);
     const message = parseLongText(payload.message, QUESTION_MESSAGE_MAX_LENGTH);
@@ -592,13 +575,8 @@ export function createForumHandlers(db) {
     const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
     if (!question) return notFound(res, "Frage nicht gefunden");
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
     if (!message) return badRequest(res, "Antwort ist erforderlich und darf nicht zu lang sein.");
@@ -664,13 +642,8 @@ export function createForumHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
     if (!message) return badRequest(res, "Antwort ist erforderlich und darf nicht zu lang sein.");

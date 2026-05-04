@@ -8,7 +8,8 @@
     "schema:setup": "node database/dataset-v4/schema-setup.js",
     "db:check": "node database/dataset-v4/check-connection.mjs",
     "data:prepare": "node database/dataset-v4/prepare-data.mjs",
-    "start": "node backend/server.mjs"
+    "start": "node backend/server.mjs",
+    "backend:start": "node backend/server.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.4",

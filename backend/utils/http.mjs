@@ -35,6 +35,18 @@ export function readBody(req) {
   });
 }
 
+import { badRequest } from "../helpers/responses.mjs";
+
+export async function parseBody(req, res, options) {
+  try {
+    return await readBody(req, options);
+  } catch (error) {
+    if (error.message === "payload_too_large") sendJson(res, 413, { ok: false, message: "Payload too large" });
+    else badRequest(res, "Invalid JSON body");
+    return null;
+  }
+}
+
 export function parseCookies(req) {
   const raw = String(req.headers.cookie || "");
   const out = {};

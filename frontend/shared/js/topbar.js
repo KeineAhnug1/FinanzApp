@@ -64,8 +64,7 @@
     ],
     stocks: [
       { href: "/aktien/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtdepot" },
-      { href: "/aktien/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" },
-      { href: "/aktien/#futureanalysis", key: "futureanalysis", labelKey: "stocks.future_outlook", fallback: "Zukunftsaussicht" }
+      { href: "/aktien/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" }
     ],
     kommunikation: [
       { href: "/fragen/",      key: "questions", labelKey: "nav_questions", fallback: "Fragen" },

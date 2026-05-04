@@ -1,6 +1,6 @@
 import { COLLECTIONS, FINZBRO_USERNAME } from "../config/runtime.mjs";
 import { escapeRegex, parseObjectId } from "../utils/data.mjs";
-import { readBody, sendJson } from "../utils/http.mjs";
+import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
 
 export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbroChatAnswer } = {}) {
@@ -119,13 +119,8 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const userId = parseObjectId(session.user.id);
     const recipientId = parseObjectId(String(payload.recipientId || ""));

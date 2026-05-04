@@ -21,9 +21,10 @@ import {
   parseObjectId,
   parsePositiveAmount,
   toDecimal,
+  toFixedAmount,
   toNumber
 } from "../utils/data.mjs";
-import { readBody, sendJson } from "../utils/http.mjs";
+import { parseBody, readBody, sendJson } from "../utils/http.mjs";
 import { badRequest, unauthorized, notFound } from "../helpers/responses.mjs";
 import { serializeIncomeEntry, serializeExpenseEntry } from "../helpers/serializers.mjs";
 import {
@@ -35,6 +36,40 @@ import {
   rememberUserCategory,
   resolveRequestedBankAccountFilter
 } from "../helpers/finance-db.mjs";
+
+const LOGO_CACHE_TTL = 6 * 60 * 60 * 1000;
+const LOGO_NEGATIVE_TTL = 30 * 60 * 1000;
+const LOGO_CACHE_MAX = 500;
+const DOMAIN_CACHE_TTL = 24 * 60 * 60 * 1000;
+const logoCache = new Map();
+const domainCache = new Map();
+
+function logoCacheGet(key) {
+  const entry = logoCache.get(key);
+  if (!entry) return null;
+  const ttl = entry.notFound ? LOGO_NEGATIVE_TTL : LOGO_CACHE_TTL;
+  if (Date.now() - entry.cachedAt > ttl) { logoCache.delete(key); return null; }
+  return entry;
+}
+
+function logoCacheSet(key, value) {
+  if (logoCache.size >= LOGO_CACHE_MAX) {
+    const oldest = logoCache.keys().next().value;
+    logoCache.delete(oldest);
+  }
+  logoCache.set(key, { ...value, cachedAt: Date.now() });
+}
+
+function domainCacheGet(key) {
+  const entry = domainCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.cachedAt > DOMAIN_CACHE_TTL) { domainCache.delete(key); return undefined; }
+  return entry.domain;
+}
+
+function domainCacheSet(key, domain) {
+  domainCache.set(key, { domain, cachedAt: Date.now() });
+}
 
 function normalizeExchangeCode(value) {
   return String(value || "").trim().toUpperCase();
@@ -69,13 +104,19 @@ async function resolveLogoDomainBySymbol(symbol, exchange) {
   if (!STOCK_SEARCH_BASE_URL || !STOCK_API_KEY) return "";
   const sSymbol = String(symbol || "").trim().toUpperCase();
   if (!sSymbol) return "";
+  const sExchange = String(exchange || STOCK_SEARCH_DEFAULT_EXCHANGE).trim().toUpperCase() || STOCK_SEARCH_DEFAULT_EXCHANGE;
+  const cacheKey = `${sSymbol}:${sExchange}`;
+  const cached = domainCacheGet(cacheKey);
+  if (cached !== undefined) return cached;
   const upstreamUrl = new URL("/search", STOCK_SEARCH_BASE_URL);
   upstreamUrl.searchParams.set("q", sSymbol);
-  upstreamUrl.searchParams.set("exchange", String(exchange || STOCK_SEARCH_DEFAULT_EXCHANGE).trim().toUpperCase() || STOCK_SEARCH_DEFAULT_EXCHANGE);
+  upstreamUrl.searchParams.set("exchange", sExchange);
   const upstreamResponse = await fetch(upstreamUrl.toString(), { headers: { Accept: "application/json", "x-api-key": STOCK_API_KEY } });
   const payload = await upstreamResponse.json().catch(() => null);
-  if (!upstreamResponse.ok || !Array.isArray(payload)) return "";
-  return resolveLogoDomainFromSearchRows(payload, sSymbol);
+  if (!upstreamResponse.ok || !Array.isArray(payload)) { domainCacheSet(cacheKey, ""); return ""; }
+  const domain = resolveLogoDomainFromSearchRows(payload, sSymbol);
+  domainCacheSet(cacheKey, domain);
+  return domain;
 }
 
 export function createFinanceHandlers(db) {
@@ -113,13 +154,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const kind = String(payload.kind || "").trim().toLowerCase();
     if (kind !== "income" && kind !== "expense") return badRequest(res, "kind muss income oder expense sein");
@@ -165,13 +201,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -222,7 +253,7 @@ export function createFinanceHandlers(db) {
       if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
       const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({ _id: entryId, ...accountFilter });
       if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Eintrag wurde nicht gefunden");
-      await incrementBankAccountBalance(db, existing.bank_account_id, -Number((toNumber(existing.amount) || 0).toFixed(2)));
+      await incrementBankAccountBalance(db, existing.bank_account_id, -toFixedAmount(existing.amount));
       return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
     }
 
@@ -231,13 +262,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -271,7 +297,7 @@ export function createFinanceHandlers(db) {
     );
     if (!updated) return notFound(res, "Eintrag wurde nicht gefunden");
 
-    const previousAmount = Number((toNumber(existing.amount) || 0).toFixed(2));
+    const previousAmount = toFixedAmount(existing.amount);
     const nextAmount = Number(amountNumber.toFixed(2));
     if (String(existing.bank_account_id) === String(nextBankAccountId)) {
       await incrementBankAccountBalance(db, nextBankAccountId, nextAmount - previousAmount);
@@ -301,13 +327,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -357,7 +378,7 @@ export function createFinanceHandlers(db) {
       if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
       const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({ _id: entryId, ...accountFilter });
       if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Eintrag wurde nicht gefunden");
-      await incrementBankAccountBalance(db, existing.bank_account_id, Number((toNumber(existing.amount) || 0).toFixed(2)));
+      await incrementBankAccountBalance(db, existing.bank_account_id, toFixedAmount(existing.amount));
       return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
     }
 
@@ -366,13 +387,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -406,7 +422,7 @@ export function createFinanceHandlers(db) {
     );
     if (!updated) return notFound(res, "Eintrag wurde nicht gefunden");
 
-    const previousAmount = Number((toNumber(existing.amount) || 0).toFixed(2));
+    const previousAmount = toFixedAmount(existing.amount);
     const nextAmount = Number(amountNumber.toFixed(2));
     if (String(existing.bank_account_id) === String(nextBankAccountId)) {
       await incrementBankAccountBalance(db, nextBankAccountId, previousAmount - nextAmount);
@@ -425,7 +441,7 @@ export function createFinanceHandlers(db) {
     return accounts.map((account, index) => ({
       id: String(account._id),
       label: String(account?.label || account?.name || `Bankkonto ${index + 1}`),
-      balance: Number((toNumber(account?.balance) || 0).toFixed(2))
+      balance: toFixedAmount(account?.balance)
     }));
   }
 
@@ -496,13 +512,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const label = String(payload?.label || payload?.name || "").trim();
     if (!label) return badRequest(res, "Kontoname ist erforderlich");
@@ -520,18 +531,15 @@ export function createFinanceHandlers(db) {
     if (!userId) return unauthorized(res, "Session user invalid");
 
     if (req.method === "PATCH") {
-      let payload;
-      try { payload = await readBody(req); } catch (error) {
-        if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-        return badRequest(res, "Invalid JSON body");
-      }
+      const payload = await parseBody(req, res);
+      if (!payload) return;
       const label = String(payload?.label || payload?.name || "").trim();
       if (!label) return badRequest(res, "Kontoname ist erforderlich");
       const updated = await db.collection(COLLECTIONS.bankAccounts).findOneAndUpdate(
         { _id: accountId, user_id: userId }, { $set: { label } }, { returnDocument: "after", projection: { _id: 1, label: 1, name: 1, balance: 1 } }
       );
       if (!updated) return notFound(res, "Bankkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, account: { id: String(updated._id), label: String(updated?.label || updated?.name || "Bankkonto"), balance: Number((toNumber(updated?.balance) || 0).toFixed(2)) } });
+      return sendJson(res, 200, { ok: true, account: { id: String(updated._id), label: String(updated?.label || updated?.name || "Bankkonto"), balance: toFixedAmount(updated?.balance) } });
     }
 
     if (req.method === "DELETE") {
@@ -549,14 +557,14 @@ export function createFinanceHandlers(db) {
 
       const transferTargetId = parseObjectId(payload?.transfer_to_bank_account_id);
       const transferRequested = Boolean(transferTargetId);
-      const sourceBalance = Number((toNumber(sourceAccount.balance) || 0).toFixed(2));
+      const sourceBalance = toFixedAmount(sourceAccount.balance);
       const transferOptions = await db.collection(COLLECTIONS.bankAccounts)
         .find({ user_id: userId, _id: { $ne: accountId } }, { projection: { _id: 1, label: 1, name: 1, balance: 1 } }).sort({ created_at: 1, _id: 1 }).toArray();
       const hasAlternativeAccount = transferOptions.length > 0;
       const needsTransferPrompt = sourceBalance !== 0 && hasAlternativeAccount;
 
       if (needsTransferPrompt && !transferRequested) {
-        return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, balance: sourceBalance, message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.", transfer_options: transferOptions.map((account, index) => ({ id: String(account._id), label: String(account?.label || account?.name || `Bankkonto ${index + 1}`), balance: Number((toNumber(account?.balance) || 0).toFixed(2)) })) });
+        return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, balance: sourceBalance, message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.", transfer_options: transferOptions.map((account, index) => ({ id: String(account._id), label: String(account?.label || account?.name || `Bankkonto ${index + 1}`), balance: toFixedAmount(account?.balance) })) });
       }
 
       if (sourceBalance !== 0 && !hasAlternativeAccount) {
@@ -594,11 +602,8 @@ export function createFinanceHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const label = String(payload?.label || payload?.name || "").trim();
     if (!label) return badRequest(res, "Kontoname ist erforderlich");
@@ -616,11 +621,8 @@ export function createFinanceHandlers(db) {
     if (!userId) return unauthorized(res, "Session user invalid");
 
     if (req.method === "PATCH") {
-      let payload;
-      try { payload = await readBody(req); } catch (error) {
-        if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-        return badRequest(res, "Invalid JSON body");
-      }
+      const payload = await parseBody(req, res);
+      if (!payload) return;
       const label = String(payload?.label || payload?.name || "").trim();
       if (!label) return badRequest(res, "Kontoname ist erforderlich");
       let updatedDoc = await db.collection(COLLECTIONS.shareAccounts).findOneAndUpdate({ _id: accountId, user_id: userId }, { $set: { label } }, { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } });
@@ -799,6 +801,15 @@ export function createFinanceHandlers(db) {
 
     if (!symbol && !domainFromQuery) return badRequest(res, "Query-Parameter 'symbol' oder 'domain' fehlt.");
 
+    const cacheKey = `${symbol || domainFromQuery}:${size}:${theme}`;
+    const cached = logoCacheGet(cacheKey);
+    if (cached) {
+      if (cached.notFound) return sendJson(res, 404, { ok: false, message: "Logo konnte nicht geladen werden." });
+      res.writeHead(200, { "Content-Type": cached.contentType, "Cache-Control": "public, max-age=21600" });
+      res.end(cached.buffer);
+      return;
+    }
+
     let domain = domainFromQuery;
     if (!domain && symbol) {
       try { domain = await resolveLogoDomainBySymbol(symbol, exchange); } catch { domain = ""; }
@@ -809,30 +820,37 @@ export function createFinanceHandlers(db) {
     if (symbol) logoCandidates.push(`/ticker/${encodeURIComponent(symbol)}`);
     if (!logoCandidates.length) return notFound(res, "Kein Logo-Kandidat gefunden.");
 
-    const queryVariants = [{ format: "svg", background: "transparent" }, { format: "svg" }, { format: "png", background: "transparent" }, { format: "png" }];
-    let lastErrorMessage = "Logo konnte nicht geladen werden.";
+    const formatVariants = [{ format: "svg", background: "transparent" }, { format: "svg" }, { format: "png", background: "transparent" }, { format: "png" }];
+    const fetches = [];
     for (const pathCandidate of logoCandidates) {
-      for (const variant of queryVariants) {
+      for (const variant of formatVariants) {
         const logoUrl = new URL(pathCandidate, LOGO_DEV_BASE_URL);
         logoUrl.searchParams.set("token", LOGO_DEV_API_KEY);
         logoUrl.searchParams.set("size", String(size));
         logoUrl.searchParams.set("theme", theme);
         if (variant.format) logoUrl.searchParams.set("format", variant.format);
         if (variant.background) logoUrl.searchParams.set("background", variant.background);
-        try {
-          const upstreamResponse = await fetch(logoUrl.toString(), { headers: { Accept: "image/*", Authorization: `Bearer ${LOGO_DEV_API_KEY}` } });
-          if (!upstreamResponse.ok) { lastErrorMessage = `Logo upstream HTTP ${upstreamResponse.status} (${logoUrl.pathname}).`; continue; }
-          const imageBuffer = Buffer.from(await upstreamResponse.arrayBuffer());
-          const contentType = upstreamResponse.headers.get("content-type") || "image/png";
-          res.writeHead(200, { "Content-Type": contentType, "Cache-Control": "public, max-age=21600" });
-          res.end(imageBuffer);
-          return;
-        } catch (error) {
-          lastErrorMessage = String(error?.message || error);
-        }
+        fetches.push(
+          fetch(logoUrl.toString(), { headers: { Accept: "image/*", Authorization: `Bearer ${LOGO_DEV_API_KEY}` } })
+            .then(async (r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              const buffer = Buffer.from(await r.arrayBuffer());
+              const contentType = r.headers.get("content-type") || "image/png";
+              return { buffer, contentType };
+            })
+        );
       }
     }
-    return sendJson(res, 404, { ok: false, message: "Logo konnte nicht geladen werden.", detail: lastErrorMessage });
+
+    try {
+      const result = await Promise.any(fetches);
+      logoCacheSet(cacheKey, result);
+      res.writeHead(200, { "Content-Type": result.contentType, "Cache-Control": "public, max-age=21600" });
+      res.end(result.buffer);
+    } catch {
+      logoCacheSet(cacheKey, { notFound: true });
+      return sendJson(res, 404, { ok: false, message: "Logo konnte nicht geladen werden." });
+    }
   }
 
   return {

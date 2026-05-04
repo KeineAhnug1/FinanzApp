@@ -75,3 +75,26 @@ export function uniqueCategoryList(values) {
 export function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+export function parseLongText(value, maxLength) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (text.length > maxLength) return null;
+  return text;
+}
+
+export function toNullableDate(value) {
+  if (value == null || value === "") return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+export function toNullableNumber(value) {
+  const parsed = toNumber(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function toFixedAmount(value) {
+  return Number((toNumber(value) || 0).toFixed(2));
+}

@@ -1,6 +1,6 @@
 	// [SHARED] 13) Navigation + App-Start
 	// =====================================================
-	const aStocksViews = new Set(["depot", "analysis", "futureanalysis"]);
+	const aStocksViews = new Set(["depot", "analysis"]);
 
 	function fnGetViewFromHash() {
 		const sHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();

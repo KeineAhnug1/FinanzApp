@@ -1,8 +1,8 @@
 import { Decimal128 } from "mongodb";
 import { COLLECTIONS, ANSWER_MESSAGE_MAX_LENGTH } from "../config/runtime.mjs";
 import { detectBlockedMessageTerm } from "../config/blocked-names.mjs";
-import { parseObjectId, parsePositiveAmount, toDecimal, toNumber } from "../utils/data.mjs";
-import { readBody, sendJson } from "../utils/http.mjs";
+import { parseObjectId, parsePositiveAmount, parseLongText, toDecimal, toNullableDate, toNullableNumber } from "../utils/data.mjs";
+import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, unauthorized, forbidden, notFound, conflict } from "../helpers/responses.mjs";
 import { calculateDashboardStyleDonationBalance } from "../helpers/finance-db.mjs";
 
@@ -12,25 +12,6 @@ function activeMembershipFilter() {
 
 function visibleMembershipFilter() {
   return { $or: [{ status: "accepted" }, { status: "invited" }, { status: "active" }, { status: null }, { status: { $exists: false } }] };
-}
-
-function toNullableDate(value) {
-  if (value == null || value === "") return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-}
-
-function toNullableNumber(value) {
-  const parsed = toNumber(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseLongText(value, maxLength) {
-  const text = String(value || "").trim();
-  if (!text) return null;
-  if (text.length > maxLength) return null;
-  return text;
 }
 
 export function createGroupHandlers(db) {
@@ -106,11 +87,8 @@ export function createGroupHandlers(db) {
     }
 
     if (req.method === "POST") {
-      let payload;
-      try { payload = await readBody(req); } catch (error) {
-        if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-        return badRequest(res, "Invalid JSON body");
-      }
+      const payload = await parseBody(req, res);
+      if (!payload) return;
 
       const name = String(payload.name || "").trim();
       const address = String(payload.address || "").trim();
@@ -215,11 +193,8 @@ export function createGroupHandlers(db) {
     if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
     const context = await getGroupContext(groupIdRaw, session.user.id);
     if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
     const info = String(payload.info || "").trim();
     if (!info) return badRequest(res, "Activity info is required");
     const date = toNullableDate(payload.date);
@@ -233,11 +208,8 @@ export function createGroupHandlers(db) {
     if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
     const context = await getGroupContext(groupIdRaw, session.user.id);
     if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const info = String(payload.info || "").trim() || null;
     let groupActivityId = null;
@@ -271,11 +243,8 @@ export function createGroupHandlers(db) {
     const funding = await db.collection(COLLECTIONS.groupFunding).findOne({ _id: fundingId, group_id: context.groupId }, { projection: { _id: 1, amount: 1, info: 1 } });
     if (!funding) return notFound(res, "Funding not found for this group");
 
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const normalizedAmount = parsePositiveAmount(payload.amount);
     if (normalizedAmount == null) return badRequest(res, "Donation amount must be a positive number");
@@ -319,11 +288,8 @@ export function createGroupHandlers(db) {
     if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
     if (context.membership.role !== "admin") return forbidden(res, "Only admins can create group expenses");
 
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const fundingId = parseObjectId(payload.group_funding_id);
     if (!fundingId) return badRequest(res, "A valid funding is required");
@@ -394,11 +360,8 @@ export function createGroupHandlers(db) {
       return sendJson(res, 200, { ok: true, messages, has_older: hasOlder });
     }
 
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
     if (!message) return badRequest(res, "Message is required and must be short enough");
@@ -416,11 +379,8 @@ export function createGroupHandlers(db) {
     if (!context.ok) return sendJson(res, context.status, { ok: false, message: context.message });
     if (context.membership.role !== "admin") return forbidden(res, "Only admins can invite users");
 
-    let payload;
-    try { payload = await readBody(req); } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const username = String(payload.username || "").trim().toLowerCase();
     if (!username) return badRequest(res, "Username is required");

@@ -1,6 +1,6 @@
 import { COLLECTIONS, SESSION_COOKIE_NAME } from "../config/runtime.mjs";
 import { parseObjectId } from "../utils/data.mjs";
-import { parseCookies, readBody, sendJson } from "../utils/http.mjs";
+import { parseBody, parseCookies, readBody, sendJson } from "../utils/http.mjs";
 import { hashPassword, verifyPassword } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized, forbidden } from "../helpers/responses.mjs";
@@ -43,13 +43,8 @@ export function createUserHandlers({ db, destroySession, clearSessionCookie }) {
 
     if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "password-change" })) return;
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const currentPassword = String(payload.current_password || "");
     const newPassword = String(payload.new_password || "");

@@ -14,7 +14,7 @@ import {
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
 import { normalizeEmail, parseIncome, parseObjectId, toDecimal, toNumber } from "../utils/data.mjs";
-import { parseCookies, readBody, sendJson } from "../utils/http.mjs";
+import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
 import {
   hashPassword,
   hashValue,
@@ -185,13 +185,8 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
 
     if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "login" })) return;
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const email = normalizeEmail(payload.email);
     const password = String(payload.password || "");
@@ -263,13 +258,8 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
 
     if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "register" })) return;
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const username = String(payload.username || "").trim().toLowerCase();
     const email = normalizeEmail(payload.email);
@@ -323,13 +313,8 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const email = normalizeEmail(payload.email);
     const code = String(payload.code || "").trim();
@@ -394,13 +379,8 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
 
     if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "password-forgot" })) return;
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const email = normalizeEmail(payload.email);
     if (!email) return badRequest(res, "E-Mail ist ein Pflichtfeld");
@@ -434,13 +414,8 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
 
     if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "password-reset" })) return;
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (error) {
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res);
+    if (!payload) return;
 
     const email = normalizeEmail(payload.email);
     const code = String(payload.code || "").trim();
