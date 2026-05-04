@@ -6,24 +6,13 @@
   "main": "database/dataset-v4/schema-setup.js",
   "scripts": {
     "schema:setup": "node database/dataset-v4/schema-setup.js",
-    "seed:reset": "node database/dataset-v4/seed-reset.mjs",
-    "seed:test-user": "node database/dataset-v4/seed-test-user.mjs",
-    "seed:family-demo": "node database/seed-family-demo.mjs",
-    "db:wipe": "node database/dataset-v4/wipe-data.mjs",
     "db:check": "node database/dataset-v4/check-connection.mjs",
     "data:prepare": "node database/dataset-v4/prepare-data.mjs",
-    "backend:start": "node backend/server.mjs",
-    "backend:start:dev": "DEV_AUTO_LOGIN=true node backend/server.mjs",
-    "test": "vitest",
-    "test:ui": "vitest --ui"
+    "start": "node backend/server.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.4",
     "mongodb": "^6.20.0",
     "nodemailer": "^8.0.1"
-  },
-  "devDependencies": {
-    "@vitest/ui": "^4.1.5",
-    "vitest": "^4.1.5"
   }
 }
