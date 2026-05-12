@@ -29,7 +29,7 @@
       iconPath: "/shared/images/nav-dashboard.svg"
     },
     {
-      href: "/konten/",
+      href: "/accounts/",
       labelKey: "nav_accounts",
       fallback: "Kontenverwaltung",
       key: "accounts",
@@ -63,21 +63,21 @@
       { href: "/dashboard.html#income", key: "income", labelKey: "income_expense_short", fallback: "Ein/Ausgaben" }
     ],
     stocks: [
-      { href: "/aktien/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtdepot" },
-      { href: "/aktien/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" }
+      { href: "/stocks/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtdepot" },
+      { href: "/stocks/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" }
     ],
     kommunikation: [
-      { href: "/fragen/",      key: "questions", labelKey: "nav_questions", fallback: "Fragen" },
-      { href: "/nachrichten/", key: "messages",  labelKey: "nav_messages",  fallback: "Nachrichten" }
+      { href: "/questions/",  key: "questions", labelKey: "nav_questions", fallback: "Fragen" },
+      { href: "/messages/",   key: "messages",  labelKey: "nav_messages",  fallback: "Nachrichten" }
     ]
   };
   const NAV_PATHS = new Set([
     "/dashboard.html",
-    "/konten/",
+    "/accounts/",
     "/groups/",
-    "/aktien/",
-    "/fragen/",
-    "/nachrichten/"
+    "/stocks/",
+    "/questions/",
+    "/messages/"
   ]);
   let contentFrame = null;
   let contentFrameHost = null;
@@ -115,10 +115,10 @@
     const raw = String(pathname || "/").trim();
     if (!raw) return "/";
     if (raw === "/groups") return "/groups/";
-    if (raw === "/aktien") return "/aktien/";
-    if (raw === "/konten") return "/konten/";
-    if (raw === "/fragen") return "/fragen/";
-    if (raw === "/nachrichten") return "/nachrichten/";
+    if (raw === "/stocks") return "/stocks/";
+    if (raw === "/accounts") return "/accounts/";
+    if (raw === "/questions") return "/questions/";
+    if (raw === "/messages") return "/messages/";
     return raw;
   }
 
@@ -126,10 +126,10 @@
     const path = normalizePath(pathname || window.location.pathname);
     if (path === "/dashboard.html") return "dashboard";
     if (path.startsWith("/groups/")) return "groups";
-    if (path.startsWith("/aktien/")) return "stocks";
-    if (path.startsWith("/konten/")) return "accounts";
-    if (path.startsWith("/fragen/")) return "kommunikation";
-    if (path.startsWith("/nachrichten/")) return "kommunikation";
+    if (path.startsWith("/stocks/")) return "stocks";
+    if (path.startsWith("/accounts/")) return "accounts";
+    if (path.startsWith("/questions/")) return "kommunikation";
+    if (path.startsWith("/messages/")) return "kommunikation";
     return "";
   }
 
@@ -137,10 +137,10 @@
     const path = normalizePath(window.location.pathname);
     if (path === "/dashboard.html") return t("nav_dashboard", "Dashboard");
     if (path.startsWith("/groups/")) return t("nav_groups", "Gruppen");
-    if (path.startsWith("/aktien/")) return t("nav_stocks", "Aktien");
-    if (path.startsWith("/konten/")) return t("nav_accounts", "Kontenverwaltung");
-    if (path.startsWith("/fragen/")) return t("nav_kommunikation", "Kommunikation");
-    if (path.startsWith("/nachrichten/")) return t("nav_kommunikation", "Kommunikation");
+    if (path.startsWith("/stocks/")) return t("nav_stocks", "Aktien");
+    if (path.startsWith("/accounts/")) return t("nav_accounts", "Kontenverwaltung");
+    if (path.startsWith("/questions/")) return t("nav_kommunikation", "Kommunikation");
+    if (path.startsWith("/messages/")) return t("nav_kommunikation", "Kommunikation");
     return t("topbar.brand", "FinanzApp");
   }
 
@@ -212,13 +212,13 @@
       }
     }
     const activeStocksSubKey = activeKey === "stocks" ? (activeHash || "depot") : activeHash;
-    const activeAccountsSubKey = activeKey === "accounts" ? "konten" : "";
+    const activeAccountsSubKey = activeKey === "accounts" ? "accounts" : "";
     const activeGroupsSubKey = activeKey === "groups" ? "groups" : "";
     let activeKommunikationSubKey = "";
     if (activeKey === "kommunikation") {
       const path = normalizePath(window.location.pathname);
-      if (path.startsWith("/fragen/")) activeKommunikationSubKey = "questions";
-      else if (path.startsWith("/nachrichten/")) activeKommunikationSubKey = "messages";
+      if (path.startsWith("/questions/")) activeKommunikationSubKey = "questions";
+      else if (path.startsWith("/messages/")) activeKommunikationSubKey = "messages";
     }
     return { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey, activeKommunikationSubKey };
   }
@@ -742,7 +742,7 @@
 
       button.setAttribute("aria-label", t("nav_settings", "Einstellungen"));
       button.addEventListener("click", () => {
-        window.location.href = "/einstellungen/";
+        window.location.href = "/settings/";
       });
     }
   }

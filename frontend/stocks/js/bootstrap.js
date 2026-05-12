@@ -21,8 +21,8 @@
 		const aTopLinks = [...document.querySelectorAll(".app-nav-links .app-nav-link")];
 		aTopLinks.forEach((elLink) => {
 			const sHref = String(elLink.getAttribute("href") || "");
-			const bIsAccountsLink = sHref.startsWith("/konten/");
-			const bIsStocksLink = sHref.startsWith("/aktien/");
+			const bIsAccountsLink = sHref.startsWith("/accounts/");
+			const bIsStocksLink = sHref.startsWith("/stocks/");
 			const bShouldBeActive = sActiveView === "accounts" ? bIsAccountsLink : bIsStocksLink;
 			if (bIsAccountsLink || bIsStocksLink) {
 				elLink.classList.toggle("is-active", bShouldBeActive);

@@ -3,8 +3,8 @@ import http from "node:http";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { MongoClient } from "mongodb";
-import { COLLECTIONS, DB_NAME, MIME_BY_EXT, MONGO_URI, PORT, SESSION_COOKIE_NAME, SESSION_TTL_MINUTES } from "./config/runtime.mjs";
+import pg from "pg";
+import { DATABASE_URL, MIME_BY_EXT, PORT, SESSION_COOKIE_NAME, SESSION_TTL_MINUTES } from "./config/runtime.mjs";
 import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
 import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
 import { sendJson } from "./utils/http.mjs";
@@ -18,17 +18,18 @@ import { createForumHandlers } from "./handlers/forum.mjs";
 import { generateFinzbroChatAnswer } from "./handlers/forum.mjs";
 import { createMessageHandlers } from "./handlers/messages.mjs";
 
+const { Pool } = pg;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 
-if (!MONGO_URI) throw new Error("MONGODB_URI is not set in the environment");
+if (!DATABASE_URL) throw new Error("DATABASE_URL is not set in the environment");
 if (!PORT || !Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error(`PORT is invalid: "${process.env.PORT}"`);
 }
 
-const client = new MongoClient(MONGO_URI);
-let db;
+const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 const sessionStore = createSessionStore({ cookieName: SESSION_COOKIE_NAME, ttlMinutes: SESSION_TTL_MINUTES });
 const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord } = sessionStore;
@@ -72,41 +73,27 @@ async function handleStatic(req, res, pathname) {
   }
 }
 
-async function ensureIndexes() {
-  await db.collection(COLLECTIONS.emailVerifications).createIndex({ email: 1 }, { unique: true, name: "email_verifications_email_unique" });
-  await db.collection(COLLECTIONS.emailVerifications).createIndex({ expires_at: 1 }, { expireAfterSeconds: 0, name: "email_verifications_expires_ttl" });
-  await db.collection(COLLECTIONS.passwordResets).createIndex({ email: 1 }, { unique: true, name: "password_resets_email_unique" });
-  await db.collection(COLLECTIONS.passwordResets).createIndex({ expires_at: 1 }, { expireAfterSeconds: 0, name: "password_resets_expires_ttl" });
-  await db.collection(COLLECTIONS.incomeEntries).createIndex({ bank_account_id: 1, pay_date: -1, created_at: -1 }, { name: "income_bank_account_date_idx" });
-  await db.collection(COLLECTIONS.incomeEntries).createIndex({ bank_account_id: 1, cycle: 1, state: 1 }, { name: "income_bank_account_cycle_state_idx" });
-  await db.collection(COLLECTIONS.expenseEntries).createIndex({ bank_account_id: 1, pay_date: -1, created_at: -1 }, { name: "private_expenses_bank_account_date_idx" });
-  await db.collection(COLLECTIONS.expenseEntries).createIndex({ bank_account_id: 1, cycle: 1, state: 1 }, { name: "private_expenses_bank_account_cycle_state_idx" });
-  await db.collection(COLLECTIONS.expenseEntries).createIndex({ legacy_expense_entry_id: 1 }, { unique: true, sparse: true, name: "private_expenses_legacy_expense_entry_unique" });
-  await db.collection(COLLECTIONS.shareAccounts).createIndex({ user_id: 1, created_at: 1 }, { name: "share_accounts_user_created_idx" });
-  await db.collection(COLLECTIONS.userCategories).createIndex({ user_id: 1, kind: 1, key: 1 }, { unique: true, name: "user_categories_user_kind_key_unique" });
-  await db.collection(COLLECTIONS.globalQuestions).createIndex({ created_at: -1 }, { name: "global_questions_created_idx" });
-  await db.collection(COLLECTIONS.globalQuestions).createIndex({ from_user_id: 1, created_at: -1 }, { name: "global_questions_from_user_created_idx" });
-  await db.collection(COLLECTIONS.globalAnswers).createIndex({ question_id: 1, created_at: -1 }, { name: "global_answers_question_created_idx" });
-  await db.collection(COLLECTIONS.globalAnswers).createIndex({ from_user_id: 1, created_at: -1 }, { name: "global_answers_from_user_created_idx" });
-  await db.collection(COLLECTIONS.questionLikes).createIndex({ user_id: 1, question_id: 1 }, { unique: true, name: "question_likes_unique_pair" });
-  await db.collection(COLLECTIONS.answerLikes).createIndex({ answer_id: 1, user_id: 1 }, { unique: true, name: "answer_likes_unique_pair" });
-}
-
 async function start() {
   initRateLimiter(sendJson);
-  await client.connect();
-  db = client.db(DB_NAME);
 
-  await init(db);
-  await migratePlaintextPasswords(db);
-  await ensureIndexes();
+  // Test database connection
+  try {
+    await pool.query("SELECT 1");
+    console.log("[db] PostgreSQL connection established.");
+  } catch (error) {
+    console.error("[db] Connection error details:", error.message, error.code);
+    throw new Error(`PostgreSQL connection failed: ${error.message}`);
+  }
 
-  const authHandlers = createAuthHandlers({ db, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME });
-  const userHandlers = createUserHandlers({ db, destroySession, clearSessionCookie });
-  const financeHandlers = createFinanceHandlers(db);
-  const groupHandlers = createGroupHandlers(db);
-  const forumHandlers = createForumHandlers(db);
-  const messageHandlers = createMessageHandlers(db, {
+  await init(pool);
+  await migratePlaintextPasswords(pool);
+
+  const authHandlers = createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME });
+  const userHandlers = createUserHandlers({ pool, destroySession, clearSessionCookie });
+  const financeHandlers = createFinanceHandlers(pool);
+  const groupHandlers = createGroupHandlers(pool);
+  const forumHandlers = createForumHandlers(pool);
+  const messageHandlers = createMessageHandlers(pool, {
     ensureFinzbroUserId: forumHandlers.ensureFinzbroUserId,
     generateFinzbroChatAnswer
   });
@@ -165,7 +152,7 @@ async function start() {
 
   async function shutdown() {
     await new Promise((resolve) => server.close(resolve));
-    await client.close();
+    await pool.end();
   }
 
   process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
@@ -174,6 +161,6 @@ async function start() {
 
 start().catch(async (error) => {
   console.error("Server startup failed:", error);
-  await client.close();
+  await pool.end();
   process.exit(1);
 });

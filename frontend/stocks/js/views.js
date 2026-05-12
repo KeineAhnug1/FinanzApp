@@ -206,7 +206,7 @@
 		}
 
 		if (sViewName === "accounts") {
-			window.location.assign("/konten/");
+			window.location.assign("/accounts/");
 			return;
 		}
 

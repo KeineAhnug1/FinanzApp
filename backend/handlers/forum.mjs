@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import {
   ANSWER_MESSAGE_MAX_LENGTH,
-  COLLECTIONS,
   FINZBRO_EMAIL,
   FINZBRO_MENTION_REGEX,
   FINZBRO_USERNAME,
@@ -14,7 +13,7 @@ import {
   QUESTION_MESSAGE_MAX_LENGTH,
   QUESTION_TOPIC_MAX_LENGTH
 } from "../config/runtime.mjs";
-import { escapeRegex, parseObjectId, parseLongText, toDecimal } from "../utils/data.mjs";
+import { parseObjectId, parseLongText, toDecimal } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { hashPassword } from "../utils/password.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
@@ -135,7 +134,7 @@ function serializeQuestion(question, options = {}) {
     likedAnswerIds = new Set()
   } = options;
 
-  const questionId = String(question._id);
+  const questionId = String(question.id);
   const authorId = String(question.from_user_id || "");
   const author = usersById.get(authorId) || {};
   const answers = answersByQuestionId.get(questionId) || [];
@@ -155,7 +154,7 @@ function serializeQuestion(question, options = {}) {
     likes_count: likesCountByQuestionId.get(questionId) || 0,
     liked_by_me: likedQuestionIds.has(questionId),
     answers: answers.map((answer) => {
-      const answerId = String(answer._id);
+      const answerId = String(answer.id);
       const answerAuthorId = String(answer.from_user_id || "");
       const answerAuthor = usersById.get(answerAuthorId) || {};
       return {
@@ -290,35 +289,30 @@ export async function generateFinzbroChatAnswer(chatHistory) {
   return "Ich bin Finzbro und konnte gerade keine KI-Antwort erzeugen. Versuch es bitte gleich nochmal.";
 }
 
-export function createForumHandlers(db) {
+export function createForumHandlers(pool) {
   async function ensureFinzbroUserId() {
-    const existing = await db.collection(COLLECTIONS.users).findOne(
-      { $or: [{ username: FINZBRO_USERNAME }, { email: FINZBRO_EMAIL }] },
-      { projection: { _id: 1 } }
+    const { rows } = await pool.query(
+      `SELECT id FROM users WHERE username = $1 OR email = $2 LIMIT 1`,
+      [FINZBRO_USERNAME, FINZBRO_EMAIL]
     );
-    if (existing?._id) return existing._id;
+    if (rows.length > 0) return rows[0].id;
 
-    const userDoc = {
-      username: FINZBRO_USERNAME,
-      email: FINZBRO_EMAIL,
-      password: await hashPassword(randomBytes(24).toString("hex")),
-      first_name: "Finzbro",
-      last_name: "Bot",
-      age: null,
-      income: toDecimal(0),
-      created_at: new Date()
-    };
-
+    const password = await hashPassword(randomBytes(24).toString("hex"));
     try {
-      const insert = await db.collection(COLLECTIONS.users).insertOne(userDoc);
-      return insert.insertedId;
+      const { rows: inserted } = await pool.query(
+        `INSERT INTO users (username, email, password, first_name, last_name, age, income, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         RETURNING id`,
+        [FINZBRO_USERNAME, FINZBRO_EMAIL, password, "Finzbro", "Bot", null, toDecimal(0)]
+      );
+      return inserted[0].id;
     } catch (error) {
-      if (error?.code === 11000) {
-        const concurrent = await db.collection(COLLECTIONS.users).findOne(
-          { $or: [{ username: FINZBRO_USERNAME }, { email: FINZBRO_EMAIL }] },
-          { projection: { _id: 1 } }
+      if (error?.code === "23505") {
+        const { rows: concurrent } = await pool.query(
+          `SELECT id FROM users WHERE username = $1 OR email = $2 LIMIT 1`,
+          [FINZBRO_USERNAME, FINZBRO_EMAIL]
         );
-        if (concurrent?._id) return concurrent._id;
+        if (concurrent.length > 0) return concurrent[0].id;
       }
       throw error;
     }
@@ -329,20 +323,16 @@ export function createForumHandlers(db) {
 
     const finzbroUserId = await ensureFinzbroUserId();
     const finzbroMessage = await generateFinzbroAnswer(thema, message);
-    const now = new Date();
 
-    await db.collection(COLLECTIONS.globalAnswers).insertOne({
-      question_id: questionId,
-      from_user_id: finzbroUserId,
-      message: finzbroMessage,
-      edited: false,
-      created_at: now,
-      updated_at: now
-    });
+    await pool.query(
+      `INSERT INTO global_answers (question_id, from_user_id, message, edited, created_at, updated_at)
+       VALUES ($1, $2, $3, false, NOW(), NOW())`,
+      [questionId, finzbroUserId, finzbroMessage]
+    );
 
-    await db.collection(COLLECTIONS.globalQuestions).updateOne(
-      { _id: questionId },
-      { $set: { answered: true, updated_at: now } }
+    await pool.query(
+      `UPDATE global_questions SET answered = true, updated_at = NOW() WHERE id = $1`,
+      [questionId]
     );
 
     return true;
@@ -353,14 +343,13 @@ export function createForumHandlers(db) {
     const hasSearch = searchTokens.length > 0;
     const candidateLimit = hasSearch ? 600 : 200;
 
-    const candidateQuestions = await db.collection(COLLECTIONS.globalQuestions)
-      .find(
-        {},
-        { projection: { _id: 1, from_user_id: 1, thema: 1, message: 1, answered: 1, edited: 1, created_at: 1, updated_at: 1 } }
-      )
-      .sort({ created_at: -1 })
-      .limit(candidateLimit)
-      .toArray();
+    const { rows: candidateQuestions } = await pool.query(
+      `SELECT id, from_user_id, thema, message, answered, edited, created_at, updated_at
+       FROM global_questions
+       ORDER BY created_at DESC
+       LIMIT $1`,
+      [candidateLimit]
+    );
 
     const questions = hasSearch
       ? (() => {
@@ -383,60 +372,66 @@ export function createForumHandlers(db) {
       })()
       : candidateQuestions;
 
-    const questionIds = questions.map((question) => question._id);
+    const questionIds = questions.map((question) => question.id);
+
     const answers = questionIds.length
-      ? await db.collection(COLLECTIONS.globalAnswers)
-        .find(
-          { question_id: { $in: questionIds } },
-          { projection: { _id: 1, question_id: 1, from_user_id: 1, message: 1, edited: 1, created_at: 1, updated_at: 1 } }
-        )
-        .sort({ created_at: 1 })
-        .toArray()
+      ? (await pool.query(
+        `SELECT id, question_id, from_user_id, message, edited, created_at, updated_at
+         FROM global_answers
+         WHERE question_id = ANY($1)
+         ORDER BY created_at ASC`,
+        [questionIds]
+      )).rows
       : [];
 
-    const answerIds = answers.map((answer) => answer._id);
-    const userIds = new Map();
-    for (const question of questions) userIds.set(String(question.from_user_id), question.from_user_id);
-    for (const answer of answers) userIds.set(String(answer.from_user_id), answer.from_user_id);
+    const answerIds = answers.map((answer) => answer.id);
 
-    const users = userIds.size
-      ? await db.collection(COLLECTIONS.users)
-        .find(
-          { _id: { $in: Array.from(userIds.values()) } },
-          { projection: { _id: 1, username: 1, first_name: 1 } }
-        )
-        .toArray()
+    const userIdSet = new Map();
+    for (const question of questions) userIdSet.set(String(question.from_user_id), question.from_user_id);
+    for (const answer of answers) userIdSet.set(String(answer.from_user_id), answer.from_user_id);
+
+    const users = userIdSet.size
+      ? (await pool.query(
+        `SELECT id, username, first_name FROM users WHERE id = ANY($1)`,
+        [Array.from(userIdSet.values())]
+      )).rows
       : [];
-    const usersById = new Map(users.map((user) => [String(user._id), user]));
+    const usersById = new Map(users.map((user) => [String(user.id), user]));
 
     const questionLikeRows = questionIds.length
-      ? await db.collection(COLLECTIONS.questionLikes).aggregate([
-        { $match: { question_id: { $in: questionIds } } },
-        { $group: { _id: "$question_id", count: { $sum: 1 } } }
-      ]).toArray()
+      ? (await pool.query(
+        `SELECT question_id, COUNT(*)::int AS count
+         FROM question_likes
+         WHERE question_id = ANY($1)
+         GROUP BY question_id`,
+        [questionIds]
+      )).rows
       : [];
-    const likesCountByQuestionId = new Map(questionLikeRows.map((row) => [String(row._id), Number(row.count) || 0]));
+    const likesCountByQuestionId = new Map(questionLikeRows.map((row) => [String(row.question_id), row.count]));
 
     const answerLikeRows = answerIds.length
-      ? await db.collection(COLLECTIONS.answerLikes).aggregate([
-        { $match: { answer_id: { $in: answerIds } } },
-        { $group: { _id: "$answer_id", count: { $sum: 1 } } }
-      ]).toArray()
+      ? (await pool.query(
+        `SELECT answer_id, COUNT(*)::int AS count
+         FROM answer_likes
+         WHERE answer_id = ANY($1)
+         GROUP BY answer_id`,
+        [answerIds]
+      )).rows
       : [];
-    const answerLikesCountByAnswerId = new Map(answerLikeRows.map((row) => [String(row._id), Number(row.count) || 0]));
+    const answerLikesCountByAnswerId = new Map(answerLikeRows.map((row) => [String(row.answer_id), row.count]));
 
     const [likedQuestionsByMe, likedAnswersByMe] = await Promise.all([
       questionIds.length
-        ? db.collection(COLLECTIONS.questionLikes).find(
-          { user_id: userId, question_id: { $in: questionIds } },
-          { projection: { _id: 0, question_id: 1 } }
-        ).toArray()
+        ? pool.query(
+          `SELECT question_id FROM question_likes WHERE user_id = $1 AND question_id = ANY($2)`,
+          [userId, questionIds]
+        ).then((r) => r.rows)
         : Promise.resolve([]),
       answerIds.length
-        ? db.collection(COLLECTIONS.answerLikes).find(
-          { user_id: userId, answer_id: { $in: answerIds } },
-          { projection: { _id: 0, answer_id: 1 } }
-        ).toArray()
+        ? pool.query(
+          `SELECT answer_id FROM answer_likes WHERE user_id = $1 AND answer_id = ANY($2)`,
+          [userId, answerIds]
+        ).then((r) => r.rows)
         : Promise.resolve([])
     ]);
 
@@ -484,27 +479,26 @@ export function createForumHandlers(db) {
     if (!thema) return badRequest(res, `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).`);
     if (!message) return badRequest(res, "Frage ist erforderlich und darf nicht zu lang sein.");
 
-    const now = new Date();
-    const insert = await db.collection(COLLECTIONS.globalQuestions).insertOne({
-      from_user_id: userId,
-      thema,
-      message,
-      answered: false,
-      edited: false,
-      created_at: now,
-      updated_at: now
-    });
+    const { rows: insertedRows } = await pool.query(
+      `INSERT INTO global_questions (from_user_id, thema, message, answered, edited, created_at, updated_at)
+       VALUES ($1, $2, $3, false, false, NOW(), NOW())
+       RETURNING id, from_user_id, thema, message, answered, edited, created_at, updated_at`,
+      [userId, thema, message]
+    );
+    const inserted = insertedRows[0];
 
     setTimeout(() => {
-      maybeCreateFinzbroAutoAnswer(insert.insertedId, thema, message).catch((error) => {
+      maybeCreateFinzbroAutoAnswer(inserted.id, thema, message).catch((error) => {
         console.error("Finzbro background auto-answer failed:", error);
       });
     }, 0);
 
-    const inserted = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: insert.insertedId });
-    const [author] = await db.collection(COLLECTIONS.users)
-      .find({ _id: userId }, { projection: { _id: 1, username: 1, first_name: 1 } })
-      .toArray();
+    const { rows: authorRows } = await pool.query(
+      `SELECT id, username, first_name FROM users WHERE id = $1`,
+      [userId]
+    );
+    const author = authorRows[0] || {};
+
     const serialized = serializeQuestion(inserted, {
       meUserId: userId,
       usersById: new Map([[String(userId), author]])
@@ -531,12 +525,12 @@ export function createForumHandlers(db) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    const existing = await db.collection(COLLECTIONS.globalQuestions).findOne(
-      { _id: questionId },
-      { projection: { _id: 1, from_user_id: 1 } }
+    const { rows: existingRows } = await pool.query(
+      `SELECT id, from_user_id FROM global_questions WHERE id = $1`,
+      [questionId]
     );
-    if (!existing) return notFound(res, "Frage nicht gefunden");
-    if (String(existing.from_user_id) !== String(userId)) {
+    if (existingRows.length === 0) return notFound(res, "Frage nicht gefunden");
+    if (String(existingRows[0].from_user_id) !== String(userId)) {
       return forbidden(res, "Nur der Ersteller darf diese Frage bearbeiten");
     }
 
@@ -548,13 +542,16 @@ export function createForumHandlers(db) {
     if (!thema) return badRequest(res, `Thema ist erforderlich (maximal ${QUESTION_TOPIC_MAX_LENGTH} Zeichen).`);
     if (!message) return badRequest(res, "Frage ist erforderlich und darf nicht zu lang sein.");
 
-    const updated = await db.collection(COLLECTIONS.globalQuestions).findOneAndUpdate(
-      { _id: questionId, from_user_id: userId },
-      { $set: { thema, message, edited: true, updated_at: new Date() } },
-      { returnDocument: "after" }
+    const { rows: updatedRows } = await pool.query(
+      `UPDATE global_questions
+       SET thema = $1, message = $2, edited = true, updated_at = NOW()
+       WHERE id = $3 AND from_user_id = $4
+       RETURNING id`,
+      [thema, message, questionId, userId]
     );
 
-    if (!updated) return notFound(res, "Frage nicht gefunden");
+    if (updatedRows.length === 0) return notFound(res, "Frage nicht gefunden");
+
     const questions = await listQuestionsWithRelations(userId);
     const question = questions.find((item) => item.id === String(questionId));
     return sendJson(res, 200, { ok: true, question });
@@ -572,8 +569,11 @@ export function createForumHandlers(db) {
     const userId = parseObjectId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
-    const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
-    if (!question) return notFound(res, "Frage nicht gefunden");
+    const { rows: questionRows } = await pool.query(
+      `SELECT id FROM global_questions WHERE id = $1`,
+      [questionId]
+    );
+    if (questionRows.length === 0) return notFound(res, "Frage nicht gefunden");
 
     const payload = await parseBody(req, res);
     if (!payload) return;
@@ -581,19 +581,15 @@ export function createForumHandlers(db) {
     const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
     if (!message) return badRequest(res, "Antwort ist erforderlich und darf nicht zu lang sein.");
 
-    const now = new Date();
-    await db.collection(COLLECTIONS.globalAnswers).insertOne({
-      question_id: questionId,
-      from_user_id: userId,
-      message,
-      edited: false,
-      created_at: now,
-      updated_at: now
-    });
+    await pool.query(
+      `INSERT INTO global_answers (question_id, from_user_id, message, edited, created_at, updated_at)
+       VALUES ($1, $2, $3, false, NOW(), NOW())`,
+      [questionId, userId, message]
+    );
 
-    await db.collection(COLLECTIONS.globalQuestions).updateOne(
-      { _id: questionId },
-      { $set: { answered: true, updated_at: new Date() } }
+    await pool.query(
+      `UPDATE global_questions SET answered = true, updated_at = NOW() WHERE id = $1`,
+      [questionId]
     );
 
     const questions = await listQuestionsWithRelations(userId);
@@ -608,27 +604,29 @@ export function createForumHandlers(db) {
     const userId = parseObjectId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
-    const answer = await db.collection(COLLECTIONS.globalAnswers).findOne(
-      { _id: answerId },
-      { projection: { _id: 1, from_user_id: 1, question_id: 1 } }
+    const { rows: answerRows } = await pool.query(
+      `SELECT id, from_user_id, question_id FROM global_answers WHERE id = $1`,
+      [answerId]
     );
-    if (!answer) return notFound(res, "Antwort nicht gefunden");
+    if (answerRows.length === 0) return notFound(res, "Antwort nicht gefunden");
+    const answer = answerRows[0];
+
     if (String(answer.from_user_id) !== String(userId)) {
       return forbidden(res, "Nur der Ersteller darf diese Antwort bearbeiten oder loeschen");
     }
 
     if (req.method === "DELETE") {
-      await db.collection(COLLECTIONS.answerLikes).deleteMany({ answer_id: answerId });
-      await db.collection(COLLECTIONS.globalAnswers).deleteOne({ _id: answerId, from_user_id: userId });
+      await pool.query(`DELETE FROM answer_likes WHERE answer_id = $1`, [answerId]);
+      await pool.query(`DELETE FROM global_answers WHERE id = $1 AND from_user_id = $2`, [answerId, userId]);
 
-      const remainingAnswers = await db.collection(COLLECTIONS.globalAnswers).countDocuments(
-        { question_id: answer.question_id },
-        { limit: 1 }
+      const { rows: remainingRows } = await pool.query(
+        `SELECT 1 FROM global_answers WHERE question_id = $1 LIMIT 1`,
+        [answer.question_id]
       );
-      if (remainingAnswers === 0) {
-        await db.collection(COLLECTIONS.globalQuestions).updateOne(
-          { _id: answer.question_id },
-          { $set: { answered: false, updated_at: new Date() } }
+      if (remainingRows.length === 0) {
+        await pool.query(
+          `UPDATE global_questions SET answered = false, updated_at = NOW() WHERE id = $1`,
+          [answer.question_id]
         );
       }
 
@@ -648,9 +646,10 @@ export function createForumHandlers(db) {
     const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
     if (!message) return badRequest(res, "Antwort ist erforderlich und darf nicht zu lang sein.");
 
-    await db.collection(COLLECTIONS.globalAnswers).updateOne(
-      { _id: answerId, from_user_id: userId },
-      { $set: { message, edited: true, updated_at: new Date() } }
+    await pool.query(
+      `UPDATE global_answers SET message = $1, edited = true, updated_at = NOW()
+       WHERE id = $2 AND from_user_id = $3`,
+      [message, answerId, userId]
     );
 
     const questions = await listQuestionsWithRelations(userId);
@@ -670,19 +669,41 @@ export function createForumHandlers(db) {
     const userId = parseObjectId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
-    const question = await db.collection(COLLECTIONS.globalQuestions).findOne({ _id: questionId }, { projection: { _id: 1 } });
-    if (!question) return notFound(res, "Frage nicht gefunden");
+    const { rows: questionRows } = await pool.query(
+      `SELECT id FROM global_questions WHERE id = $1`,
+      [questionId]
+    );
+    if (questionRows.length === 0) return notFound(res, "Frage nicht gefunden");
 
-    const existing = await db.collection(COLLECTIONS.questionLikes).findOne({ question_id: questionId, user_id: userId }, { projection: { _id: 1 } });
+    const { rows: existingLike } = await pool.query(
+      `SELECT id FROM question_likes WHERE question_id = $1 AND user_id = $2`,
+      [questionId, userId]
+    );
+
     let liked = false;
-    if (existing) {
-      await db.collection(COLLECTIONS.questionLikes).deleteOne({ _id: existing._id });
+    if (existingLike.length > 0) {
+      await pool.query(`DELETE FROM question_likes WHERE id = $1`, [existingLike[0].id]);
     } else {
       liked = true;
-      await db.collection(COLLECTIONS.questionLikes).insertOne({ question_id: questionId, user_id: userId, created_at: new Date() });
+      try {
+        await pool.query(
+          `INSERT INTO question_likes (question_id, user_id, created_at) VALUES ($1, $2, NOW())`,
+          [questionId, userId]
+        );
+      } catch (error) {
+        if (error?.code === "23505") {
+          liked = false;
+        } else {
+          throw error;
+        }
+      }
     }
 
-    const likesCount = await db.collection(COLLECTIONS.questionLikes).countDocuments({ question_id: questionId });
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM question_likes WHERE question_id = $1`,
+      [questionId]
+    );
+    const likesCount = countRows[0]?.count || 0;
     return sendJson(res, 200, { ok: true, question_id: String(questionId), liked, likes_count: likesCount });
   }
 
@@ -698,19 +719,41 @@ export function createForumHandlers(db) {
     const userId = parseObjectId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
-    const answer = await db.collection(COLLECTIONS.globalAnswers).findOne({ _id: answerId }, { projection: { _id: 1 } });
-    if (!answer) return notFound(res, "Antwort nicht gefunden");
+    const { rows: answerRows } = await pool.query(
+      `SELECT id FROM global_answers WHERE id = $1`,
+      [answerId]
+    );
+    if (answerRows.length === 0) return notFound(res, "Antwort nicht gefunden");
 
-    const existing = await db.collection(COLLECTIONS.answerLikes).findOne({ answer_id: answerId, user_id: userId }, { projection: { _id: 1 } });
+    const { rows: existingLike } = await pool.query(
+      `SELECT id FROM answer_likes WHERE answer_id = $1 AND user_id = $2`,
+      [answerId, userId]
+    );
+
     let liked = false;
-    if (existing) {
-      await db.collection(COLLECTIONS.answerLikes).deleteOne({ _id: existing._id });
+    if (existingLike.length > 0) {
+      await pool.query(`DELETE FROM answer_likes WHERE id = $1`, [existingLike[0].id]);
     } else {
       liked = true;
-      await db.collection(COLLECTIONS.answerLikes).insertOne({ answer_id: answerId, user_id: userId, created_at: new Date() });
+      try {
+        await pool.query(
+          `INSERT INTO answer_likes (answer_id, user_id, created_at) VALUES ($1, $2, NOW())`,
+          [answerId, userId]
+        );
+      } catch (error) {
+        if (error?.code === "23505") {
+          liked = false;
+        } else {
+          throw error;
+        }
+      }
     }
 
-    const likesCount = await db.collection(COLLECTIONS.answerLikes).countDocuments({ answer_id: answerId });
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM answer_likes WHERE answer_id = $1`,
+      [answerId]
+    );
+    const likesCount = countRows[0]?.count || 0;
     return sendJson(res, 200, { ok: true, answer_id: String(answerId), liked, likes_count: likesCount });
   }
 

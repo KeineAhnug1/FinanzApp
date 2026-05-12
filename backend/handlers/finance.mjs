@@ -1,5 +1,4 @@
 import {
-  COLLECTIONS,
   EXCHANGE_RATE_API_KEY,
   EXCHANGE_RATE_BASE_URL,
   LOGO_DEV_API_KEY,
@@ -14,11 +13,10 @@ import {
 } from "../config/runtime.mjs";
 import {
   categoryKey,
-  escapeRegex,
   normalizeCategoryValue,
   normalizeRecurrence,
   parseBoolean,
-  parseObjectId,
+  parseId,
   parsePositiveAmount,
   toDecimal,
   toFixedAmount,
@@ -119,24 +117,24 @@ async function resolveLogoDomainBySymbol(symbol, exchange) {
   return domain;
 }
 
-export function createFinanceHandlers(db) {
+export function createFinanceHandlers(pool) {
 
   async function handleCategories(req, res, session) {
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
-    const userAccounts = await listUserBankAccounts(db, userId);
-    const accountIds = userAccounts.map((account) => account._id);
+    const userAccounts = await listUserBankAccounts(pool, userId);
+    const accountIds = userAccounts.map((a) => a.id);
 
     if (req.method === "GET") {
-      const [stored, incomeDistinct, expenseDistinct] = await Promise.all([
-        db.collection(COLLECTIONS.userCategories).find({ user_id: userId }).project({ _id: 0, kind: 1, value: 1 }).toArray(),
-        accountIds.length ? db.collection(COLLECTIONS.incomeEntries).distinct("category", { bank_account_id: { $in: accountIds } }) : Promise.resolve([]),
-        accountIds.length ? db.collection(COLLECTIONS.expenseEntries).distinct("category", { bank_account_id: { $in: accountIds } }) : Promise.resolve([])
+      const [storedResult, incomeDistinct, expenseDistinct] = await Promise.all([
+        pool.query(`SELECT kind, value FROM user_categories WHERE user_id = $1`, [userId]),
+        accountIds.length ? pool.query(`SELECT DISTINCT category FROM income WHERE bank_account_id = ANY($1) AND category IS NOT NULL`, [accountIds]) : { rows: [] },
+        accountIds.length ? pool.query(`SELECT DISTINCT category FROM private_expenses WHERE bank_account_id = ANY($1) AND category IS NOT NULL`, [accountIds]) : { rows: [] }
       ]);
 
       const incomeValues = [];
       const expenseValues = [];
-      for (const entry of stored) {
+      for (const entry of storedResult.rows) {
         if (entry.kind === "income") incomeValues.push(entry.value);
         if (entry.kind === "expense") expenseValues.push(entry.value);
       }
@@ -144,8 +142,8 @@ export function createFinanceHandlers(db) {
       const { uniqueCategoryList } = await import("../utils/data.mjs");
       return sendJson(res, 200, {
         ok: true,
-        income: uniqueCategoryList(incomeValues.concat(incomeDistinct)),
-        expense: uniqueCategoryList(expenseValues.concat(expenseDistinct))
+        income: uniqueCategoryList(incomeValues.concat(incomeDistinct.rows.map((r) => r.category))),
+        expense: uniqueCategoryList(expenseValues.concat(expenseDistinct.rows.map((r) => r.category)))
       });
     }
 
@@ -169,30 +167,36 @@ export function createFinanceHandlers(db) {
     const fallbackCategory = normalizeCategoryValue(payload.replace_with || "other");
     if (!fallbackCategory) return badRequest(res, "replace_with ist ungueltig");
 
-    const collectionName = kind === "income" ? COLLECTIONS.incomeEntries : COLLECTIONS.expenseEntries;
-    const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
-    const updateResult = await db.collection(collectionName).updateMany(
-      { ...accountFilter, category: new RegExp(`^${escapeRegex(category)}$`, "i") },
-      { $set: { category: fallbackCategory, updated_at: new Date() } }
-    );
+    const tableName = kind === "income" ? "income" : "private_expenses";
+    let updateResult;
+    if (accountIds.length) {
+      updateResult = await pool.query(
+        `UPDATE ${tableName} SET category = $1, updated_at = NOW() WHERE bank_account_id = ANY($2) AND LOWER(category) = LOWER($3)`,
+        [fallbackCategory, accountIds, category]
+      );
+    } else {
+      updateResult = { rowCount: 0 };
+    }
 
-    await db.collection(COLLECTIONS.userCategories).deleteOne({ user_id: userId, kind, key: categoryKey(category) });
-    if (!presetSet.has(fallbackCategory.toLowerCase())) await rememberUserCategory(db, userId, kind, fallbackCategory);
+    await pool.query(`DELETE FROM user_categories WHERE user_id = $1 AND kind = $2 AND key = $3`, [userId, kind, categoryKey(category)]);
+    if (!presetSet.has(fallbackCategory.toLowerCase())) await rememberUserCategory(pool, userId, kind, fallbackCategory);
 
-    return sendJson(res, 200, { ok: true, message: "Kategorie geloescht", kind, deleted_category: category, replaced_with: fallbackCategory, updated_entries: updateResult.modifiedCount });
+    return sendJson(res, 200, { ok: true, message: "Kategorie geloescht", kind, deleted_category: category, replaced_with: fallbackCategory, updated_entries: updateResult.rowCount });
   }
 
   async function handleIncomeEntries(req, res, session) {
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
-    const userAccounts = await ensureUserFinanceRoots(db, userId);
-    const accountIds = userAccounts.map((account) => account._id);
+    const userAccounts = await ensureUserFinanceRoots(pool, userId);
+    const accountIds = userAccounts.map((a) => a.id);
 
     if (req.method === "GET") {
       const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
       if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
-      const entries = await db.collection(COLLECTIONS.incomeEntries)
-        .find(filterResult.filter).sort({ received_at: -1, pay_date: -1, created_at: -1 }).limit(200).toArray();
+      const { rows: entries } = await pool.query(
+        `SELECT * FROM income WHERE bank_account_id = ANY($1) ORDER BY received_at DESC NULLS LAST, pay_date DESC NULLS LAST, created_at DESC LIMIT 200`,
+        [filterResult.accountIds]
+      );
       return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeIncomeEntry(entry, userId)) });
     }
 
@@ -218,42 +222,37 @@ export function createFinanceHandlers(db) {
     if (Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
     if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
-    await rememberUserCategory(db, userId, "income", category);
-    const selectedBankAccountId = parseObjectId(payload.bank_account_id);
-    const bankAccountId = selectedBankAccountId && accountIds.some((id) => String(id) === String(selectedBankAccountId)) ? selectedBankAccountId : accountIds[0];
+    await rememberUserCategory(pool, userId, "income", category);
+    const selectedBankAccountId = parseId(payload.bank_account_id);
+    const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
 
-    const doc = {
-      bank_account_id: bankAccountId, source, category, amount: toDecimal(amountNumber),
-      received_at: receivedAt, pay_date: receivedAt, note, recurrence, cycle: recurrence,
-      is_active: recurrence === "once" ? true : isActive,
-      state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"),
-      info: source || note || null, created_at: new Date(), updated_at: new Date()
-    };
+    const { rows } = await pool.query(
+      `INSERT INTO income (bank_account_id, source, category, amount, received_at, pay_date, note, info, recurrence, cycle, is_active, state, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $8, $9, $10, NOW(), NOW()) RETURNING *`,
+      [bankAccountId, source, category, amountNumber, receivedAt, note, source || note || null, recurrence, recurrence === "once" ? true : isActive, recurrence === "once" ? "open" : (isActive ? "open" : "paused")]
+    );
 
-    const insert = await db.collection(COLLECTIONS.incomeEntries).insertOne(doc);
-    await incrementBankAccountBalance(db, bankAccountId, amountNumber);
-    const inserted = await db.collection(COLLECTIONS.incomeEntries).findOne({ _id: insert.insertedId });
-    return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(inserted, userId) });
+    await incrementBankAccountBalance(pool, bankAccountId, amountNumber);
+    return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(rows[0], userId) });
   }
 
   async function handleIncomeEntryById(req, res, entryIdRaw, session) {
-    const entryId = parseObjectId(entryIdRaw);
+    const entryId = parseId(entryIdRaw);
     if (!entryId) return badRequest(res, "entry_id ist ungueltig");
 
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
-    const accountIds = (await listUserBankAccounts(db, userId)).map((account) => account._id);
+    const accountIds = (await listUserBankAccounts(pool, userId)).map((a) => a.id);
     if (accountIds.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
-    const accountFilter = { bank_account_id: { $in: accountIds } };
 
     if (req.method === "DELETE") {
-      const existing = await db.collection(COLLECTIONS.incomeEntries).findOne(
-        { _id: entryId, ...accountFilter }, { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+      const { rows: existing } = await pool.query(
+        `SELECT id, amount, bank_account_id FROM income WHERE id = $1 AND bank_account_id = ANY($2)`,
+        [entryId, accountIds]
       );
-      if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
-      const deletion = await db.collection(COLLECTIONS.incomeEntries).deleteOne({ _id: entryId, ...accountFilter });
-      if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Eintrag wurde nicht gefunden");
-      await incrementBankAccountBalance(db, existing.bank_account_id, -toFixedAmount(existing.amount));
+      if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+      await pool.query(`DELETE FROM income WHERE id = $1`, [entryId]);
+      await incrementBankAccountBalance(pool, existing[0].bank_account_id, -toFixedAmount(existing[0].amount));
       return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
     }
 
@@ -272,7 +271,7 @@ export function createFinanceHandlers(db) {
     const receivedAt = payload.received_at ? new Date(payload.received_at) : null;
     const recurrence = normalizeRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
-    const requestedBankAccountId = parseObjectId(payload.bank_account_id);
+    const requestedBankAccountId = parseId(payload.bank_account_id);
 
     if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
     if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
@@ -280,45 +279,48 @@ export function createFinanceHandlers(db) {
     if (!receivedAt || Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
     if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
-    await rememberUserCategory(db, userId, "income", category);
+    await rememberUserCategory(pool, userId, "income", category);
 
-    const existing = await db.collection(COLLECTIONS.incomeEntries).findOne(
-      { _id: entryId, ...accountFilter }, { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+    const { rows: existing } = await pool.query(
+      `SELECT id, amount, bank_account_id FROM income WHERE id = $1 AND bank_account_id = ANY($2)`,
+      [entryId, accountIds]
     );
-    if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
 
-    const nextBankAccountId = requestedBankAccountId && accountIds.some((id) => String(id) === String(requestedBankAccountId))
-      ? requestedBankAccountId : existing.bank_account_id;
+    const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
+      ? requestedBankAccountId : existing[0].bank_account_id;
 
-    const updated = await db.collection(COLLECTIONS.incomeEntries).findOneAndUpdate(
-      { _id: entryId },
-      { $set: { bank_account_id: nextBankAccountId, source, category, note, amount: toDecimal(amountNumber), received_at: receivedAt, pay_date: receivedAt, recurrence, cycle: recurrence, state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"), info: source || note || null, is_active: recurrence === "once" ? true : isActive, updated_at: new Date() } },
-      { returnDocument: "after" }
+    const { rows: updated } = await pool.query(
+      `UPDATE income SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, received_at=$6, pay_date=$6, recurrence=$7, cycle=$7, state=$8, info=$9, is_active=$10, updated_at=NOW()
+       WHERE id = $11 RETURNING *`,
+      [nextBankAccountId, source, category, note, amountNumber, receivedAt, recurrence, recurrence === "once" ? "open" : (isActive ? "open" : "paused"), source || note || null, recurrence === "once" ? true : isActive, entryId]
     );
-    if (!updated) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (updated.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
 
-    const previousAmount = toFixedAmount(existing.amount);
+    const previousAmount = toFixedAmount(existing[0].amount);
     const nextAmount = Number(amountNumber.toFixed(2));
-    if (String(existing.bank_account_id) === String(nextBankAccountId)) {
-      await incrementBankAccountBalance(db, nextBankAccountId, nextAmount - previousAmount);
+    if (existing[0].bank_account_id === nextBankAccountId) {
+      await incrementBankAccountBalance(pool, nextBankAccountId, nextAmount - previousAmount);
     } else {
-      await incrementBankAccountBalance(db, existing.bank_account_id, -previousAmount);
-      await incrementBankAccountBalance(db, nextBankAccountId, nextAmount);
+      await incrementBankAccountBalance(pool, existing[0].bank_account_id, -previousAmount);
+      await incrementBankAccountBalance(pool, nextBankAccountId, nextAmount);
     }
-    return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated, userId) });
+    return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated[0], userId) });
   }
 
   async function handleExpenseEntries(req, res, session) {
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
-    const userAccounts = await ensureUserFinanceRoots(db, userId);
-    const accountIds = userAccounts.map((account) => account._id);
+    const userAccounts = await ensureUserFinanceRoots(pool, userId);
+    const accountIds = userAccounts.map((a) => a.id);
 
     if (req.method === "GET") {
       const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
       if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
-      const entries = await db.collection(COLLECTIONS.expenseEntries)
-        .find(filterResult.filter).sort({ spent_at: -1, pay_date: -1, due_date: -1, created_at: -1 }).limit(200).toArray();
+      const { rows: entries } = await pool.query(
+        `SELECT * FROM private_expenses WHERE bank_account_id = ANY($1) ORDER BY spent_at DESC NULLS LAST, pay_date DESC NULLS LAST, due_date DESC NULLS LAST, created_at DESC LIMIT 200`,
+        [filterResult.accountIds]
+      );
       return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeExpenseEntry(entry, userId)) });
     }
 
@@ -344,41 +346,37 @@ export function createFinanceHandlers(db) {
     if (Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
     if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
-    await rememberUserCategory(db, userId, "expense", category);
-    const selectedBankAccountId = parseObjectId(payload.bank_account_id);
-    const bankAccountId = selectedBankAccountId && accountIds.some((id) => String(id) === String(selectedBankAccountId)) ? selectedBankAccountId : accountIds[0];
+    await rememberUserCategory(pool, userId, "expense", category);
+    const selectedBankAccountId = parseId(payload.bank_account_id);
+    const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
 
-    const doc = {
-      bank_account_id: bankAccountId, source, category, amount: toDecimal(amountNumber), theo_amount: toDecimal(amountNumber),
-      spent_at: spentAt, due_date: spentAt, pay_date: spentAt, info: source || note || null,
-      state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"), note, recurrence, cycle: recurrence,
-      is_active: recurrence === "once" ? true : isActive, created_at: new Date(), updated_at: new Date()
-    };
+    const { rows } = await pool.query(
+      `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, state, note, recurrence, cycle, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $4, $5, $5, $5, $6, $7, $8, $9, $9, $10, NOW(), NOW()) RETURNING *`,
+      [bankAccountId, source, category, amountNumber, spentAt, source || note || null, recurrence === "once" ? "open" : (isActive ? "open" : "paused"), note, recurrence, recurrence === "once" ? true : isActive]
+    );
 
-    const insert = await db.collection(COLLECTIONS.expenseEntries).insertOne(doc);
-    await incrementBankAccountBalance(db, bankAccountId, -amountNumber);
-    const inserted = await db.collection(COLLECTIONS.expenseEntries).findOne({ _id: insert.insertedId });
-    return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(inserted, userId) });
+    await incrementBankAccountBalance(pool, bankAccountId, -amountNumber);
+    return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(rows[0], userId) });
   }
 
   async function handleExpenseEntryById(req, res, entryIdRaw, session) {
-    const entryId = parseObjectId(entryIdRaw);
+    const entryId = parseId(entryIdRaw);
     if (!entryId) return badRequest(res, "entry_id ist ungueltig");
 
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
-    const accountIds = (await listUserBankAccounts(db, userId)).map((account) => account._id);
+    const accountIds = (await listUserBankAccounts(pool, userId)).map((a) => a.id);
     if (accountIds.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
-    const accountFilter = { bank_account_id: { $in: accountIds } };
 
     if (req.method === "DELETE") {
-      const existing = await db.collection(COLLECTIONS.expenseEntries).findOne(
-        { _id: entryId, ...accountFilter }, { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+      const { rows: existing } = await pool.query(
+        `SELECT id, amount, bank_account_id FROM private_expenses WHERE id = $1 AND bank_account_id = ANY($2)`,
+        [entryId, accountIds]
       );
-      if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
-      const deletion = await db.collection(COLLECTIONS.expenseEntries).deleteOne({ _id: entryId, ...accountFilter });
-      if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Eintrag wurde nicht gefunden");
-      await incrementBankAccountBalance(db, existing.bank_account_id, toFixedAmount(existing.amount));
+      if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+      await pool.query(`DELETE FROM private_expenses WHERE id = $1`, [entryId]);
+      await incrementBankAccountBalance(pool, existing[0].bank_account_id, toFixedAmount(existing[0].amount));
       return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
     }
 
@@ -397,7 +395,7 @@ export function createFinanceHandlers(db) {
     const spentAt = payload.spent_at ? new Date(payload.spent_at) : null;
     const recurrence = normalizeRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
-    const requestedBankAccountId = parseObjectId(payload.bank_account_id);
+    const requestedBankAccountId = parseId(payload.bank_account_id);
 
     if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
     if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
@@ -405,82 +403,84 @@ export function createFinanceHandlers(db) {
     if (!spentAt || Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
     if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
 
-    await rememberUserCategory(db, userId, "expense", category);
+    await rememberUserCategory(pool, userId, "expense", category);
 
-    const existing = await db.collection(COLLECTIONS.expenseEntries).findOne(
-      { _id: entryId, ...accountFilter }, { projection: { _id: 1, amount: 1, bank_account_id: 1 } }
+    const { rows: existing } = await pool.query(
+      `SELECT id, amount, bank_account_id FROM private_expenses WHERE id = $1 AND bank_account_id = ANY($2)`,
+      [entryId, accountIds]
     );
-    if (!existing) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
 
-    const nextBankAccountId = requestedBankAccountId && accountIds.some((id) => String(id) === String(requestedBankAccountId))
-      ? requestedBankAccountId : existing.bank_account_id;
+    const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
+      ? requestedBankAccountId : existing[0].bank_account_id;
 
-    const updated = await db.collection(COLLECTIONS.expenseEntries).findOneAndUpdate(
-      { _id: entryId },
-      { $set: { bank_account_id: nextBankAccountId, source, category, note, amount: toDecimal(amountNumber), theo_amount: toDecimal(amountNumber), spent_at: spentAt, due_date: spentAt, pay_date: spentAt, info: source || note || null, state: recurrence === "once" ? "open" : (isActive ? "open" : "paused"), recurrence, cycle: recurrence, is_active: recurrence === "once" ? true : isActive, updated_at: new Date() } },
-      { returnDocument: "after" }
+    const { rows: updated } = await pool.query(
+      `UPDATE private_expenses SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, theo_amount=$5, spent_at=$6, due_date=$6, pay_date=$6, info=$7, state=$8, recurrence=$9, cycle=$9, is_active=$10, updated_at=NOW()
+       WHERE id = $11 RETURNING *`,
+      [nextBankAccountId, source, category, note, amountNumber, spentAt, source || note || null, recurrence === "once" ? "open" : (isActive ? "open" : "paused"), recurrence, recurrence === "once" ? true : isActive, entryId]
     );
-    if (!updated) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (updated.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
 
-    const previousAmount = toFixedAmount(existing.amount);
+    const previousAmount = toFixedAmount(existing[0].amount);
     const nextAmount = Number(amountNumber.toFixed(2));
-    if (String(existing.bank_account_id) === String(nextBankAccountId)) {
-      await incrementBankAccountBalance(db, nextBankAccountId, previousAmount - nextAmount);
+    if (existing[0].bank_account_id === nextBankAccountId) {
+      await incrementBankAccountBalance(pool, nextBankAccountId, previousAmount - nextAmount);
     } else {
-      await incrementBankAccountBalance(db, existing.bank_account_id, previousAmount);
-      await incrementBankAccountBalance(db, nextBankAccountId, -nextAmount);
+      await incrementBankAccountBalance(pool, existing[0].bank_account_id, previousAmount);
+      await incrementBankAccountBalance(pool, nextBankAccountId, -nextAmount);
     }
-    return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated, userId) });
+    return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated[0], userId) });
   }
 
   async function loadUserBankAccountsLocal(userId) {
-    const userObjectId = parseObjectId(userId);
+    const userObjectId = parseId(userId);
     if (!userObjectId) return [];
-    const accounts = await db.collection(COLLECTIONS.bankAccounts)
-      .find({ user_id: userObjectId }).project({ _id: 1, label: 1, name: 1, balance: 1, created_at: 1 }).sort({ created_at: 1 }).toArray();
-    return accounts.map((account, index) => ({
-      id: String(account._id),
-      label: String(account?.label || account?.name || `Bankkonto ${index + 1}`),
-      balance: toFixedAmount(account?.balance)
+    const { rows } = await pool.query(
+      `SELECT id, label, balance, created_at FROM bank_accounts WHERE user_id = $1 ORDER BY created_at ASC`,
+      [userObjectId]
+    );
+    return rows.map((account, index) => ({
+      id: String(account.id),
+      label: String(account.label || `Bankkonto ${index + 1}`),
+      balance: toFixedAmount(account.balance)
     }));
   }
 
   async function loadUserShareAccountsLocal(userId) {
-    const userObjectId = parseObjectId(userId);
+    const userObjectId = parseId(userId);
     if (!userObjectId) return [];
-    const shareAccounts = await listUserShareAccounts(db, userObjectId);
+    const shareAccounts = await listUserShareAccounts(pool, userObjectId);
     return shareAccounts.map((account, index) => ({
-      id: String(account._id),
-      label: String(account?.label || account?.name || `Aktienkonto ${index + 1}`)
+      id: String(account.id),
+      label: String(account.label || `Aktienkonto ${index + 1}`)
     }));
   }
 
   async function loadUserPositions(userId, shareAccountIdRaw = "") {
-    const userObjectId = parseObjectId(userId);
+    const userObjectId = parseId(userId);
     if (!userObjectId) return [];
-    const shareAccounts = await listUserShareAccounts(db, userObjectId);
+    const shareAccounts = await listUserShareAccounts(pool, userObjectId);
     if (!shareAccounts.length) return [];
 
-    const shareAccountIds = shareAccounts.map((account) => account._id);
+    const shareAccountIds = shareAccounts.map((a) => a.id);
     let filteredShareAccountIds = shareAccountIds;
-    const selectedAccountId = parseObjectId(shareAccountIdRaw);
+    const selectedAccountId = parseId(shareAccountIdRaw);
     if (shareAccountIdRaw && !selectedAccountId) return [];
     if (selectedAccountId) {
-      const isAllowed = shareAccountIds.some((id) => String(id) === String(selectedAccountId));
-      if (!isAllowed) return [];
+      if (!shareAccountIds.includes(selectedAccountId)) return [];
       filteredShareAccountIds = [selectedAccountId];
     }
 
-    const accountIdFilter = { $in: filteredShareAccountIds };
-    const shares = await db.collection(COLLECTIONS.shares)
-      .find({ $or: [{ share_account_id: accountIdFilter }, { depot_id: accountIdFilter }, { bank_account_id: accountIdFilter }] })
-      .sort({ bought_at: 1 }).limit(500).toArray();
+    const { rows: shares } = await pool.query(
+      `SELECT * FROM shares WHERE share_account_id = ANY($1) OR depot_id = ANY($1) OR bank_account_id = ANY($1) ORDER BY bought_at ASC LIMIT 500`,
+      [filteredShareAccountIds]
+    );
 
     return shares.map((share) => {
-      const symbol = String(share?.symbol || "").trim().toUpperCase();
-      const amount = toNumber(share?.units);
-      const boughtFor = toNumber(share?.bought_for);
-      const boughtAtMs = share?.bought_at instanceof Date ? share.bought_at.getTime() : Date.parse(String(share?.bought_at || ""));
+      const symbol = String(share.symbol || "").trim().toUpperCase();
+      const amount = toNumber(share.units);
+      const boughtFor = toNumber(share.bought_for);
+      const boughtAtMs = share.bought_at instanceof Date ? share.bought_at.getTime() : Date.parse(String(share.bought_at || ""));
       const createdAt = Number.isFinite(boughtAtMs) ? Math.floor(boughtAtMs / 1000) : Number.NaN;
       const worthWhenBought = Number.isFinite(amount) && amount > 0 && Number.isFinite(boughtFor) ? boughtFor / amount : Number.NaN;
       if (!symbol || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(createdAt) || createdAt <= 0 || !Number.isFinite(worthWhenBought) || worthWhenBought <= 0) return null;
@@ -499,7 +499,7 @@ export function createFinanceHandlers(db) {
   }
 
   async function handleBankAccounts(req, res, session) {
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
     if (req.method === "GET") {
@@ -518,16 +518,18 @@ export function createFinanceHandlers(db) {
     const label = String(payload?.label || payload?.name || "").trim();
     if (!label) return badRequest(res, "Kontoname ist erforderlich");
 
-    const createdAt = new Date();
-    const insert = await db.collection(COLLECTIONS.bankAccounts).insertOne({ user_id: userId, label, balance: toDecimal(0), created_at: createdAt });
-    return sendJson(res, 201, { ok: true, account: { id: String(insert.insertedId), label, balance: 0 } });
+    const { rows } = await pool.query(
+      `INSERT INTO bank_accounts (user_id, label, balance, created_at) VALUES ($1, $2, 0, NOW()) RETURNING id, label, balance`,
+      [userId, label]
+    );
+    return sendJson(res, 201, { ok: true, account: { id: String(rows[0].id), label, balance: 0 } });
   }
 
   async function handleBankAccountById(req, res, accountIdRaw, session) {
-    const accountId = parseObjectId(accountIdRaw);
+    const accountId = parseId(accountIdRaw);
     if (!accountId) return badRequest(res, "bank_account_id ist ungueltig");
 
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
     if (req.method === "PATCH") {
@@ -535,16 +537,21 @@ export function createFinanceHandlers(db) {
       if (!payload) return;
       const label = String(payload?.label || payload?.name || "").trim();
       if (!label) return badRequest(res, "Kontoname ist erforderlich");
-      const updated = await db.collection(COLLECTIONS.bankAccounts).findOneAndUpdate(
-        { _id: accountId, user_id: userId }, { $set: { label } }, { returnDocument: "after", projection: { _id: 1, label: 1, name: 1, balance: 1 } }
+      const { rows } = await pool.query(
+        `UPDATE bank_accounts SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING id, label, balance`,
+        [label, accountId, userId]
       );
-      if (!updated) return notFound(res, "Bankkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, account: { id: String(updated._id), label: String(updated?.label || updated?.name || "Bankkonto"), balance: toFixedAmount(updated?.balance) } });
+      if (rows.length === 0) return notFound(res, "Bankkonto nicht gefunden");
+      return sendJson(res, 200, { ok: true, account: { id: String(rows[0].id), label: rows[0].label, balance: toFixedAmount(rows[0].balance) } });
     }
 
     if (req.method === "DELETE") {
-      const sourceAccount = await db.collection(COLLECTIONS.bankAccounts).findOne({ _id: accountId, user_id: userId }, { projection: { _id: 1, label: 1, balance: 1 } });
-      if (!sourceAccount) return notFound(res, "Bankkonto nicht gefunden");
+      const { rows: sourceRows } = await pool.query(
+        `SELECT id, label, balance FROM bank_accounts WHERE id = $1 AND user_id = $2`,
+        [accountId, userId]
+      );
+      if (sourceRows.length === 0) return notFound(res, "Bankkonto nicht gefunden");
+      const sourceAccount = sourceRows[0];
 
       let payload = {};
       try { payload = await readBody(req); } catch (error) {
@@ -555,16 +562,18 @@ export function createFinanceHandlers(db) {
         payload = {};
       }
 
-      const transferTargetId = parseObjectId(payload?.transfer_to_bank_account_id);
+      const transferTargetId = parseId(payload?.transfer_to_bank_account_id);
       const transferRequested = Boolean(transferTargetId);
       const sourceBalance = toFixedAmount(sourceAccount.balance);
-      const transferOptions = await db.collection(COLLECTIONS.bankAccounts)
-        .find({ user_id: userId, _id: { $ne: accountId } }, { projection: { _id: 1, label: 1, name: 1, balance: 1 } }).sort({ created_at: 1, _id: 1 }).toArray();
+      const { rows: transferOptions } = await pool.query(
+        `SELECT id, label, balance FROM bank_accounts WHERE user_id = $1 AND id != $2 ORDER BY created_at ASC`,
+        [userId, accountId]
+      );
       const hasAlternativeAccount = transferOptions.length > 0;
       const needsTransferPrompt = sourceBalance !== 0 && hasAlternativeAccount;
 
       if (needsTransferPrompt && !transferRequested) {
-        return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, balance: sourceBalance, message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.", transfer_options: transferOptions.map((account, index) => ({ id: String(account._id), label: String(account?.label || account?.name || `Bankkonto ${index + 1}`), balance: toFixedAmount(account?.balance) })) });
+        return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, balance: sourceBalance, message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.", transfer_options: transferOptions.map((account, index) => ({ id: String(account.id), label: String(account.label || `Bankkonto ${index + 1}`), balance: toFixedAmount(account.balance) })) });
       }
 
       if (sourceBalance !== 0 && !hasAlternativeAccount) {
@@ -572,15 +581,18 @@ export function createFinanceHandlers(db) {
       }
 
       if (transferRequested) {
-        if (String(transferTargetId) === String(accountId)) return badRequest(res, "Zielkonto muss ein anderes Konto sein");
-        const targetAccount = await db.collection(COLLECTIONS.bankAccounts).findOne({ _id: transferTargetId, user_id: userId }, { projection: { _id: 1 } });
-        if (!targetAccount) return badRequest(res, "Zielkonto wurde nicht gefunden");
-        if (sourceBalance !== 0) await incrementBankAccountBalance(db, transferTargetId, sourceBalance);
+        if (transferTargetId === accountId) return badRequest(res, "Zielkonto muss ein anderes Konto sein");
+        const { rows: targetRows } = await pool.query(
+          `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`,
+          [transferTargetId, userId]
+        );
+        if (targetRows.length === 0) return badRequest(res, "Zielkonto wurde nicht gefunden");
+        if (sourceBalance !== 0) await incrementBankAccountBalance(pool, transferTargetId, sourceBalance);
       }
 
-      await deleteBankAccountAssociations(db, accountId);
-      const deletion = await db.collection(COLLECTIONS.bankAccounts).deleteOne({ _id: accountId, user_id: userId });
-      if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Bankkonto nicht gefunden");
+      await deleteBankAccountAssociations(pool, accountId);
+      const { rowCount } = await pool.query(`DELETE FROM bank_accounts WHERE id = $1 AND user_id = $2`, [accountId, userId]);
+      if (rowCount === 0) return notFound(res, "Bankkonto nicht gefunden");
       return sendJson(res, 200, { ok: true, message: "Bankkonto geloescht" });
     }
 
@@ -589,7 +601,7 @@ export function createFinanceHandlers(db) {
   }
 
   async function handleShareAccounts(req, res, session) {
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
     if (req.method === "GET") {
@@ -608,16 +620,18 @@ export function createFinanceHandlers(db) {
     const label = String(payload?.label || payload?.name || "").trim();
     if (!label) return badRequest(res, "Kontoname ist erforderlich");
 
-    const createdAt = new Date();
-    const insert = await db.collection(COLLECTIONS.shareAccounts).insertOne({ user_id: userId, label, created_at: createdAt });
-    return sendJson(res, 201, { ok: true, account: { id: String(insert.insertedId), label } });
+    const { rows } = await pool.query(
+      `INSERT INTO share_accounts (user_id, label, created_at) VALUES ($1, $2, NOW()) RETURNING id, label`,
+      [userId, label]
+    );
+    return sendJson(res, 201, { ok: true, account: { id: String(rows[0].id), label } });
   }
 
   async function handleShareAccountById(req, res, accountIdRaw, session) {
-    const accountId = parseObjectId(accountIdRaw);
+    const accountId = parseId(accountIdRaw);
     if (!accountId) return badRequest(res, "share_account_id ist ungueltig");
 
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
     if (req.method === "PATCH") {
@@ -625,15 +639,20 @@ export function createFinanceHandlers(db) {
       if (!payload) return;
       const label = String(payload?.label || payload?.name || "").trim();
       if (!label) return badRequest(res, "Kontoname ist erforderlich");
-      let updatedDoc = await db.collection(COLLECTIONS.shareAccounts).findOneAndUpdate({ _id: accountId, user_id: userId }, { $set: { label } }, { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } });
-      if (!updatedDoc) updatedDoc = await db.collection(COLLECTIONS.depots).findOneAndUpdate({ _id: accountId, user_id: userId }, { $set: { label } }, { returnDocument: "after", projection: { _id: 1, label: 1, name: 1 } });
-      if (!updatedDoc) return notFound(res, "Aktienkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, account: { id: String(updatedDoc._id), label: String(updatedDoc?.label || updatedDoc?.name || "Aktienkonto") } });
+      const { rows } = await pool.query(
+        `UPDATE share_accounts SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING id, label`,
+        [label, accountId, userId]
+      );
+      if (rows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
+      return sendJson(res, 200, { ok: true, account: { id: String(rows[0].id), label: rows[0].label } });
     }
 
     if (req.method === "DELETE") {
-      const sourceAccount = await db.collection(COLLECTIONS.shareAccounts).findOne({ _id: accountId, user_id: userId }, { projection: { _id: 1, label: 1, name: 1 } }) || await db.collection(COLLECTIONS.depots).findOne({ _id: accountId, user_id: userId }, { projection: { _id: 1, label: 1, name: 1 } });
-      if (!sourceAccount) return notFound(res, "Aktienkonto nicht gefunden");
+      const { rows: sourceRows } = await pool.query(
+        `SELECT id, label FROM share_accounts WHERE id = $1 AND user_id = $2`,
+        [accountId, userId]
+      );
+      if (sourceRows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
 
       let payload = {};
       try { payload = await readBody(req); } catch (error) {
@@ -644,37 +663,40 @@ export function createFinanceHandlers(db) {
         payload = {};
       }
 
-      const transferTargetId = parseObjectId(payload?.transfer_to_share_account_id);
+      const transferTargetId = parseId(payload?.transfer_to_share_account_id);
       const transferRequested = Boolean(transferTargetId);
-      const shareAccounts = await listUserShareAccounts(db, session.user.id);
-      const transferOptions = shareAccounts.filter((account) => String(account?._id) !== String(accountId)).map((account, index) => ({ id: String(account._id), label: String(account?.label || account?.name || `Aktienkonto ${index + 1}`) }));
+      const shareAccounts = await listUserShareAccounts(pool, userId);
+      const transferOptions = shareAccounts.filter((a) => a.id !== accountId).map((a, i) => ({ id: String(a.id), label: String(a.label || `Aktienkonto ${i + 1}`) }));
       const hasAlternativeAccount = transferOptions.length > 0;
 
       if (!hasAlternativeAccount) {
         return sendJson(res, 409, { ok: false, requires_transfer: false, message: "Du hast nur ein Aktienkonto. Lege zuerst ein weiteres an, bevor du dieses loescht." });
       }
 
-      const sharesFilter = { $or: [{ share_account_id: accountId }, { depot_id: accountId }, { bank_account_id: accountId }] };
-      const shareCount = await db.collection(COLLECTIONS.shares).countDocuments(sharesFilter, { limit: 1 });
+      const { rows: shareCountRows } = await pool.query(
+        `SELECT COUNT(*) as cnt FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`,
+        [accountId]
+      );
+      const shareCount = Number(shareCountRows[0]?.cnt || 0);
 
       if (shareCount > 0 && !transferRequested) {
         return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, message: "Aktienkonto kann nur geloescht werden, wenn die Shares auf ein anderes Aktienkonto uebertragen werden.", transfer_options: transferOptions });
       }
 
       if (transferRequested) {
-        if (String(transferTargetId) === String(accountId)) return badRequest(res, "Zielkonto muss ein anderes Konto sein");
-        const targetAccount = await db.collection(COLLECTIONS.shareAccounts).findOne({ _id: transferTargetId, user_id: userId }, { projection: { _id: 1 } }) || await db.collection(COLLECTIONS.depots).findOne({ _id: transferTargetId, user_id: userId }, { projection: { _id: 1 } });
-        if (!targetAccount) return badRequest(res, "Zielkonto wurde nicht gefunden");
-        await Promise.all([
-          db.collection(COLLECTIONS.shares).updateMany({ share_account_id: accountId }, { $set: { share_account_id: transferTargetId } }),
-          db.collection(COLLECTIONS.shares).updateMany({ depot_id: accountId }, { $set: { depot_id: transferTargetId } }),
-          db.collection(COLLECTIONS.shares).updateMany({ bank_account_id: accountId }, { $set: { bank_account_id: transferTargetId } })
-        ]);
+        if (transferTargetId === accountId) return badRequest(res, "Zielkonto muss ein anderes Konto sein");
+        const { rows: targetRows } = await pool.query(
+          `SELECT id FROM share_accounts WHERE id = $1 AND user_id = $2`,
+          [transferTargetId, userId]
+        );
+        if (targetRows.length === 0) return badRequest(res, "Zielkonto wurde nicht gefunden");
+        await pool.query(`UPDATE shares SET share_account_id = $1 WHERE share_account_id = $2`, [transferTargetId, accountId]);
+        await pool.query(`UPDATE shares SET depot_id = $1 WHERE depot_id = $2`, [transferTargetId, accountId]);
+        await pool.query(`UPDATE shares SET bank_account_id = $1 WHERE bank_account_id = $2`, [transferTargetId, accountId]);
       }
 
-      let deletion = await db.collection(COLLECTIONS.shareAccounts).deleteOne({ _id: accountId, user_id: userId });
-      if (!deletion || deletion.deletedCount !== 1) deletion = await db.collection(COLLECTIONS.depots).deleteOne({ _id: accountId, user_id: userId });
-      if (!deletion || deletion.deletedCount !== 1) return notFound(res, "Aktienkonto nicht gefunden");
+      const { rowCount } = await pool.query(`DELETE FROM share_accounts WHERE id = $1 AND user_id = $2`, [accountId, userId]);
+      if (rowCount === 0) return notFound(res, "Aktienkonto nicht gefunden");
       return sendJson(res, 200, { ok: true, message: "Aktienkonto geloescht" });
     }
 

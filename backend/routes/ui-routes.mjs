@@ -1,14 +1,14 @@
 import path from "node:path";
 
-const PROTECTED_UI_PATHS = new Set(["/dashboard.html", "/fragen", "/groups", "/konten", "/aktien", "/einstellungen", "/nachrichten"]);
-const PROTECTED_UI_PREFIXES = ["/fragen/", "/groups/", "/konten/", "/aktien/", "/js/", "/einstellungen/", "/nachrichten/"];
+const PROTECTED_UI_PATHS = new Set(["/dashboard.html", "/questions", "/groups", "/accounts", "/stocks", "/settings", "/messages"]);
+const PROTECTED_UI_PREFIXES = ["/questions/", "/groups/", "/accounts/", "/stocks/", "/js/", "/settings/", "/messages/"];
 const UI_ROOT_REDIRECTS = new Map([
   ["/groups", "/groups/"],
-  ["/fragen", "/fragen/"],
-  ["/aktien", "/aktien/"],
-  ["/konten", "/konten/"],
-  ["/einstellungen", "/einstellungen/"],
-  ["/nachrichten", "/nachrichten/"],
+  ["/questions", "/questions/"],
+  ["/stocks", "/stocks/"],
+  ["/accounts", "/accounts/"],
+  ["/settings", "/settings/"],
+  ["/messages", "/messages/"],
   ["/homepage", "/homepage/"]
 ]);
 const STATIC_EXACT_FILES = new Map([
@@ -21,11 +21,11 @@ const STATIC_EXACT_FILES = new Map([
 const STATIC_SECTION_ROUTES = [
   { basePath: "/homepage", directory: path.join("frontend", "homepage"), indexFile: "index.html" },
   { basePath: "/groups", directory: path.join("frontend", "groups"), indexFile: "index.html" },
-  { basePath: "/fragen", directory: path.join("frontend", "questions"), indexFile: "index.html" },
-  { basePath: "/aktien", directory: path.join("frontend", "stocks"), indexFile: "ShareView.html" },
-  { basePath: "/konten", directory: path.join("frontend", "accounts"), indexFile: "index.html" },
-  { basePath: "/einstellungen", directory: path.join("frontend", "einstellungen"), indexFile: "index.html" },
-  { basePath: "/nachrichten", directory: path.join("frontend", "nachrichten"), indexFile: "index.html" }
+  { basePath: "/questions", directory: path.join("frontend", "questions"), indexFile: "index.html" },
+  { basePath: "/stocks", directory: path.join("frontend", "stocks"), indexFile: "ShareView.html" },
+  { basePath: "/accounts", directory: path.join("frontend", "accounts"), indexFile: "index.html" },
+  { basePath: "/settings", directory: path.join("frontend", "settings"), indexFile: "index.html" },
+  { basePath: "/messages", directory: path.join("frontend", "messages"), indexFile: "index.html" }
 ];
 
 export function isProtectedUiPath(pathname) {

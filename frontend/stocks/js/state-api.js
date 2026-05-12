@@ -77,7 +77,7 @@
 
 	const sInitialRequestedView = String(new URLSearchParams(window.location.search).get("view") || "").trim().toLowerCase();
 	if (sInitialRequestedView === "accounts") {
-		window.location.replace("/konten/");
+		window.location.replace("/accounts/");
 	}
 
 	/**

@@ -108,7 +108,7 @@ function setEditMode(question) {
 }
 
 function toQuestionLink(questionId) {
-  return `/fragen/question.html?id=${encodeURIComponent(questionId)}`;
+  return `/questions/question.html?id=${encodeURIComponent(questionId)}`;
 }
 
 function renderQuestion(question) {

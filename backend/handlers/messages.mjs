@@ -1,9 +1,9 @@
-import { COLLECTIONS, FINZBRO_USERNAME } from "../config/runtime.mjs";
-import { escapeRegex, parseObjectId } from "../utils/data.mjs";
+import { FINZBRO_USERNAME } from "../config/runtime.mjs";
+import { parseObjectId } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
 
-export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbroChatAnswer } = {}) {
+export function createMessageHandlers(pool, { ensureFinzbroUserId, generateFinzbroChatAnswer } = {}) {
 
   async function handleGetConversations(req, res, session) {
     if (req.method !== "GET") {
@@ -14,54 +14,68 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     const userId = parseObjectId(session.user.id);
     if (!userId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
 
-    const rows = await db.collection(COLLECTIONS.privateMessages).aggregate([
-      { $match: { $or: [{ sender_id: userId }, { recipient_id: userId }] } },
-      {
-        $addFields: {
-          partnerId: { $cond: [{ $eq: ["$sender_id", userId] }, "$recipient_id", "$sender_id"] }
-        }
-      },
-      { $sort: { sent_at: -1 } },
-      {
-        $group: {
-          _id: "$partnerId",
-          lastMessage: { $first: "$$ROOT" },
-          unreadCount: {
-            $sum: {
-              $cond: [
-                { $and: [{ $eq: ["$recipient_id", userId] }, { $eq: ["$read_at", null] }] },
-                1,
-                0
-              ]
-            }
-          }
-        }
-      },
-      { $sort: { "lastMessage.sent_at": -1 } }
-    ]).toArray();
+    const { rows } = await pool.query(
+      `SELECT DISTINCT ON (partner_id)
+         partner_id,
+         id AS last_message_id,
+         sender_id,
+         recipient_id,
+         content,
+         sent_at,
+         read_at,
+         deleted_at
+       FROM (
+         SELECT
+           CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS partner_id,
+           id, sender_id, recipient_id, content, sent_at, read_at, deleted_at
+         FROM private_messages
+         WHERE sender_id = $1 OR recipient_id = $1
+       ) sub
+       ORDER BY partner_id, sent_at DESC, id DESC`,
+      [userId]
+    );
 
-    const partnerIds = rows.map((r) => r._id).filter(Boolean);
-    const partners = partnerIds.length
-      ? await db.collection(COLLECTIONS.users).find(
-        { _id: { $in: partnerIds } },
-        { projection: { _id: 1, username: 1, profileImage: 1 } }
-      ).toArray()
-      : [];
-    const partnerById = new Map(partners.map((p) => [String(p._id), p]));
+    if (rows.length === 0) {
+      return sendJson(res, 200, { ok: true, conversations: [] });
+    }
+
+    const partnerIds = rows.map((r) => r.partner_id);
+
+    const unreadRes = await pool.query(
+      `SELECT
+         sender_id AS partner_id,
+         COUNT(*)::int AS unread_count
+       FROM private_messages
+       WHERE recipient_id = $1 AND read_at IS NULL AND sender_id = ANY($2)
+       GROUP BY sender_id`,
+      [userId, partnerIds]
+    );
+    const unreadByPartner = new Map(unreadRes.rows.map((r) => [r.partner_id, r.unread_count]));
+
+    const partnersRes = await pool.query(
+      `SELECT id, username, "profileImage" FROM users WHERE id = ANY($1)`,
+      [partnerIds]
+    );
+    const partnerById = new Map(partnersRes.rows.map((p) => [p.id, p]));
 
     const conversations = rows.map((r) => {
-      const partner = partnerById.get(String(r._id));
+      const partner = partnerById.get(r.partner_id);
       if (!partner) return null;
-      const msg = r.lastMessage;
       return {
-        partnerId: String(partner._id),
+        partnerId: String(partner.id),
         partnerUsername: partner.username,
         partnerProfileImage: partner.profileImage || null,
-        lastMessage: String(msg.content || ""),
-        lastMessageAt: msg.sent_at instanceof Date ? msg.sent_at.toISOString() : null,
-        unreadCount: r.unreadCount
+        lastMessage: String(r.content || ""),
+        lastMessageAt: r.sent_at instanceof Date ? r.sent_at.toISOString() : null,
+        unreadCount: unreadByPartner.get(r.partner_id) || 0
       };
     }).filter(Boolean);
+
+    conversations.sort((a, b) => {
+      const aTime = a.lastMessageAt || "";
+      const bTime = b.lastMessageAt || "";
+      return bTime.localeCompare(aTime);
+    });
 
     return sendJson(res, 200, { ok: true, conversations });
   }
@@ -76,37 +90,34 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     const partnerId = parseObjectId(partnerIdRaw);
     if (!userId || !partnerId) return badRequest(res, "Invalid user id");
 
-    const partnerUser = await db.collection(COLLECTIONS.users).findOne(
-      { _id: partnerId },
-      { projection: { _id: 1 } }
+    const partnerRes = await pool.query(
+      `SELECT id FROM users WHERE id = $1`,
+      [partnerId]
     );
-    if (!partnerUser) return notFound(res, "Nutzer nicht gefunden");
+    if (partnerRes.rows.length === 0) return notFound(res, "Nutzer nicht gefunden");
 
-    await db.collection(COLLECTIONS.privateMessages).updateMany(
-      { sender_id: partnerId, recipient_id: userId, read_at: null },
-      { $set: { read_at: new Date() } }
+    await pool.query(
+      `UPDATE private_messages SET read_at = NOW()
+       WHERE sender_id = $1 AND recipient_id = $2 AND read_at IS NULL`,
+      [partnerId, userId]
     );
 
-    const messages = await db.collection(COLLECTIONS.privateMessages)
-      .find(
-        {
-          $or: [
-            { sender_id: userId, recipient_id: partnerId },
-            { sender_id: partnerId, recipient_id: userId }
-          ]
-        },
-        { projection: { _id: 1, sender_id: 1, content: 1, sent_at: 1, read_at: 1, deleted_at: 1 } }
-      )
-      .sort({ sent_at: 1, _id: 1 })
-      .toArray();
+    const { rows: messages } = await pool.query(
+      `SELECT id, sender_id, content, sent_at, read_at, deleted_at
+       FROM private_messages
+       WHERE (sender_id = $1 AND recipient_id = $2)
+          OR (sender_id = $2 AND recipient_id = $1)
+       ORDER BY sent_at ASC, id ASC`,
+      [userId, partnerId]
+    );
 
     const result = messages.map((m) => ({
-      _id: String(m._id),
+      _id: String(m.id),
       sender_id: String(m.sender_id),
       content: String(m.content || ""),
       sent_at: m.sent_at instanceof Date ? m.sent_at.toISOString() : null,
       read_at: m.read_at instanceof Date ? m.read_at.toISOString() : null,
-      isOwn: String(m.sender_id) === String(userId),
+      isOwn: m.sender_id === userId,
       deleted_at: m.deleted_at instanceof Date ? m.deleted_at.toISOString() : null
     }));
 
@@ -129,17 +140,23 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     if (!recipientId) return badRequest(res, "recipientId fehlt oder ist ungültig");
     if (!content) return badRequest(res, "Nachricht darf nicht leer sein");
     if (content.length > 2000) return badRequest(res, "Nachricht ist zu lang (max. 2000 Zeichen)");
-    if (String(userId) === String(recipientId)) return badRequest(res, "Du kannst dir keine Nachrichten an dich selbst senden");
+    if (userId === recipientId) return badRequest(res, "Du kannst dir keine Nachrichten an dich selbst senden");
 
-    const recipient = await db.collection(COLLECTIONS.users).findOne(
-      { _id: recipientId },
-      { projection: { _id: 1, username: 1 } }
+    const recipientRes = await pool.query(
+      `SELECT id, username FROM users WHERE id = $1`,
+      [recipientId]
     );
-    if (!recipient) return notFound(res, "Empfänger nicht gefunden");
+    if (recipientRes.rows.length === 0) return notFound(res, "Empfänger nicht gefunden");
+    const recipient = recipientRes.rows[0];
 
     const now = new Date();
-    const doc = { sender_id: userId, recipient_id: recipientId, content, sent_at: now, read_at: null };
-    const result = await db.collection(COLLECTIONS.privateMessages).insertOne(doc);
+    const insertRes = await pool.query(
+      `INSERT INTO private_messages (sender_id, recipient_id, content, sent_at, read_at)
+       VALUES ($1, $2, $3, $4, NULL)
+       RETURNING id`,
+      [userId, recipientId, content, now]
+    );
+    const insertedId = insertRes.rows[0].id;
 
     if (ensureFinzbroUserId && generateFinzbroChatAnswer &&
       String(recipient.username).toLowerCase() === FINZBRO_USERNAME) {
@@ -147,33 +164,29 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
         try {
           const finzbroUserId = await ensureFinzbroUserId();
 
-          const history = await db.collection(COLLECTIONS.privateMessages)
-            .find({
-              $or: [
-                { sender_id: userId, recipient_id: finzbroUserId },
-                { sender_id: finzbroUserId, recipient_id: userId }
-              ],
-              _id: { $ne: result.insertedId }
-            })
-            .sort({ sent_at: -1, _id: -1 })
-            .limit(5)
-            .toArray();
+          const historyRes = await pool.query(
+            `SELECT id, sender_id, content FROM private_messages
+             WHERE ((sender_id = $1 AND recipient_id = $2)
+                OR (sender_id = $2 AND recipient_id = $1))
+               AND id != $3
+             ORDER BY sent_at DESC, id DESC
+             LIMIT 5`,
+            [userId, finzbroUserId, insertedId]
+          );
 
-          const chatHistory = history.reverse().map((m) => ({
-            role: String(m.sender_id) === String(finzbroUserId) ? "assistant" : "user",
+          const chatHistory = historyRes.rows.reverse().map((m) => ({
+            role: m.sender_id === finzbroUserId ? "assistant" : "user",
             content: String(m.content)
           }));
           chatHistory.push({ role: "user", content });
 
           const replyText = await generateFinzbroChatAnswer(chatHistory);
           const replyNow = new Date();
-          await db.collection(COLLECTIONS.privateMessages).insertOne({
-            sender_id: finzbroUserId,
-            recipient_id: userId,
-            content: replyText,
-            sent_at: replyNow,
-            read_at: null
-          });
+          await pool.query(
+            `INSERT INTO private_messages (sender_id, recipient_id, content, sent_at, read_at)
+             VALUES ($1, $2, $3, $4, NULL)`,
+            [finzbroUserId, userId, replyText, replyNow]
+          );
         } catch (err) {
           console.error("FinzBro chat reply failed:", err);
         }
@@ -183,7 +196,7 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     return sendJson(res, 201, {
       ok: true,
       message: {
-        _id: String(result.insertedId),
+        _id: String(insertedId),
         sender_id: String(userId),
         content,
         sent_at: now.toISOString(),
@@ -202,12 +215,13 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     const userId = parseObjectId(session.user.id);
     if (!userId) return sendJson(res, 400, { ok: false, message: "Invalid user id" });
 
-    const count = await db.collection(COLLECTIONS.privateMessages).countDocuments({
-      recipient_id: userId,
-      read_at: null
-    });
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM private_messages
+       WHERE recipient_id = $1 AND read_at IS NULL`,
+      [userId]
+    );
 
-    return sendJson(res, 200, { ok: true, count });
+    return sendJson(res, 200, { ok: true, count: rows[0].count });
   }
 
   async function handleUserSearch(req, res, url, session) {
@@ -220,17 +234,18 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     if (!q) return sendJson(res, 200, { ok: true, users: [] });
 
     const userId = parseObjectId(session.user.id);
-    const users = await db.collection(COLLECTIONS.users)
-      .find(
-        { _id: { $ne: userId }, username: { $regex: escapeRegex(q), $options: "i" } },
-        { projection: { _id: 1, username: 1 } }
-      )
-      .limit(10)
-      .toArray();
+    const pattern = `%${q}%`;
+
+    const { rows: users } = await pool.query(
+      `SELECT id, username FROM users
+       WHERE id != $1 AND username ILIKE $2
+       LIMIT 10`,
+      [userId, pattern]
+    );
 
     return sendJson(res, 200, {
       ok: true,
-      users: users.map((u) => ({ _id: String(u._id), username: u.username }))
+      users: users.map((u) => ({ _id: String(u.id), username: u.username }))
     });
   }
 
@@ -245,19 +260,21 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     const messageId = parseObjectId(messageIdRaw);
     if (!messageId) return sendJson(res, 400, { ok: false, message: "Ungültige Nachrichten-ID" });
 
-    const existing = await db.collection(COLLECTIONS.privateMessages).findOne(
-      { _id: messageId },
-      { projection: { _id: 1, sender_id: 1, deleted_at: 1 } }
+    const { rows } = await pool.query(
+      `SELECT id, sender_id, deleted_at FROM private_messages WHERE id = $1`,
+      [messageId]
     );
-    if (!existing) return notFound(res, "Nachricht nicht gefunden");
-    if (String(existing.sender_id) !== String(userId))
+    if (rows.length === 0) return notFound(res, "Nachricht nicht gefunden");
+
+    const existing = rows[0];
+    if (existing.sender_id !== userId)
       return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
     if (existing.deleted_at)
       return sendJson(res, 400, { ok: false, message: "Nachricht wurde bereits gelöscht" });
 
-    await db.collection(COLLECTIONS.privateMessages).updateOne(
-      { _id: messageId },
-      { $set: { content: null, deleted_at: new Date() } }
+    await pool.query(
+      `UPDATE private_messages SET content = NULL, deleted_at = NOW() WHERE id = $1`,
+      [messageId]
     );
     return sendJson(res, 200, { ok: true, message: "Nachricht gelöscht" });
   }
@@ -274,19 +291,21 @@ export function createMessageHandlers(db, { ensureFinzbroUserId, generateFinzbro
     const messageId = parseObjectId(messageIdRaw);
     if (!groupId || !messageId) return sendJson(res, 400, { ok: false, message: "Ungültige ID" });
 
-    const existing = await db.collection(COLLECTIONS.groupMessages).findOne(
-      { _id: messageId, group_id: groupId },
-      { projection: { _id: 1, from_user_id: 1, deleted_at: 1 } }
+    const { rows } = await pool.query(
+      `SELECT id, from_user_id, deleted_at FROM group_message WHERE id = $1 AND group_id = $2`,
+      [messageId, groupId]
     );
-    if (!existing) return notFound(res, "Nachricht nicht gefunden");
-    if (String(existing.from_user_id) !== String(userId))
+    if (rows.length === 0) return notFound(res, "Nachricht nicht gefunden");
+
+    const existing = rows[0];
+    if (existing.from_user_id !== userId)
       return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
     if (existing.deleted_at)
       return sendJson(res, 400, { ok: false, message: "Nachricht wurde bereits gelöscht" });
 
-    await db.collection(COLLECTIONS.groupMessages).updateOne(
-      { _id: messageId },
-      { $set: { message: null, deleted_at: new Date() } }
+    await pool.query(
+      `UPDATE group_message SET message = NULL, deleted_at = NOW() WHERE id = $1`,
+      [messageId]
     );
     return sendJson(res, 200, { ok: true, message: "Nachricht gelöscht" });
   }

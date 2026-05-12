@@ -1,47 +1,36 @@
 import "dotenv/config";
-import { MongoClient } from "mongodb";
+import pg from "pg";
 
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Missing MONGODB_URI env var.");
+const { Pool } = pg;
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("Missing DATABASE_URL env var.");
 }
 
-const baseDbName = process.env.MONGODB_DB || "finanzapp";
-const dbName = process.env.MONGODB_DB_V4 || `${baseDbName}_v4`;
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
 
-let client;
+export async function query(text, params) {
+  const result = await pool.query(text, params);
+  return result;
+}
 
-export async function withDb(work) {
-  client ??= new MongoClient(uri);
-
-  try {
-    await client.connect();
-    const db = client.db(dbName);
-    return await work(db);
-  } finally {
-    await client.close();
-    client = null;
-  }
+export async function getClient() {
+  return await pool.connect();
 }
 
 export async function checkDatabaseConnection() {
   try {
-    const result = await withDb(async (db) => {
-      const ping = await db.command({ ping: 1 });
-      return {
-        ok: ping?.ok === 1,
-        database: db.databaseName
-      };
-    });
-
+    const result = await pool.query("SELECT 1 AS ok");
     return {
-      ...result,
+      ok: result.rows[0]?.ok === 1,
+      database: "supabase",
       checked_at: new Date().toISOString()
     };
   } catch (error) {
     return {
       ok: false,
-      database: dbName,
+      database: "supabase",
       checked_at: new Date().toISOString(),
       error: {
         name: error?.name ?? "Error",
@@ -51,4 +40,4 @@ export async function checkDatabaseConnection() {
   }
 }
 
-export { dbName };
+export { pool };

@@ -1,119 +1,96 @@
-import { COLLECTIONS } from "../config/runtime.mjs";
 import {
   categoryKey,
   normalizeCategoryValue,
   normalizeRecurrence,
-  parseObjectId,
-  toDecimal,
+  parseId,
   toNumber
 } from "../utils/data.mjs";
 
-export async function listUserBankAccounts(db, userId) {
-  return await db.collection(COLLECTIONS.bankAccounts)
-    .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, balance: 1, created_at: 1 } })
-    .sort({ created_at: 1, _id: 1 })
-    .toArray();
+export async function listUserBankAccounts(pool, userId) {
+  const { rows } = await pool.query(
+    `SELECT id, label, balance, created_at FROM bank_accounts WHERE user_id = $1 ORDER BY created_at ASC, id ASC`,
+    [userId]
+  );
+  return rows;
 }
 
-export async function listUserShareAccounts(db, userId) {
-  const [shareAccounts, depots] = await Promise.all([
-    db.collection(COLLECTIONS.shareAccounts)
-      .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
-      .sort({ created_at: 1, _id: 1 })
-      .toArray(),
-    db.collection(COLLECTIONS.depots)
-      .find({ user_id: userId }, { projection: { _id: 1, label: 1, name: 1, created_at: 1 } })
-      .sort({ created_at: 1, _id: 1 })
-      .toArray()
-  ]);
-
-  const merged = new Map();
-  for (const account of [...shareAccounts, ...depots]) {
-    const key = String(account?._id || "");
-    if (!key || merged.has(key)) continue;
-    merged.set(key, account);
-  }
-  return Array.from(merged.values());
+export async function listUserShareAccounts(pool, userId) {
+  const { rows } = await pool.query(
+    `SELECT id, label, created_at FROM share_accounts WHERE user_id = $1 ORDER BY created_at ASC, id ASC`,
+    [userId]
+  );
+  return rows;
 }
 
-export async function ensureUserFinanceRoots(db, userId) {
-  let bankAccounts = await listUserBankAccounts(db, userId);
+export async function ensureUserFinanceRoots(pool, userId) {
+  let bankAccounts = await listUserBankAccounts(pool, userId);
   if (bankAccounts.length === 0) {
-    const createdAt = new Date();
-    const insert = await db.collection(COLLECTIONS.bankAccounts).insertOne({
-      user_id: userId,
-      label: "Bankkonto 1",
-      balance: toDecimal(0),
-      created_at: createdAt
-    });
-    bankAccounts = [{ _id: insert.insertedId, label: "Bankkonto 1", balance: toDecimal(0), created_at: createdAt }];
+    const { rows } = await pool.query(
+      `INSERT INTO bank_accounts (user_id, label, balance, created_at) VALUES ($1, 'Bankkonto 1', 0, NOW()) RETURNING id, label, balance, created_at`,
+      [userId]
+    );
+    bankAccounts = rows;
   }
 
-  const shareAccounts = await listUserShareAccounts(db, userId);
+  const shareAccounts = await listUserShareAccounts(pool, userId);
   if (shareAccounts.length === 0) {
-    const createdAt = new Date();
-    await db.collection(COLLECTIONS.shareAccounts).insertOne({
-      user_id: userId,
-      label: "Aktienkonto 1",
-      created_at: createdAt
-    });
+    await pool.query(
+      `INSERT INTO share_accounts (user_id, label, created_at) VALUES ($1, 'Aktienkonto 1', NOW())`,
+      [userId]
+    );
   }
 
   return bankAccounts;
 }
 
-export async function incrementBankAccountBalance(db, accountId, deltaAmount) {
+export async function incrementBankAccountBalance(pool, accountId, deltaAmount) {
   const normalizedDelta = Number(Number(deltaAmount || 0).toFixed(2));
   if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
-  await db.collection(COLLECTIONS.bankAccounts).updateOne(
-    { _id: accountId },
-    { $inc: { balance: toDecimal(normalizedDelta) } }
+  await pool.query(
+    `UPDATE bank_accounts SET balance = balance + $1 WHERE id = $2`,
+    [normalizedDelta, accountId]
   );
 }
 
-export async function deleteBankAccountAssociations(db, accountId) {
+export async function deleteBankAccountAssociations(pool, accountId) {
   await Promise.all([
-    db.collection(COLLECTIONS.incomeEntries).deleteMany({ bank_account_id: accountId }),
-    db.collection(COLLECTIONS.expenseEntries).deleteMany({ bank_account_id: accountId }),
-    db.collection(COLLECTIONS.fundingParticipants).deleteMany({ bank_account_id: accountId }),
-    db.collection(COLLECTIONS.shares).deleteMany({ bank_account_id: accountId }),
-    db.collection(COLLECTIONS.transactions).deleteMany({
-      $or: [{ from_bank_account_id: accountId }, { to_bank_account_id: accountId }, { bank_account_id: accountId }]
-    }),
-    db.collection("requests").deleteMany({ $or: [{ from_bank_account_id: accountId }, { to_bank_account_id: accountId }] })
+    pool.query(`DELETE FROM income WHERE bank_account_id = $1`, [accountId]),
+    pool.query(`DELETE FROM private_expenses WHERE bank_account_id = $1`, [accountId]),
+    pool.query(`DELETE FROM funding_participants WHERE bank_account_id = $1`, [accountId]),
+    pool.query(`DELETE FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`, [accountId]),
+    pool.query(`DELETE FROM transactions WHERE from_bank_account_id = $1 OR to_bank_account_id = $1 OR bank_account_id = $1`, [accountId]),
+    pool.query(`DELETE FROM requests WHERE from_bank_account_id = $1 OR to_bank_account_id = $1`, [accountId])
   ]);
 }
 
-export async function rememberUserCategory(db, userId, kind, categoryValue) {
+export async function rememberUserCategory(pool, userId, kind, categoryValue) {
   const normalized = normalizeCategoryValue(categoryValue);
   if (!normalized) return;
   const key = categoryKey(normalized);
-  await db.collection(COLLECTIONS.userCategories).updateOne(
-    { user_id: userId, kind, key },
-    {
-      $setOnInsert: { user_id: userId, kind, key, created_at: new Date() },
-      $set: { value: normalized, updated_at: new Date() }
-    },
-    { upsert: true }
+  await pool.query(
+    `INSERT INTO user_categories (user_id, kind, key, value, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, NOW(), NOW())
+     ON CONFLICT (user_id, kind, key) DO UPDATE SET value = $4, updated_at = NOW()`,
+    [userId, kind, key, normalized]
   );
 }
 
 export function resolveRequestedBankAccountFilter(req, accountIds) {
   const requestUrl = new URL(req.url || "/", "http://localhost");
   const rawBankAccountId = String(requestUrl.searchParams.get("bank_account_id") || "").trim();
-  if (!rawBankAccountId) return { ok: true, filter: { bank_account_id: { $in: accountIds } } };
+  if (!rawBankAccountId) return { ok: true, accountIds };
 
-  const selectedId = parseObjectId(rawBankAccountId);
+  const selectedId = parseId(rawBankAccountId);
   if (!selectedId) {
     return { ok: false, status: 400, message: "bank_account_id ist ungueltig" };
   }
 
-  const isAllowed = accountIds.some((accountId) => String(accountId) === String(selectedId));
+  const isAllowed = accountIds.some((id) => id === selectedId);
   if (!isAllowed) {
     return { ok: false, status: 403, message: "Bankkonto gehoert nicht zum User" };
   }
 
-  return { ok: true, filter: { bank_account_id: selectedId } };
+  return { ok: true, accountIds: [selectedId] };
 }
 
 function toNullableNumber(value) {
@@ -157,21 +134,27 @@ export function calculateCurrentMonthTotal(entries, dateField) {
   return Number((oneTime + recurring).toFixed(2));
 }
 
-export async function calculateDashboardStyleDonationBalance(db, userId) {
-  const userAccounts = await ensureUserFinanceRoots(db, userId);
-  const accountIds = userAccounts.map((account) => account._id);
-  const accountFilter = accountIds.length ? { bank_account_id: { $in: accountIds } } : { _id: { $exists: false } };
+export async function calculateDashboardStyleDonationBalance(pool, userId) {
+  const userAccounts = await ensureUserFinanceRoots(pool, userId);
+  const accountIds = userAccounts.map((account) => account.id);
 
-  const [incomeEntries, expenseEntries] = await Promise.all([
-    db.collection(COLLECTIONS.incomeEntries).find(
-      accountFilter,
-      { projection: { amount: 1, recurrence: 1, cycle: 1, is_active: 1, state: 1, received_at: 1, pay_date: 1, created_at: 1 } }
-    ).toArray(),
-    db.collection(COLLECTIONS.expenseEntries).find(
-      accountFilter,
-      { projection: { amount: 1, recurrence: 1, cycle: 1, is_active: 1, state: 1, spent_at: 1, pay_date: 1, due_date: 1, created_at: 1 } }
-    ).toArray()
+  if (accountIds.length === 0) {
+    return { availableDonationBalance: 0, dashboardNetLiquidity: 0, monthlyIncome: 0, monthlyExpense: 0, userAccounts };
+  }
+
+  const [incomeResult, expenseResult] = await Promise.all([
+    pool.query(
+      `SELECT amount, recurrence, cycle, is_active, state, received_at, pay_date, created_at FROM income WHERE bank_account_id = ANY($1)`,
+      [accountIds]
+    ),
+    pool.query(
+      `SELECT amount, recurrence, cycle, is_active, state, spent_at, pay_date, due_date, created_at FROM private_expenses WHERE bank_account_id = ANY($1)`,
+      [accountIds]
+    )
   ]);
+
+  const incomeEntries = incomeResult.rows;
+  const expenseEntries = expenseResult.rows;
 
   const monthlyIncome = Number(calculateCurrentMonthTotal(incomeEntries, "received_at").toFixed(2));
   const monthlyExpense = calculateCurrentMonthTotal(expenseEntries, "spent_at");

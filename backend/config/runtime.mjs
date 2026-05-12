@@ -1,8 +1,7 @@
 const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
 
 export const PORT = Number(process.env.PORT || 3000);
-export const DB_NAME = process.env.MONGODB_DB_V4 || `${BASE_DB_NAME}_v4`;
-export const MONGO_URI = process.env.MONGODB_URI;
+export const DATABASE_URL = process.env.DATABASE_URL || "";
 
 export const VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15);
 export const SESSION_TTL_MINUTES = Number(process.env.SESSION_TTL_MINUTES || 180);
@@ -44,33 +43,6 @@ export const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 
 export const PRESET_INCOME_CATEGORY_KEYS = new Set(["salary", "freelance", "bonus", "refund", "investment", "other"]);
 export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utilities", "transport", "health", "entertainment", "other"]);
-
-export const COLLECTIONS = {
-  users: "users",
-  sessions: "sessions",
-  emailVerifications: "email_verifications",
-  passwordResets: "password_resets",
-  incomeEntries: "income",
-  expenseEntries: "private_expenses",
-  userCategories: "user_categories",
-  groups: "groups",
-  groupMembers: "group_members",
-  groupActivities: "group_activities",
-  groupFunding: "group_funding",
-  groupExpenses: "group_expenses",
-  groupMessages: "group_message",
-  fundingParticipants: "funding_participants",
-  transactions: "transactions",
-  bankAccounts: "bank_accounts",
-  shareAccounts: "share_accounts",
-  depots: "depots",
-  shares: "shares",
-  globalQuestions: "global_questions",
-  globalAnswers: "global_answers",
-  questionLikes: "question_likes",
-  answerLikes: "answer_likes",
-  privateMessages: "private_messages"
-};
 
 export const MIME_BY_EXT = {
   ".css": "text/css; charset=utf-8",

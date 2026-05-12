@@ -1,11 +1,10 @@
-import { COLLECTIONS, SESSION_COOKIE_NAME } from "../config/runtime.mjs";
-import { parseObjectId } from "../utils/data.mjs";
-import { parseBody, parseCookies, readBody, sendJson } from "../utils/http.mjs";
+import { parseId } from "../utils/data.mjs";
+import { parseBody, sendJson } from "../utils/http.mjs";
+import { badRequest, unauthorized } from "../helpers/responses.mjs";
 import { hashPassword, verifyPassword } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
-import { badRequest, unauthorized, forbidden } from "../helpers/responses.mjs";
 
-export function createUserHandlers({ db, destroySession, clearSessionCookie }) {
+export function createUserHandlers({ pool, destroySession, clearSessionCookie }) {
 
   async function handleDeleteUserAccount(req, res, session) {
     if (req.method !== "DELETE") {
@@ -13,23 +12,26 @@ export function createUserHandlers({ db, destroySession, clearSessionCookie }) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
     await Promise.all([
-      db.collection(COLLECTIONS.incomeEntries).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.expenseEntries).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.userCategories).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.bankAccounts).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.shareAccounts).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.transactions).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.groupMembers).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.questionLikes).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.answerLikes).deleteMany({ user_id: userId }),
-      db.collection(COLLECTIONS.emailVerifications).deleteMany({ user_id: userId })
+      pool.query(`DELETE FROM income WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]),
+      pool.query(`DELETE FROM private_expenses WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]),
+      pool.query(`DELETE FROM user_categories WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM bank_accounts WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM share_accounts WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM transactions WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM group_members WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM question_likes WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM answer_likes WHERE user_id = $1`, [userId]),
+      pool.query(`DELETE FROM email_verifications WHERE email IN (SELECT email FROM users WHERE id = $1)`, [userId])
     ]);
 
-    await db.collection(COLLECTIONS.users).deleteOne({ _id: userId });
+    await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+
+    const { parseCookies } = await import("../utils/http.mjs");
+    const { SESSION_COOKIE_NAME } = await import("../config/runtime.mjs");
     await destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
 
     return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
@@ -52,17 +54,14 @@ export function createUserHandlers({ db, destroySession, clearSessionCookie }) {
     if (!currentPassword || !newPassword) return badRequest(res, "Aktuelles und neues Passwort sind Pflichtfelder");
     if (newPassword.length < 8) return badRequest(res, "Neues Passwort muss mindestens 8 Zeichen haben");
 
-    const userId = parseObjectId(session.user.id);
-    const user = await db.collection(COLLECTIONS.users).findOne({ _id: userId }, { projection: { password: 1 } });
-    if (!user) return unauthorized(res, "Benutzer nicht gefunden");
+    const userId = parseId(session.user.id);
+    const { rows } = await pool.query(`SELECT password FROM users WHERE id = $1`, [userId]);
+    if (rows.length === 0) return unauthorized(res, "Benutzer nicht gefunden");
 
-    const isValid = await verifyPassword(currentPassword, user.password);
+    const isValid = await verifyPassword(currentPassword, rows[0].password);
     if (!isValid) return sendJson(res, 400, { ok: false, code: "wrong_password", message: "Aktuelles Passwort ist falsch" });
 
-    await db.collection(COLLECTIONS.users).updateOne(
-      { _id: userId },
-      { $set: { password: await hashPassword(newPassword) } }
-    );
+    await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [await hashPassword(newPassword), userId]);
 
     return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich geändert" });
   }
@@ -75,6 +74,7 @@ export function createUserHandlers({ db, destroySession, clearSessionCookie }) {
 
     if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "profile-image" })) return;
 
+    const { readBody } = await import("../utils/http.mjs");
     let payload;
     try {
       payload = await readBody(req, { maxBytes: 300_000 });
@@ -93,10 +93,10 @@ export function createUserHandlers({ db, destroySession, clearSessionCookie }) {
     const approxBytes = Math.ceil(base64Data.length * 0.75);
     if (approxBytes > 210_000) return sendJson(res, 413, { ok: false, message: "Bild ist zu groß (max. 200 KB)" });
 
-    const userId = parseObjectId(session.user.id);
+    const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
-    await db.collection(COLLECTIONS.users).updateOne({ _id: userId }, { $set: { profileImage } });
+    await pool.query(`UPDATE users SET "profileImage" = $1 WHERE id = $2`, [profileImage, userId]);
 
     return sendJson(res, 200, { ok: true, message: "Profilbild gespeichert" });
   }

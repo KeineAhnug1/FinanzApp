@@ -23,7 +23,7 @@ function initProfileMenu() {
 
   profileBtn.setAttribute("aria-label", "Einstellungen");
   profileBtn.addEventListener("click", () => {
-    window.location.href = "/einstellungen/";
+    window.location.href = "/settings/";
   });
 }
 

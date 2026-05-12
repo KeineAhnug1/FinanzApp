@@ -1,7 +1,6 @@
 import { randomBytes, randomInt } from "node:crypto";
 import nodemailer from "nodemailer";
 import {
-  COLLECTIONS,
   FINZBRO_EMAIL,
   FINZBRO_USERNAME,
   SMTP_FROM,
@@ -13,7 +12,7 @@ import {
   VERIFICATION_TTL_MINUTES
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
-import { normalizeEmail, parseIncome, parseObjectId, toDecimal, toNumber } from "../utils/data.mjs";
+import { normalizeEmail, parseIncome, parseId, toNumber } from "../utils/data.mjs";
 import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
 import {
   hashPassword,
@@ -78,54 +77,41 @@ async function sendPasswordResetEmail(toEmail, firstName, code) {
   return true;
 }
 
-export async function migratePlaintextPasswords(db) {
-  const users = await db.collection(COLLECTIONS.users).find(
-    {},
-    { projection: { _id: 1, password: 1, hashed_passwort: 1 } }
-  ).toArray();
+export async function migratePlaintextPasswords(pool) {
+  const { rows: users } = await pool.query(
+    `SELECT id, password FROM users`
+  );
 
   let migratedUsers = 0;
   for (const user of users) {
     const password = typeof user.password === "string" ? user.password : "";
-    const legacyHash = typeof user.hashed_passwort === "string" ? user.hashed_passwort : "";
     let nextPassword = null;
 
     if (isScryptPasswordHash(password) || isSha256PasswordHash(password)) {
       nextPassword = password;
     } else if (password) {
       nextPassword = await hashPassword(password);
-    } else if (legacyHash) {
-      nextPassword = `${PASSWORD_HASH_SHA256_PREFIX}${legacyHash}`;
     }
 
     if (!nextPassword) continue;
-    const needsPasswordWrite = password !== nextPassword;
-    const needsLegacyFieldCleanup = Object.prototype.hasOwnProperty.call(user, "hashed_passwort");
-    if (!needsPasswordWrite && !needsLegacyFieldCleanup) continue;
+    if (password === nextPassword) continue;
 
-    await db.collection(COLLECTIONS.users).updateOne(
-      { _id: user._id },
-      {
-        ...(needsPasswordWrite ? { $set: { password: nextPassword } } : {}),
-        ...(needsLegacyFieldCleanup ? { $unset: { hashed_passwort: "" } } : {})
-      }
-    );
+    await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [nextPassword, user.id]);
     migratedUsers += 1;
   }
 
-  const verifications = await db.collection(COLLECTIONS.emailVerifications).find(
-    {},
-    { projection: { _id: 1, password: 1 } }
-  ).toArray();
+  const { rows: verifications } = await pool.query(
+    `SELECT id, password FROM email_verifications`
+  );
 
   let migratedVerifications = 0;
   for (const verification of verifications) {
     if (isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)) continue;
     const password = String(verification.password || "");
     if (!password) continue;
-    await db.collection(COLLECTIONS.emailVerifications).updateOne(
-      { _id: verification._id },
-      { $set: { password: await hashPassword(password) } }
+    await pool.query(
+      `UPDATE email_verifications SET password = $1 WHERE id = $2`,
+      [await hashPassword(password), verification.id]
     );
     migratedVerifications += 1;
   }
@@ -135,7 +121,7 @@ export async function migratePlaintextPasswords(db) {
   }
 }
 
-export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME }) {
+export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME }) {
 
   async function getSessionUser(req) {
     const cookies = parseCookies(req);
@@ -143,20 +129,21 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     const rec = await getSessionRecord(token);
     if (!rec) return null;
 
-    const user = await db.collection(COLLECTIONS.users).findOne(
-      { _id: parseObjectId(rec.userId) },
-      { projection: { _id: 1, username: 1, email: 1, first_name: 1, last_name: 1, income: 1, created_at: 1, profileImage: 1 } }
+    const { rows } = await pool.query(
+      `SELECT id, username, email, first_name, last_name, income, created_at, "profileImage" FROM users WHERE id = $1`,
+      [rec.userId]
     );
 
-    if (!user) {
+    if (rows.length === 0) {
       await destroySession(token);
       return null;
     }
 
+    const user = rows[0];
     return {
       token,
       user: {
-        id: String(user._id),
+        id: String(user.id),
         username: user.username,
         email: user.email,
         first_name: user.first_name || null,
@@ -193,28 +180,26 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
 
     if (!email || !password) return badRequest(res, "Email und Passwort sind Pflichtfelder");
 
-    const user = await db.collection(COLLECTIONS.users).findOne(
-      { email },
-      { projection: { username: 1, email: 1, password: 1, hashed_passwort: 1, first_name: 1, last_name: 1, income: 1, created_at: 1 } }
+    const { rows } = await pool.query(
+      `SELECT id, username, email, password, first_name, last_name, income, created_at FROM users WHERE email = $1`,
+      [email]
     );
 
-    if (!user) return unauthorized(res, "E-Mail oder Passwort falsch");
+    if (rows.length === 0) return unauthorized(res, "E-Mail oder Passwort falsch");
+    const user = rows[0];
 
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) return unauthorized(res, "E-Mail oder Passwort falsch");
 
     if (!isScryptPasswordHash(user.password)) {
-      await db.collection(COLLECTIONS.users).updateOne(
-        { _id: user._id },
-        { $set: { password: await hashPassword(password) }, $unset: { hashed_passwort: "" } }
-      );
+      await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [await hashPassword(password), user.id]);
     }
 
-    const token = await createSession(user._id);
+    const token = await createSession(user.id);
     return sendJson(res, 200, {
       ok: true,
       user: {
-        id: String(user._id),
+        id: String(user.id),
         username: user.username,
         email: user.email,
         first_name: user.first_name || null,
@@ -278,18 +263,22 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     if (password.length < 8) return badRequest(res, "Passwort muss mindestens 8 Zeichen haben");
     if (income == null) return badRequest(res, "Income muss eine Zahl >= 0 sein");
 
-    const existingUser = await db.collection(COLLECTIONS.users).findOne({ $or: [{ email }, { username }] }, { projection: { _id: 1 } });
-    if (existingUser) return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM users WHERE email = $1 OR username = $2 LIMIT 1`,
+      [email, username]
+    );
+    if (existing.length > 0) return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
 
     const code = createVerificationCode();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000);
     const passwordHash = await hashPassword(password);
 
-    await db.collection(COLLECTIONS.emailVerifications).updateOne(
-      { email },
-      { $set: { email, username, password: passwordHash, first_name: firstName, last_name: lastName, income, code_hash: hashValue(code), attempts: 0, created_at: now, expires_at: expiresAt } },
-      { upsert: true }
+    await pool.query(
+      `INSERT INTO email_verifications (email, username, password, first_name, last_name, income, code_hash, attempts, created_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9)
+       ON CONFLICT (email) DO UPDATE SET username=$2, password=$3, first_name=$4, last_name=$5, income=$6, code_hash=$7, attempts=0, created_at=$8, expires_at=$9`,
+      [email, username, passwordHash, firstName, lastName, income, hashValue(code), now, expiresAt]
     );
 
     let delivered = false;
@@ -320,16 +309,20 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     const code = String(payload.code || "").trim();
     if (!email || !code) return badRequest(res, "E-Mail und Code sind Pflichtfelder");
 
-    const verification = await db.collection(COLLECTIONS.emailVerifications).findOne({ email });
-    if (!verification) return sendJson(res, 404, { ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" });
+    const { rows: verifications } = await pool.query(
+      `SELECT * FROM email_verifications WHERE email = $1`,
+      [email]
+    );
+    if (verifications.length === 0) return sendJson(res, 404, { ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" });
+    const verification = verifications[0];
 
     if (detectBlockedRegistrationName({ username: verification.username, firstName: verification.first_name, lastName: verification.last_name })) {
-      await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
+      await pool.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
       return sendJson(res, 400, { ok: false, code: "forbidden_name", message: "Der angegebene Name ist verboten und kann nicht verwendet werden." });
     }
 
     if (verification.expires_at && new Date(verification.expires_at).getTime() < Date.now()) {
-      await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
+      await pool.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
       return sendJson(res, 410, { ok: false, message: "Code abgelaufen. Bitte erneut registrieren." });
     }
     if ((verification.attempts || 0) >= 5) {
@@ -337,7 +330,7 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     }
 
     if (hashValue(code) !== verification.code_hash) {
-      await db.collection(COLLECTIONS.emailVerifications).updateOne({ email }, { $inc: { attempts: 1 } });
+      await pool.query(`UPDATE email_verifications SET attempts = attempts + 1 WHERE email = $1`, [email]);
       return badRequest(res, "Verifizierungscode ist ungueltig");
     }
 
@@ -345,28 +338,22 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
       ? verification.password
       : await hashPassword(verification.password);
 
-    const userDoc = {
-      username: verification.username,
-      email: verification.email,
-      password: passwordHash,
-      first_name: verification.first_name,
-      last_name: verification.last_name,
-      age: null,
-      income: toDecimal(verification.income),
-      created_at: new Date()
-    };
-
     try {
-      const insert = await db.collection(COLLECTIONS.users).insertOne(userDoc);
-      await ensureUserFinanceRoots(db, insert.insertedId);
-      await db.collection(COLLECTIONS.emailVerifications).deleteOne({ email });
+      const { rows: inserted } = await pool.query(
+        `INSERT INTO users (username, email, password, first_name, last_name, age, income, created_at)
+         VALUES ($1, $2, $3, $4, $5, NULL, $6, NOW()) RETURNING id`,
+        [verification.username, verification.email, passwordHash, verification.first_name, verification.last_name, verification.income || 0]
+      );
+      const userId = inserted[0].id;
+      await ensureUserFinanceRoots(pool, userId);
+      await pool.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
       return sendJson(res, 201, {
         ok: true,
         message: "E-Mail verifiziert und Konto erstellt",
-        user: { id: String(insert.insertedId), username: userDoc.username, email: userDoc.email }
+        user: { id: String(userId), username: verification.username, email: verification.email }
       });
     } catch (error) {
-      if (error && error.code === 11000) return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
+      if (error?.code === "23505") return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
       throw error;
     }
   }
@@ -385,16 +372,21 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     const email = normalizeEmail(payload.email);
     if (!email) return badRequest(res, "E-Mail ist ein Pflichtfeld");
 
-    const user = await db.collection(COLLECTIONS.users).findOne({ email }, { projection: { _id: 1, first_name: 1, email: 1 } });
+    const { rows } = await pool.query(
+      `SELECT id, first_name, email FROM users WHERE email = $1`,
+      [email]
+    );
 
-    if (user) {
+    if (rows.length > 0) {
+      const user = rows[0];
       const code = createVerificationCode();
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
-      await db.collection(COLLECTIONS.passwordResets).updateOne(
-        { email },
-        { $set: { email, user_id: user._id, code_hash: hashValue(code), attempts: 0, created_at: now, expires_at: expiresAt } },
-        { upsert: true }
+      await pool.query(
+        `INSERT INTO password_resets (email, user_id, code_hash, attempts, created_at, expires_at)
+         VALUES ($1, $2, $3, 0, $4, $5)
+         ON CONFLICT (email) DO UPDATE SET user_id=$2, code_hash=$3, attempts=0, created_at=$4, expires_at=$5`,
+        [email, user.id, hashValue(code), now, expiresAt]
       );
       try {
         await sendPasswordResetEmail(email, user.first_name, code);
@@ -424,11 +416,15 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     if (!email || !code || !newPassword) return badRequest(res, "E-Mail, Code und neues Passwort sind Pflichtfelder");
     if (newPassword.length < 8) return badRequest(res, "Neues Passwort muss mindestens 8 Zeichen haben");
 
-    const reset = await db.collection(COLLECTIONS.passwordResets).findOne({ email });
-    if (!reset) return badRequest(res, "Kein aktiver Reset-Code für diese E-Mail");
+    const { rows: resets } = await pool.query(
+      `SELECT * FROM password_resets WHERE email = $1`,
+      [email]
+    );
+    if (resets.length === 0) return badRequest(res, "Kein aktiver Reset-Code für diese E-Mail");
+    const reset = resets[0];
 
     if (reset.expires_at && new Date(reset.expires_at).getTime() < Date.now()) {
-      await db.collection(COLLECTIONS.passwordResets).deleteOne({ email });
+      await pool.query(`DELETE FROM password_resets WHERE email = $1`, [email]);
       return sendJson(res, 410, { ok: false, message: "Code abgelaufen. Bitte erneut anfordern." });
     }
     if ((reset.attempts || 0) >= 5) {
@@ -436,15 +432,12 @@ export function createAuthHandlers({ db, buildSessionCookie, clearSessionCookie,
     }
 
     if (hashValue(code) !== reset.code_hash) {
-      await db.collection(COLLECTIONS.passwordResets).updateOne({ email }, { $inc: { attempts: 1 } });
+      await pool.query(`UPDATE password_resets SET attempts = attempts + 1 WHERE email = $1`, [email]);
       return badRequest(res, "Code ist ungültig");
     }
 
-    await db.collection(COLLECTIONS.users).updateOne(
-      { _id: reset.user_id },
-      { $set: { password: await hashPassword(newPassword) } }
-    );
-    await db.collection(COLLECTIONS.passwordResets).deleteOne({ email });
+    await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [await hashPassword(newPassword), reset.user_id]);
+    await pool.query(`DELETE FROM password_resets WHERE email = $1`, [email]);
 
     return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich zurückgesetzt" });
   }

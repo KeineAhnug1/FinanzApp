@@ -1,5 +1,3 @@
-import { Decimal128, ObjectId } from "mongodb";
-
 export function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -18,24 +16,24 @@ export function parsePositiveAmount(value) {
   return normalized;
 }
 
-export function toDecimal(value) {
-  return Decimal128.fromString(Number(value).toFixed(2));
+export function parseId(value) {
+  if (!value) return null;
+  const id = Number(value);
+  if (!Number.isFinite(id) || id <= 0 || Math.floor(id) !== id) return null;
+  return id;
 }
 
-export function parseObjectId(value) {
-  if (!value) return null;
-  try {
-    return new ObjectId(String(value));
-  } catch {
-    return null;
-  }
-}
+export const parseObjectId = parseId;
 
 export function toNumber(value) {
   if (value == null) return null;
   if (typeof value === "number") return value;
-  if (typeof value.toString === "function") return Number(value.toString());
-  return Number(value);
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function toDecimal(value) {
+  return Number(Number(value).toFixed(2));
 }
 
 export function normalizeRecurrence(value) {
