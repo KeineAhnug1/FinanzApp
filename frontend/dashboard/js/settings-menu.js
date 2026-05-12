@@ -1,4 +1,9 @@
 // Einstellungsmenue fuer Waehrung, Locale und Default-Werte.
+import { appState, DEFAULT_DASHBOARD_SETTINGS } from './state.js';
+import { normalizeDashboardSettings, applyDashboardSettings } from './runtime.js';
+import { setStatus } from './helpers.js';
+import { setIncomeFormModeCreate, setExpenseFormModeCreate } from './dashboard-api.js';
+
 function populateSettingsForm() {
   const currency = document.getElementById("settings-currency");
   const locale = document.getElementById("settings-locale");
@@ -15,7 +20,7 @@ function populateSettingsForm() {
   if (defaultExpenseRecurrence) defaultExpenseRecurrence.value = appState.settings.defaultExpenseRecurrence;
 }
 
-function initSettingsMenu() {
+export function initSettingsMenu() {
   const settingsBtn = document.getElementById("settings-btn");
   const settingsPanel = document.getElementById("settings-panel");
   const settingsForm = document.getElementById("settings-form");

@@ -1,5 +1,14 @@
 // API-Aufrufe und Formularstatus fuer Einnahmen, Ausgaben und Kategorien.
-async function requestJson(url, options) {
+import { appState, categoryState, incomeState, expenseState } from './state.js';
+import { getCurrency } from './runtime.js';
+import { formatMoney, escapeHtml } from './helpers.js';
+import { renderIncomeList, renderExpenseList, updateFinanceCards } from './overview-cashflow.js';
+import {
+  applyCategoryOptions,
+  setCategoryValue
+} from './categories-controls.js';
+
+export async function requestJson(url, options) {
   const request = window.FinanzAppApi?.requestJsonMerged;
   if (typeof request !== "function") {
     return { ok: false, status: 0, message: "Server nicht erreichbar." };
@@ -12,7 +21,7 @@ async function requestJson(url, options) {
 }
 
 // Laedt die serverseitig gespeicherten Einnahmen fuer den aktiven User.
-async function loadIncomeEntries(userId) {
+export async function loadIncomeEntries() {
   const endpoint = appState.selectedBankAccountId
     ? `/api/income-entries?bank_account_id=${encodeURIComponent(appState.selectedBankAccountId)}`
     : "/api/income-entries";
@@ -22,7 +31,7 @@ async function loadIncomeEntries(userId) {
 }
 
 // Laedt die serverseitig gespeicherten Ausgaben fuer den aktiven User.
-async function loadExpenseEntries(userId) {
+export async function loadExpenseEntries() {
   const endpoint = appState.selectedBankAccountId
     ? `/api/expense-entries?bank_account_id=${encodeURIComponent(appState.selectedBankAccountId)}`
     : "/api/expense-entries";
@@ -31,14 +40,14 @@ async function loadExpenseEntries(userId) {
   return Array.isArray(result.entries) ? result.entries : [];
 }
 
-async function loadBankAccounts(userId) {
+export async function loadBankAccounts() {
   const result = await requestJson("/api/bank-accounts");
   if (!result || (result.ok === false)) return [];
   return Array.isArray(result.accounts) ? result.accounts : [];
 }
 
 // Laedt die kombinierte Kategorienliste (Preset + benutzerdefiniert).
-async function loadUserCategories(userId) {
+export async function loadUserCategories() {
   const result = await requestJson("/api/categories");
   if (!result.ok) return { income: [], expense: [] };
   return {
@@ -48,7 +57,7 @@ async function loadUserCategories(userId) {
 }
 
 // Aktualisiert die Kategorie-Selects im UI.
-async function refreshCategoryData() {
+export async function refreshCategoryData() {
   if (!appState.user?.id) return;
   const categories = await loadUserCategories(appState.user.id);
   categoryState.income = categories.income;
@@ -57,7 +66,7 @@ async function refreshCategoryData() {
 }
 
 // Holt Einnahmen/Ausgaben neu und rendert alle abhängigen UI-Bausteine.
-async function refreshDashboardData() {
+export async function refreshDashboardData() {
   if (!appState.user?.id) return;
   appState.bankAccounts = await loadBankAccounts(appState.user.id);
   if (
@@ -83,13 +92,13 @@ async function refreshDashboardData() {
   renderBudgetAlerts();
 }
 
-function formatBankAccountLabel(account) {
+export function formatBankAccountLabel(account) {
   const name = String(account?.label || account?.name || "Bankkonto").trim();
   const balance = Number(account?.balance || 0);
   return `${name} (${formatMoney(balance)})`;
 }
 
-function buildAccountOptionsMarkup({ includeAll = false } = {}) {
+export function buildAccountOptionsMarkup({ includeAll = false } = {}) {
   const parts = [];
   if (includeAll) {
     parts.push('<option value="">Alle Konten</option>');
@@ -103,7 +112,7 @@ function buildAccountOptionsMarkup({ includeAll = false } = {}) {
   return parts.join("");
 }
 
-function renderBankAccountSelectors() {
+export function renderBankAccountSelectors() {
   const incomeSelect = document.getElementById("income-bank-account");
   const expenseSelect = document.getElementById("expense-bank-account");
   const dashboardFilterWrap = document.getElementById("dashboard-account-filter-wrap");
@@ -140,7 +149,7 @@ function renderBankAccountSelectors() {
   }
 }
 
-function initDashboardAccountFilter() {
+export function initDashboardAccountFilter() {
   const dashboardFilterSelect = document.getElementById("dashboard-bank-account-filter");
   if (!dashboardFilterSelect) return;
 
@@ -150,7 +159,7 @@ function initDashboardAccountFilter() {
   });
 }
 
-function formatDateTimeLocalInputValue(value = new Date()) {
+export function formatDateTimeLocalInputValue(value = new Date()) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const year = String(date.getFullYear());
@@ -162,7 +171,7 @@ function formatDateTimeLocalInputValue(value = new Date()) {
 }
 
 // Schaltet den Aktiv-Checkbox-Status passend zur Wiederholung.
-function initRecurrenceToggle(cycleId, recurrenceRowClass) {
+export function initRecurrenceToggle(cycleId, recurrenceRowClass) {
   const cycleEl = document.getElementById(cycleId);
   const recurrenceRow = document.querySelector(`.${recurrenceRowClass}`);
   if (!cycleEl) return;
@@ -177,7 +186,7 @@ function initRecurrenceToggle(cycleId, recurrenceRowClass) {
 }
 
 // Kapselt das Lesen aller Income-Formular-Elemente.
-function getIncomeFormElements() {
+export function getIncomeFormElements() {
   const form = document.getElementById("income-form");
   const submitBtn = document.getElementById("income-submit-btn");
   const cancelBtn = document.getElementById("income-cancel-btn");
@@ -197,7 +206,7 @@ function getIncomeFormElements() {
 }
 
 // Setzt das Income-Formular auf "neu anlegen".
-function setIncomeFormModeCreate() {
+export function setIncomeFormModeCreate() {
   incomeState.editingId = null;
   const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount, currency } = getIncomeFormElements();
   if (!form) return;
@@ -216,7 +225,7 @@ function setIncomeFormModeCreate() {
 }
 
 // Fuellt das Income-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
-function setIncomeFormModeEdit(entry) {
+export function setIncomeFormModeEdit(entry) {
   incomeState.editingId = entry.id;
   const { source, amount, currency, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
   if (source) source.value = entry.source || "";
@@ -243,7 +252,7 @@ function setIncomeFormModeEdit(entry) {
 }
 
 // Kapselt das Lesen aller Expense-Formular-Elemente.
-function getExpenseFormElements() {
+export function getExpenseFormElements() {
   const form = document.getElementById("expense-form");
   const submitBtn = document.getElementById("expense-submit-btn");
   const cancelBtn = document.getElementById("expense-cancel-btn");
@@ -263,7 +272,7 @@ function getExpenseFormElements() {
 }
 
 // Setzt das Expense-Formular auf "neu anlegen".
-function setExpenseFormModeCreate() {
+export function setExpenseFormModeCreate() {
   expenseState.editingId = null;
   const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount, currency } = getExpenseFormElements();
   if (!form) return;
@@ -282,7 +291,7 @@ function setExpenseFormModeCreate() {
 }
 
 // Fuellt das Expense-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
-function setExpenseFormModeEdit(entry) {
+export function setExpenseFormModeEdit(entry) {
   expenseState.editingId = entry.id;
   const { source, amount, currency, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
   if (source) source.value = entry.source || "";
@@ -308,7 +317,7 @@ function setExpenseFormModeEdit(entry) {
   }
 }
 
-async function handleCreateIncome(payload) {
+export async function handleCreateIncome(payload) {
   return await requestJson("/api/income-entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -316,7 +325,7 @@ async function handleCreateIncome(payload) {
   });
 }
 
-async function handleUpdateIncome(entryId, payload) {
+export async function handleUpdateIncome(entryId, payload) {
   return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -324,13 +333,13 @@ async function handleUpdateIncome(entryId, payload) {
   });
 }
 
-async function handleDeleteIncome(entryId) {
+export async function handleDeleteIncome(entryId) {
   return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}`, {
     method: "DELETE"
   });
 }
 
-async function handleCreateExpense(payload) {
+export async function handleCreateExpense(payload) {
   return await requestJson("/api/expense-entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -338,7 +347,7 @@ async function handleCreateExpense(payload) {
   });
 }
 
-async function handleUpdateExpense(entryId, payload) {
+export async function handleUpdateExpense(entryId, payload) {
   return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -346,13 +355,13 @@ async function handleUpdateExpense(entryId, payload) {
   });
 }
 
-async function handleDeleteExpense(entryId) {
+export async function handleDeleteExpense(entryId) {
   return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}`, {
     method: "DELETE"
   });
 }
 
-async function handleDeleteCategory(kind, category) {
+export async function handleDeleteCategory(kind, category) {
   return await requestJson("/api/categories", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
@@ -364,13 +373,13 @@ async function handleDeleteCategory(kind, category) {
   });
 }
 
-async function loadBudgetStatus() {
+export async function loadBudgetStatus() {
   const result = await requestJson("/api/budgets/status");
   if (!result.ok) return [];
   return Array.isArray(result.alerts) ? result.alerts : [];
 }
 
-function renderBudgetAlerts() {
+export function renderBudgetAlerts() {
   const section = document.getElementById("budget-alerts-section");
   const list = document.getElementById("budget-alerts-list");
   if (!section || !list) return;

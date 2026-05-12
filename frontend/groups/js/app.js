@@ -1,3 +1,9 @@
+import { t as _t, getLocale } from '/shared/js/language-utils.js';
+import { getCurrentUserFromStorage } from '/shared/js/session-utils.js';
+import { requestJson, requestJsonMerged, toastSuccess, toastError } from '/shared/js/api-client.js';
+import { formatFromEur, preloadRates } from '/shared/js/currency-utils.js';
+import { escapeHtml } from '/shared/js/html-utils.js';
+
 const sessionUserBadge = document.getElementById("sessionUserBadge");
 const groupsList = document.getElementById("groupsList");
 const mainView = document.getElementById("mainView");
@@ -46,7 +52,6 @@ const fundingDetailEmpty = document.getElementById("fundingDetailEmpty");
 const fundingDetailContent = document.getElementById("fundingDetailContent");
 const fundingDetailTitle = document.getElementById("fundingDetailTitle");
 const fundingDetailMeta = document.getElementById("fundingDetailMeta");
-const memberActionsPanel = document.getElementById("memberActionsPanel");
 const adminPanel = document.getElementById("adminPanel");
 const expensePanel = document.getElementById("expensePanel");
 const deleteGroupButton = document.getElementById("deleteGroupButton");
@@ -83,7 +88,7 @@ const DEFAULT_GROUPS_VIEW_STATE = {
   selectedGroupId: "",
   activeDetailTab: "members"
 };
-const initialGroupsViewState = loadGroupsViewState(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
+const initialGroupsViewState = loadGroupsViewState(getCurrentUserFromStorage()?.id);
 
 let groupsState = [];
 let invitationsState = [];
@@ -111,19 +116,10 @@ const DEFAULT_GROUP_LOCALE_SETTINGS = {
 let groupLocaleSettings = { ...DEFAULT_GROUP_LOCALE_SETTINGS };
 
 function t(key, fallback = "", params = {}) {
-  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  const translated = _t(key, params);
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback || key;
   return String(fallback || key).replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function groupsViewStorageKey(userId) {
@@ -156,7 +152,7 @@ function saveGroupsViewState(userId, state) {
 }
 
 function persistGroupsViewState(override = {}) {
-  const userId = sessionUser?.id || window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id;
+  const userId = sessionUser?.id || getCurrentUserFromStorage()?.id;
   const current = {
     isDetailOpen: !detailView.hidden,
     selectedGroupId: selectedGroupId ? String(selectedGroupId) : "",
@@ -194,9 +190,7 @@ function loadGroupLocaleSettings(userId) {
 
 function applyGroupLocaleSettings(userId) {
   groupLocaleSettings = loadGroupLocaleSettings(userId);
-  if (window.FinanzAppLanguage?.getLocale) {
-    groupLocaleSettings.locale = window.FinanzAppLanguage.getLocale(userId);
-  }
+  groupLocaleSettings.locale = getLocale(userId);
   document.documentElement.lang = groupLocaleSettings.locale;
 }
 
@@ -234,16 +228,10 @@ function formatDate(value) {
 
 function formatAmount(value) {
   if (value == null || Number.isNaN(Number(value))) return t("groups.na");
-  if (window.FinanzAppCurrency?.formatFromEur) {
-    return window.FinanzAppCurrency.formatFromEur(Number(value), {
-      locale: groupLocaleSettings.locale,
-      currency: groupLocaleSettings.currency
-    });
-  }
-  return new Intl.NumberFormat(groupLocaleSettings.locale, {
-    style: "currency",
+  return formatFromEur(Number(value), {
+    locale: groupLocaleSettings.locale,
     currency: groupLocaleSettings.currency
-  }).format(Number(value));
+  });
 }
 
 function setDetailStatus(message, type = "") {
@@ -252,8 +240,8 @@ function setDetailStatus(message, type = "") {
     detailStatus.classList.add(type);
   }
   detailStatus.textContent = message || "";
-  if (type === "ok" && message)    window.FinanzAppToast?.success(message);
-  if (type === "error" && message) window.FinanzAppToast?.error(message);
+  if (type === "ok" && message)    toastSuccess(message);
+  if (type === "error" && message) toastError(message);
 }
 
 function setInboxStatus(message, type = "") {
@@ -262,8 +250,8 @@ function setInboxStatus(message, type = "") {
     inboxStatus.classList.add(type);
   }
   inboxStatus.textContent = message || "";
-  if (type === "ok" && message)    window.FinanzAppToast?.success(message);
-  if (type === "error" && message) window.FinanzAppToast?.error(message);
+  if (type === "ok" && message)    toastSuccess(message);
+  if (type === "error" && message) toastError(message);
 }
 
 function setGroupChatStatus(message, type = "") {
@@ -272,8 +260,8 @@ function setGroupChatStatus(message, type = "") {
     groupChatStatus.classList.add(type);
   }
   groupChatStatus.textContent = message || "";
-  if (type === "ok" && message)    window.FinanzAppToast?.success(message);
-  if (type === "error" && message) window.FinanzAppToast?.error(message);
+  if (type === "ok" && message)    toastSuccess(message);
+  if (type === "error" && message) toastError(message);
 }
 
 function resetGroupChatState(groupId = "") {
@@ -455,7 +443,7 @@ function renderGroupChatMessages() {
 async function deleteGroupChatMessage(messageId) {
   const groupId = groupChatState.groupId;
   if (!groupId || !messageId) return;
-  const result = await window.FinanzAppApi.requestJson(
+  const result = await requestJson(
     `/api/groups/${encodeURIComponent(groupId)}/messages/${encodeURIComponent(messageId)}`,
     { method: "DELETE" }
   );
@@ -906,12 +894,7 @@ function renderGroupDetail(detail) {
 }
 
 async function requestApi(path, options = {}) {
-  const request = window.FinanzAppApi?.requestJsonMerged;
-  if (typeof request !== "function") {
-    throw new Error(t("groups.request_failed", "Anfrage fehlgeschlagen"));
-  }
-
-  const payload = await request(path, {
+  const payload = await requestJsonMerged(path, {
     method: options.method || "GET",
     headers: options.headers || {},
     body: options.body
@@ -1526,17 +1509,15 @@ groupForm.addEventListener("submit", async (event) => {
 
 switchDetailTab("members");
 showMainView();
-applyGroupLocaleSettings(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
+applyGroupLocaleSettings(getCurrentUserFromStorage()?.id);
 
 window.addEventListener("finanzapp:locale-changed", () => {
-  applyGroupLocaleSettings(sessionUser?.id || window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id);
+  applyGroupLocaleSettings(sessionUser?.id || getCurrentUserFromStorage()?.id);
   rerenderAfterLocaleChange();
 });
 
 async function bootstrap() {
-  if (window.FinanzAppCurrency?.preloadRates) {
-    await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
-  }
+  await preloadRates({ base: "EUR" });
   await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
   const canRestoreSelection = Boolean(
     initialGroupsViewState.selectedGroupId

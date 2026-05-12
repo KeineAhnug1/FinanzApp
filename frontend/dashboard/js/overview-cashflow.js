@@ -1,4 +1,9 @@
 // Uebersicht: Gruppierung/Rendering der Listen sowie Cashflow- und KPI-Berechnung.
+import { appState, listState, cashflowChartState, overviewDistributionState, CATEGORY_LABELS } from './state.js';
+import { getLocale } from './runtime.js';
+import { formatMoney, formatDate, escapeHtml, normalizeSearch, recurrenceLabel, setText, setTrend } from './helpers.js';
+import { categoryLabel } from './categories-controls.js';
+
 function cashflowT(key, fallback, params = {}) {
   const translated = window.FinanzAppLanguage?.t?.(key, params);
   if (translated && translated !== key) return translated;
@@ -205,7 +210,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
     .join("");
 }
 
-function renderIncomeList(entries) {
+export function renderIncomeList(entries) {
   const list = document.getElementById("income-list");
   if (!list) return;
   const query = normalizeSearch(listState.incomeSearch);
@@ -217,7 +222,7 @@ function renderIncomeList(entries) {
   renderGroupedEntryList(list, grouped, listState.incomeExpandedGroups, renderIncomeItem, emptyMessage);
 }
 
-function renderExpenseList(entries) {
+export function renderExpenseList(entries) {
   const list = document.getElementById("expense-list");
   if (!list) return;
   const query = normalizeSearch(listState.expenseSearch);
@@ -255,7 +260,7 @@ function monthKeyFromValue(value) {
   return monthKeyFromDate(date);
 }
 
-function monthLabelFromKey(key) {
+export function monthLabelFromKey(key) {
   const [yearRaw, monthRaw] = String(key).split("-");
   const year = Number(yearRaw);
   const month = Number(monthRaw);
@@ -301,7 +306,7 @@ function dayLabelFromKey(key) {
   return new Intl.DateTimeFormat(getLocale(), { day: "2-digit", month: "long", year: "numeric" }).format(date);
 }
 
-function recentMonthKeys(count) {
+export function recentMonthKeys(count) {
   const now = new Date();
   const keys = [];
   for (let offset = count - 1; offset >= 0; offset -= 1) {
@@ -319,7 +324,7 @@ function monthDateFromKey(key) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function buildMonthRangeKeys(startDate, endDate) {
+export function buildMonthRangeKeys(startDate, endDate) {
   const keys = [];
   const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
   const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
@@ -426,7 +431,7 @@ function buildMonthlyTotals(entries, keys, dateField) {
   return totals;
 }
 
-function getMonthlyTotal(entries, dateField) {
+export function getMonthlyTotal(entries, dateField) {
   const oneTime = entries
     .filter((entry) => entry.cycle === "once" && isDateInCurrentMonth(entry[dateField]))
     .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
@@ -1281,7 +1286,7 @@ function buildDistributionByCategory(entries, dateField, period) {
     .sort((a, b) => b.value - a.value);
 }
 
-function initOverviewPieControls() {
+export function initOverviewPieControls() {
   const select = document.getElementById("overview-pie-mode");
   const label = document.getElementById("overview-pie-mode-label");
   const incomeOption = document.getElementById("overview-pie-mode-income");
@@ -1360,7 +1365,7 @@ function renderOverviewDistribution(period, incomeEntries, expenseEntries) {
   `;
 }
 
-function updateFinanceCards(user, incomeEntries, expenseEntries) {
+export function updateFinanceCards(user, incomeEntries, expenseEntries) {
   const period = periodContextFromChartState();
   const previous = previousPeriod(period);
 

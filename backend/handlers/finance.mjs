@@ -19,7 +19,6 @@ import {
   parseId,
   parsePositiveAmount,
   parseRecurrence,
-  toDecimal,
   toFixedAmount,
   toNumber,
   uniqueCategoryList
@@ -606,7 +605,7 @@ export function createFinanceHandlers(pool) {
       if (sourceRows.length === 0) return notFound(res, "Bankkonto nicht gefunden");
       const sourceAccount = sourceRows[0];
 
-      let payload = {};
+      let payload;
       try { payload = await readBody(req); } catch (error) {
         if (error.message !== "invalid_json") {
           if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
@@ -707,7 +706,7 @@ export function createFinanceHandlers(pool) {
       );
       if (sourceRows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
 
-      let payload = {};
+      let payload;
       try { payload = await readBody(req); } catch (error) {
         if (error.message !== "invalid_json") {
           if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
@@ -768,7 +767,7 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, { ok: true, user_id: session.user.id, selected_bank_account_id: bankAccountId || null, visible_accounts: accounts, positions_count: positions.length });
   }
 
-  async function handleTwelveDataProxy(req, res, pathname, requestUrl, session) {
+  async function handleTwelveDataProxy(req, res, pathname, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -794,7 +793,7 @@ export function createFinanceHandlers(pool) {
     }
   }
 
-  async function handleExchangeRates(req, res, requestUrl, session) {
+  async function handleExchangeRates(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -818,7 +817,7 @@ export function createFinanceHandlers(pool) {
     }
   }
 
-  async function handleStockSearchProxy(req, res, requestUrl, session) {
+  async function handleStockSearchProxy(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
@@ -858,7 +857,7 @@ export function createFinanceHandlers(pool) {
     }
   }
 
-  async function handleStockLogoProxy(req, res, requestUrl, session) {
+  async function handleStockLogoProxy(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });

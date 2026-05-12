@@ -37,7 +37,7 @@ const sessionStore = createSessionStore({ cookieName: SESSION_COOKIE_NAME, ttlMi
 const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, gcSessions } = sessionStore;
 
 async function handleStatic(req, res, pathname) {
-  let requestPath = "/";
+  let requestPath;
   try {
     requestPath = pathname === "/" ? "/" : decodeURIComponent(pathname);
   } catch {
@@ -84,7 +84,7 @@ async function start() {
     console.log("[db] PostgreSQL connection established.");
   } catch (error) {
     console.error("[db] Connection error details:", error.message, error.code);
-    throw new Error(`PostgreSQL connection failed: ${error.message}`);
+    throw new Error(`PostgreSQL connection failed: ${error.message}`, { cause: error });
   }
 
   await init(pool);

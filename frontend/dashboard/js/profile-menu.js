@@ -1,10 +1,13 @@
 // Profil-Menue: Anzeige des Nutzers und Abmelden aus der Session.
+import { setText } from './helpers.js';
+
 function initialsFromUser(user) {
   const first = String(user.first_name || user.username || "U").charAt(0).toUpperCase();
   const last = String(user.last_name || "").charAt(0).toUpperCase();
   return `${first}${last}`.trim();
 }
-function hydrateProfile(user) {
+
+export function hydrateProfile(user) {
   const profileName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
   setText("profile-name", profileName);
   setText("menu-name", profileName);
@@ -12,7 +15,8 @@ function hydrateProfile(user) {
   const avatar = document.getElementById("profile-avatar");
   if (avatar) avatar.textContent = initialsFromUser(user);
 }
-function initProfileMenu() {
+
+export function initProfileMenu() {
   const profileBtn = document.getElementById("profile-btn");
   const profileMenu = document.getElementById("profile-menu");
 
@@ -27,7 +31,7 @@ function initProfileMenu() {
   });
 }
 
-function initDashboardMobileNav() {
+export function initDashboardMobileNav() {
   const controls = document.querySelector(".dash-topbar .topbar-right");
   const nav = controls?.querySelector(".app-nav-links");
   if (!controls || !nav) return;

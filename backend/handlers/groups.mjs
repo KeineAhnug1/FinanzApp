@@ -330,7 +330,7 @@ export function createGroupHandlers(pool) {
       [fundingId, bankAccount.id]
     );
     const createdAt = new Date();
-    let fundingParticipantId = null;
+    let fundingParticipantId;
 
     if (existingResult.rows.length > 0) {
       const existingParticipant = existingResult.rows[0];

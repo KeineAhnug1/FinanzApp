@@ -9,5 +9,5 @@
     if (d === "forest") document.documentElement.dataset.design = d;
     var c = window.localStorage.getItem("finanzapp.contrast");
     if (c === "high") document.documentElement.dataset.contrast = "high";
-  } catch (_) {}
+  } catch { /* prevent errors from blocking render */ }
 })();

@@ -1,5 +1,16 @@
 // Aktionen fuer Kategorie-Loeschen und Event-Bindings fuer die Listen-Suche.
-function initCategoryManagerActions() {
+import { appState, incomeState, listState } from './state.js';
+import { setStatus } from './helpers.js';
+import { renderIncomeList, renderExpenseList } from './overview-cashflow.js';
+import {
+  handleDeleteCategory,
+  refreshCategoryData,
+  refreshDashboardData,
+  setIncomeFormModeCreate,
+  setExpenseFormModeCreate
+} from './dashboard-api.js';
+
+export function initCategoryManagerActions() {
   const incomeList = document.getElementById("income-category-list");
   const expenseList = document.getElementById("expense-category-list");
 
@@ -40,7 +51,7 @@ function initCategoryManagerActions() {
   bindDelete(expenseList, "expense", "expense-category-status");
 }
 
-function initListSearch() {
+export function initListSearch() {
   const incomeSearch = document.getElementById("income-search");
   const expenseSearch = document.getElementById("expense-search");
 

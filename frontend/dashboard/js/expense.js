@@ -1,4 +1,20 @@
 // Ausgaben-Logik: Listenaktionen und Speichern/Bearbeiten im Formular.
+import { appState, expenseState, listState } from './state.js';
+import { setActiveView } from './runtime.js';
+import { setStatus, setButtonLoading, initInlineValidation } from './helpers.js';
+import {
+  handleDeleteExpense,
+  handleUpdateExpense,
+  handleCreateExpense,
+  refreshDashboardData,
+  refreshCategoryData,
+  setExpenseFormModeCreate,
+  setExpenseFormModeEdit,
+  getExpenseFormElements,
+  initRecurrenceToggle
+} from './dashboard-api.js';
+import { initCategorySelector, resolveCategoryFromForm } from './categories-controls.js';
+
 function expenseT(key, fallback, params = {}) {
   const translated = window.FinanzAppLanguage?.t?.(key, params);
   if (translated && translated !== key) return translated;
@@ -6,7 +22,7 @@ function expenseT(key, fallback, params = {}) {
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
 }
 
-function initExpenseListActions() {
+export function initExpenseListActions() {
   const list = document.getElementById("expense-list");
   if (!list) return;
 
@@ -61,7 +77,7 @@ function initExpenseListActions() {
 }
 
 // Verarbeitet Formular-Submit fuer Anlegen/Aktualisieren von Ausgaben.
-function initExpenseForm() {
+export function initExpenseForm() {
   const { form, submitBtn, cancelBtn } = getExpenseFormElements();
   if (!form) return;
 

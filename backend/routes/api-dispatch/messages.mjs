@@ -1,5 +1,5 @@
 export async function dispatchMessageRoutes(ctx) {
-  const { req, res, pathname, url, session, handlers, sendJson } = ctx;
+  const { req, res, pathname, url, session, handlers } = ctx;
 
   if (pathname === "/api/messages/stream") {
     handlers.handleMessageStream(req, res, session);

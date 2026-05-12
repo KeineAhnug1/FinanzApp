@@ -1,3 +1,7 @@
+import { t as _t, getLocale } from '/shared/js/language-utils.js';
+import { requestJsonMerged } from '/shared/js/api-client.js';
+import { escapeHtml } from '/shared/js/html-utils.js';
+
 const detailState = {
   user: null,
   questionId: "",
@@ -5,24 +9,16 @@ const detailState = {
 };
 
 function t(key, fallback, params = {}) {
-  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  const translated = _t(key, params);
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback;
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  const locale = window.FinanzAppLanguage?.getLocale?.(detailState.user?.id) || "de-DE";
+  const locale = getLocale(detailState.user?.id) || "de-DE";
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
@@ -36,19 +32,8 @@ function setStatus(type, text) {
 }
 
 async function requestJson(url, options) {
-  try {
-    const response = await fetch(url, { credentials: "same-origin", ...options });
-    const raw = await response.text();
-    let data = {};
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch {
-      data = {};
-    }
-    return { ok: response.ok && Boolean(data.ok), status: response.status, ...data };
-  } catch {
-    return { ok: false, status: 0, message: t("questions.server_unreachable", "Server nicht erreichbar.") };
-  }
+  const result = await requestJsonMerged(url, options);
+  return result;
 }
 
 function renderAnswer(answer) {

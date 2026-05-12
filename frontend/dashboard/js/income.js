@@ -1,4 +1,20 @@
 // Einnahmen-Logik: Listenaktionen und Formularablauf.
+import { appState, incomeState, listState } from './state.js';
+import { setActiveView } from './runtime.js';
+import { setStatus, setButtonLoading, initInlineValidation } from './helpers.js';
+import {
+  handleDeleteIncome,
+  handleUpdateIncome,
+  handleCreateIncome,
+  refreshDashboardData,
+  refreshCategoryData,
+  setIncomeFormModeCreate,
+  setIncomeFormModeEdit,
+  getIncomeFormElements,
+  initRecurrenceToggle
+} from './dashboard-api.js';
+import { initCategorySelector, resolveCategoryFromForm } from './categories-controls.js';
+
 function incomeT(key, fallback, params = {}) {
   const translated = window.FinanzAppLanguage?.t?.(key, params);
   if (translated && translated !== key) return translated;
@@ -6,7 +22,7 @@ function incomeT(key, fallback, params = {}) {
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
 }
 
-function initIncomeListActions() {
+export function initIncomeListActions() {
   const list = document.getElementById("income-list");
   if (!list) return;
 
@@ -61,7 +77,7 @@ function initIncomeListActions() {
 }
 
 // Verarbeitet Formular-Submit fuer Anlegen/Aktualisieren von Einnahmen.
-function initIncomeForm() {
+export function initIncomeForm() {
   const { form, submitBtn, cancelBtn } = getIncomeFormElements();
   if (!form) return;
 

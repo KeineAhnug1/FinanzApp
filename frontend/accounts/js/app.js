@@ -1,28 +1,27 @@
-(() => {
-  const aShareAccountsEndpoints = [
-    "/api/share-accounts"
-  ];
-  const aBankAccountsEndpoints = [
-    "/api/bank-accounts"
-  ];
+import { t as _t, getLocale } from '/shared/js/language-utils.js';
+import { getCurrentUserFromStorage } from '/shared/js/session-utils.js';
+import { formatFromEur, getPreferredCurrency } from '/shared/js/currency-utils.js';
+import { escapeHtml } from '/shared/js/html-utils.js';
+
+const aShareAccountsEndpoints = [
+  "/api/share-accounts"
+];
+const aBankAccountsEndpoints = [
+  "/api/bank-accounts"
+];
 
   let aShareAccounts = [];
   let aBankAccounts = [];
 
   function t(key, fallback, params = {}) {
-    const translated = window.FinanzAppLanguage?.t?.(key, params);
+    const translated = _t(key, params);
     if (translated && translated !== key) return translated;
     if (!params || !Object.keys(params).length) return fallback;
     return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
   }
 
   function fnEscapeHtml(sValue) {
-    return String(sValue || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return escapeHtml(sValue);
   }
 
   function fnMapAccounts(aRaw, sFallbackPrefix, oOptions = {}) {
@@ -41,14 +40,11 @@
 
   function fnFormatMoney(nAmount) {
     const amount = Number(nAmount) || 0;
-    const userId = window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id;
-    const locale = window.FinanzAppLanguage?.getLocale?.(userId) || "de-DE";
-    const currency = window.FinanzAppCurrency?.getPreferredCurrency?.(userId) || "EUR";
+    const userId = getCurrentUserFromStorage()?.id;
+    const locale = getLocale(userId) || "de-DE";
+    const currency = getPreferredCurrency(userId) || "EUR";
     try {
-      if (window.FinanzAppCurrency?.formatFromEur) {
-        return window.FinanzAppCurrency.formatFromEur(amount, { locale, currency });
-      }
-      return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
+      return formatFromEur(amount, { locale, currency });
     } catch {
       return `${amount.toFixed(2)} ${currency}`;
     }
@@ -548,4 +544,3 @@
   }
 
   fnInit();
-})();

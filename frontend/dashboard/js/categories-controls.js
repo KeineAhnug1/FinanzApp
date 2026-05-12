@@ -1,5 +1,15 @@
 // Kategorien: Labels, Select-Optionen und Darstellung der verwaltbaren Kategorien.
-function categoryLabel(value) {
+import {
+  categoryState,
+  CATEGORY_LABELS,
+  INCOME_CATEGORY_OPTIONS,
+  EXPENSE_CATEGORY_OPTIONS,
+  PRESET_INCOME_CATEGORY_KEYS,
+  PRESET_EXPENSE_CATEGORY_KEYS
+} from './state.js';
+import { escapeHtml } from './helpers.js';
+
+export function categoryLabel(value) {
   const normalized = String(value || "").trim();
   if (!normalized) return "Ohne Kategorie";
   return CATEGORY_LABELS[normalized.toLowerCase()] || normalized;
@@ -13,7 +23,7 @@ function syncCustomCategoryField(selectNode, customWrap, customInput) {
   if (!useCustom) customInput.value = "";
 }
 
-function initCategorySelector(selectId, wrapId, customInputId) {
+export function initCategorySelector(selectId, wrapId, customInputId) {
   const selectNode = document.getElementById(selectId);
   const customWrap = document.getElementById(wrapId);
   const customInput = document.getElementById(customInputId);
@@ -22,7 +32,7 @@ function initCategorySelector(selectId, wrapId, customInputId) {
   syncCustomCategoryField(selectNode, customWrap, customInput);
 }
 
-function resolveCategoryFromForm(formData) {
+export function resolveCategoryFromForm(formData) {
   const selected = String(formData.get("category") || "").trim();
   const custom = String(formData.get("category_custom") || "").trim();
   return selected === "custom" ? custom : selected;
@@ -80,7 +90,7 @@ function renderCategoryOptions(selectNode, presetOptions, storedCategories) {
   }
 }
 
-function applyCategoryOptions() {
+export function applyCategoryOptions() {
   const incomeSelect = document.getElementById("income-category");
   const expenseSelect = document.getElementById("expense-category");
   renderCategoryOptions(incomeSelect, INCOME_CATEGORY_OPTIONS, categoryState.income);
@@ -129,7 +139,7 @@ function renderCategoryManagers() {
   renderCategoryManager("expense", "expense-category-list");
 }
 
-function setCategoryValue(selectId, wrapId, customInputId, value, fallback) {
+export function setCategoryValue(selectId, wrapId, customInputId, value, fallback) {
   const selectNode = document.getElementById(selectId);
   const customWrap = document.getElementById(wrapId);
   const customInput = document.getElementById(customInputId);

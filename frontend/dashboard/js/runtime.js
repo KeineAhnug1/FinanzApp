@@ -1,21 +1,17 @@
 // Laufzeit-Helfer: Theme, Settings-Speicherung, View-Wechsel und Session-Zugriff.
-function getStoredThemeMode() {
-  return window.FinanzAppTheme.getStoredThemeMode();
-}
+import {
+  appState,
+  VIEW_STORAGE_KEY,
+  VIEW_OPTIONS,
+  SETTINGS_STORAGE_PREFIX,
+  SETTINGS_LOCALE_OPTIONS,
+  SETTINGS_CURRENCY_OPTIONS,
+  SETTINGS_RECURRENCE_OPTIONS,
+  DEFAULT_DASHBOARD_SETTINGS
+} from './state.js';
+import { renderIncomeList, renderExpenseList, updateFinanceCards } from './overview-cashflow.js';
 
-function resolveTheme(mode) {
-  return window.FinanzAppTheme.resolveThemeMode(mode);
-}
-
-function updateThemeButtons(mode) {
-  window.FinanzAppTheme.updateThemeButtons(mode);
-}
-
-function applyTheme(mode) {
-  window.FinanzAppTheme.applyThemeMode(mode);
-}
-
-function initThemeSwitcher() {
+export function initThemeSwitcher() {
   window.FinanzAppTheme.initThemeSwitcher();
 }
 
@@ -24,7 +20,7 @@ function sanitizeSettingChoice(value, allowedValues, fallback) {
   return allowedValues.has(normalized) ? normalized : fallback;
 }
 
-function normalizeDashboardSettings(raw) {
+export function normalizeDashboardSettings(raw) {
   const base = raw && typeof raw === "object" ? raw : {};
   return {
     currency: sanitizeSettingChoice(base.currency, SETTINGS_CURRENCY_OPTIONS, DEFAULT_DASHBOARD_SETTINGS.currency),
@@ -47,7 +43,7 @@ function settingsStorageKey(userId) {
   return `${SETTINGS_STORAGE_PREFIX}.${userId || "anonymous"}`;
 }
 
-function loadDashboardSettings(userId) {
+export function loadDashboardSettings(userId) {
   const raw = window.localStorage.getItem(settingsStorageKey(userId));
   if (!raw) return { ...DEFAULT_DASHBOARD_SETTINGS };
   try {
@@ -57,22 +53,22 @@ function loadDashboardSettings(userId) {
   }
 }
 
-function saveDashboardSettings(userId, settings) {
+export function saveDashboardSettings(userId, settings) {
   window.localStorage.setItem(settingsStorageKey(userId), JSON.stringify(normalizeDashboardSettings(settings)));
 }
 
-function getLocale() {
+export function getLocale() {
   if (window.FinanzAppLanguage?.getLocale) {
     return window.FinanzAppLanguage.getLocale(appState.user?.id);
   }
   return appState.settings?.locale || DEFAULT_DASHBOARD_SETTINGS.locale;
 }
 
-function getCurrency() {
+export function getCurrency() {
   return appState.settings?.currency || DEFAULT_DASHBOARD_SETTINGS.currency;
 }
 
-function applyDashboardSettings(nextSettings, options = {}) {
+export function applyDashboardSettings(nextSettings, options = {}) {
   const { persist = false, rerender = true } = options;
   const normalized = normalizeDashboardSettings(nextSettings);
   appState.settings = normalized;
@@ -91,7 +87,7 @@ function applyDashboardSettings(nextSettings, options = {}) {
   }
 }
 
-function getStoredView(fallbackView = "overview") {
+export function getStoredView(fallbackView = "overview") {
   const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
   if (stored && VIEW_OPTIONS.has(stored)) return stored;
   return VIEW_OPTIONS.has(fallbackView) ? fallbackView : "overview";
@@ -103,7 +99,7 @@ function getViewFromHash() {
   return null;
 }
 
-function setActiveView(view) {
+export function setActiveView(view) {
   const nextView = VIEW_OPTIONS.has(view) ? view : "overview";
 
   // expense is now a sub-tab inside the income panel
@@ -148,7 +144,7 @@ function setActiveEntryTab(tab) {
   }
 }
 
-function initEntryTabs() {
+export function initEntryTabs() {
   const entryTabBtns = document.querySelectorAll("[data-entry-tab]");
   for (const btn of entryTabBtns) {
     btn.addEventListener("click", () => {
@@ -160,7 +156,7 @@ function initEntryTabs() {
   }
 }
 
-function initSectionTabs() {
+export function initSectionTabs() {
   setActiveView(getViewFromHash() || getStoredView(appState.settings?.startView || "overview"));
   document.documentElement.classList.remove("dashboard-view-preload");
 
@@ -180,11 +176,11 @@ function initSectionTabs() {
   }
 }
 
-function getCurrentUser() {
+export function getCurrentUser() {
   return window.FinanzAppSession.getCurrentUserFromStorage();
 }
 
-function setCurrentUser(nextUser) {
+export function setCurrentUser(nextUser) {
   const merged = window.FinanzAppSession.setCurrentUserInStorage(nextUser);
   if (!merged) return;
   appState.user = merged;

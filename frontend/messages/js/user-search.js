@@ -2,121 +2,114 @@
  * user-search.js – User search panel for starting new conversations.
  * Exposes window.FinanzAppUserSearch for orchestration by messages.js.
  */
-(function initUserSearch() {
-  let searchTimer = null;
-  const DEBOUNCE_MS = 280;
+import { requestJson } from "/shared/js/api-client.js";
+import { openConversation } from "./messages.js";
 
-  // ── DOM refs ──────────────────────────────────────────────
-  const searchPanel = document.getElementById("userSearchPanel");
-  const searchInput = document.getElementById("userSearchInput");
-  const searchResults = document.getElementById("userSearchResults");
-  const searchStatus = document.getElementById("userSearchStatus");
+let searchTimer = null;
+const DEBOUNCE_MS = 280;
 
-  function setStatus(msg) {
-    if (searchStatus) searchStatus.textContent = msg;
+// ── DOM refs ──────────────────────────────────────────────
+const searchPanel = document.getElementById("userSearchPanel");
+const searchInput = document.getElementById("userSearchInput");
+const searchResults = document.getElementById("userSearchResults");
+const searchStatus = document.getElementById("userSearchStatus");
+
+function setStatus(msg) {
+  if (searchStatus) searchStatus.textContent = msg;
+}
+
+function clearResults() {
+  if (searchResults) searchResults.innerHTML = "";
+}
+
+
+function renderResults(users) {
+  clearResults();
+  if (!searchResults) return;
+
+  for (const user of users) {
+    const li = document.createElement("li");
+    li.className = "msg-search-result-item";
+    li.setAttribute("role", "option");
+    li.setAttribute("tabindex", "0");
+    li.textContent = user.username;
+
+    li.addEventListener("click", () => selectUser(user));
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectUser(user);
+      }
+    });
+
+    searchResults.appendChild(li);
   }
+}
 
-  function clearResults() {
-    if (searchResults) searchResults.innerHTML = "";
-  }
+function selectUser(user) {
+  hide();
+  openConversation(user._id, user.username);
+}
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function renderResults(users) {
-    clearResults();
-    if (!searchResults) return;
-
-    for (const user of users) {
-      const li = document.createElement("li");
-      li.className = "msg-search-result-item";
-      li.setAttribute("role", "option");
-      li.setAttribute("tabindex", "0");
-      li.textContent = user.username;
-
-      li.addEventListener("click", () => selectUser(user));
-      li.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          selectUser(user);
-        }
-      });
-
-      searchResults.appendChild(li);
-    }
-  }
-
-  function selectUser(user) {
-    hide();
-    window.FinanzAppNachrichten?.openConversation(user._id, user.username);
-  }
-
-  async function runSearch(q) {
-    if (!q) {
-      clearResults();
-      setStatus("");
-      return;
-    }
-
-    const result = await window.FinanzAppApi.requestJson(
-      `/api/users/search?q=${encodeURIComponent(q)}`
-    );
-
-    if (!result.ok) {
-      clearResults();
-      setStatus(result.data?.message || "Suche fehlgeschlagen.");
-      return;
-    }
-
-    const users = result.data?.users ?? [];
-    renderResults(users);
-    setStatus(users.length === 0 ? "Keine Nutzer gefunden." : "");
-  }
-
-  function show() {
-    if (!searchPanel) return;
-    searchPanel.hidden = false;
-    searchInput?.focus();
-  }
-
-  function hide() {
-    if (!searchPanel) return;
-    searchPanel.hidden = true;
-    if (searchInput) searchInput.value = "";
+async function runSearch(q) {
+  if (!q) {
     clearResults();
     setStatus("");
+    return;
   }
 
-  function toggle() {
-    if (!searchPanel) return;
-    if (searchPanel.hidden) {
-      show();
-    } else {
-      hide();
-    }
+  const result = await requestJson(
+    `/api/users/search?q=${encodeURIComponent(q)}`
+  );
+
+  if (!result.ok) {
+    clearResults();
+    setStatus(result.data?.message || "Suche fehlgeschlagen.");
+    return;
   }
 
-  // ── Input debounce ────────────────────────────────────────
-  if (searchInput) {
-    searchInput.addEventListener("input", () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        runSearch(searchInput.value.trim());
-      }, DEBOUNCE_MS);
-    });
+  const users = result.data?.users ?? [];
+  renderResults(users);
+  setStatus(users.length === 0 ? "Keine Nutzer gefunden." : "");
+}
 
-    // Close panel on Escape
-    searchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") hide();
-    });
+export function show() {
+  if (!searchPanel) return;
+  searchPanel.hidden = false;
+  searchInput?.focus();
+}
+
+export function hide() {
+  if (!searchPanel) return;
+  searchPanel.hidden = true;
+  if (searchInput) searchInput.value = "";
+  clearResults();
+  setStatus("");
+}
+
+export function toggle() {
+  if (!searchPanel) return;
+  if (searchPanel.hidden) {
+    show();
+  } else {
+    hide();
   }
+}
 
-  // ── Public API ────────────────────────────────────────────
-  window.FinanzAppUserSearch = { show, hide, toggle };
-})();
+// ── Input debounce ────────────────────────────────────────
+if (searchInput) {
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      runSearch(searchInput.value.trim());
+    }, DEBOUNCE_MS);
+  });
+
+  // Close panel on Escape
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hide();
+  });
+}
+
+// ── Public API ────────────────────────────────────────────
+window.FinanzAppUserSearch = { show, hide, toggle };

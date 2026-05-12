@@ -1,5 +1,7 @@
 // UI-Helfer: Formatierung und kleine DOM-Werkzeuge fuer wiederverwendbare Aufgaben.
-function formatMoney(value, options = {}) {
+import { getLocale, getCurrency } from './runtime.js';
+
+export function formatMoney(value, options = {}) {
   const amount = Number(value) || 0;
   const locale = options.locale || getLocale();
   const currency = options.currency || getCurrency();
@@ -34,18 +36,18 @@ function formatMoney(value, options = {}) {
   }
 }
 
-function formatDate(value) {
+export function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium" }).format(date);
 }
 
-function setText(id, value) {
+export function setText(id, value) {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
 }
 
-function setTrend(id, text, tone = "neutral") {
+export function setTrend(id, text, tone = "neutral") {
   const node = document.getElementById(id);
   if (!node) return;
   node.textContent = text;
@@ -53,7 +55,7 @@ function setTrend(id, text, tone = "neutral") {
   node.classList.add(tone === "positive" ? "positive" : "neutral");
 }
 
-function setStatus(statusId, type, text) {
+export function setStatus(statusId, type, text) {
   const node = document.getElementById(statusId);
   if (!node) return;
   node.textContent = text;
@@ -68,21 +70,21 @@ function setStatus(statusId, type, text) {
   }
 }
 
-function cycleLabel(cycle) {
+export function cycleLabel(cycle) {
   if (cycle === "weekly") return "Woechentlich";
   if (cycle === "monthly") return "Monatlich";
   if (cycle === "yearly") return "Jaehrlich";
   return "Einmalig";
 }
 
-function recurrenceLabel(entry) {
+export function recurrenceLabel(entry) {
   if (entry.cycle === "once") return cycleLabel("once");
   const label = cycleLabel(entry.cycle);
   if (entry.recurrence == null || entry.recurrence === 0) return label;
   return `${label} (${entry.recurrence}x)`;
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -90,11 +92,11 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function normalizeSearch(value) {
+export function normalizeSearch(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function setButtonLoading(buttonEl, isLoading) {
+export function setButtonLoading(buttonEl, isLoading) {
   if (!buttonEl) return;
   if (isLoading) {
     buttonEl.disabled = true;
@@ -105,7 +107,7 @@ function setButtonLoading(buttonEl, isLoading) {
   }
 }
 
-function initInlineValidation(formEl) {
+export function initInlineValidation(formEl) {
   if (!formEl) return;
   const inputs = formEl.querySelectorAll("input[required], select[required], textarea[required]");
   for (const input of inputs) {

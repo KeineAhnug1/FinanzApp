@@ -1,8 +1,6 @@
-import { randomBytes, randomInt } from "node:crypto";
+import { randomInt } from "node:crypto";
 import nodemailer from "nodemailer";
 import {
-  FINZBRO_EMAIL,
-  FINZBRO_USERNAME,
   SMTP_FROM,
   SMTP_HOST,
   SMTP_PASS,
@@ -12,14 +10,13 @@ import {
   VERIFICATION_TTL_MINUTES
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
-import { normalizeEmail, parseId } from "../utils/data.mjs";
+import { normalizeEmail } from "../utils/data.mjs";
 import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
 import {
   hashPassword,
   hashValue,
   isSha256PasswordHash,
   isScryptPasswordHash,
-  PASSWORD_HASH_SHA256_PREFIX,
   verifyPassword
 } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
@@ -342,7 +339,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       [email, username, passwordHash, firstName, lastName, hashValue(code), now, expiresAt]
     );
 
-    let delivered = false;
+    let delivered;
     try {
       delivered = await sendVerificationEmail(email, firstName, code);
     } catch (error) {

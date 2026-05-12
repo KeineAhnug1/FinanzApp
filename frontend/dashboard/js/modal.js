@@ -1,5 +1,5 @@
 // Gemeinsamer Bestaetigungsdialog fuer kritische Aktionen (z. B. Loeschen).
-function initConfirmModal() {
+export function initConfirmModal() {
   const backdrop = document.getElementById("confirm-modal");
   const titleNode = document.getElementById("confirm-title");
   const messageNode = document.getElementById("confirm-message");
