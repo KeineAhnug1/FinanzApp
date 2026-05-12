@@ -1,3 +1,4 @@
+import '/shared/js/topbar.js';
 import { getLocale, setLocale } from '/shared/js/language-utils.js';
 import { fetchSessionUser, setCurrentUserInStorage, clearCurrentUserFromStorage, initialsFromUser, logoutAndRedirect } from '/shared/js/session-utils.js';
 import { toastSuccess } from '/shared/js/api-client.js';

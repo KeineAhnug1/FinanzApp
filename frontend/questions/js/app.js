@@ -1,3 +1,4 @@
+import '/shared/js/topbar.js';
 import { t as _t, getLocale } from '/shared/js/language-utils.js';
 import { requestJsonMerged } from '/shared/js/api-client.js';
 import { escapeHtml } from '/shared/js/html-utils.js';

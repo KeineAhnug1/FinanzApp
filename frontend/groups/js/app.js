@@ -1,3 +1,4 @@
+import '/shared/js/topbar.js';
 import { t as _t, getLocale } from '/shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '/shared/js/session-utils.js';
 import { requestJson, requestJsonMerged, toastSuccess, toastError } from '/shared/js/api-client.js';

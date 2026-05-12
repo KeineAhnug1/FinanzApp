@@ -478,7 +478,8 @@ async function postJson(url, payload) {
       body: payload
     });
     const retryAfter = Number(result.retryAfter) || null;
-    return { ...result.data, ok: result.ok, status: result.status, retryAfter };
+    const message = result.data?.message || result.message;
+    return { ...result.data, ok: result.ok, status: result.status, retryAfter, message };
   } catch {
     return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
   }

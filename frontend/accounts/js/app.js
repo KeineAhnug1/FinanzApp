@@ -1,3 +1,4 @@
+import '/shared/js/topbar.js';
 import { t as _t, getLocale } from '/shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '/shared/js/session-utils.js';
 import { formatFromEur, getPreferredCurrency } from '/shared/js/currency-utils.js';
