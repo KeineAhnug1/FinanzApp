@@ -115,3 +115,13 @@
     info:    (m, o) => show(m, "info",    o),
   };
 })();
+
+(function initGlobalErrorHandling() {
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    if (reason && reason.name === "AbortError") return;
+
+    const msg = (reason && (reason.message || String(reason))) || "Ein unerwarteter Fehler ist aufgetreten.";
+    window.FinanzAppToast?.error(msg);
+  });
+})();

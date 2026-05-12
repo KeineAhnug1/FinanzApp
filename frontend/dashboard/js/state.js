@@ -19,6 +19,7 @@ const appState = {
   selectedBankAccountId: "",
   incomeEntries: [],
   expenseEntries: [],
+  budgetAlerts: [],
   settings: { ...DEFAULT_DASHBOARD_SETTINGS }
 };
 

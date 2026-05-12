@@ -68,7 +68,10 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     return attrs.join("; ");
   }
 
-  function gcSessions() {}
+  async function gcSessions() {
+    if (!pool) return;
+    await pool.query(`DELETE FROM sessions WHERE expires_at <= NOW()`);
+  }
 
   return {
     init,

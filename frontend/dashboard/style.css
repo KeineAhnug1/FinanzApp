@@ -300,6 +300,15 @@ users-login {
 .login-status.is-success { color: var(--ui-success); }
 .login-status.is-error   { color: var(--ui-error); }
 
+.code-expiry {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  min-height: 1.2em;
+}
+.code-expiry.is-warning { color: var(--ui-warning, #e6a817); }
+.code-expiry.is-expired { color: var(--ui-error); }
+
 .auth-divider {
   height: 1px;
   background: var(--ui-border);

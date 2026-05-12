@@ -360,7 +360,7 @@ export function createGroupHandlers(pool) {
     const donationExpenseResult = await pool.query(
       `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, note, state, recurrence, cycle, is_active, created_at, updated_at, group_funding_id, funding_participant_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
-      [bankAccount.id, donationLabel, "other", amount, amount, createdAt, createdAt, createdAt, donationLabel, donationLabel, "open", "once", "once", true, createdAt, createdAt, fundingId, fundingParticipantId]
+      [bankAccount.id, donationLabel, "other", amount, amount, createdAt, createdAt, createdAt, donationLabel, donationLabel, "open", null, "once", true, createdAt, createdAt, fundingId, fundingParticipantId]
     );
     await pool.query(
       `INSERT INTO transactions (private_expense_id, created_at) VALUES ($1, $2)`,

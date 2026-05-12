@@ -8,14 +8,16 @@ export function resolveEntryDate(entry, ...dateFields) {
 }
 
 export function serializeEntryBase(entry, userId) {
+  const recurrenceRaw = entry.recurrence;
   return {
-    id: String(entry._id),
+    id: String(entry.id),
     user_id: String(userId || entry.user_id || ""),
     bank_account_id: entry.bank_account_id ? String(entry.bank_account_id) : null,
     source: entry.source || entry.info || "",
     category: entry.category || "",
     amount: toNumber(entry.amount),
-    recurrence: entry.recurrence || entry.cycle || "once",
+    cycle: entry.cycle || "once",
+    recurrence: recurrenceRaw == null ? null : Number(recurrenceRaw),
     is_active: typeof entry.is_active === "boolean" ? entry.is_active : entry.state !== "paused",
     note: entry.note || entry.info || "",
     created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : null,

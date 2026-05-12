@@ -1,6 +1,11 @@
 export async function dispatchMessageRoutes(ctx) {
   const { req, res, pathname, url, session, handlers, sendJson } = ctx;
 
+  if (pathname === "/api/messages/stream") {
+    handlers.handleMessageStream(req, res, session);
+    return true;
+  }
+
   if (pathname === "/api/messages/conversations") {
     await handlers.handleGetConversations(req, res, session);
     return true;

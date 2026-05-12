@@ -50,6 +50,10 @@
           <p id="hero-sub" class="hero-sub">Noch keine Buchungen erfasst.</p>
         </section>
 
+        <section class="budget-alerts" id="budget-alerts-section" hidden>
+          <ul class="budget-alerts-list" id="budget-alerts-list"></ul>
+        </section>
+
         <section class="kpi-grid">
           <article class="kpi-card">
             <p id="kpi-income-label" class="kpi-label">Monatliche Einnahmen</p>
@@ -149,19 +153,17 @@
                 </div>
                 <div class="form-two-cols">
                   <div>
-                    <label class="field-label" for="income-recurrence">Wiederholung</label>
-                    <select class="field-input" id="income-recurrence" name="recurrence">
-                      <option value="once">Einmalig</option>
+                    <label class="field-label" for="income-cycle">Zyklus</label>
+                    <select class="field-input" id="income-cycle" name="cycle">
+                      <option value="once">Nicht wiederholend</option>
                       <option value="weekly">Woechentlich</option>
                       <option value="monthly">Monatlich</option>
+                      <option value="yearly">Jaehrlich</option>
                     </select>
                   </div>
-                  <div class="field-checkbox-wrap">
-                    <label class="field-label">Status</label>
-                    <label class="field-checkbox">
-                      <input id="income-active" name="is_active" type="checkbox" checked />
-                      <span>Aktiv (nur fuer wiederkehrend)</span>
-                    </label>
+                  <div class="income-recurrence-row" style="display:none">
+                    <label class="field-label" for="income-recurrence">Wiederholungen (0 = unbegrenzt)</label>
+                    <input class="field-input" id="income-recurrence" name="recurrence" type="number" min="0" step="1" placeholder="0" value="0" />
                   </div>
                 </div>
                 <div>
@@ -246,19 +248,17 @@
                 </div>
                 <div class="form-two-cols">
                   <div>
-                    <label class="field-label" for="expense-recurrence">Wiederholung</label>
-                    <select class="field-input" id="expense-recurrence" name="recurrence">
-                      <option value="once">Einmalig</option>
+                    <label class="field-label" for="expense-cycle">Zyklus</label>
+                    <select class="field-input" id="expense-cycle" name="cycle">
+                      <option value="once">Nicht wiederholend</option>
                       <option value="weekly">Woechentlich</option>
                       <option value="monthly">Monatlich</option>
+                      <option value="yearly">Jaehrlich</option>
                     </select>
                   </div>
-                  <div class="field-checkbox-wrap">
-                    <label class="field-label">Status</label>
-                    <label class="field-checkbox">
-                      <input id="expense-active" name="is_active" type="checkbox" checked />
-                      <span>Aktiv (nur fuer wiederkehrend)</span>
-                    </label>
+                  <div class="expense-recurrence-row" style="display:none">
+                    <label class="field-label" for="expense-recurrence">Wiederholungen (0 = unbegrenzt)</label>
+                    <input class="field-input" id="expense-recurrence" name="recurrence" type="number" min="0" step="1" placeholder="0" value="0" />
                   </div>
                 </div>
                 <div>

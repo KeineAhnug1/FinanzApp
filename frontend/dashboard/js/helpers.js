@@ -68,10 +68,18 @@ function setStatus(statusId, type, text) {
   }
 }
 
-function recurrenceLabel(recurrence) {
-  if (recurrence === "weekly") return "Woechentlich";
-  if (recurrence === "monthly") return "Monatlich";
+function cycleLabel(cycle) {
+  if (cycle === "weekly") return "Woechentlich";
+  if (cycle === "monthly") return "Monatlich";
+  if (cycle === "yearly") return "Jaehrlich";
   return "Einmalig";
+}
+
+function recurrenceLabel(entry) {
+  if (entry.cycle === "once") return cycleLabel("once");
+  const label = cycleLabel(entry.cycle);
+  if (entry.recurrence == null || entry.recurrence === 0) return label;
+  return `${label} (${entry.recurrence}x)`;
 }
 
 function escapeHtml(value) {

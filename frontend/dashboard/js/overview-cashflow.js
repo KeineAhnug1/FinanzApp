@@ -13,7 +13,7 @@ function entryMatchesQuery(entry, query, dateField) {
     entry.category,
     entry.note,
     entry[dateField] ? formatDate(entry[dateField]) : "",
-    recurrenceLabel(entry.recurrence)
+    recurrenceLabel(entry)
   ]
     .join(" ")
     .toLowerCase();
@@ -96,10 +96,10 @@ function renderIncomeItem(entry) {
           <div class="income-tags">
             <span class="income-tag">${escapeHtml(categoryLabel(entry.category))}</span>
             ${bankAccountLabel ? `<span class="income-tag">${escapeHtml(bankAccountLabel)}</span>` : ""}
-            <span class="income-tag">${recurrenceLabel(entry.recurrence)}</span>
+            <span class="income-tag">${recurrenceLabel(entry)}</span>
             ${
-              entry.recurrence !== "once"
-                ? `<span class="income-tag">${entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert")}</span>`
+              entry.cycle !== "once"
+                ? `<span class="income-tag">${entry.state === "completed" ? cashflowT("cashflow.completed", "Abgeschlossen") : (entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert"))}</span>`
                 : ""
             }
           </div>
@@ -126,10 +126,10 @@ function renderExpenseItem(entry) {
           <div class="income-tags">
             <span class="income-tag">${escapeHtml(categoryLabel(entry.category))}</span>
             ${bankAccountLabel ? `<span class="income-tag">${escapeHtml(bankAccountLabel)}</span>` : ""}
-            <span class="income-tag">${recurrenceLabel(entry.recurrence)}</span>
+            <span class="income-tag">${recurrenceLabel(entry)}</span>
             ${
-              entry.recurrence !== "once"
-                ? `<span class="income-tag">${entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert")}</span>`
+              entry.cycle !== "once"
+                ? `<span class="income-tag">${entry.state === "completed" ? cashflowT("cashflow.completed", "Abgeschlossen") : (entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert"))}</span>`
                 : ""
             }
           </div>
@@ -231,8 +231,10 @@ function renderExpenseList(entries) {
 
 function recurrenceMonthlyContribution(entry) {
   const amount = Number(entry.amount) || 0;
-  if (entry.recurrence === "monthly") return entry.is_active ? amount : 0;
-  if (entry.recurrence === "weekly") return entry.is_active ? amount * 4.33 : 0;
+  if (entry.state === "completed") return 0;
+  if (entry.cycle === "monthly") return entry.is_active ? amount : 0;
+  if (entry.cycle === "weekly") return entry.is_active ? amount * 4.33 : 0;
+  if (entry.cycle === "yearly") return entry.is_active ? amount / 12 : 0;
   return 0;
 }
 
@@ -404,7 +406,7 @@ function buildMonthlyTotals(entries, keys, dateField) {
     const amount = Number(entry.amount) || 0;
     if (amount <= 0) continue;
 
-    if (entry.recurrence === "once") {
+    if (entry.cycle === "once") {
       const key = monthKeyFromValue(entry[dateField]);
       if (key && Object.prototype.hasOwnProperty.call(totals, key)) {
         totals[key] += amount;
@@ -426,7 +428,7 @@ function buildMonthlyTotals(entries, keys, dateField) {
 
 function getMonthlyTotal(entries, dateField) {
   const oneTime = entries
-    .filter((entry) => entry.recurrence === "once" && isDateInCurrentMonth(entry[dateField]))
+    .filter((entry) => entry.cycle === "once" && isDateInCurrentMonth(entry[dateField]))
     .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
 
   const recurring = entries.reduce((sum, entry) => sum + recurrenceMonthlyContribution(entry), 0);
@@ -517,7 +519,7 @@ function buildDailyTotals(entries, dayKeys, dateField) {
     const startDate = new Date(entry[dateField]);
     if (Number.isNaN(startDate.getTime())) continue;
     const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const recurrence = String(entry.recurrence || "once");
+    const recurrence = String(entry.cycle || "once");
 
     if (recurrence === "once") {
       const key = dayKeyFromDate(startDay);
@@ -555,6 +557,19 @@ function buildDailyTotals(entries, dayKeys, dateField) {
       if (monthKeyFromDate(occurrence) === startMonthKey && occurrence.getTime() < startDay.getTime()) continue;
       const key = dayKeyFromDate(occurrence);
       if (key && Object.prototype.hasOwnProperty.call(totals, key)) totals[key] += amount;
+      continue;
+    }
+
+    if (recurrence === "yearly") {
+      const monthDate = monthDateFromKey(rangeMonthKey);
+      if (!monthDate) continue;
+      const year = monthDate.getFullYear();
+      const daysInTargetMonth = new Date(year, startDay.getMonth() + 1, 0).getDate();
+      const targetDay = Math.min(startDay.getDate(), daysInTargetMonth);
+      const occurrence = new Date(year, startDay.getMonth(), targetDay);
+      if (occurrence.getTime() < startDay.getTime()) continue;
+      const key = dayKeyFromDate(occurrence);
+      if (key && Object.prototype.hasOwnProperty.call(totals, key)) totals[key] += amount;
     }
   }
 
@@ -575,7 +590,7 @@ function buildHourlyTotals(entries, hourKeys, dateField, selectedDayKey) {
     const entryDate = new Date(entry[dateField]);
     if (Number.isNaN(entryDate.getTime())) continue;
     const startDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-    const recurrence = String(entry.recurrence || "once");
+    const recurrence = String(entry.cycle || "once");
 
     if (recurrence === "once") {
       const entryDayKey = dayKeyFromDate(startDay);
@@ -598,6 +613,8 @@ function buildHourlyTotals(entries, hourKeys, dateField, selectedDayKey) {
       const daysInSelectedMonth = new Date(selectedDay.getFullYear(), selectedDay.getMonth() + 1, 0).getDate();
       const targetDay = Math.min(startDay.getDate(), daysInSelectedMonth);
       occursToday = selectedDay.getDate() === targetDay && isMonthlyOccurrenceInMonth(startDay, selectedMonthKey);
+    } else if (recurrence === "yearly") {
+      occursToday = selectedDay.getMonth() === startDay.getMonth() && selectedDay.getDate() === startDay.getDate() && selectedDay.getTime() >= startDay.getTime();
     }
 
     if (!occursToday) continue;
@@ -1158,7 +1175,7 @@ function entryContributionForPeriod(entry, dateField, period) {
   const rawDate = new Date(entry[dateField]);
   if (Number.isNaN(rawDate.getTime())) return 0;
   const startDay = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate());
-  const recurrence = String(entry.recurrence || "once");
+  const recurrence = String(entry.cycle || "once");
 
   if (recurrence === "once") {
     if (period.level === "day") {
@@ -1209,6 +1226,21 @@ function entryContributionForPeriod(entry, dateField, period) {
     const rangeStart = new Date(year, 0, 1);
     const rangeEnd = new Date(year, 11, 31);
     return countWeeklyOccurrencesInRange(startDay, rangeStart, rangeEnd) * amount;
+  }
+
+  if (recurrence === "yearly") {
+    if (period.level === "day") {
+      const day = dayDateFromKey(period.dayKey);
+      if (!day || day.getTime() < startDay.getTime()) return 0;
+      return (day.getMonth() === startDay.getMonth() && day.getDate() === startDay.getDate()) ? amount : 0;
+    }
+    if (period.level === "month") {
+      const monthDate = monthDateFromKey(period.monthKey);
+      if (!monthDate) return 0;
+      return monthDate.getMonth() === startDay.getMonth() ? amount : 0;
+    }
+    const year = Number(period.dateFieldLabel);
+    return year >= startDay.getFullYear() ? amount : 0;
   }
 
   return 0;

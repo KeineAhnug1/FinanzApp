@@ -66,7 +66,7 @@ function initExpenseForm() {
   if (!form) return;
 
   setExpenseFormModeCreate();
-  initRecurrenceToggle("expense-recurrence", "expense-active");
+  initRecurrenceToggle("expense-cycle", "expense-recurrence-row");
   initCategorySelector("expense-category", "expense-custom-wrap", "expense-category-custom");
   initInlineValidation(form);
 
@@ -89,6 +89,8 @@ function initExpenseForm() {
       ? window.FinanzAppCurrency.convertAmount(rawAmount, inputCurrency, "EUR")
       : rawAmount;
 
+    const recurrenceRaw = Number(formData.get("recurrence") || 0);
+
     const payload = {
       source: String(formData.get("source") || "").trim(),
       category: resolveCategoryFromForm(formData),
@@ -96,8 +98,9 @@ function initExpenseForm() {
       spent_at: String(formData.get("spent_at") || "").trim(),
       bank_account_id: String(formData.get("bank_account_id") || "").trim(),
       note: String(formData.get("note") || "").trim(),
-      recurrence: String(formData.get("recurrence") || "once").trim(),
-      is_active: formData.get("is_active") === "on"
+      cycle: String(formData.get("cycle") || "once").trim(),
+      recurrence: recurrenceRaw > 0 ? recurrenceRaw : null,
+      is_active: true
     };
 
     setStatus("expense-form-status", "", expenseState.editingId ? expenseT("updating_expense", "Aktualisiere Ausgabe...") : expenseT("saving_expense", "Speichere Ausgabe..."));

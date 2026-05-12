@@ -136,6 +136,51 @@ html.dashboard-view-preload .dash-main .view-panel {
   font-size: 0.875rem;
 }
 
+.budget-alerts {
+  display: grid;
+  gap: 6px;
+}
+
+.budget-alerts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.budget-alert-item {
+  padding: 10px 14px;
+  border-radius: var(--ui-radius-md, 10px);
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.budget-alert-item.is-warning {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.budget-alert-item.is-danger {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+:root[data-theme="dark"] .budget-alert-item.is-warning {
+  background: #422006;
+  border-color: #92400e;
+  color: #fcd34d;
+}
+
+:root[data-theme="dark"] .budget-alert-item.is-danger {
+  background: #450a0a;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -133,6 +133,7 @@ function renderQuestion(question) {
       </a>
       <div class="inline-actions">
         ${question.can_edit ? `<button class="inline-btn" type="button" data-action="edit-question" data-question-id="${question.id}">${t("questions.edit", "Bearbeiten")}</button>` : ""}
+        ${question.can_edit ? `<button class="inline-btn inline-btn--danger" type="button" data-action="delete-question" data-question-id="${question.id}">${t("questions.delete", "Löschen")}</button>` : ""}
       </div>
     </li>
   `;
@@ -218,6 +219,21 @@ async function handleListClick(event) {
     if (!question) return;
     setEditMode(question);
     setStatus("", t("questions.editing_active", "Bearbeitung aktiv."));
+  }
+
+  if (action === "delete-question") {
+    const questionId = target.dataset.questionId;
+    if (!questionId) return;
+    const shouldDelete = window.confirm(t("questions.delete_confirm", "Frage wirklich löschen? Alle Antworten werden ebenfalls gelöscht."));
+    if (!shouldDelete) return;
+
+    const result = await requestJson(`/api/questions/${encodeURIComponent(questionId)}`, { method: "DELETE" });
+    if (!result.ok) {
+      setStatus("error", result.message || t("questions.delete_failed", "Frage konnte nicht gelöscht werden."));
+      return;
+    }
+    setStatus("success", t("questions.deleted", "Frage gelöscht."));
+    await refreshQuestions();
   }
 }
 

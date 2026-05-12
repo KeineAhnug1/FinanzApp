@@ -78,6 +78,9 @@ async function refreshDashboardData() {
   renderIncomeList(appState.incomeEntries);
   renderExpenseList(appState.expenseEntries);
   updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
+
+  appState.budgetAlerts = await loadBudgetStatus();
+  renderBudgetAlerts();
 }
 
 function formatBankAccountLabel(account) {
@@ -159,18 +162,17 @@ function formatDateTimeLocalInputValue(value = new Date()) {
 }
 
 // Schaltet den Aktiv-Checkbox-Status passend zur Wiederholung.
-function initRecurrenceToggle(recurrenceId, activeId) {
-  const recurrence = document.getElementById(recurrenceId);
-  const active = document.getElementById(activeId);
-  if (!recurrence || !active) return;
+function initRecurrenceToggle(cycleId, recurrenceRowClass) {
+  const cycleEl = document.getElementById(cycleId);
+  const recurrenceRow = document.querySelector(`.${recurrenceRowClass}`);
+  if (!cycleEl) return;
 
   const sync = () => {
-    const isOnce = recurrence.value === "once";
-    active.disabled = isOnce;
-    if (isOnce) active.checked = true;
+    const isOnce = cycleEl.value === "once";
+    if (recurrenceRow) recurrenceRow.style.display = isOnce ? "none" : "";
   };
 
-  recurrence.addEventListener("change", sync);
+  cycleEl.addEventListener("change", sync);
   sync();
 }
 
@@ -183,29 +185,28 @@ function getIncomeFormElements() {
   const amount = document.getElementById("income-amount");
   const currency = document.getElementById("income-currency");
   const date = document.getElementById("income-date");
+  const cycle = document.getElementById("income-cycle");
   const recurrence = document.getElementById("income-recurrence");
+  const recurrenceRow = document.querySelector(".income-recurrence-row");
   const category = document.getElementById("income-category");
   const categoryCustomWrap = document.getElementById("income-custom-wrap");
   const categoryCustom = document.getElementById("income-category-custom");
-  const active = document.getElementById("income-active");
   const note = document.getElementById("income-note");
   const bankAccount = document.getElementById("income-bank-account");
-  return { form, submitBtn, cancelBtn, source, amount, currency, date, recurrence, category, categoryCustomWrap, categoryCustom, active, note, bankAccount };
+  return { form, submitBtn, cancelBtn, source, amount, currency, date, cycle, recurrence, recurrenceRow, category, categoryCustomWrap, categoryCustom, note, bankAccount };
 }
 
 // Setzt das Income-Formular auf "neu anlegen".
 function setIncomeFormModeCreate() {
   incomeState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, recurrence, active, bankAccount, currency } = getIncomeFormElements();
+  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount, currency } = getIncomeFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", "", "salary");
   if (date) date.value = formatDateTimeLocalInputValue(new Date());
-  if (recurrence) recurrence.value = appState.settings?.defaultIncomeRecurrence || "once";
-  if (active) {
-    active.checked = true;
-    active.disabled = !recurrence || recurrence.value === "once";
-  }
+  if (cycle) cycle.value = appState.settings?.defaultIncomeRecurrence || "once";
+  if (recurrence) recurrence.value = "0";
+  if (recurrenceRow) recurrenceRow.style.display = !cycle || cycle.value === "once" ? "none" : "";
   if (currency) currency.value = getCurrency();
   if (submitBtn) submitBtn.textContent = "Einnahme speichern";
   if (cancelBtn) cancelBtn.hidden = true;
@@ -217,7 +218,7 @@ function setIncomeFormModeCreate() {
 // Fuellt das Income-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 function setIncomeFormModeEdit(entry) {
   incomeState.editingId = entry.id;
-  const { source, amount, currency, date, recurrence, active, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
+  const { source, amount, currency, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
   if (source) source.value = entry.source || "";
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", entry.category, "salary");
   const preferredCurrency = getCurrency();
@@ -229,11 +230,10 @@ function setIncomeFormModeEdit(entry) {
     amount.value = Math.round(converted * 100) / 100;
   }
   if (date) date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
-  if (recurrence) recurrence.value = entry.recurrence || "once";
-  if (active) {
-    active.checked = entry.recurrence === "once" ? true : Boolean(entry.is_active);
-    active.disabled = entry.recurrence === "once";
-  }
+  if (cycle) cycle.value = entry.cycle || "once";
+  const isOnce = !cycle || cycle.value === "once";
+  if (recurrenceRow) recurrenceRow.style.display = isOnce ? "none" : "";
+  if (recurrence) recurrence.value = entry.recurrence != null ? String(entry.recurrence) : "0";
   if (note) note.value = entry.note || "";
   if (submitBtn) submitBtn.textContent = "Aenderung speichern";
   if (cancelBtn) cancelBtn.hidden = false;
@@ -254,26 +254,25 @@ function getExpenseFormElements() {
   const amount = document.getElementById("expense-amount");
   const currency = document.getElementById("expense-currency");
   const date = document.getElementById("expense-date");
+  const cycle = document.getElementById("expense-cycle");
   const recurrence = document.getElementById("expense-recurrence");
-  const active = document.getElementById("expense-active");
+  const recurrenceRow = document.querySelector(".expense-recurrence-row");
   const note = document.getElementById("expense-note");
   const bankAccount = document.getElementById("expense-bank-account");
-  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, currency, date, recurrence, active, note, bankAccount };
+  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, currency, date, cycle, recurrence, recurrenceRow, note, bankAccount };
 }
 
 // Setzt das Expense-Formular auf "neu anlegen".
 function setExpenseFormModeCreate() {
   expenseState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, recurrence, active, bankAccount, currency } = getExpenseFormElements();
+  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount, currency } = getExpenseFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", "", "rent");
   if (date) date.value = formatDateTimeLocalInputValue(new Date());
-  if (recurrence) recurrence.value = appState.settings?.defaultExpenseRecurrence || "once";
-  if (active) {
-    active.checked = true;
-    active.disabled = !recurrence || recurrence.value === "once";
-  }
+  if (cycle) cycle.value = appState.settings?.defaultExpenseRecurrence || "once";
+  if (recurrence) recurrence.value = "0";
+  if (recurrenceRow) recurrenceRow.style.display = !cycle || cycle.value === "once" ? "none" : "";
   if (currency) currency.value = getCurrency();
   if (submitBtn) submitBtn.textContent = "Ausgabe speichern";
   if (cancelBtn) cancelBtn.hidden = true;
@@ -285,7 +284,7 @@ function setExpenseFormModeCreate() {
 // Fuellt das Expense-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 function setExpenseFormModeEdit(entry) {
   expenseState.editingId = entry.id;
-  const { source, amount, currency, date, recurrence, active, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
+  const { source, amount, currency, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
   if (source) source.value = entry.source || "";
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", entry.category, "rent");
   const preferredCurrency = getCurrency();
@@ -297,11 +296,10 @@ function setExpenseFormModeEdit(entry) {
     amount.value = Math.round(converted * 100) / 100;
   }
   if (date) date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());
-  if (recurrence) recurrence.value = entry.recurrence || "once";
-  if (active) {
-    active.checked = entry.recurrence === "once" ? true : Boolean(entry.is_active);
-    active.disabled = entry.recurrence === "once";
-  }
+  if (cycle) cycle.value = entry.cycle || "once";
+  const isOnce = !cycle || cycle.value === "once";
+  if (recurrenceRow) recurrenceRow.style.display = isOnce ? "none" : "";
+  if (recurrence) recurrence.value = entry.recurrence != null ? String(entry.recurrence) : "0";
   if (note) note.value = entry.note || "";
   if (submitBtn) submitBtn.textContent = "Aenderung speichern";
   if (cancelBtn) cancelBtn.hidden = false;
@@ -364,4 +362,32 @@ async function handleDeleteCategory(kind, category) {
       replace_with: "other"
     })
   });
+}
+
+async function loadBudgetStatus() {
+  const result = await requestJson("/api/budgets/status");
+  if (!result.ok) return [];
+  return Array.isArray(result.alerts) ? result.alerts : [];
+}
+
+function renderBudgetAlerts() {
+  const section = document.getElementById("budget-alerts-section");
+  const list = document.getElementById("budget-alerts-list");
+  if (!section || !list) return;
+
+  const exceeded = appState.budgetAlerts.filter((a) => a.percentage >= 80);
+  if (exceeded.length === 0) {
+    section.hidden = true;
+    return;
+  }
+
+  section.hidden = false;
+  list.innerHTML = exceeded.map((alert) => {
+    const tone = alert.exceeded ? "danger" : "warning";
+    const icon = alert.exceeded ? "⚠️" : "⚡";
+    const label = alert.exceeded
+      ? `${escapeHtml(alert.category)}: Budget ueberschritten (${formatMoney(alert.spent)} / ${formatMoney(alert.target)})`
+      : `${escapeHtml(alert.category)}: ${alert.percentage}% des Budgets erreicht (${formatMoney(alert.spent)} / ${formatMoney(alert.target)})`;
+    return `<li class="budget-alert-item is-${tone}">${icon} ${label}</li>`;
+  }).join("");
 }

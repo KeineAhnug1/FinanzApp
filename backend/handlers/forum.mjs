@@ -13,7 +13,7 @@ import {
   QUESTION_MESSAGE_MAX_LENGTH,
   QUESTION_TOPIC_MAX_LENGTH
 } from "../config/runtime.mjs";
-import { parseObjectId, parseLongText, toDecimal } from "../utils/data.mjs";
+import { parseObjectId, parseLongText } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { hashPassword } from "../utils/password.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
@@ -300,10 +300,10 @@ export function createForumHandlers(pool) {
     const password = await hashPassword(randomBytes(24).toString("hex"));
     try {
       const { rows: inserted } = await pool.query(
-        `INSERT INTO users (username, email, password, first_name, last_name, age, income, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        `INSERT INTO users (username, email, password, first_name, last_name, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
          RETURNING id`,
-        [FINZBRO_USERNAME, FINZBRO_EMAIL, password, "Finzbro", "Bot", null, toDecimal(0)]
+        [FINZBRO_USERNAME, FINZBRO_EMAIL, password, "Finzbro", "Bot"]
       );
       return inserted[0].id;
     } catch (error) {
@@ -520,8 +520,34 @@ export function createForumHandlers(pool) {
       return sendJson(res, 200, { ok: true, question });
     }
 
+    if (req.method === "DELETE") {
+      const { rows: existingRows } = await pool.query(
+        `SELECT id, from_user_id FROM global_questions WHERE id = $1`,
+        [questionId]
+      );
+      if (existingRows.length === 0) return notFound(res, "Frage nicht gefunden");
+      if (String(existingRows[0].from_user_id) !== String(userId)) {
+        return forbidden(res, "Nur der Ersteller darf diese Frage loeschen");
+      }
+
+      const { rows: answerRows } = await pool.query(
+        `SELECT id FROM global_answers WHERE question_id = $1`,
+        [questionId]
+      );
+      const answerIds = answerRows.map((r) => r.id);
+
+      if (answerIds.length > 0) {
+        await pool.query(`DELETE FROM answer_likes WHERE answer_id = ANY($1)`, [answerIds]);
+        await pool.query(`DELETE FROM global_answers WHERE question_id = $1`, [questionId]);
+      }
+      await pool.query(`DELETE FROM question_likes WHERE question_id = $1`, [questionId]);
+      await pool.query(`DELETE FROM global_questions WHERE id = $1`, [questionId]);
+
+      return sendJson(res, 200, { ok: true, message: "Frage geloescht" });
+    }
+
     if (req.method !== "PATCH") {
-      res.setHeader("Allow", "GET, PATCH");
+      res.setHeader("Allow", "GET, PATCH, DELETE");
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 

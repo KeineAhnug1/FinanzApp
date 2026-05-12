@@ -13,10 +13,12 @@ import { initRateLimiter } from "./utils/rate-limit.mjs";
 import { migratePlaintextPasswords, createAuthHandlers } from "./handlers/auth.mjs";
 import { createUserHandlers } from "./handlers/user.mjs";
 import { createFinanceHandlers } from "./handlers/finance.mjs";
+import { createBudgetHandlers } from "./handlers/budgets.mjs";
 import { createGroupHandlers } from "./handlers/groups.mjs";
 import { createForumHandlers } from "./handlers/forum.mjs";
 import { generateFinzbroChatAnswer } from "./handlers/forum.mjs";
 import { createMessageHandlers } from "./handlers/messages.mjs";
+import { createSseHandlers } from "./handlers/sse.mjs";
 
 const { Pool } = pg;
 
@@ -32,7 +34,7 @@ if (!PORT || !Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
 const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 const sessionStore = createSessionStore({ cookieName: SESSION_COOKIE_NAME, ttlMinutes: SESSION_TTL_MINUTES });
-const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord } = sessionStore;
+const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, gcSessions } = sessionStore;
 
 async function handleStatic(req, res, pathname) {
   let requestPath = "/";
@@ -87,24 +89,30 @@ async function start() {
 
   await init(pool);
   await migratePlaintextPasswords(pool);
+  setInterval(() => gcSessions().catch(() => {}), 30 * 60 * 1000);
 
   const authHandlers = createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME });
   const userHandlers = createUserHandlers({ pool, destroySession, clearSessionCookie });
   const financeHandlers = createFinanceHandlers(pool);
+  const budgetHandlers = createBudgetHandlers(pool);
   const groupHandlers = createGroupHandlers(pool);
   const forumHandlers = createForumHandlers(pool);
+  const sseHandlers = createSseHandlers();
   const messageHandlers = createMessageHandlers(pool, {
     ensureFinzbroUserId: forumHandlers.ensureFinzbroUserId,
-    generateFinzbroChatAnswer
+    generateFinzbroChatAnswer,
+    notifyUser: sseHandlers.notifyUser
   });
 
   const { getSessionUser, requireSessionUser, handleLogin, handleSession, handleLogout, handleRegister, handleRegisterVerify, handlePasswordForgot, handlePasswordReset } = authHandlers;
 
   const API_HANDLERS = {
     ...financeHandlers,
+    ...budgetHandlers,
     ...groupHandlers,
     ...forumHandlers,
     ...messageHandlers,
+    ...sseHandlers,
     ...userHandlers
   };
 

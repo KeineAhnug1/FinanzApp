@@ -13,6 +13,8 @@ class UsersLogin extends HTMLElement {
     this.mode = "login";
     this.pendingEmail = "";
     this.flash = null;
+    this.codeExpiryRemaining = 0;
+    this.codeExpiryInterval = null;
     this.localeListener = () => {
       this.render();
       this.bindEvents();
@@ -27,6 +29,46 @@ class UsersLogin extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener("finanzapp:locale-changed", this.localeListener);
+    this.stopCodeExpiry();
+  }
+
+  startCodeExpiry(seconds) {
+    this.stopCodeExpiry();
+    this.codeExpiryRemaining = Math.max(1, Math.ceil(seconds));
+    this.updateExpiryDisplay();
+    this.codeExpiryInterval = setInterval(() => {
+      this.codeExpiryRemaining--;
+      if (this.codeExpiryRemaining <= 0) {
+        this.stopCodeExpiry();
+        this.updateExpiryDisplay();
+      } else {
+        this.updateExpiryDisplay();
+      }
+    }, 1000);
+  }
+
+  stopCodeExpiry() {
+    if (this.codeExpiryInterval) {
+      clearInterval(this.codeExpiryInterval);
+      this.codeExpiryInterval = null;
+    }
+  }
+
+  updateExpiryDisplay() {
+    const el = this.querySelector("#code-expiry");
+    if (!el) return;
+    if (this.codeExpiryRemaining <= 0) {
+      el.textContent = tr("auth.code_expired", "Code abgelaufen. Bitte neuen Code anfordern.");
+      el.classList.remove("is-warning");
+      el.classList.add("is-expired");
+      return;
+    }
+    const min = Math.floor(this.codeExpiryRemaining / 60);
+    const sec = this.codeExpiryRemaining % 60;
+    const timeStr = min > 0 ? `${min}:${String(sec).padStart(2, "0")}` : `${sec}s`;
+    el.textContent = tr("auth.code_expires_in", "Code gültig für {time}", { time: timeStr });
+    el.classList.remove("is-expired");
+    el.classList.add("is-warning");
   }
 
   bindEvents() {
@@ -57,6 +99,10 @@ class UsersLogin extends HTMLElement {
     if (this.flash) {
       setStatus(status, this.flash.type, this.flash.text);
       this.flash = null;
+    }
+
+    if (this.codeExpiryRemaining > 0 || this.codeExpiryInterval) {
+      this.updateExpiryDisplay();
     }
 
     form.addEventListener("submit", async (event) => {
@@ -160,6 +206,9 @@ class UsersLogin extends HTMLElement {
 
     this.render();
     this.bindEvents();
+
+    const expiry = Number(result.expires_in_seconds);
+    if (expiry > 0) this.startCodeExpiry(expiry);
   }
 
   async submitVerify(form, status) {
@@ -202,6 +251,9 @@ class UsersLogin extends HTMLElement {
     };
     this.render();
     this.bindEvents();
+
+    const expiry = Number(result.expires_in_seconds);
+    if (expiry > 0) this.startCodeExpiry(expiry);
   }
 
   async submitReset(form, status) {
@@ -328,6 +380,7 @@ class UsersLogin extends HTMLElement {
         <label class="login-label" for="code">Code aus der E-Mail</label>
         <input class="login-input verify-code-input" id="code" name="code" type="text" inputmode="numeric" maxlength="6" required placeholder="123456" />
       </div>
+      <p id="code-expiry" class="code-expiry"></p>
       <div>
         <label class="login-label" for="new_password">Neues Passwort</label>
         <input class="login-input" id="new_password" name="new_password" type="password" required minlength="8" autocomplete="new-password" placeholder="${tr("auth.password_min", "mind. 8 Zeichen")}" />
@@ -382,6 +435,7 @@ class UsersLogin extends HTMLElement {
         <label class="login-label" for="code">${tr("auth.verification_code", "Verifizierungscode")}</label>
         <input class="login-input verify-code-input" id="code" name="code" type="text" inputmode="numeric" maxlength="6" required placeholder="123456" />
       </div>
+      <p id="code-expiry" class="code-expiry"></p>
     `;
   }
 

@@ -1,12 +1,13 @@
 /**
- * messages.js – Conversation list, polling, and orchestration.
+ * messages.js – Conversation list, SSE real-time updates, and orchestration.
  * Depends on: chat.js, user-search.js (loaded before this file)
  */
 (function initNachrichten() {
-  const POLL_INTERVAL_MS = 5_000;
+  const FALLBACK_POLL_INTERVAL_MS = 15_000;
 
   let currentPartnerId = null;
   let pollTimer = null;
+  let eventSource = null;
 
   // ── DOM refs ──────────────────────────────────────────────
   const convList = document.getElementById("conversationList");
@@ -106,32 +107,64 @@
   function openConversation(partnerId, partnerUsername, partnerProfileImage) {
     currentPartnerId = partnerId;
 
-    // Mark active in list
     for (const item of convList.querySelectorAll(".msg-conv-item")) {
       item.classList.toggle("is-active", item.dataset.partnerId === partnerId);
     }
 
-    // Mobile: show chat, hide sidebar
     sidebar.classList.add("is-hidden-mobile");
     chatArea.classList.remove("is-hidden-mobile");
 
     window.FinanzAppChat?.openChat(partnerId, partnerUsername, partnerProfileImage);
-
-    // Reset poll so we poll immediately on open
-    startPolling();
   }
 
-  function startPolling() {
-    stopPolling();
+  // ── SSE (Server-Sent Events) ─────────────────────────────
+  function connectSSE() {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+
+    try {
+      eventSource = new EventSource("/api/messages/stream");
+
+      eventSource.addEventListener("new_message", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          loadConversations();
+          if (currentPartnerId && String(data.partnerId) === String(currentPartnerId)) {
+            window.FinanzAppChat?.pollMessages(currentPartnerId);
+          }
+        } catch { /* malformed event data */ }
+      });
+
+      eventSource.addEventListener("open", () => {
+        stopFallbackPolling();
+      });
+
+      eventSource.addEventListener("error", () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        startFallbackPolling();
+      });
+    } catch {
+      startFallbackPolling();
+    }
+  }
+
+  // ── Fallback polling (used when SSE is unavailable) ──────
+  function startFallbackPolling() {
+    stopFallbackPolling();
     pollTimer = setInterval(() => {
       loadConversations();
       if (currentPartnerId) {
         window.FinanzAppChat?.pollMessages(currentPartnerId);
       }
-    }, POLL_INTERVAL_MS);
+    }, FALLBACK_POLL_INTERVAL_MS);
   }
 
-  function stopPolling() {
+  function stopFallbackPolling() {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
@@ -171,7 +204,7 @@
     }
 
     await loadConversations();
-    startPolling();
+    connectSSE();
   }
 
   if (document.readyState === "loading") {

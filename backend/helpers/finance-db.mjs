@@ -1,7 +1,7 @@
 import {
   categoryKey,
   normalizeCategoryValue,
-  normalizeRecurrence,
+  normalizeCycle,
   parseId,
   toNumber
 } from "../utils/data.mjs";
@@ -102,11 +102,13 @@ function recurrenceMonthlyContribution(entry) {
   const amount = toNullableNumber(entry?.amount) ?? 0;
   if (amount <= 0) return 0;
 
-  const recurrence = normalizeRecurrence(entry?.recurrence ?? entry?.cycle ?? "once") ?? "once";
+  const cycle = normalizeCycle(entry?.cycle ?? "once") ?? "once";
   const isActive = typeof entry?.is_active === "boolean" ? entry.is_active : entry?.state !== "paused";
+  if (entry?.state === "completed") return 0;
 
-  if (recurrence === "monthly") return isActive ? amount : 0;
-  if (recurrence === "weekly") return isActive ? amount * 4.33 : 0;
+  if (cycle === "monthly") return isActive ? amount : 0;
+  if (cycle === "weekly") return isActive ? amount * 4.33 : 0;
+  if (cycle === "yearly") return isActive ? amount / 12 : 0;
   return 0;
 }
 
@@ -126,7 +128,7 @@ function isDateInCurrentMonth(value) {
 
 export function calculateCurrentMonthTotal(entries, dateField) {
   const oneTime = entries
-    .filter((entry) => (normalizeRecurrence(entry?.recurrence ?? entry?.cycle ?? "once") ?? "once") === "once")
+    .filter((entry) => (normalizeCycle(entry?.cycle ?? "once") ?? "once") === "once")
     .filter((entry) => isDateInCurrentMonth(resolveEntryDateForFilter(entry, dateField)))
     .reduce((sum, entry) => sum + (toNullableNumber(entry?.amount) ?? 0), 0);
 
@@ -144,11 +146,11 @@ export async function calculateDashboardStyleDonationBalance(pool, userId) {
 
   const [incomeResult, expenseResult] = await Promise.all([
     pool.query(
-      `SELECT amount, recurrence, cycle, is_active, state, received_at, pay_date, created_at FROM income WHERE bank_account_id = ANY($1)`,
+      `SELECT amount, cycle, recurrence, is_active, state, received_at, pay_date, created_at FROM income WHERE bank_account_id = ANY($1)`,
       [accountIds]
     ),
     pool.query(
-      `SELECT amount, recurrence, cycle, is_active, state, spent_at, pay_date, due_date, created_at FROM private_expenses WHERE bank_account_id = ANY($1)`,
+      `SELECT amount, cycle, recurrence, is_active, state, spent_at, pay_date, due_date, created_at FROM private_expenses WHERE bank_account_id = ANY($1)`,
       [accountIds]
     )
   ]);

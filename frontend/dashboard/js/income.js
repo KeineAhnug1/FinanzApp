@@ -66,7 +66,7 @@ function initIncomeForm() {
   if (!form) return;
 
   setIncomeFormModeCreate();
-  initRecurrenceToggle("income-recurrence", "income-active");
+  initRecurrenceToggle("income-cycle", "income-recurrence-row");
   initCategorySelector("income-category", "income-custom-wrap", "income-category-custom");
   initInlineValidation(form);
 
@@ -89,6 +89,8 @@ function initIncomeForm() {
       ? window.FinanzAppCurrency.convertAmount(rawAmount, inputCurrency, "EUR")
       : rawAmount;
 
+    const recurrenceRaw = Number(formData.get("recurrence") || 0);
+
     const payload = {
       source: String(formData.get("source") || "").trim(),
       category: resolveCategoryFromForm(formData),
@@ -96,8 +98,9 @@ function initIncomeForm() {
       received_at: String(formData.get("received_at") || "").trim(),
       bank_account_id: String(formData.get("bank_account_id") || "").trim(),
       note: String(formData.get("note") || "").trim(),
-      recurrence: String(formData.get("recurrence") || "once").trim(),
-      is_active: formData.get("is_active") === "on"
+      cycle: String(formData.get("cycle") || "once").trim(),
+      recurrence: recurrenceRaw > 0 ? recurrenceRaw : null,
+      is_active: true
     };
 
     setStatus("income-form-status", "", incomeState.editingId ? incomeT("updating_income", "Aktualisiere Einnahme...") : incomeT("saving_income", "Speichere Einnahme..."));

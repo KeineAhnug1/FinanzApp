@@ -90,6 +90,7 @@ function renderQuestionDetail(question) {
         <button class="inline-btn" type="button" data-action="like-question" data-question-id="${question.id}">
           ${question.liked_by_me ? t("questions.unlike", "Unlike") : t("questions.like", "Like")} (${question.likes_count || 0})
         </button>
+        ${question.can_edit ? `<button class="inline-btn inline-btn--danger" type="button" data-action="delete-question" data-question-id="${question.id}">${t("questions.delete", "Löschen")}</button>` : ""}
       </div>
 
       <div class="answers-wrap">
@@ -178,6 +179,19 @@ async function handleDetailClick(event) {
       return;
     }
     await refreshQuestion();
+    return;
+  }
+
+  if (action === "delete-question") {
+    const shouldDelete = window.confirm(t("questions.delete_confirm", "Frage wirklich löschen? Alle Antworten werden ebenfalls gelöscht."));
+    if (!shouldDelete) return;
+
+    const result = await requestJson(`/api/questions/${encodeURIComponent(detailState.questionId)}`, { method: "DELETE" });
+    if (!result.ok) {
+      setStatus("error", result.message || t("questions.delete_failed", "Frage konnte nicht gelöscht werden."));
+      return;
+    }
+    window.location.assign("/questions/");
     return;
   }
 

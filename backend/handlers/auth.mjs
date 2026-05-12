@@ -12,7 +12,7 @@ import {
   VERIFICATION_TTL_MINUTES
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
-import { normalizeEmail, parseId, toNumber } from "../utils/data.mjs";
+import { normalizeEmail, parseId } from "../utils/data.mjs";
 import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
 import {
   hashPassword,
@@ -136,8 +136,8 @@ async function sendPasswordResetEmail(toEmail, firstName, code) {
     from: SMTP_FROM,
     to: toEmail,
     subject: "FinanzApp - Passwort zurücksetzen",
-    text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist 15 Minuten gültig.`,
-    html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist 15 Minuten gültig.</p>`
+    text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.`,
+    html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.</p>`
   });
   return true;
 }
@@ -195,7 +195,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     if (!rec) return null;
 
     const { rows } = await pool.query(
-      `SELECT id, username, email, first_name, last_name, income, created_at, "profileImage" FROM users WHERE id = $1`,
+      `SELECT id, username, email, first_name, last_name, created_at, "profileImage" FROM users WHERE id = $1`,
       [rec.userId]
     );
 
@@ -213,7 +213,6 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
         email: user.email,
         first_name: user.first_name || null,
         last_name: user.last_name || null,
-        income: toNumber(user.income),
         created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null,
         profileImage: user.profileImage || null
       }
@@ -246,7 +245,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     if (!email || !password) return badRequest(res, "Email und Passwort sind Pflichtfelder");
 
     const { rows } = await pool.query(
-      `SELECT id, username, email, password, first_name, last_name, income, created_at FROM users WHERE email = $1`,
+      `SELECT id, username, email, password, first_name, last_name, created_at FROM users WHERE email = $1`,
       [email]
     );
 
@@ -269,7 +268,6 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
         email: user.email,
         first_name: user.first_name || null,
         last_name: user.last_name || null,
-        income: toNumber(user.income),
         created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null
       }
     }, { "Set-Cookie": buildSessionCookie(token) });
@@ -355,6 +353,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     return sendJson(res, 200, {
       ok: true,
       pending_email: email,
+      expires_in_seconds: VERIFICATION_TTL_MINUTES * 60,
       message: delivered ? "Verifizierungscode wurde per E-Mail versendet" : "SMTP nicht konfiguriert. Der Code wurde nicht versendet."
     });
   }
@@ -403,8 +402,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
 
     try {
       const { rows: inserted } = await pool.query(
-        `INSERT INTO users (username, email, password, first_name, last_name, age, income, created_at)
-         VALUES ($1, $2, $3, $4, $5, NULL, 0, NOW()) RETURNING id`,
+        `INSERT INTO users (username, email, password, first_name, last_name, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
         [verification.username, verification.email, passwordHash, verification.first_name, verification.last_name]
       );
       const userId = inserted[0].id;
@@ -458,7 +457,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       }
     }
 
-    return sendJson(res, 200, { ok: true, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." });
+    return sendJson(res, 200, { ok: true, expires_in_seconds: VERIFICATION_TTL_MINUTES * 60, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." });
   }
 
   async function handlePasswordReset(req, res) {

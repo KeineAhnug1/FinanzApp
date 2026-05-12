@@ -36,10 +36,17 @@ export function toDecimal(value) {
   return Number(Number(value).toFixed(2));
 }
 
-export function normalizeRecurrence(value) {
+export function normalizeCycle(value) {
   const normalized = String(value || "once").trim().toLowerCase();
-  if (normalized === "weekly" || normalized === "monthly" || normalized === "once") return normalized;
+  if (normalized === "weekly" || normalized === "monthly" || normalized === "yearly" || normalized === "once") return normalized;
   return null;
+}
+
+export function parseRecurrence(value) {
+  if (value == null || value === "" || value === "null") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || Math.floor(n) !== n) return undefined;
+  return n;
 }
 
 export function parseBoolean(value, fallback = false) {

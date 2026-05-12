@@ -14,13 +14,15 @@ import {
 import {
   categoryKey,
   normalizeCategoryValue,
-  normalizeRecurrence,
+  normalizeCycle,
   parseBoolean,
   parseId,
   parsePositiveAmount,
+  parseRecurrence,
   toDecimal,
   toFixedAmount,
-  toNumber
+  toNumber,
+  uniqueCategoryList
 } from "../utils/data.mjs";
 import { parseBody, readBody, sendJson } from "../utils/http.mjs";
 import { badRequest, unauthorized, notFound } from "../helpers/responses.mjs";
@@ -139,7 +141,6 @@ export function createFinanceHandlers(pool) {
         if (entry.kind === "expense") expenseValues.push(entry.value);
       }
 
-      const { uniqueCategoryList } = await import("../utils/data.mjs");
       return sendJson(res, 200, {
         ok: true,
         income: uniqueCategoryList(incomeValues.concat(incomeDistinct.rows.map((r) => r.category))),
@@ -193,11 +194,25 @@ export function createFinanceHandlers(pool) {
     if (req.method === "GET") {
       const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
       if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
-      const { rows: entries } = await pool.query(
-        `SELECT * FROM income WHERE bank_account_id = ANY($1) ORDER BY received_at DESC NULLS LAST, pay_date DESC NULLS LAST, created_at DESC LIMIT 200`,
-        [filterResult.accountIds]
-      );
-      return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeIncomeEntry(entry, userId)) });
+
+      const requestUrl = new URL(req.url || "/", "http://localhost");
+      const limitRaw = Number(requestUrl.searchParams.get("limit"));
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 200;
+      const cursorId = parseId(requestUrl.searchParams.get("cursor"));
+
+      let query;
+      let params;
+      if (cursorId) {
+        query = `SELECT * FROM income WHERE bank_account_id = ANY($1) AND id < $2 ORDER BY id DESC LIMIT $3`;
+        params = [filterResult.accountIds, cursorId, limit];
+      } else {
+        query = `SELECT * FROM income WHERE bank_account_id = ANY($1) ORDER BY received_at DESC NULLS LAST, pay_date DESC NULLS LAST, created_at DESC LIMIT $2`;
+        params = [filterResult.accountIds, limit];
+      }
+
+      const { rows: entries } = await pool.query(query, params);
+      const nextCursor = entries.length === limit ? String(entries[entries.length - 1].id) : null;
+      return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeIncomeEntry(entry, userId)), next_cursor: nextCursor });
     }
 
     if (req.method !== "POST") {
@@ -213,23 +228,29 @@ export function createFinanceHandlers(pool) {
     const note = String(payload.note || "").trim();
     const amountNumber = Number(payload.amount);
     const receivedAt = payload.received_at ? new Date(payload.received_at) : new Date();
-    const recurrence = normalizeRecurrence(payload.recurrence);
+    const cycle = normalizeCycle(payload.cycle);
+    const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
 
     if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
     if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest(res, "Betrag muss groesser 0 sein");
     if (Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
+    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "income", category);
     const selectedBankAccountId = parseId(payload.bank_account_id);
     const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
 
+    const effectiveRecurrence = cycle === "once" ? null : recurrence;
+    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
+    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+
     const { rows } = await pool.query(
       `INSERT INTO income (bank_account_id, source, category, amount, received_at, pay_date, note, info, recurrence, cycle, is_active, state, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $8, $9, $10, NOW(), NOW()) RETURNING *`,
-      [bankAccountId, source, category, amountNumber, receivedAt, note, source || note || null, recurrence, recurrence === "once" ? true : isActive, recurrence === "once" ? "open" : (isActive ? "open" : "paused")]
+       VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()) RETURNING *`,
+      [bankAccountId, source, category, amountNumber, receivedAt, note, source || note || null, effectiveRecurrence, cycle, effectiveIsActive, effectiveState]
     );
 
     await incrementBankAccountBalance(pool, bankAccountId, amountNumber);
@@ -269,7 +290,8 @@ export function createFinanceHandlers(pool) {
     const note = String(payload.note || "").trim();
     const amountNumber = Number(payload.amount);
     const receivedAt = payload.received_at ? new Date(payload.received_at) : null;
-    const recurrence = normalizeRecurrence(payload.recurrence);
+    const cycle = normalizeCycle(payload.cycle);
+    const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
     const requestedBankAccountId = parseId(payload.bank_account_id);
 
@@ -277,7 +299,8 @@ export function createFinanceHandlers(pool) {
     if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest(res, "Betrag muss groesser 0 sein");
     if (!receivedAt || Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
+    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "income", category);
 
@@ -290,10 +313,14 @@ export function createFinanceHandlers(pool) {
     const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
       ? requestedBankAccountId : existing[0].bank_account_id;
 
+    const effectiveRecurrence = cycle === "once" ? null : recurrence;
+    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
+    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+
     const { rows: updated } = await pool.query(
-      `UPDATE income SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, received_at=$6, pay_date=$6, recurrence=$7, cycle=$7, state=$8, info=$9, is_active=$10, updated_at=NOW()
-       WHERE id = $11 RETURNING *`,
-      [nextBankAccountId, source, category, note, amountNumber, receivedAt, recurrence, recurrence === "once" ? "open" : (isActive ? "open" : "paused"), source || note || null, recurrence === "once" ? true : isActive, entryId]
+      `UPDATE income SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, received_at=$6, pay_date=$6, recurrence=$7, cycle=$8, state=$9, info=$10, is_active=$11, updated_at=NOW()
+       WHERE id = $12 RETURNING *`,
+      [nextBankAccountId, source, category, note, amountNumber, receivedAt, effectiveRecurrence, cycle, effectiveState, source || note || null, effectiveIsActive, entryId]
     );
     if (updated.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
 
@@ -317,11 +344,25 @@ export function createFinanceHandlers(pool) {
     if (req.method === "GET") {
       const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
       if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
-      const { rows: entries } = await pool.query(
-        `SELECT * FROM private_expenses WHERE bank_account_id = ANY($1) ORDER BY spent_at DESC NULLS LAST, pay_date DESC NULLS LAST, due_date DESC NULLS LAST, created_at DESC LIMIT 200`,
-        [filterResult.accountIds]
-      );
-      return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeExpenseEntry(entry, userId)) });
+
+      const requestUrl = new URL(req.url || "/", "http://localhost");
+      const limitRaw = Number(requestUrl.searchParams.get("limit"));
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 200;
+      const cursorId = parseId(requestUrl.searchParams.get("cursor"));
+
+      let query;
+      let params;
+      if (cursorId) {
+        query = `SELECT * FROM private_expenses WHERE bank_account_id = ANY($1) AND id < $2 ORDER BY id DESC LIMIT $3`;
+        params = [filterResult.accountIds, cursorId, limit];
+      } else {
+        query = `SELECT * FROM private_expenses WHERE bank_account_id = ANY($1) ORDER BY spent_at DESC NULLS LAST, pay_date DESC NULLS LAST, due_date DESC NULLS LAST, created_at DESC LIMIT $2`;
+        params = [filterResult.accountIds, limit];
+      }
+
+      const { rows: entries } = await pool.query(query, params);
+      const nextCursor = entries.length === limit ? String(entries[entries.length - 1].id) : null;
+      return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeExpenseEntry(entry, userId)), next_cursor: nextCursor });
     }
 
     if (req.method !== "POST") {
@@ -337,23 +378,29 @@ export function createFinanceHandlers(pool) {
     const note = String(payload.note || "").trim();
     const amountNumber = parsePositiveAmount(payload.amount);
     const spentAt = payload.spent_at ? new Date(payload.spent_at) : new Date();
-    const recurrence = normalizeRecurrence(payload.recurrence);
+    const cycle = normalizeCycle(payload.cycle);
+    const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
 
     if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
     if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
     if (amountNumber == null) return badRequest(res, "Betrag muss groesser 0 sein");
     if (Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
+    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "expense", category);
     const selectedBankAccountId = parseId(payload.bank_account_id);
     const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
 
+    const effectiveRecurrence = cycle === "once" ? null : recurrence;
+    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
+    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+
     const { rows } = await pool.query(
       `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, state, note, recurrence, cycle, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $4, $5, $5, $5, $6, $7, $8, $9, $9, $10, NOW(), NOW()) RETURNING *`,
-      [bankAccountId, source, category, amountNumber, spentAt, source || note || null, recurrence === "once" ? "open" : (isActive ? "open" : "paused"), note, recurrence, recurrence === "once" ? true : isActive]
+       VALUES ($1, $2, $3, $4, $4, $5, $5, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()) RETURNING *`,
+      [bankAccountId, source, category, amountNumber, spentAt, source || note || null, effectiveState, note, effectiveRecurrence, cycle, effectiveIsActive]
     );
 
     await incrementBankAccountBalance(pool, bankAccountId, -amountNumber);
@@ -393,7 +440,8 @@ export function createFinanceHandlers(pool) {
     const note = String(payload.note || "").trim();
     const amountNumber = parsePositiveAmount(payload.amount);
     const spentAt = payload.spent_at ? new Date(payload.spent_at) : null;
-    const recurrence = normalizeRecurrence(payload.recurrence);
+    const cycle = normalizeCycle(payload.cycle);
+    const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
     const requestedBankAccountId = parseId(payload.bank_account_id);
 
@@ -401,7 +449,8 @@ export function createFinanceHandlers(pool) {
     if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
     if (amountNumber == null) return badRequest(res, "Betrag muss groesser 0 sein");
     if (!spentAt || Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!recurrence) return badRequest(res, "Wiederholung muss once, weekly oder monthly sein");
+    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "expense", category);
 
@@ -414,10 +463,14 @@ export function createFinanceHandlers(pool) {
     const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
       ? requestedBankAccountId : existing[0].bank_account_id;
 
+    const effectiveRecurrence = cycle === "once" ? null : recurrence;
+    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
+    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+
     const { rows: updated } = await pool.query(
-      `UPDATE private_expenses SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, theo_amount=$5, spent_at=$6, due_date=$6, pay_date=$6, info=$7, state=$8, recurrence=$9, cycle=$9, is_active=$10, updated_at=NOW()
-       WHERE id = $11 RETURNING *`,
-      [nextBankAccountId, source, category, note, amountNumber, spentAt, source || note || null, recurrence === "once" ? "open" : (isActive ? "open" : "paused"), recurrence, recurrence === "once" ? true : isActive, entryId]
+      `UPDATE private_expenses SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, theo_amount=$5, spent_at=$6, due_date=$6, pay_date=$6, info=$7, state=$8, recurrence=$9, cycle=$10, is_active=$11, updated_at=NOW()
+       WHERE id = $12 RETURNING *`,
+      [nextBankAccountId, source, category, note, amountNumber, spentAt, source || note || null, effectiveState, effectiveRecurrence, cycle, effectiveIsActive, entryId]
     );
     if (updated.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
 

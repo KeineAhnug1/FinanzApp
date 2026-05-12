@@ -3,7 +3,7 @@ import { parseObjectId } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
 
-export function createMessageHandlers(pool, { ensureFinzbroUserId, generateFinzbroChatAnswer } = {}) {
+export function createMessageHandlers(pool, { ensureFinzbroUserId, generateFinzbroChatAnswer, notifyUser } = {}) {
 
   async function handleGetConversations(req, res, session) {
     if (req.method !== "GET") {
@@ -182,15 +182,32 @@ export function createMessageHandlers(pool, { ensureFinzbroUserId, generateFinzb
 
           const replyText = await generateFinzbroChatAnswer(chatHistory);
           const replyNow = new Date();
-          await pool.query(
+          const { rows: replyRows } = await pool.query(
             `INSERT INTO private_messages (sender_id, recipient_id, content, sent_at, read_at)
-             VALUES ($1, $2, $3, $4, NULL)`,
+             VALUES ($1, $2, $3, $4, NULL) RETURNING id`,
             [finzbroUserId, userId, replyText, replyNow]
           );
+          if (notifyUser) {
+            notifyUser(userId, "new_message", {
+              _id: String(replyRows[0].id),
+              sender_id: String(finzbroUserId),
+              partnerId: String(finzbroUserId),
+              content: replyText,
+              sent_at: replyNow.toISOString()
+            });
+          }
         } catch (err) {
           console.error("FinzBro chat reply failed:", err);
         }
       })();
+    } else if (notifyUser) {
+      notifyUser(recipientId, "new_message", {
+        _id: String(insertedId),
+        sender_id: String(userId),
+        partnerId: String(userId),
+        content,
+        sent_at: now.toISOString()
+      });
     }
 
     return sendJson(res, 201, {
