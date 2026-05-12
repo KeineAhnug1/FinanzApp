@@ -139,19 +139,3 @@ export function initContrast() {
   }
 }
 
-window.FinanzAppTheme = {
-  getStoredThemeMode,
-  resolveThemeMode,
-  updateThemeButtons,
-  applyThemeMode,
-  saveAndApplyThemeMode,
-  initThemeSwitcher,
-  getStoredDesign,
-  applyDesign,
-  saveAndApplyDesign,
-  initDesign,
-  getStoredContrast,
-  applyContrast,
-  saveAndApplyContrast,
-  initContrast
-};

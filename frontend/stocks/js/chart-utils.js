@@ -56,8 +56,3 @@ export function canvasRoundRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-window.FinanzAppShareViewChartUtils = {
-  canvasRoundRect,
-  getLineChartGeometry,
-  intervalToStepMs
-};

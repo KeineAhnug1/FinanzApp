@@ -3,9 +3,10 @@ import { appState, listState, cashflowChartState, overviewDistributionState, CAT
 import { getLocale } from './runtime.js';
 import { formatMoney, formatDate, escapeHtml, normalizeSearch, recurrenceLabel, setText, setTrend } from './helpers.js';
 import { categoryLabel } from './categories-controls.js';
+import { t as sharedT } from '/shared/js/language-utils.js';
 
 function cashflowT(key, fallback, params = {}) {
-  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  const translated = sharedT(key, params);
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback;
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));

@@ -153,14 +153,3 @@ export function formatFromEur(amount, options = {}) {
 }
 
 export { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES };
-
-window.FinanzAppCurrency = {
-  DEFAULT_CURRENCY,
-  SUPPORTED_CURRENCIES: Array.from(SUPPORTED_CURRENCIES),
-  preloadRates,
-  getPreferredCurrency,
-  convertAmount,
-  convertFromEur,
-  formatAmount,
-  formatFromEur
-};

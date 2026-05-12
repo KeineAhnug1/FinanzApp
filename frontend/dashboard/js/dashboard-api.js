@@ -7,13 +7,11 @@ import {
   applyCategoryOptions,
   setCategoryValue
 } from './categories-controls.js';
+import { requestJsonMerged } from '/shared/js/api-client.js';
+import { convertFromEur } from '/shared/js/currency-utils.js';
 
 export async function requestJson(url, options) {
-  const request = window.FinanzAppApi?.requestJsonMerged;
-  if (typeof request !== "function") {
-    return { ok: false, status: 0, message: "Server nicht erreichbar." };
-  }
-  const result = await request(url, {
+  const result = await requestJsonMerged(url, {
     credentials: "same-origin",
     ...(options || {})
   });
@@ -233,9 +231,7 @@ export function setIncomeFormModeEdit(entry) {
   const preferredCurrency = getCurrency();
   if (currency) currency.value = preferredCurrency;
   if (amount) {
-    const converted = window.FinanzAppCurrency?.convertFromEur
-      ? window.FinanzAppCurrency.convertFromEur(Number(entry.amount) || 0, preferredCurrency)
-      : Number(entry.amount) || 0;
+    const converted = convertFromEur(Number(entry.amount) || 0, preferredCurrency);
     amount.value = Math.round(converted * 100) / 100;
   }
   if (date) date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
@@ -299,9 +295,7 @@ export function setExpenseFormModeEdit(entry) {
   const preferredCurrency = getCurrency();
   if (currency) currency.value = preferredCurrency;
   if (amount) {
-    const converted = window.FinanzAppCurrency?.convertFromEur
-      ? window.FinanzAppCurrency.convertFromEur(Number(entry.amount) || 0, preferredCurrency)
-      : Number(entry.amount) || 0;
+    const converted = convertFromEur(Number(entry.amount) || 0, preferredCurrency);
     amount.value = Math.round(converted * 100) / 100;
   }
   if (date) date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());

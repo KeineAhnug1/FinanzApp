@@ -33,9 +33,3 @@ export function cacheWrite(storageKey, data) {
   window.localStorage.setItem(storageKey, JSON.stringify({ ts: Date.now(), data }));
 }
 
-window.FinanzAppShareViewCacheUtils = {
-  cacheKey,
-  cacheRead,
-  cacheWrite,
-  toBase64Utf8
-};

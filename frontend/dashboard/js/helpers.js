@@ -1,5 +1,7 @@
 // UI-Helfer: Formatierung und kleine DOM-Werkzeuge fuer wiederverwendbare Aufgaben.
 import { getLocale, getCurrency } from './runtime.js';
+import { formatFromEur } from '/shared/js/currency-utils.js';
+import { toastSuccess, toastError } from '/shared/js/api-client.js';
 
 export function formatMoney(value, options = {}) {
   const amount = Number(value) || 0;
@@ -8,32 +10,12 @@ export function formatMoney(value, options = {}) {
   const maxFractionDigits = Number.isFinite(options.maximumFractionDigits) ? options.maximumFractionDigits : 2;
   const minFractionDigits = Number.isFinite(options.minimumFractionDigits) ? options.minimumFractionDigits : undefined;
 
-  if (window.FinanzAppCurrency?.formatFromEur) {
-    return window.FinanzAppCurrency.formatFromEur(amount, {
-      locale,
-      currency,
-      maximumFractionDigits: maxFractionDigits,
-      minimumFractionDigits: minFractionDigits
-    });
-  }
-
-  try {
-    const formatOptions = {
-      style: "currency",
-      currency,
-      maximumFractionDigits: maxFractionDigits
-    };
-    if (Number.isFinite(minFractionDigits)) {
-      formatOptions.minimumFractionDigits = minFractionDigits;
-    }
-    return new Intl.NumberFormat(locale, formatOptions).format(amount);
-  } catch {
-    return new Intl.NumberFormat("de-DE", {
-      style: "currency",
-      currency: "EUR",
-      maximumFractionDigits: 2
-    }).format(amount);
-  }
+  return formatFromEur(amount, {
+    locale,
+    currency,
+    maximumFractionDigits: maxFractionDigits,
+    minimumFractionDigits: minFractionDigits
+  });
 }
 
 export function formatDate(value) {
@@ -62,11 +44,11 @@ export function setStatus(statusId, type, text) {
   node.classList.remove("is-success", "is-error");
   if (type === "success") {
     node.classList.add("is-success");
-    if (text) window.FinanzAppToast?.success(text);
+    if (text) toastSuccess(text);
   }
   if (type === "error") {
     node.classList.add("is-error");
-    if (text) window.FinanzAppToast?.error(text);
+    if (text) toastError(text);
   }
 }
 

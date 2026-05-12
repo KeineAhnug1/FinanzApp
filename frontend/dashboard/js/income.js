@@ -14,9 +14,11 @@ import {
   initRecurrenceToggle
 } from './dashboard-api.js';
 import { initCategorySelector, resolveCategoryFromForm } from './categories-controls.js';
+import { t as sharedT } from '/shared/js/language-utils.js';
+import { convertAmount } from '/shared/js/currency-utils.js';
 
 function incomeT(key, fallback, params = {}) {
-  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  const translated = sharedT(key, params);
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback;
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
@@ -101,9 +103,7 @@ export function initIncomeForm() {
     const formData = new FormData(form);
     const inputCurrency = String(formData.get("input_currency") || "EUR").trim().toUpperCase();
     const rawAmount = Number(formData.get("amount"));
-    const amountInEur = window.FinanzAppCurrency?.convertAmount
-      ? window.FinanzAppCurrency.convertAmount(rawAmount, inputCurrency, "EUR")
-      : rawAmount;
+    const amountInEur = convertAmount(rawAmount, inputCurrency, "EUR");
 
     const recurrenceRaw = Number(formData.get("recurrence") || 0);
 

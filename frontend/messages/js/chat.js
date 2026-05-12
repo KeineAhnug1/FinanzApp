@@ -1,6 +1,5 @@
 /**
  * chat.js – Chat viewport: load messages, send, auto-scroll, date separators.
- * Exposes window.FinanzAppChat for orchestration by messages.js.
  */
 import { t as translate } from "/shared/js/language-utils.js";
 import { requestJson } from "/shared/js/api-client.js";
@@ -273,4 +272,3 @@ export function pollMessages(partnerId) {
   }
 }
 
-window.FinanzAppChat = { openChat, closeChat, pollMessages };

@@ -48,8 +48,3 @@ export async function loadAccountsByEndpoints(endpoints, fallbackPrefix, options
   return [];
 }
 
-window.FinanzAppShareViewAccountUtils = {
-  buildUrlWithQuery,
-  loadAccountsByEndpoints,
-  mapApiAccounts
-};

@@ -1,6 +1,5 @@
 /**
  * user-search.js – User search panel for starting new conversations.
- * Exposes window.FinanzAppUserSearch for orchestration by messages.js.
  */
 import { requestJson } from "/shared/js/api-client.js";
 import { openConversation } from "./messages.js";
@@ -111,5 +110,3 @@ if (searchInput) {
   });
 }
 
-// ── Public API ────────────────────────────────────────────
-window.FinanzAppUserSearch = { show, hide, toggle };

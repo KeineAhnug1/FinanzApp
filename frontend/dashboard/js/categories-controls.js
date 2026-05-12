@@ -8,6 +8,7 @@ import {
   PRESET_EXPENSE_CATEGORY_KEYS
 } from './state.js';
 import { escapeHtml } from './helpers.js';
+import { t } from '/shared/js/language-utils.js';
 
 export function categoryLabel(value) {
   const normalized = String(value || "").trim();
@@ -117,7 +118,7 @@ function renderCategoryManager(kind, listId) {
   const list = document.getElementById(listId);
   if (!list) return;
   const categories = customCategories(kind);
-  const tr = (key, fallback) => window.FinanzAppLanguage?.t?.(key) || fallback;
+  const tr = (key, fallback) => t(key) || fallback;
   if (!categories.length) {
     list.innerHTML = `<li><p class="category-empty">${escapeHtml(tr("category.none_custom", "Keine eigenen Kategorien vorhanden."))}</p></li>`;
     return;

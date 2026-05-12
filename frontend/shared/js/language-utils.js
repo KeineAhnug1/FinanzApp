@@ -304,17 +304,6 @@ async function init() {
   return initPromise;
 }
 
-window.FinanzAppLanguage = {
-  get LOCALES() {
-    return new Set(LOCALES);
-  },
-  getLocale,
-  setLocale,
-  applyTranslations: safeApply,
-  t,
-  whenReady
-};
-
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init, { once: true });
 } else {

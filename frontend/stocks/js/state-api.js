@@ -1,3 +1,10 @@
+import { cacheKey, cacheRead, cacheWrite, toBase64Utf8 } from './cache-utils.js';
+import { buildUrlWithQuery, loadAccountsByEndpoints, mapApiAccounts } from './account-utils.js';
+import { canvasRoundRect, getLineChartGeometry, intervalToStepMs } from './chart-utils.js';
+import { t as sharedT, getLocale } from '/shared/js/language-utils.js';
+import { getCurrentUserFromStorage } from '/shared/js/session-utils.js';
+import { getPreferredCurrency, formatAmount } from '/shared/js/currency-utils.js';
+import { requestJsonMerged } from '/shared/js/api-client.js';
 import { fnToMsFromTimestamp, fnEscapeHtml } from './domain.js';
 
 // =====================================================
@@ -62,10 +69,8 @@ export let sTradingExchange = fnNormalizeTradingExchange(window.SHAREVIEW_DEFAUL
 const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 export const iCacheTtlMs = 5 * 60 * 1000;
-export let sLocale = window.FinanzAppLanguage?.getLocale?.(window.FinanzAppSession?.getCurrentUserFromStorage?.()?.id) || "de-DE";
-const oShareViewCacheUtils = window.FinanzAppShareViewCacheUtils || {};
-const oShareViewAccountUtils = window.FinanzAppShareViewAccountUtils || {};
-export const oShareViewChartUtils = window.FinanzAppShareViewChartUtils || {};
+export let sLocale = getLocale(getCurrentUserFromStorage()?.id) || "de-DE";
+export const oShareViewChartUtils = { canvasRoundRect, getLineChartGeometry, intervalToStepMs };
 
 // =====================================================
 // [SHARED] 1) DOM-Referenzen + globaler Zustand
@@ -93,7 +98,7 @@ export function fnNormalizeAccountId(xValue) {
 }
 
 export function fnGetCurrentSessionUserId() {
-	const oUser = window.FinanzAppSession?.getCurrentUserFromStorage?.();
+	const oUser = getCurrentUserFromStorage();
 	return String(oUser?.id || "anonymous").trim();
 }
 
@@ -277,7 +282,7 @@ export function fnShowError(sMessage) {
 }
 
 export function fnT(sKey, sFallback, oParams = {}) {
-	const sTranslated = window.FinanzAppLanguage?.t?.(sKey, oParams);
+	const sTranslated = sharedT(sKey, oParams);
 	if (sTranslated && sTranslated !== sKey) return sTranslated;
 	if (!oParams || !Object.keys(oParams).length) return sFallback;
 	return String(sFallback || "").replaceAll(/\{(\w+)\}/g, (_, sName) => String(oParams[sName] ?? ""));
@@ -289,7 +294,7 @@ export function fnT(sKey, sFallback, oParams = {}) {
  * @returns {string}
  */
 export function fnGetLocale() {
-	return window.FinanzAppLanguage?.getLocale?.(fnGetCurrentSessionUserId()) || sLocale || "de-DE";
+	return getLocale(fnGetCurrentSessionUserId()) || sLocale || "de-DE";
 }
 
 export function fnNormalizeTradingExchange(sExchangeRaw) {
@@ -365,20 +370,13 @@ window.addEventListener("finanzapp:theme-changed", () => {
 export function fnFmtMoney(nValue, sCurrency = "EUR") {
 	if (!Number.isFinite(nValue)) return "—";
 	const sSourceCurrency = String(sCurrency || "EUR").trim().toUpperCase();
-	const sTargetCurrency = window.FinanzAppCurrency?.getPreferredCurrency?.(fnGetCurrentSessionUserId?.()) || "EUR";
-	if (window.FinanzAppCurrency?.formatAmount) {
-		return window.FinanzAppCurrency.formatAmount(nValue, {
-			locale: fnGetLocale(),
-			sourceCurrency: sSourceCurrency,
-			currency: sTargetCurrency,
-			maximumFractionDigits: 2,
-		});
-	}
-	return new Intl.NumberFormat(fnGetLocale(), {
-		style: "currency",
-		currency: sSourceCurrency,
+	const sTargetCurrency = getPreferredCurrency(fnGetCurrentSessionUserId?.()) || "EUR";
+	return formatAmount(nValue, {
+		locale: fnGetLocale(),
+		sourceCurrency: sSourceCurrency,
+		currency: sTargetCurrency,
 		maximumFractionDigits: 2,
-	}).format(nValue);
+	});
 }
 
 /**
@@ -421,10 +419,7 @@ export function fnFmtDateFromTimestamp(nTimestampRaw) {
  * @returns {string}
  */
 export function fnCacheKey(oPayload) {
-	if (typeof oShareViewCacheUtils.cacheKey === "function") {
-		return oShareViewCacheUtils.cacheKey(oPayload);
-	}
-	return "td_cache_" + fnToBase64Utf8(JSON.stringify(oPayload));
+	return cacheKey(oPayload);
 }
 
 /**
@@ -434,20 +429,7 @@ export function fnCacheKey(oPayload) {
  * @returns {string}
  */
 export function fnToBase64Utf8(sValue) {
-	if (typeof oShareViewCacheUtils.toBase64Utf8 === "function") {
-		return oShareViewCacheUtils.toBase64Utf8(sValue);
-	}
-
-	const aBytes = new TextEncoder().encode(sValue);
-	let sBinary = "";
-	const iChunkSize = 32768;
-
-	for (let iIndex = 0; iIndex < aBytes.length; iIndex += iChunkSize) {
-		const aChunk = aBytes.subarray(iIndex, iIndex + iChunkSize);
-		sBinary += String.fromCharCode(...aChunk);
-	}
-
-	return btoa(sBinary);
+	return toBase64Utf8(sValue);
 }
 
 /**
@@ -457,21 +439,7 @@ export function fnToBase64Utf8(sValue) {
  * @returns {any | null}
  */
 export function fnCacheRead(sKey) {
-	if (typeof oShareViewCacheUtils.cacheRead === "function") {
-		return oShareViewCacheUtils.cacheRead(sKey, iCacheTtlMs);
-	}
-
-	const sRaw = localStorage.getItem(sKey);
-	if (!sRaw) return null;
-
-	try {
-		const oParsed = JSON.parse(sRaw);
-		if (!oParsed?.ts || !oParsed?.data) return null;
-		if (Date.now() - oParsed.ts > iCacheTtlMs) return null;
-		return oParsed.data;
-	} catch {
-		return null;
-	}
+	return cacheRead(sKey, iCacheTtlMs);
 }
 
 /**
@@ -481,11 +449,7 @@ export function fnCacheRead(sKey) {
  * @param {any} oData
  */
 export function fnCacheWrite(sKey, oData) {
-	if (typeof oShareViewCacheUtils.cacheWrite === "function") {
-		oShareViewCacheUtils.cacheWrite(sKey, oData);
-		return;
-	}
-	localStorage.setItem(sKey, JSON.stringify({ ts: Date.now(), data: oData }));
+	cacheWrite(sKey, oData);
 }
 
 // =====================================================
@@ -561,61 +525,15 @@ export async function fnTdFetch(sPath, oParams) {
  * @returns {URL}
  */
 export function fnBuildUrlWithQuery(sEndpoint, oParams = {}) {
-	if (typeof oShareViewAccountUtils.buildUrlWithQuery === "function") {
-		return oShareViewAccountUtils.buildUrlWithQuery(sEndpoint, oParams);
-	}
-	const oUrl = new URL(sEndpoint, window.location.origin);
-	Object.entries(oParams).forEach(([sKey, sValue]) => {
-		const sValueTrimmed = String(sValue || "").trim();
-		if (!sValueTrimmed) return;
-		oUrl.searchParams.set(sKey, sValueTrimmed);
-	});
-	return oUrl;
+	return buildUrlWithQuery(sEndpoint, oParams);
 }
 
 export function fnMapApiAccounts(aRawAccounts, sFallbackPrefix) {
-	if (typeof oShareViewAccountUtils.mapApiAccounts === "function") {
-		return oShareViewAccountUtils.mapApiAccounts(aRawAccounts, sFallbackPrefix);
-	}
-	return (Array.isArray(aRawAccounts) ? aRawAccounts : [])
-		.map((oAccount, iIndex) => {
-			const sId = String(oAccount?.id || "").trim();
-			if (!sId) return null;
-			const sLabelRaw = String(oAccount?.label || oAccount?.name || "").trim();
-			return {
-				id: sId,
-				label: sLabelRaw || `${sFallbackPrefix} ${iIndex + 1}`,
-			};
-		})
-		.filter(Boolean);
+	return mapApiAccounts(aRawAccounts, sFallbackPrefix);
 }
 
 export async function fnLoadAccountsByEndpoints(aEndpoints, sFallbackPrefix, oOptions = {}) {
-	if (typeof oShareViewAccountUtils.loadAccountsByEndpoints === "function") {
-		return await oShareViewAccountUtils.loadAccountsByEndpoints(aEndpoints, sFallbackPrefix, oOptions);
-	}
-
-	const bWarnHttp = Boolean(oOptions.warnHttp);
-	const sWarnPrefix = String(oOptions.warnPrefix || "").trim();
-	for (const sEndpoint of aEndpoints) {
-		try {
-			const oUrl = fnBuildUrlWithQuery(sEndpoint);
-			const oResponse = await fetch(oUrl.toString());
-			if (!oResponse.ok) {
-				if (bWarnHttp) {
-					console.warn(`${sWarnPrefix} Backend Fehler (${sEndpoint}): HTTP ${oResponse.status}.`);
-				}
-				continue;
-			}
-			const oData = await oResponse.json();
-			return fnMapApiAccounts(oData?.accounts, sFallbackPrefix);
-		} catch (oError) {
-			if (sWarnPrefix) {
-				console.warn(`${sWarnPrefix} Backend nicht erreichbar (${sEndpoint}).`, oError);
-			}
-		}
-	}
-	return [];
+	return await loadAccountsByEndpoints(aEndpoints, sFallbackPrefix, oOptions);
 }
 
 export function fnRenderShareAccountOptions(elSelect, bIncludeAllOption = false) {
@@ -974,13 +892,12 @@ export async function fnSearchStocksViaBackend(sQuery, oOptions = {}) {
 
 export function fnApiRequestWithEndpoints(aEndpoints, oRequestInit = {}) {
 	let sLastError = "Kein Endpoint erreichbar";
-	const fnRequest = window.FinanzAppApi?.requestJsonMerged;
 
 	const fnTryEndpoints = async () => {
 		for (const sEndpoint of aEndpoints || []) {
 			try {
-				if (typeof fnRequest === "function") {
-					const oResult = await fnRequest(sEndpoint, oRequestInit);
+				if (typeof requestJsonMerged === "function") {
+					const oResult = await requestJsonMerged(sEndpoint, oRequestInit);
 					if (oResult?.ok) return oResult;
 					const oError = new Error(String(oResult?.message || `HTTP ${oResult?.status || 0}`));
 					oError.details = oResult || null;

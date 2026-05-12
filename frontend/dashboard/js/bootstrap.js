@@ -19,40 +19,37 @@ import { initIncomeForm, initIncomeListActions } from './income.js';
 import { initExpenseForm, initExpenseListActions } from './expense.js';
 import { initOverviewPieControls } from './overview-cashflow.js';
 import { initCategoryManagerActions, initListSearch } from './categories-search.js';
+import { requestJsonMerged } from '/shared/js/api-client.js';
+import { clearCurrentUserFromStorage } from '/shared/js/session-utils.js';
+import { getLocale } from '/shared/js/language-utils.js';
+import { preloadRates } from '/shared/js/currency-utils.js';
 
 export async function bootstrap() {
   let sessionUser = null;
   try {
-    const request = window.FinanzAppApi?.requestJsonMerged;
-    if (typeof request === "function") {
-      const payload = await request("/api/session", { credentials: "same-origin" });
-      if (payload?.ok && payload.session_user) {
-        sessionUser = payload.session_user;
-      }
+    const payload = await requestJsonMerged("/api/session", { credentials: "same-origin" });
+    if (payload?.ok && payload.session_user) {
+      sessionUser = payload.session_user;
     }
   } catch {
     sessionUser = null;
   }
 
   if (!sessionUser) {
-    window.FinanzAppSession.clearCurrentUserFromStorage();
+    clearCurrentUserFromStorage();
     window.location.assign("/");
     return;
   }
 
   setCurrentUser(sessionUser);
   appState.settings = loadDashboardSettings(sessionUser.id);
-  if (window.FinanzAppLanguage?.getLocale) {
-    appState.settings.locale = window.FinanzAppLanguage.getLocale(sessionUser.id);
-  }
-  if (window.FinanzAppCurrency?.preloadRates) {
-    await window.FinanzAppCurrency.preloadRates({ base: "EUR" });
-  }
+  appState.settings.locale = getLocale(sessionUser.id);
+  await preloadRates({ base: "EUR" });
 
   initThemeSwitcher();
   initSectionTabs();
   initEntryTabs();
-  const bUseSharedTopbar = Boolean(window.FinanzAppSharedTopbar);
+  const bUseSharedTopbar = true;
   if (!bUseSharedTopbar) {
     initDashboardMobileNav();
     hydrateProfile(appState.user);

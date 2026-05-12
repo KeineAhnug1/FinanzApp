@@ -197,12 +197,6 @@ if (newConvBtn) {
   });
 }
 
-// ── Called from user-search.js when a user is selected ───
-window.FinanzAppNachrichten = {
-  openConversation,
-  refreshConversations
-};
-
 // ── Init ──────────────────────────────────────────────────
 export async function init() {
   try {

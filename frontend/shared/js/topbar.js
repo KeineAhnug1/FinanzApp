@@ -1,8 +1,6 @@
-import './language-utils.js';
-import './session-utils.js';
-import './theme-utils.js';
-
-window.FinanzAppSharedTopbar = true;
+import { t as _t } from './language-utils.js';
+import { initialsFromUser, fetchSessionUser, setCurrentUserInStorage } from './session-utils.js';
+import { initThemeSwitcher } from './theme-utils.js';
 const SIDENAV_COLLAPSED_STORAGE_KEY = "finanzapp.sideNav.collapsed";
 const SUB_NAV_CLOSE_DURATION_MS = 180;
 const EMBEDDED_QUERY_PARAM = "embedded";
@@ -72,7 +70,7 @@ let contentFrameHost = null;
 let isSoftNavigating = false;
 
 function t(key, fallback, params = {}) {
-  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  const translated = _t(key, params);
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback;
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
@@ -597,7 +595,7 @@ function initGlobalSettings(topbar) {
 
 function fillProfileElements(sessionUser) {
   const profileName = `${sessionUser.first_name || ""} ${sessionUser.last_name || ""}`.trim() || sessionUser.username || t("topbar.user_fallback", "Nutzer");
-  const avatarInitials = window.FinanzAppSession.initialsFromUser(sessionUser);
+  const avatarInitials = initialsFromUser(sessionUser);
 
   const profileNameElements = document.querySelectorAll("[data-profile-name], #profile-name");
   for (const element of profileNameElements) element.textContent = profileName;
@@ -685,9 +683,7 @@ async function initTopbar() {
     ensureSidebar(topbar, controls);
   });
 
-  if (window.FinanzAppTheme?.initThemeSwitcher) {
-    window.FinanzAppTheme.initThemeSwitcher();
-  }
+  initThemeSwitcher();
 
   initProfileMenus();
   disableActiveNavLinkClicks();
@@ -699,9 +695,9 @@ async function initTopbar() {
   setInterval(updateMessagesBadge, 30_000);
 
   try {
-    const sessionUser = await window.FinanzAppSession.fetchSessionUser();
+    const sessionUser = await fetchSessionUser();
     fillProfileElements(sessionUser);
-    window.FinanzAppSession.setCurrentUserInStorage(sessionUser);
+    setCurrentUserInStorage(sessionUser);
     initGlobalSettings(topbar, sessionUser);
     ensureSidebar(topbar, controls);
   } catch {

@@ -46,12 +46,3 @@ export async function logoutAndRedirect() {
   clearCurrentUserFromStorage();
   window.location.assign("/");
 }
-
-window.FinanzAppSession = {
-  getCurrentUserFromStorage,
-  setCurrentUserInStorage,
-  clearCurrentUserFromStorage,
-  fetchSessionUser,
-  initialsFromUser,
-  logoutAndRedirect
-};

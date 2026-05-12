@@ -1,7 +1,7 @@
-import '/shared/js/language-utils.js';
-import '/shared/js/session-utils.js';
-import '/shared/js/api-client.js';
-import '/shared/js/theme-utils.js';
+import { getLocale, setLocale } from '/shared/js/language-utils.js';
+import { fetchSessionUser, setCurrentUserInStorage, clearCurrentUserFromStorage, initialsFromUser, logoutAndRedirect } from '/shared/js/session-utils.js';
+import { toastSuccess } from '/shared/js/api-client.js';
+import { initThemeSwitcher, initDesign, initContrast, getStoredDesign, saveAndApplyDesign } from '/shared/js/theme-utils.js';
 
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF"];
@@ -27,7 +27,7 @@ function saveSettings(userId, patch) {
 /* ── Profil befüllen ── */
 function fillProfile(user) {
   const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
-  const initials = window.FinanzAppSession?.initialsFromUser?.(user) || "U";
+  const initials = initialsFromUser(user) || "U";
   const since = user.created_at ? new Date(user.created_at).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" }) : "-";
 
   const avatar = document.getElementById("profil-avatar-large");
@@ -114,7 +114,7 @@ function initProfileImageUpload() {
 
         statusEl.textContent = "Profilbild gespeichert.";
         statusEl.className = "form-status is-success";
-        window.FinanzAppToast?.success(statusEl.textContent);
+        toastSuccess(statusEl.textContent);
       } else {
         statusEl.textContent = data.message || "Fehler beim Hochladen.";
         statusEl.className = "form-status is-error";
@@ -154,7 +154,7 @@ function compressImage(file, maxW, maxH) {
 
 /* ── Design-Karten ── */
 function initDesignCards() {
-  const currentDesign = window.FinanzAppTheme?.getStoredDesign?.() || "classic";
+  const currentDesign = getStoredDesign() || "classic";
   const cards = document.querySelectorAll(".design-card");
 
   for (const card of cards) {
@@ -164,7 +164,7 @@ function initDesignCards() {
     card.setAttribute("aria-pressed", String(isActive));
 
     card.addEventListener("click", () => {
-      window.FinanzAppTheme?.saveAndApplyDesign?.(design);
+      saveAndApplyDesign(design);
       for (const c of cards) {
         const active = c.dataset.design === design;
         c.classList.toggle("is-active", active);
@@ -183,7 +183,7 @@ function initSpracheForm(userId) {
   if (!form || !localeSelect || !currencySelect || !status) return;
 
   const settings = loadSettings(userId);
-  const currentLocale = window.FinanzAppLanguage?.getLocale?.(userId) || settings.locale || "de-DE";
+  const currentLocale = getLocale(userId) || settings.locale || "de-DE";
   const currentCurrency = settings.currency || "EUR";
 
   localeSelect.value = currentLocale;
@@ -193,17 +193,15 @@ function initSpracheForm(userId) {
     event.preventDefault();
     const nextLocale = localeSelect.value;
     const nextCurrency = currencySelect.value;
-    const prevLocale = window.FinanzAppLanguage?.getLocale?.(userId) || currentLocale;
+    const prevLocale = getLocale(userId) || currentLocale;
 
     saveSettings(userId, { locale: nextLocale, currency: nextCurrency });
 
-    if (window.FinanzAppLanguage?.setLocale) {
-      window.FinanzAppLanguage.setLocale(nextLocale, { userId });
-    }
+    setLocale(nextLocale, { userId });
 
     status.textContent = "Einstellungen gespeichert.";
     status.className = "form-status is-success";
-    window.FinanzAppToast?.success(status.textContent);
+    toastSuccess(status.textContent);
 
     if (nextLocale !== prevLocale) {
       window.setTimeout(() => window.location.reload(), 600);
@@ -254,7 +252,7 @@ function initPasswordChange() {
         form.reset();
         status.textContent = "Passwort erfolgreich geändert.";
         status.className = "form-status is-success";
-        window.FinanzAppToast?.success(status.textContent);
+        toastSuccess(status.textContent);
       } else if (data.code === "wrong_password") {
         status.textContent = "Das aktuelle Passwort ist falsch.";
         status.className = "form-status is-error";
@@ -277,7 +275,7 @@ function initLogout() {
   const logoutBtn = document.getElementById("logout-btn");
   if (!logoutBtn) return;
   logoutBtn.addEventListener("click", () => {
-    window.FinanzAppSession?.logoutAndRedirect?.();
+    logoutAndRedirect();
   });
 }
 
@@ -332,7 +330,7 @@ function initDeleteAccount() {
       const data = await response.json();
 
       if (response.ok && data.ok) {
-        window.FinanzAppSession?.clearCurrentUserFromStorage?.();
+        clearCurrentUserFromStorage();
         window.location.assign("/");
       } else {
         throw new Error(data.message || "Fehler beim Löschen.");
@@ -369,15 +367,9 @@ function initSectionHighlight() {
 
 /* ── Init ── */
 async function init() {
-  if (window.FinanzAppTheme?.initThemeSwitcher) {
-    window.FinanzAppTheme.initThemeSwitcher();
-  }
-  if (window.FinanzAppTheme?.initDesign) {
-    window.FinanzAppTheme.initDesign();
-  }
-  if (window.FinanzAppTheme?.initContrast) {
-    window.FinanzAppTheme.initContrast();
-  }
+  initThemeSwitcher();
+  initDesign();
+  initContrast();
 
   initDesignCards();
   initPasswordChange();
@@ -387,8 +379,8 @@ async function init() {
   initProfileImageUpload();
 
   try {
-    const user = await window.FinanzAppSession.fetchSessionUser();
-    window.FinanzAppSession.setCurrentUserInStorage(user);
+    const user = await fetchSessionUser();
+    setCurrentUserInStorage(user);
     fillProfile(user);
     initSpracheForm(user.id);
   } catch {

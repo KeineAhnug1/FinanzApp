@@ -10,9 +10,12 @@ import {
   DEFAULT_DASHBOARD_SETTINGS
 } from './state.js';
 import { renderIncomeList, renderExpenseList, updateFinanceCards } from './overview-cashflow.js';
+import { initThemeSwitcher as sharedInitThemeSwitcher } from '/shared/js/theme-utils.js';
+import { getLocale as sharedGetLocale } from '/shared/js/language-utils.js';
+import { getCurrentUserFromStorage, setCurrentUserInStorage } from '/shared/js/session-utils.js';
 
 export function initThemeSwitcher() {
-  window.FinanzAppTheme.initThemeSwitcher();
+  sharedInitThemeSwitcher();
 }
 
 function sanitizeSettingChoice(value, allowedValues, fallback) {
@@ -58,10 +61,7 @@ export function saveDashboardSettings(userId, settings) {
 }
 
 export function getLocale() {
-  if (window.FinanzAppLanguage?.getLocale) {
-    return window.FinanzAppLanguage.getLocale(appState.user?.id);
-  }
-  return appState.settings?.locale || DEFAULT_DASHBOARD_SETTINGS.locale;
+  return sharedGetLocale(appState.user?.id) || appState.settings?.locale || DEFAULT_DASHBOARD_SETTINGS.locale;
 }
 
 export function getCurrency() {
@@ -177,11 +177,11 @@ export function initSectionTabs() {
 }
 
 export function getCurrentUser() {
-  return window.FinanzAppSession.getCurrentUserFromStorage();
+  return getCurrentUserFromStorage();
 }
 
 export function setCurrentUser(nextUser) {
-  const merged = window.FinanzAppSession.setCurrentUserInStorage(nextUser);
+  const merged = setCurrentUserInStorage(nextUser);
   if (!merged) return;
   appState.user = merged;
 }

@@ -1,7 +1,11 @@
 // Login/Registrierung: Formular-Modi und API-Kommunikation.
+import { t as sharedT } from '/shared/js/language-utils.js';
+import { setCurrentUserInStorage } from '/shared/js/session-utils.js';
+import { requestJson, requestJsonMerged } from '/shared/js/api-client.js';
+import { initThemeSwitcher } from '/shared/js/theme-utils.js';
 
 function tr(key, fallback, params = {}) {
-  const translated = window.FinanzAppLanguage?.t?.(key, params);
+  const translated = sharedT(key, params);
   if (translated && translated !== key) return translated;
   if (!params || !Object.keys(params).length) return fallback;
   return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
@@ -156,7 +160,7 @@ class UsersLogin extends HTMLElement {
     }
 
     setStatus(status, "success", tr("auth.login_success", "Login erfolgreich: {email}", { email: result.user.email }));
-    window.FinanzAppSession.setCurrentUserInStorage({
+    setCurrentUserInStorage({
       ...result.user,
       logged_in_at: new Date().toISOString()
     });
@@ -467,12 +471,8 @@ class UsersLogin extends HTMLElement {
 }
 
 async function postJson(url, payload) {
-  const request = window.FinanzAppApi?.requestJson;
-  if (typeof request !== "function") {
-    return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
-  }
   try {
-    const result = await request(url, {
+    const result = await requestJson(url, {
       method: "POST",
       credentials: "same-origin",
       body: payload
@@ -539,16 +539,13 @@ function escapeAttribute(value) {
 
 
 customElements.define("users-login", UsersLogin);
-window.FinanzAppTheme.initThemeSwitcher();
+initThemeSwitcher();
 
 (async () => {
   try {
-    const request = window.FinanzAppApi?.requestJsonMerged;
-    const payload = typeof request === "function"
-      ? await request("/api/session", { credentials: "same-origin" })
-      : null;
+    const payload = await requestJsonMerged("/api/session", { credentials: "same-origin" });
     if (payload?.ok && payload.session_user) {
-      window.FinanzAppSession.setCurrentUserInStorage(payload.session_user);
+      setCurrentUserInStorage(payload.session_user);
       window.location.assign("/dashboard.html");
     }
   } catch {

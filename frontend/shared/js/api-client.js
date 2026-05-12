@@ -104,22 +104,9 @@ export const toastError = (m, o) => showToast(m, "error", o);
 export const toastWarning = (m, o) => showToast(m, "warning", o);
 export const toastInfo = (m, o) => showToast(m, "info", o);
 
-window.FinanzAppApi = {
-  requestJson,
-  requestJsonMerged
-};
-
-window.FinanzAppToast = {
-  show: showToast,
-  success: toastSuccess,
-  error: toastError,
-  warning: toastWarning,
-  info: toastInfo
-};
-
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason;
   if (reason && reason.name === "AbortError") return;
   const msg = (reason && (reason.message || String(reason))) || "Ein unerwarteter Fehler ist aufgetreten.";
-  window.FinanzAppToast?.error(msg);
+  toastError(msg);
 });
