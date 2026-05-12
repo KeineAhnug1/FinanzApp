@@ -12,7 +12,7 @@ import {
   VERIFICATION_TTL_MINUTES
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
-import { normalizeEmail, parseIncome, parseId, toNumber } from "../utils/data.mjs";
+import { normalizeEmail, parseId, toNumber } from "../utils/data.mjs";
 import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
 import {
   hashPassword,
@@ -316,8 +316,6 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     const password = String(payload.password || "");
     const firstName = String(payload.first_name || "").trim();
     const lastName = String(payload.last_name || "").trim();
-    const income = parseIncome(payload.income ?? 0);
-
     if (!username || !email || !password || !firstName || !lastName) {
       return badRequest(res, "Username, Vorname, Nachname, E-Mail und Passwort sind Pflichtfelder");
     }
@@ -326,7 +324,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest(res, "Bitte eine gueltige E-Mail-Adresse angeben");
     if (password.length < 8) return badRequest(res, "Passwort muss mindestens 8 Zeichen haben");
-    if (income == null) return badRequest(res, "Income muss eine Zahl >= 0 sein");
+
 
     const { rows: existing } = await pool.query(
       `SELECT id FROM users WHERE email = $1 OR username = $2 LIMIT 1`,
@@ -340,10 +338,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     const passwordHash = await hashPassword(password);
 
     await pool.query(
-      `INSERT INTO email_verifications (email, username, password, first_name, last_name, income, code_hash, attempts, created_at, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9)
-       ON CONFLICT (email) DO UPDATE SET username=$2, password=$3, first_name=$4, last_name=$5, income=$6, code_hash=$7, attempts=0, created_at=$8, expires_at=$9`,
-      [email, username, passwordHash, firstName, lastName, income, hashValue(code), now, expiresAt]
+      `INSERT INTO email_verifications (email, username, password, first_name, last_name, code_hash, attempts, created_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8)
+       ON CONFLICT (email) DO UPDATE SET username=$2, password=$3, first_name=$4, last_name=$5, code_hash=$6, attempts=0, created_at=$7, expires_at=$8`,
+      [email, username, passwordHash, firstName, lastName, hashValue(code), now, expiresAt]
     );
 
     let delivered = false;
@@ -406,8 +404,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     try {
       const { rows: inserted } = await pool.query(
         `INSERT INTO users (username, email, password, first_name, last_name, age, income, created_at)
-         VALUES ($1, $2, $3, $4, $5, NULL, $6, NOW()) RETURNING id`,
-        [verification.username, verification.email, passwordHash, verification.first_name, verification.last_name, verification.income || 0]
+         VALUES ($1, $2, $3, $4, $5, NULL, 0, NOW()) RETURNING id`,
+        [verification.username, verification.email, passwordHash, verification.first_name, verification.last_name]
       );
       const userId = inserted[0].id;
       await ensureUserFinanceRoots(pool, userId);

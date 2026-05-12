@@ -127,8 +127,6 @@ class UsersLogin extends HTMLElement {
     const email = String(formData.get("email") || "").trim().toLowerCase();
     const password = String(formData.get("password") || "");
     const confirmPassword = String(formData.get("confirm_password") || "");
-    const incomeRaw = String(formData.get("income") || "").trim();
-    const income = incomeRaw === "" ? 0 : Number(incomeRaw.replace(",", "."));
 
     if (password !== confirmPassword) {
       setStatus(status, "error", tr("auth.password_mismatch", "Passwort und Passwort-Wiederholung stimmen nicht überein."));
@@ -140,8 +138,7 @@ class UsersLogin extends HTMLElement {
       last_name: lastName,
       username,
       email,
-      password,
-      income
+      password
     });
 
     if (result.status === 429) {
@@ -305,7 +302,7 @@ class UsersLogin extends HTMLElement {
       <div>
         <div class="login-label-row">
           <label class="login-label" for="password">${tr("auth.password", "Passwort")}</label>
-          <button class="auth-mode-link auth-mode-link--inline" type="button" data-auth-mode="forgot">Vergessen?</button>
+          <button class="auth-mode-link auth-mode-link--inline" type="button" tabindex="-1" data-auth-mode="forgot">Vergessen?</button>
         </div>
         <input class="login-input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="${tr("auth.password_placeholder", "Passwort eingeben")}" />
       </div>
@@ -371,10 +368,6 @@ class UsersLogin extends HTMLElement {
           <label class="login-label" for="confirm_password">${tr("auth.password_repeat", "Passwort wiederholen")}</label>
           <input class="login-input" id="confirm_password" name="confirm_password" type="password" required minlength="8" placeholder="${tr("auth.password_repeat_placeholder", "wiederholen")}" />
         </div>
-      </div>
-      <div>
-        <label class="login-label" for="income">${tr("auth.monthly_income_optional", "Monatliches Einkommen (optional)")}</label>
-        <input class="login-input" id="income" name="income" type="number" min="0" step="0.01" placeholder="0.00" />
       </div>
     `;
   }
