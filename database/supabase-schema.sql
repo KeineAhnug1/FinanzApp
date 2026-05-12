@@ -1,8 +1,44 @@
 -- FinanzApp Schema for Supabase (PostgreSQL)
--- Paste this into: Supabase Dashboard → SQL Editor → New Query → Run
+-- WICHTIG: Zuerst alle bestehenden Tabellen loeschen, dann dieses Schema ausfuehren.
+-- Supabase Dashboard → SQL Editor → New Query → Run
+
+-- ===========================================
+-- SCHRITT 1: Alle alten Tabellen loeschen
+-- ===========================================
+DROP TABLE IF EXISTS answer_likes CASCADE;
+DROP TABLE IF EXISTS question_likes CASCADE;
+DROP TABLE IF EXISTS global_answers CASCADE;
+DROP TABLE IF EXISTS global_questions CASCADE;
+DROP TABLE IF EXISTS group_message CASCADE;
+DROP TABLE IF EXISTS private_messages CASCADE;
+DROP TABLE IF EXISTS private_message CASCADE;
+DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS requests CASCADE;
+DROP TABLE IF EXISTS group_expenses CASCADE;
+DROP TABLE IF EXISTS funding_participants CASCADE;
+DROP TABLE IF EXISTS group_funding CASCADE;
+DROP TABLE IF EXISTS group_activities CASCADE;
+DROP TABLE IF EXISTS group_members CASCADE;
+DROP TABLE IF EXISTS groups CASCADE;
+DROP TABLE IF EXISTS budgets CASCADE;
+DROP TABLE IF EXISTS user_categories CASCADE;
+DROP TABLE IF EXISTS private_expenses CASCADE;
+DROP TABLE IF EXISTS income CASCADE;
+DROP TABLE IF EXISTS shares CASCADE;
+DROP TABLE IF EXISTS share_accounts CASCADE;
+DROP TABLE IF EXISTS depots CASCADE;
+DROP TABLE IF EXISTS bank_accounts CASCADE;
+DROP TABLE IF EXISTS password_resets CASCADE;
+DROP TABLE IF EXISTS email_verifications CASCADE;
+DROP TABLE IF EXISTS sessions CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- ===========================================
+-- SCHRITT 2: Tabellen erstellen
+-- ===========================================
 
 -- Users
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   username VARCHAR NOT NULL UNIQUE,
   email VARCHAR NOT NULL UNIQUE,
@@ -11,13 +47,12 @@ CREATE TABLE IF NOT EXISTS users (
   last_name VARCHAR NOT NULL,
   age INT,
   income DECIMAL(12,2) DEFAULT 0,
-  verification_code INT,
   "profileImage" TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Sessions
-CREATE TABLE IF NOT EXISTS sessions (
+-- Sessions (fuer Login-Tokens)
+CREATE TABLE sessions (
   id SERIAL PRIMARY KEY,
   token VARCHAR NOT NULL UNIQUE,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -25,8 +60,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Email Verifications
-CREATE TABLE IF NOT EXISTS email_verifications (
+-- Email Verifications (Registrierung)
+CREATE TABLE email_verifications (
   id SERIAL PRIMARY KEY,
   email VARCHAR NOT NULL UNIQUE,
   username VARCHAR NOT NULL,
@@ -41,7 +76,7 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 );
 
 -- Password Resets
-CREATE TABLE IF NOT EXISTS password_resets (
+CREATE TABLE password_resets (
   id SERIAL PRIMARY KEY,
   email VARCHAR NOT NULL UNIQUE,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -52,7 +87,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 
 -- Bank Accounts
-CREATE TABLE IF NOT EXISTS bank_accounts (
+CREATE TABLE bank_accounts (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   label VARCHAR,
@@ -60,16 +95,16 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Share Accounts (Depots)
-CREATE TABLE IF NOT EXISTS share_accounts (
+-- Share Accounts (Aktienkonten/Depots)
+CREATE TABLE share_accounts (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   label VARCHAR,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Shares
-CREATE TABLE IF NOT EXISTS shares (
+-- Shares (Aktien-Positionen)
+CREATE TABLE shares (
   id SERIAL PRIMARY KEY,
   share_account_id INT REFERENCES share_accounts(id) ON DELETE CASCADE,
   depot_id INT REFERENCES share_accounts(id) ON DELETE CASCADE,
@@ -80,8 +115,8 @@ CREATE TABLE IF NOT EXISTS shares (
   bought_for DECIMAL(12,2) NOT NULL
 );
 
--- Income Entries
-CREATE TABLE IF NOT EXISTS income (
+-- Income Entries (Einnahmen)
+CREATE TABLE income (
   id SERIAL PRIMARY KEY,
   bank_account_id INT NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
   source VARCHAR,
@@ -99,8 +134,8 @@ CREATE TABLE IF NOT EXISTS income (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Private Expenses
-CREATE TABLE IF NOT EXISTS private_expenses (
+-- Private Expenses (Ausgaben)
+CREATE TABLE private_expenses (
   id SERIAL PRIMARY KEY,
   bank_account_id INT NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
   source VARCHAR,
@@ -123,8 +158,8 @@ CREATE TABLE IF NOT EXISTS private_expenses (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- User Categories
-CREATE TABLE IF NOT EXISTS user_categories (
+-- User Categories (benutzerdefinierte Kategorien)
+CREATE TABLE user_categories (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind VARCHAR NOT NULL,
@@ -136,7 +171,7 @@ CREATE TABLE IF NOT EXISTS user_categories (
 );
 
 -- Budgets
-CREATE TABLE IF NOT EXISTS budgets (
+CREATE TABLE budgets (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   category VARCHAR,
@@ -147,7 +182,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 );
 
 -- Groups
-CREATE TABLE IF NOT EXISTS groups (
+CREATE TABLE groups (
   id SERIAL PRIMARY KEY,
   name VARCHAR NOT NULL,
   info VARCHAR,
@@ -156,7 +191,7 @@ CREATE TABLE IF NOT EXISTS groups (
 );
 
 -- Group Members
-CREATE TABLE IF NOT EXISTS group_members (
+CREATE TABLE group_members (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   group_id INT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -165,7 +200,7 @@ CREATE TABLE IF NOT EXISTS group_members (
 );
 
 -- Group Activities
-CREATE TABLE IF NOT EXISTS group_activities (
+CREATE TABLE group_activities (
   id SERIAL PRIMARY KEY,
   group_id INT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   info VARCHAR,
@@ -174,7 +209,7 @@ CREATE TABLE IF NOT EXISTS group_activities (
 );
 
 -- Group Funding
-CREATE TABLE IF NOT EXISTS group_funding (
+CREATE TABLE group_funding (
   id SERIAL PRIMARY KEY,
   group_id INT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   group_activity_id INT NOT NULL REFERENCES group_activities(id) ON DELETE CASCADE,
@@ -184,7 +219,7 @@ CREATE TABLE IF NOT EXISTS group_funding (
 );
 
 -- Funding Participants
-CREATE TABLE IF NOT EXISTS funding_participants (
+CREATE TABLE funding_participants (
   id SERIAL PRIMARY KEY,
   bank_account_id INT NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
   group_funding_id INT NOT NULL REFERENCES group_funding(id) ON DELETE CASCADE,
@@ -193,7 +228,7 @@ CREATE TABLE IF NOT EXISTS funding_participants (
 );
 
 -- Group Expenses
-CREATE TABLE IF NOT EXISTS group_expenses (
+CREATE TABLE group_expenses (
   id SERIAL PRIMARY KEY,
   group_funding_id INT NOT NULL REFERENCES group_funding(id) ON DELETE CASCADE,
   amount DECIMAL(12,2) NOT NULL,
@@ -205,8 +240,8 @@ CREATE TABLE IF NOT EXISTS group_expenses (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Requests
-CREATE TABLE IF NOT EXISTS requests (
+-- Requests (Zahlungsanforderungen)
+CREATE TABLE requests (
   id SERIAL PRIMARY KEY,
   from_bank_account_id INT NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
   to_bank_account_id INT NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
@@ -222,7 +257,7 @@ CREATE TABLE IF NOT EXISTS requests (
 );
 
 -- Transactions
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE transactions (
   id SERIAL PRIMARY KEY,
   private_expense_id INT REFERENCES private_expenses(id) ON DELETE SET NULL,
   request_id INT REFERENCES requests(id) ON DELETE SET NULL,
@@ -236,8 +271,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Private Messages
-CREATE TABLE IF NOT EXISTS private_messages (
+-- Private Messages (Direktnachrichten)
+CREATE TABLE private_messages (
   id SERIAL PRIMARY KEY,
   sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -247,8 +282,8 @@ CREATE TABLE IF NOT EXISTS private_messages (
   deleted_at TIMESTAMP
 );
 
--- Group Messages
-CREATE TABLE IF NOT EXISTS group_message (
+-- Group Messages (Gruppennachrichten)
+CREATE TABLE group_message (
   id SERIAL PRIMARY KEY,
   from_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   group_id INT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -260,7 +295,7 @@ CREATE TABLE IF NOT EXISTS group_message (
 );
 
 -- Global Questions (Forum)
-CREATE TABLE IF NOT EXISTS global_questions (
+CREATE TABLE global_questions (
   id SERIAL PRIMARY KEY,
   from_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   thema VARCHAR,
@@ -272,7 +307,7 @@ CREATE TABLE IF NOT EXISTS global_questions (
 );
 
 -- Question Likes
-CREATE TABLE IF NOT EXISTS question_likes (
+CREATE TABLE question_likes (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   question_id INT NOT NULL REFERENCES global_questions(id) ON DELETE CASCADE,
@@ -280,8 +315,8 @@ CREATE TABLE IF NOT EXISTS question_likes (
   UNIQUE(user_id, question_id)
 );
 
--- Global Answers
-CREATE TABLE IF NOT EXISTS global_answers (
+-- Global Answers (Forum-Antworten)
+CREATE TABLE global_answers (
   id SERIAL PRIMARY KEY,
   question_id INT NOT NULL REFERENCES global_questions(id) ON DELETE CASCADE,
   from_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -292,7 +327,7 @@ CREATE TABLE IF NOT EXISTS global_answers (
 );
 
 -- Answer Likes
-CREATE TABLE IF NOT EXISTS answer_likes (
+CREATE TABLE answer_likes (
   id SERIAL PRIMARY KEY,
   answer_id INT NOT NULL REFERENCES global_answers(id) ON DELETE CASCADE,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -300,12 +335,23 @@ CREATE TABLE IF NOT EXISTS answer_likes (
   UNIQUE(answer_id, user_id)
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-CREATE INDEX IF NOT EXISTS idx_income_bank_date ON income(bank_account_id, pay_date DESC, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_expenses_bank_date ON private_expenses(bank_account_id, pay_date DESC, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_shares_account ON shares(share_account_id);
-CREATE INDEX IF NOT EXISTS idx_global_questions_created ON global_questions(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_global_answers_question ON global_answers(question_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_private_messages_participants ON private_messages(sender_id, recipient_id, sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_group_message_group ON group_message(group_id, created_at DESC);
+-- ===========================================
+-- SCHRITT 3: Indexes fuer Performance
+-- ===========================================
+CREATE INDEX idx_sessions_token ON sessions(token);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX idx_bank_accounts_user ON bank_accounts(user_id);
+CREATE INDEX idx_share_accounts_user ON share_accounts(user_id);
+CREATE INDEX idx_income_bank_date ON income(bank_account_id, pay_date DESC, created_at DESC);
+CREATE INDEX idx_expenses_bank_date ON private_expenses(bank_account_id, pay_date DESC, created_at DESC);
+CREATE INDEX idx_shares_account ON shares(share_account_id);
+CREATE INDEX idx_global_questions_created ON global_questions(created_at DESC);
+CREATE INDEX idx_global_answers_question ON global_answers(question_id, created_at DESC);
+CREATE INDEX idx_private_messages_sender ON private_messages(sender_id, sent_at DESC);
+CREATE INDEX idx_private_messages_recipient ON private_messages(recipient_id, sent_at DESC);
+CREATE INDEX idx_group_message_group ON group_message(group_id, created_at DESC);
+CREATE INDEX idx_group_members_user ON group_members(user_id);
+CREATE INDEX idx_group_members_group ON group_members(group_id);
+CREATE INDEX idx_funding_participants_funding ON funding_participants(group_funding_id);
+CREATE INDEX idx_transactions_expense ON transactions(group_expense_id);
+CREATE INDEX idx_user_categories_user ON user_categories(user_id, kind);

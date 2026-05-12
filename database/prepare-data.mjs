@@ -1,4 +1,4 @@
-import { withDb } from "./db-client.mjs";
+import { pool } from "./db-client.mjs";
 import { getPreparedData } from "./data-service.mjs";
 
 function readArgValue(flagName) {
@@ -12,11 +12,13 @@ function readArgValue(flagName) {
 async function run() {
   try {
     const username = readArgValue("--username");
-    const prepared = await withDb((db) => getPreparedData(db, { username }));
+    const prepared = await getPreparedData(pool, { username });
     console.log(JSON.stringify(prepared, null, 2));
   } catch (err) {
     console.error("Preparing v4 data failed:", err);
     process.exitCode = 1;
+  } finally {
+    await pool.end();
   }
 }
 

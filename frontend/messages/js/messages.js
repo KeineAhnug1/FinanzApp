@@ -1,5 +1,5 @@
 /**
- * nachrichten.js – Conversation list, polling, and orchestration.
+ * messages.js – Conversation list, polling, and orchestration.
  * Depends on: chat.js, user-search.js (loaded before this file)
  */
 (function initNachrichten() {

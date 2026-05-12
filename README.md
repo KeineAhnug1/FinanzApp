@@ -82,16 +82,15 @@ FinanzApp/
     shared/
     data/
   database/
-    dataset-v4/
   Datastructure.png
 ```
 
 ---
 
 ## Hinweise 💡
-- Standard-Runtime läuft auf **Dataset v4** (`MONGODB_DB_V4` oder `${MONGODB_DB}_v4`) 🧠
-- Session-Cookie: `finanzapp_session` 🍪
-- Ohne Session Redirect zurück auf `/` 🔁
+- Datenbank: **Supabase (PostgreSQL)** via `DATABASE_URL`
+- Session-Cookie: `finanzapp_session`
+- Ohne Session Redirect zurück auf `/`
 
 ## Stock API (FastAPI) Dokumentation 📚
 

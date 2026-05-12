@@ -1,5 +1,3 @@
-const BASE_DB_NAME = process.env.MONGODB_DB || "finanzapp";
-
 export const PORT = Number(process.env.PORT || 3000);
 export const DATABASE_URL = process.env.DATABASE_URL || "";
 

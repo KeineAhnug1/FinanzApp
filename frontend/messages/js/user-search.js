@@ -1,6 +1,6 @@
 /**
  * user-search.js – User search panel for starting new conversations.
- * Exposes window.FinanzAppUserSearch for orchestration by nachrichten.js.
+ * Exposes window.FinanzAppUserSearch for orchestration by messages.js.
  */
 (function initUserSearch() {
   let searchTimer = null;

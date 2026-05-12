@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node backend/server.mjs",
     "backend:start": "node backend/server.mjs",
-    "db:check": "node database/dataset-v4/check-connection.mjs"
+    "db:check": "node database/check-connection.mjs",
+    "db:clear": "node database/clear-database.mjs",
+    "db:migrate": "node database/migrate-to-supabase.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.4",

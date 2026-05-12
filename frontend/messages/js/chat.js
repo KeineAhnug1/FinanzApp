@@ -1,9 +1,9 @@
 /**
  * chat.js – Chat viewport: load messages, send, auto-scroll, date separators.
- * Exposes window.FinanzAppChat for orchestration by nachrichten.js.
+ * Exposes window.FinanzAppChat for orchestration by messages.js.
  */
 (function initChat() {
-  let activeParnerId = null;
+  let activePartnerId = null;
   let lastMessageCount = 0;
   let activePartnerImage = null;
   let activePartnerInitial = "?";
@@ -158,8 +158,8 @@
       `/api/messages/${encodeURIComponent(messageId)}`,
       { method: "DELETE" }
     );
-    if (result.ok && activeParnerId) {
-      await loadMessages(activeParnerId, false);
+    if (result.ok && activePartnerId) {
+      await loadMessages(activePartnerId, false);
     }
   }
 
@@ -213,7 +213,7 @@
   if (chatForm) {
     chatForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!activeParnerId) return;
+      if (!activePartnerId) return;
 
       const content = String(chatInput?.value || "").trim();
       if (!content) return;
@@ -221,10 +221,10 @@
       const btn = chatForm.querySelector("button[type=submit]");
       if (btn) btn.disabled = true;
 
-      const ok = await sendMessage(activeParnerId, content);
+      const ok = await sendMessage(activePartnerId, content);
       if (ok) {
         if (chatInput) chatInput.value = "";
-        await loadMessages(activeParnerId, false);
+        await loadMessages(activePartnerId, false);
         // Refresh conversation list to update last-message preview
         window.FinanzAppNachrichten?.refreshConversations();
       }
@@ -237,7 +237,7 @@
   // ── Public API ────────────────────────────────────────────
   window.FinanzAppChat = {
     openChat(partnerId, partnerUsername, partnerProfileImage) {
-      activeParnerId = partnerId;
+      activePartnerId = partnerId;
       lastMessageCount = 0;
       activePartnerImage = partnerProfileImage || null;
       activePartnerInitial = (partnerUsername || partnerId || "?")[0].toUpperCase();
@@ -255,7 +255,7 @@
     },
 
     closeChat() {
-      activeParnerId = null;
+      activePartnerId = null;
       lastMessageCount = 0;
       activePartnerImage = null;
       activePartnerInitial = "?";
@@ -266,7 +266,7 @@
     },
 
     pollMessages(partnerId) {
-      if (partnerId === activeParnerId) {
+      if (partnerId === activePartnerId) {
         loadMessages(partnerId, true);
       }
     }

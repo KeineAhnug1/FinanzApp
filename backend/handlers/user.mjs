@@ -1,8 +1,9 @@
 import { parseId } from "../utils/data.mjs";
-import { parseBody, sendJson } from "../utils/http.mjs";
+import { parseBody, readBody, sendJson, parseCookies } from "../utils/http.mjs";
 import { badRequest, unauthorized } from "../helpers/responses.mjs";
 import { hashPassword, verifyPassword } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
+import { SESSION_COOKIE_NAME } from "../config/runtime.mjs";
 
 export function createUserHandlers({ pool, destroySession, clearSessionCookie }) {
 
@@ -30,8 +31,6 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
 
     await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
 
-    const { parseCookies } = await import("../utils/http.mjs");
-    const { SESSION_COOKIE_NAME } = await import("../config/runtime.mjs");
     await destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
 
     return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
@@ -74,7 +73,6 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
 
     if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "profile-image" })) return;
 
-    const { readBody } = await import("../utils/http.mjs");
     let payload;
     try {
       payload = await readBody(req, { maxBytes: 300_000 });
