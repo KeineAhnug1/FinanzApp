@@ -10,7 +10,6 @@ DROP TABLE IF EXISTS question_likes CASCADE;
 DROP TABLE IF EXISTS global_answers CASCADE;
 DROP TABLE IF EXISTS global_questions CASCADE;
 DROP TABLE IF EXISTS group_message CASCADE;
-DROP TABLE IF EXISTS private_messages CASCADE;
 DROP TABLE IF EXISTS private_message CASCADE;
 DROP TABLE IF EXISTS transactions CASCADE;
 DROP TABLE IF EXISTS requests CASCADE;
@@ -271,17 +270,6 @@ CREATE TABLE transactions (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Private Messages (Direktnachrichten)
-CREATE TABLE private_messages (
-  id SERIAL PRIMARY KEY,
-  sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  content TEXT,
-  sent_at TIMESTAMP DEFAULT NOW(),
-  read_at TIMESTAMP,
-  deleted_at TIMESTAMP
-);
-
 -- Group Messages (Gruppennachrichten)
 CREATE TABLE group_message (
   id SERIAL PRIMARY KEY,
@@ -347,8 +335,6 @@ CREATE INDEX idx_expenses_bank_date ON private_expenses(bank_account_id, pay_dat
 CREATE INDEX idx_shares_account ON shares(share_account_id);
 CREATE INDEX idx_global_questions_created ON global_questions(created_at DESC);
 CREATE INDEX idx_global_answers_question ON global_answers(question_id, created_at DESC);
-CREATE INDEX idx_private_messages_sender ON private_messages(sender_id, sent_at DESC);
-CREATE INDEX idx_private_messages_recipient ON private_messages(recipient_id, sent_at DESC);
 CREATE INDEX idx_group_message_group ON group_message(group_id, created_at DESC);
 CREATE INDEX idx_group_members_user ON group_members(user_id);
 CREATE INDEX idx_group_members_group ON group_members(group_id);

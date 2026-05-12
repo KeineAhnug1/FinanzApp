@@ -689,10 +689,42 @@ export function createGroupHandlers(pool) {
     return sendJson(res, 200, { ok: true });
   }
 
+  async function handleDeleteGroupMessage(req, res, groupIdRaw, messageIdRaw, session) {
+    if (req.method !== "DELETE") {
+      res.setHeader("Allow", "DELETE");
+      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+    }
+
+    const userId = parseObjectId(session.user.id);
+    if (!userId) return unauthorized(res, "Session invalid");
+    const groupId = parseObjectId(groupIdRaw);
+    const messageId = parseObjectId(messageIdRaw);
+    if (!groupId || !messageId) return sendJson(res, 400, { ok: false, message: "Ungültige ID" });
+
+    const { rows } = await pool.query(
+      `SELECT id, from_user_id, deleted_at FROM group_message WHERE id = $1 AND group_id = $2`,
+      [messageId, groupId]
+    );
+    if (rows.length === 0) return notFound(res, "Nachricht nicht gefunden");
+
+    const existing = rows[0];
+    if (existing.from_user_id !== userId)
+      return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
+    if (existing.deleted_at)
+      return sendJson(res, 400, { ok: false, message: "Nachricht wurde bereits gelöscht" });
+
+    await pool.query(
+      `UPDATE group_message SET message = NULL, deleted_at = NOW() WHERE id = $1`,
+      [messageId]
+    );
+    return sendJson(res, 200, { ok: true, message: "Nachricht gelöscht" });
+  }
+
   return {
     handleGroups, handleGroupDetail, handleCreateGroupActivity, handleCreateGroupFunding,
     handleDonateToFunding, handleCreateGroupExpense, handleGroupMessages,
     handleInviteUser, handleGetInvitations, handleInvitationDecision,
-    handleRemoveMember, handlePromoteMemberToAdmin, handleLeaveGroup, handleDeleteGroup
+    handleRemoveMember, handlePromoteMemberToAdmin, handleLeaveGroup, handleDeleteGroup,
+    handleDeleteGroupMessage
   };
 }

@@ -16,9 +16,6 @@ import { createFinanceHandlers } from "./handlers/finance.mjs";
 import { createBudgetHandlers } from "./handlers/budgets.mjs";
 import { createGroupHandlers } from "./handlers/groups.mjs";
 import { createForumHandlers } from "./handlers/forum.mjs";
-import { generateFinzbroChatAnswer } from "./handlers/forum.mjs";
-import { createMessageHandlers } from "./handlers/messages.mjs";
-import { createSseHandlers } from "./handlers/sse.mjs";
 
 const { Pool } = pg;
 
@@ -97,12 +94,6 @@ async function start() {
   const budgetHandlers = createBudgetHandlers(pool);
   const groupHandlers = createGroupHandlers(pool);
   const forumHandlers = createForumHandlers(pool);
-  const sseHandlers = createSseHandlers();
-  const messageHandlers = createMessageHandlers(pool, {
-    ensureFinzbroUserId: forumHandlers.ensureFinzbroUserId,
-    generateFinzbroChatAnswer,
-    notifyUser: sseHandlers.notifyUser
-  });
 
   const { getSessionUser, requireSessionUser, handleLogin, handleSession, handleLogout, handleRegister, handleRegisterVerify, handlePasswordForgot, handlePasswordReset } = authHandlers;
 
@@ -111,8 +102,6 @@ async function start() {
     ...budgetHandlers,
     ...groupHandlers,
     ...forumHandlers,
-    ...messageHandlers,
-    ...sseHandlers,
     ...userHandlers
   };
 

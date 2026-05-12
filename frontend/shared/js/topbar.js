@@ -36,10 +36,10 @@ const NAV_ITEMS = [
     iconPath: "/shared/images/nav-stocks.svg"
   },
   {
-    href: null,
-    labelKey: "nav_kommunikation",
-    fallback: "Kommunikation",
-    key: "kommunikation",
+    href: "/questions/",
+    labelKey: "nav_questions",
+    fallback: "Fragen",
+    key: "questions",
     iconPath: "/shared/images/nav-messages.svg"
   }
 ];
@@ -53,8 +53,7 @@ const SUB_NAV_ITEMS = {
     { href: "/stocks/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" }
   ],
   kommunikation: [
-    { href: "/questions/",  key: "questions", labelKey: "nav_questions", fallback: "Fragen" },
-    { href: "/messages/",   key: "messages",  labelKey: "nav_messages",  fallback: "Nachrichten" }
+    { href: "/questions/",  key: "questions", labelKey: "nav_questions", fallback: "Fragen" }
   ]
 };
 const NAV_PATHS = new Set([
@@ -62,8 +61,7 @@ const NAV_PATHS = new Set([
   "/accounts/",
   "/groups/",
   "/stocks/",
-  "/questions/",
-  "/messages/"
+  "/questions/"
 ]);
 let contentFrame = null;
 let contentFrameHost = null;
@@ -104,7 +102,6 @@ function normalizePath(pathname) {
   if (raw === "/stocks") return "/stocks/";
   if (raw === "/accounts") return "/accounts/";
   if (raw === "/questions") return "/questions/";
-  if (raw === "/messages") return "/messages/";
   return raw;
 }
 
@@ -115,7 +112,6 @@ function currentNavKey(pathname) {
   if (path.startsWith("/stocks/")) return "stocks";
   if (path.startsWith("/accounts/")) return "accounts";
   if (path.startsWith("/questions/")) return "kommunikation";
-  if (path.startsWith("/messages/")) return "kommunikation";
   return "";
 }
 
@@ -126,7 +122,6 @@ function currentBrandSub() {
   if (path.startsWith("/stocks/")) return t("nav_stocks", "Aktien");
   if (path.startsWith("/accounts/")) return t("nav_accounts", "Kontenverwaltung");
   if (path.startsWith("/questions/")) return t("nav_kommunikation", "Kommunikation");
-  if (path.startsWith("/messages/")) return t("nav_kommunikation", "Kommunikation");
   return t("topbar.brand", "FinanzApp");
 }
 
@@ -178,10 +173,7 @@ function subNavMarkup(parentKey, activeSubKey = "", isOpen = false) {
         const isSubActive = String(activeSubKey || "").toLowerCase() === sSubKey;
         const activeClass = isSubActive ? " is-active" : "";
         const currentAttr = isSubActive ? ' aria-current="page"' : "";
-        const badgeMarkup = subItem.key === "messages"
-          ? `<span class="app-nav-unread-badge" id="messages-nav-badge" hidden></span>`
-          : "";
-        return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}${badgeMarkup}</a>`;
+        return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}</a>`;
       }).join("")}
     </div>
   `;
@@ -204,7 +196,6 @@ function activeSubKeys(activeKey, activeHash) {
   if (activeKey === "kommunikation") {
     const path = normalizePath(window.location.pathname);
     if (path.startsWith("/questions/")) activeKommunikationSubKey = "questions";
-    else if (path.startsWith("/messages/")) activeKommunikationSubKey = "messages";
   }
   return { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey, activeKommunikationSubKey };
 }
@@ -640,25 +631,6 @@ function initProfileMenus() {
   }
 }
 
-async function updateMessagesBadge() {
-  try {
-    const res = await fetch("/api/messages/unread-count", { credentials: "same-origin" });
-    if (!res.ok) return;
-    const data = await res.json();
-    const count = Number(data?.count ?? 0);
-    const badge = document.getElementById("messages-nav-badge");
-    if (!badge) return;
-    if (count > 0) {
-      badge.textContent = count > 99 ? "99+" : String(count);
-      badge.hidden = false;
-    } else {
-      badge.hidden = true;
-    }
-  } catch {
-    // silently ignore network errors
-  }
-}
-
 async function initTopbar() {
   if (isEmbeddedPageContext()) {
     removeTopbarForEmbeddedContext();
@@ -689,10 +661,6 @@ async function initTopbar() {
   disableActiveNavLinkClicks();
   bindSubNavToggle();
   bindSidebarSoftNavigation();
-
-  // Start unread messages badge polling (every 30 s)
-  updateMessagesBadge();
-  setInterval(updateMessagesBadge, 30_000);
 
   try {
     const sessionUser = await fetchSessionUser();
