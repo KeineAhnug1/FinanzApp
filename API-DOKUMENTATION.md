@@ -58,7 +58,7 @@ Stellt zwei Funktionen bereit:
 **Request Body:**
 ```json
 {
-  "username": "string",
+  "email": "string",
   "password": "string"
 }
 ```
@@ -73,7 +73,7 @@ Stellt zwei Funktionen bereit:
     "email": "string",
     "first_name": "string",
     "last_name": "string",
-    "profile_image": "string",
+    "profileImage": "string",
     "created_at": "ISO8601"
   }
 }
@@ -168,7 +168,7 @@ Stellt zwei Funktionen bereit:
     "email": "string",
     "first_name": "string",
     "last_name": "string",
-    "profile_image": "string",
+    "profileImage": "string",
     "created_at": "ISO8601"
   }
 }
@@ -206,7 +206,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/password/forgot` |
-| **Frontend** | `frontend/einstellungen/app.js` |
+| **Frontend** | `frontend/settings/app.js` |
 
 **Request Body:**
 ```json
@@ -236,8 +236,9 @@ Stellt zwei Funktionen bereit:
 **Request Body:**
 ```json
 {
-  "token": "string",
-  "password": "string"
+  "email": "string",
+  "code": "string",
+  "new_password": "string"
 }
 ```
 
@@ -1575,7 +1576,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind Ã
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/password/change` |
-| **Frontend** | `frontend/einstellungen/app.js` â†’ `handlePasswordChange()` |
+| **Frontend** | `frontend/settings/app.js` â†’ `handlePasswordChange()` |
 
 **Request Body:**
 ```json
@@ -1608,7 +1609,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind Ã
 |---|---|
 | **Methode** | `PUT` |
 | **URL** | `/api/user/profile-image` |
-| **Frontend** | `frontend/einstellungen/app.js` â†’ `initProfileImageUpload()` |
+| **Frontend** | `frontend/settings/app.js` â†’ `initProfileImageUpload()` |
 
 **Request Body:**
 ```json
@@ -1632,7 +1633,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind Ã
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/user/account` |
-| **Frontend** | `frontend/einstellungen/app.js` â†’ `handleAccountDelete()` |
+| **Frontend** | `frontend/settings/app.js` â†’ `handleAccountDelete()` |
 
 **Response:**
 ```json
@@ -1655,4 +1656,4 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind Ã
 | Fragen | `frontend/questions/js/app.js`, `question.js` | Q&A Forum |
 | Nachrichten | `frontend/nachrichten/js/chat.js`, `nachrichten.js` | Direktnachrichten |
 | Konten | `frontend/accounts/js/app.js` | Bank-/Depotkontoverwaltung |
-| Einstellungen | `frontend/einstellungen/app.js` | Passwort, Profilbild, Account |
+| Einstellungen | `frontend/settings/app.js` | Passwort, Profilbild, Account |

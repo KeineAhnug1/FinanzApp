@@ -107,7 +107,7 @@ CREATE TABLE shares (
   id SERIAL PRIMARY KEY,
   share_account_id INT REFERENCES share_accounts(id) ON DELETE CASCADE,
   depot_id INT REFERENCES share_accounts(id) ON DELETE CASCADE,
-  bank_account_id INT REFERENCES share_accounts(id) ON DELETE CASCADE,
+  bank_account_id INT REFERENCES bank_accounts(id) ON DELETE SET NULL,
   symbol VARCHAR NOT NULL,
   units DECIMAL(12,4) NOT NULL,
   bought_at TIMESTAMP NOT NULL,

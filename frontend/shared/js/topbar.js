@@ -51,9 +51,6 @@ const SUB_NAV_ITEMS = {
   stocks: [
     { href: "/stocks/#depot", key: "depot", labelKey: "stocks.depot_total", fallback: "Gesamtdepot" },
     { href: "/stocks/#analysis", key: "analysis", labelKey: "stocks.single_analysis", fallback: "Einzelanalyse" }
-  ],
-  kommunikation: [
-    { href: "/questions/",  key: "questions", labelKey: "nav_questions", fallback: "Fragen" }
   ]
 };
 const NAV_PATHS = new Set([
@@ -111,7 +108,7 @@ function currentNavKey(pathname) {
   if (path.startsWith("/groups/")) return "groups";
   if (path.startsWith("/stocks/")) return "stocks";
   if (path.startsWith("/accounts/")) return "accounts";
-  if (path.startsWith("/questions/")) return "kommunikation";
+  if (path.startsWith("/questions/")) return "questions";
   return "";
 }
 
@@ -121,7 +118,7 @@ function currentBrandSub() {
   if (path.startsWith("/groups/")) return t("nav_groups", "Gruppen");
   if (path.startsWith("/stocks/")) return t("nav_stocks", "Aktien");
   if (path.startsWith("/accounts/")) return t("nav_accounts", "Kontenverwaltung");
-  if (path.startsWith("/questions/")) return t("nav_kommunikation", "Kommunikation");
+  if (path.startsWith("/questions/")) return t("nav_questions", "Fragen");
   return t("topbar.brand", "FinanzApp");
 }
 
@@ -192,18 +189,13 @@ function activeSubKeys(activeKey, activeHash) {
   const activeStocksSubKey = activeKey === "stocks" ? (activeHash || "depot") : activeHash;
   const activeAccountsSubKey = activeKey === "accounts" ? "accounts" : "";
   const activeGroupsSubKey = activeKey === "groups" ? "groups" : "";
-  let activeKommunikationSubKey = "";
-  if (activeKey === "kommunikation") {
-    const path = normalizePath(window.location.pathname);
-    if (path.startsWith("/questions/")) activeKommunikationSubKey = "questions";
-  }
-  return { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey, activeKommunikationSubKey };
+  return { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey };
 }
 
 function navMarkup() {
   const activeKey = currentNavKey();
   const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
-  const { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey, activeKommunikationSubKey } = activeSubKeys(activeKey, activeHash);
+  const { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey } = activeSubKeys(activeKey, activeHash);
   return NAV_ITEMS.map((item) => {
     const isActive = item.key === activeKey;
     const activeClass = isActive ? " is-active" : "";
@@ -212,7 +204,6 @@ function navMarkup() {
       : item.key === "stocks" ? activeStocksSubKey
       : item.key === "accounts" ? activeAccountsSubKey
       : item.key === "groups" ? activeGroupsSubKey
-      : item.key === "kommunikation" ? activeKommunikationSubKey
       : activeHash;
     const isSubNavParent = Boolean(SUB_NAV_ITEMS[item.key]?.length);
     const subMarkup = isSubNavParent ? subNavMarkup(item.key, sActiveSubKey, isActive) : "";

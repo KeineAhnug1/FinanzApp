@@ -7,13 +7,13 @@ Ein zentraler Server steuert alle Module 🧠⚙️
 - Login: `/` 🔐
 - Dashboard: `/dashboard.html` 📈
 - Gruppen: `/groups/` 👥
-- Aktien: `/aktien/` 📉
-- Fragen: `/fragen/` ❓
-- Konten: `/konten/` 🏦
+- Stocks: `/stocks/` 📉
+- Fragen: `/questions/` ❓
+- Konten: `/accounts/` 🏦
 
 ## Voraussetzungen ✅
 1. Node.js 18+ 🟢
-2. Laufende MongoDB (lokal oder Atlas) 🍃
+2. PostgreSQL/Supabase Datenbank (Zugriff via `DATABASE_URL`) 🐘
 3. `.env` im Projekt-Root 📄
 
 ## Installation 📦
@@ -21,32 +21,11 @@ Ein zentraler Server steuert alle Module 🧠⚙️
 npm install
 ```
 
-## `.env` Beispiel 🔧
-```env
-MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-host>/?appName=FinanzApp"
-MONGODB_DB="finanzapp"
-MONGODB_DB_V4="finanzapp_v4"
-
-SESSION_TTL_MINUTES="180"
-TWELVE_DATA_API_KEY="<dein_key>"
-EXCHANGE_RATE_API_KEY="<dein_key>"
-OPENROUTER_API_KEY="<dein_openrouter_key>"
-OPENROUTER_SITE_URL="http://localhost:3000"
-OPENROUTER_APP_NAME="FinanzApp"
-
-SMTP_HOST=""
-SMTP_PORT="587"
-SMTP_SECURE="false"
-SMTP_USER=""
-SMTP_PASS=""
-SMTP_FROM=""
-EMAIL_CODE_TTL_MINUTES="15"
-```
+Hinweis: Die Anwendung nutzt aktuell PostgreSQL/Supabase via `DATABASE_URL`. Frühere MongoDB‑Hinweise sind historisch und für den aktuellen Code nicht relevant.
 
 ## Datenbank vorbereiten 🗄️
-```bash
-npm run schema:setup
-```
+- Supabase Dashboard → SQL Editor → Datei `database/supabase-schema.sql` ausführen
+- Alternativ: `npm run db:migrate` (zeigt Hinweise zur Ausführung)
 
 ## Starten ▶️
 ```bash
@@ -57,17 +36,19 @@ Danach:
 - `http://localhost:3000/` 🔐
 - `http://localhost:3000/dashboard.html` 📊
 - `http://localhost:3000/groups/` 👥
-- `http://localhost:3000/aktien/` 📉
-- `http://localhost:3000/fragen/` ❓
-- `http://localhost:3000/konten/` 🏦
+- `http://localhost:3000/stocks/` 📉
+- `http://localhost:3000/questions/` ❓
+- `http://localhost:3000/accounts/` 🏦
 
 ## Nützliche Skripte 🛠️
 - `npm start` (zentraler Server) ⚡
-- `npm run schema:setup` (Datenbank-Schema anlegen) 🧱
-- `npm run db:check` / `npm run data:prepare` 🧪
+- `npm run db:check` (DB-Verbindung prüfen) 🧪
+- `npm run db:migrate` (Hinweise zum Supabase-Schema) 🧱
+- `npm run db:clear` (Platzhalter – keine Aktion) 🧹
+- `npm run lint` (ESLint prüfen) ✨
 
 ## Aktueller Datenstruktur-Stand 🧭🗂️
-![Aktuelle Datenstruktur](./Datastructure.png)
+![Aktuelle Datenstruktur](./Structure.png)
 
 ## Relevante Struktur 📁
 ```text
