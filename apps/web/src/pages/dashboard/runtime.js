@@ -5,7 +5,6 @@ import {
   VIEW_OPTIONS,
   SETTINGS_STORAGE_PREFIX,
   SETTINGS_LOCALE_OPTIONS,
-  SETTINGS_CURRENCY_OPTIONS,
   SETTINGS_RECURRENCE_OPTIONS,
   DEFAULT_DASHBOARD_SETTINGS
 } from './state.js';
@@ -26,7 +25,6 @@ function sanitizeSettingChoice(value, allowedValues, fallback) {
 export function normalizeDashboardSettings(raw) {
   const base = raw && typeof raw === "object" ? raw : {};
   return {
-    currency: sanitizeSettingChoice(base.currency, SETTINGS_CURRENCY_OPTIONS, DEFAULT_DASHBOARD_SETTINGS.currency),
     locale: sanitizeSettingChoice(base.locale, SETTINGS_LOCALE_OPTIONS, DEFAULT_DASHBOARD_SETTINGS.locale),
     startView: sanitizeSettingChoice(base.startView, VIEW_OPTIONS, DEFAULT_DASHBOARD_SETTINGS.startView),
     defaultIncomeRecurrence: sanitizeSettingChoice(
@@ -62,10 +60,6 @@ export function saveDashboardSettings(userId, settings) {
 
 export function getLocale() {
   return sharedGetLocale(appState.user?.id) || appState.settings?.locale || DEFAULT_DASHBOARD_SETTINGS.locale;
-}
-
-export function getCurrency() {
-  return appState.settings?.currency || DEFAULT_DASHBOARD_SETTINGS.currency;
 }
 
 export function applyDashboardSettings(nextSettings, options = {}) {

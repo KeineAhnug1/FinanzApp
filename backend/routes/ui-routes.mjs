@@ -71,6 +71,7 @@ export function resolveStaticPath(projectRoot, pathname) {
     ["/pages/homepage/",  path.join(distRoot, "pages", "homepage",  "index.html")],
     ["/pages/questions/", path.join(distRoot, "pages", "questions", "index.html")],
     ["/pages/stocks/",    path.join(distRoot, "pages", "stocks",    "index.html")],
+    ["/pages/dashboard/", path.join(distRoot, "index.html")],  // auth page — no separate copy
   ]);
 
   const sectionRoot = sectionMap.get(pathname);

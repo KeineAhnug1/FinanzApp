@@ -3,7 +3,7 @@ import './style.css';
 import '@shared/js/topbar.js';
 import { t as _t, getLocale } from '@shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
-import { formatFromEur, getPreferredCurrency } from '@shared/js/currency-utils.js';
+import { formatFromEur } from '@shared/js/currency-utils.js';
 import { escapeHtml } from '@shared/js/html-utils.js';
 
 const aShareAccountsEndpoints = [
@@ -45,11 +45,10 @@ const aBankAccountsEndpoints = [
     const amount = Number(nAmount) || 0;
     const userId = getCurrentUserFromStorage()?.id;
     const locale = getLocale(userId) || "de-DE";
-    const currency = getPreferredCurrency(userId) || "EUR";
     try {
-      return formatFromEur(amount, { locale, currency });
+      return formatFromEur(amount, { locale });
     } catch {
-      return `${amount.toFixed(2)} ${currency}`;
+      return `${amount.toFixed(2)} EUR`;
     }
   }
 

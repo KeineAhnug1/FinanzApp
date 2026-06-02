@@ -15,7 +15,7 @@ import {
 } from './dashboard-api.js';
 import { initCategorySelector, resolveCategoryFromForm } from './categories-controls.js';
 import { t as sharedT } from '@shared/js/language-utils.js';
-import { convertAmount } from '@shared/js/currency-utils.js';
+
 
 function expenseT(key, fallback, params = {}) {
   const translated = sharedT(key, params);
@@ -101,16 +101,15 @@ export function initExpenseForm() {
     setButtonLoading(submitBtn, true);
 
     const formData = new FormData(form);
-    const inputCurrency = String(formData.get("input_currency") || "EUR").trim().toUpperCase();
     const rawAmount = Number(formData.get("amount"));
-    const amountInEur = convertAmount(rawAmount, inputCurrency, "EUR");
+    
 
     const recurrenceRaw = Number(formData.get("recurrence") || 0);
 
     const payload = {
       source: String(formData.get("source") || "").trim(),
       category: resolveCategoryFromForm(formData),
-      amount: Number.isFinite(amountInEur) ? amountInEur : rawAmount,
+      amount: rawAmount,
       spent_at: String(formData.get("spent_at") || "").trim(),
       bank_account_id: String(formData.get("bank_account_id") || "").trim(),
       note: String(formData.get("note") || "").trim(),

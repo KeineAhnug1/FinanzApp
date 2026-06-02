@@ -3,7 +3,7 @@ import { buildUrlWithQuery, loadAccountsByEndpoints, mapApiAccounts } from './ac
 import { canvasRoundRect, getLineChartGeometry, intervalToStepMs } from './chart-utils.js';
 import { t as sharedT, getLocale } from '@shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
-import { getPreferredCurrency, formatAmount } from '@shared/js/currency-utils.js';
+import { formatAmount } from '@shared/js/currency-utils.js';
 import { requestJsonMerged } from '@shared/js/api-client.js';
 import { fnToMsFromTimestamp, fnEscapeHtml } from './domain.js';
 
@@ -367,14 +367,10 @@ window.addEventListener("finanzapp:theme-changed", () => {
  * @param {string} [sCurrency="EUR"]
  * @returns {string}
  */
-export function fnFmtMoney(nValue, sCurrency = "EUR") {
+export function fnFmtMoney(nValue) {
 	if (!Number.isFinite(nValue)) return "—";
-	const sSourceCurrency = String(sCurrency || "EUR").trim().toUpperCase();
-	const sTargetCurrency = getPreferredCurrency(fnGetCurrentSessionUserId?.()) || "EUR";
 	return formatAmount(nValue, {
 		locale: fnGetLocale(),
-		sourceCurrency: sSourceCurrency,
-		currency: sTargetCurrency,
 		maximumFractionDigits: 2,
 	});
 }

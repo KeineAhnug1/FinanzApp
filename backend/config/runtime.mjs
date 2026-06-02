@@ -7,10 +7,6 @@ export const SESSION_COOKIE_NAME = "finanzapp_session";
 
 export const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 export const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
-export const EXCHANGE_RATE_BASE_URL = "https://v6.exchangerate-api.com/v6";
-export const EXCHANGE_RATE_API_KEY = String(
-  process.env.EXCHANGE_RATE_API_KEY || process.env.EXCHANGERATE_API_KEY || process.env.EXCHANGE_API_KEY || ""
-).trim();
 export const STOCK_SEARCH_BASE_URL = String(
   process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || "http://3.225.21.161"
 ).trim();

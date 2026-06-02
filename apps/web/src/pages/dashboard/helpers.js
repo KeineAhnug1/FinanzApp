@@ -1,18 +1,16 @@
 // UI-Helfer: Formatierung und kleine DOM-Werkzeuge fuer wiederverwendbare Aufgaben.
-import { getLocale, getCurrency } from './runtime.js';
+import { getLocale } from './runtime.js';
 import { formatFromEur } from '@shared/js/currency-utils.js';
 import { toastSuccess, toastError } from '@shared/js/api-client.js';
 
 export function formatMoney(value, options = {}) {
   const amount = Number(value) || 0;
   const locale = options.locale || getLocale();
-  const currency = options.currency || getCurrency();
   const maxFractionDigits = Number.isFinite(options.maximumFractionDigits) ? options.maximumFractionDigits : 2;
   const minFractionDigits = Number.isFinite(options.minimumFractionDigits) ? options.minimumFractionDigits : undefined;
 
   return formatFromEur(amount, {
     locale,
-    currency,
     maximumFractionDigits: maxFractionDigits,
     minimumFractionDigits: minFractionDigits
   });

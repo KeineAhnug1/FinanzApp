@@ -22,7 +22,6 @@ import { initCategoryManagerActions, initListSearch } from './categories-search.
 import { requestJsonMerged } from '@shared/js/api-client.js';
 import { clearCurrentUserFromStorage } from '@shared/js/session-utils.js';
 import { getLocale } from '@shared/js/language-utils.js';
-import { preloadRates } from '@shared/js/currency-utils.js';
 
 export async function bootstrap() {
   let sessionUser = null;
@@ -44,7 +43,6 @@ export async function bootstrap() {
   setCurrentUser(sessionUser);
   appState.settings = loadDashboardSettings(sessionUser.id);
   appState.settings.locale = getLocale(sessionUser.id);
-  await preloadRates({ base: "EUR" });
 
   initThemeSwitcher();
   initSectionTabs();

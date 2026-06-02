@@ -52,11 +52,6 @@ export async function dispatchFinanceRoutes(ctx) {
     return true;
   }
 
-  if (pathname === "/api/exchange-rates/latest") {
-    await handlers.handleExchangeRates(req, res, url, session);
-    return true;
-  }
-
   if (pathname === "/api/transactions") {
     await handlers.handleTransactions(req, res, session);
     return true;

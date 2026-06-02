@@ -3,10 +3,8 @@ export const VIEW_STORAGE_KEY = "finanzapp.dashboardView";
 export const VIEW_OPTIONS = new Set(["overview", "income", "expense"]);
 export const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 export const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US"]);
-export const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
 export const SETTINGS_RECURRENCE_OPTIONS = new Set(["once", "weekly", "monthly"]);
 export const DEFAULT_DASHBOARD_SETTINGS = {
-  currency: "EUR",
   locale: "de-DE",
   startView: "overview",
   defaultIncomeRecurrence: "once",

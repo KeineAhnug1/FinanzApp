@@ -1,4 +1,3 @@
-import { preloadRates } from '@shared/js/currency-utils.js';
 import {
 	sActiveView,
 	setActiveView,
@@ -66,7 +65,6 @@ function fnSetActiveTopNavLink() {
 }
 
 export async function fnInitApp() {
-	await preloadRates({ base: "EUR" });
 	await Promise.all([fnLoadShareAccounts(), fnLoadBankAccounts()]);
 	fnSetViewFromHashOrFallback();
 	fnSetActiveTopNavLink();

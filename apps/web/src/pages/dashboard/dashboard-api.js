@@ -1,6 +1,6 @@
 // API-Aufrufe und Formularstatus fuer Einnahmen, Ausgaben und Kategorien.
 import { appState, categoryState, incomeState, expenseState } from './state.js';
-import { getCurrency } from './runtime.js';
+
 import { formatMoney, escapeHtml } from './helpers.js';
 import { renderIncomeList, renderExpenseList, updateFinanceCards } from './overview-cashflow.js';
 import {
@@ -8,7 +8,7 @@ import {
   setCategoryValue
 } from './categories-controls.js';
 import { requestJsonMerged } from '@shared/js/api-client.js';
-import { convertFromEur } from '@shared/js/currency-utils.js';
+
 
 export async function requestJson(url, options) {
   const result = await requestJsonMerged(url, {
@@ -199,7 +199,6 @@ export function getIncomeFormElements() {
   const cancelBtn = document.getElementById("income-cancel-btn");
   const source = document.getElementById("income-source");
   const amount = document.getElementById("income-amount");
-  const currency = document.getElementById("income-currency");
   const date = document.getElementById("income-date");
   const cycle = document.getElementById("income-cycle");
   const recurrence = document.getElementById("income-recurrence");
@@ -209,13 +208,13 @@ export function getIncomeFormElements() {
   const categoryCustom = document.getElementById("income-category-custom");
   const note = document.getElementById("income-note");
   const bankAccount = document.getElementById("income-bank-account");
-  return { form, submitBtn, cancelBtn, source, amount, currency, date, cycle, recurrence, recurrenceRow, category, categoryCustomWrap, categoryCustom, note, bankAccount };
+  return { form, submitBtn, cancelBtn, source, amount, date, cycle, recurrence, recurrenceRow, category, categoryCustomWrap, categoryCustom, note, bankAccount };
 }
 
 // Setzt das Income-Formular auf "neu anlegen".
 export function setIncomeFormModeCreate() {
   incomeState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount, currency } = getIncomeFormElements();
+  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount } = getIncomeFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", "", "salary");
@@ -223,7 +222,6 @@ export function setIncomeFormModeCreate() {
   if (cycle) cycle.value = appState.settings?.defaultIncomeRecurrence || "once";
   if (recurrence) recurrence.value = "0";
   if (recurrenceRow) recurrenceRow.style.display = !cycle || cycle.value === "once" ? "none" : "";
-  if (currency) currency.value = getCurrency();
   if (submitBtn) submitBtn.textContent = "Einnahme speichern";
   if (cancelBtn) cancelBtn.hidden = true;
   if (bankAccount && appState.bankAccounts.length) {
@@ -234,15 +232,10 @@ export function setIncomeFormModeCreate() {
 // Fuellt das Income-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 export function setIncomeFormModeEdit(entry) {
   incomeState.editingId = entry.id;
-  const { source, amount, currency, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
+  const { source, amount, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
   if (source) source.value = entry.source || "";
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", entry.category, "salary");
-  const preferredCurrency = getCurrency();
-  if (currency) currency.value = preferredCurrency;
-  if (amount) {
-    const converted = convertFromEur(Number(entry.amount) || 0, preferredCurrency);
-    amount.value = Math.round(converted * 100) / 100;
-  }
+  if (amount) amount.value = Math.round((Number(entry.amount) || 0) * 100) / 100;
   if (date) date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
   if (cycle) cycle.value = entry.cycle || "once";
   const isOnce = !cycle || cycle.value === "once";
@@ -266,20 +259,19 @@ export function getExpenseFormElements() {
   const categoryCustomWrap = document.getElementById("expense-custom-wrap");
   const categoryCustom = document.getElementById("expense-category-custom");
   const amount = document.getElementById("expense-amount");
-  const currency = document.getElementById("expense-currency");
   const date = document.getElementById("expense-date");
   const cycle = document.getElementById("expense-cycle");
   const recurrence = document.getElementById("expense-recurrence");
   const recurrenceRow = document.querySelector(".expense-recurrence-row");
   const note = document.getElementById("expense-note");
   const bankAccount = document.getElementById("expense-bank-account");
-  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, currency, date, cycle, recurrence, recurrenceRow, note, bankAccount };
+  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, date, cycle, recurrence, recurrenceRow, note, bankAccount };
 }
 
 // Setzt das Expense-Formular auf "neu anlegen".
 export function setExpenseFormModeCreate() {
   expenseState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount, currency } = getExpenseFormElements();
+  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount } = getExpenseFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", "", "rent");
@@ -287,7 +279,6 @@ export function setExpenseFormModeCreate() {
   if (cycle) cycle.value = appState.settings?.defaultExpenseRecurrence || "once";
   if (recurrence) recurrence.value = "0";
   if (recurrenceRow) recurrenceRow.style.display = !cycle || cycle.value === "once" ? "none" : "";
-  if (currency) currency.value = getCurrency();
   if (submitBtn) submitBtn.textContent = "Ausgabe speichern";
   if (cancelBtn) cancelBtn.hidden = true;
   if (bankAccount && appState.bankAccounts.length) {
@@ -298,15 +289,10 @@ export function setExpenseFormModeCreate() {
 // Fuellt das Expense-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 export function setExpenseFormModeEdit(entry) {
   expenseState.editingId = entry.id;
-  const { source, amount, currency, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
+  const { source, amount, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
   if (source) source.value = entry.source || "";
   setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", entry.category, "rent");
-  const preferredCurrency = getCurrency();
-  if (currency) currency.value = preferredCurrency;
-  if (amount) {
-    const converted = convertFromEur(Number(entry.amount) || 0, preferredCurrency);
-    amount.value = Math.round(converted * 100) / 100;
-  }
+  if (amount) amount.value = Math.round((Number(entry.amount) || 0) * 100) / 100;
   if (date) date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());
   if (cycle) cycle.value = entry.cycle || "once";
   const isOnce = !cycle || cycle.value === "once";

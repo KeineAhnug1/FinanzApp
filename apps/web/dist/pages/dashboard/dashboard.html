@@ -8,11 +8,11 @@
   <script>
     document.documentElement.classList.add("dashboard-view-preload");
   </script>
-  <script type="module" crossorigin src="/assets/dashboard-SyjB20j1.js"></script>
+  <script type="module" crossorigin src="/assets/dashboard-B7LlBui7.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/theme-utils-BcoEdm65.js">
   <link rel="modulepreload" crossorigin href="/assets/api-client-DDiDqhTa.js">
+  <link rel="modulepreload" crossorigin href="/assets/currency-utils-BV99ddvR.js">
   <link rel="modulepreload" crossorigin href="/assets/session-utils-DITT7YtH.js">
-  <link rel="modulepreload" crossorigin href="/assets/currency-utils-CIj3vbdd.js">
   <link rel="modulepreload" crossorigin href="/assets/topbar-DB7avXqK.js">
   <link rel="stylesheet" crossorigin href="/assets/theme-utils-2vV3yrmN.css">
   <link rel="stylesheet" crossorigin href="/assets/dashboard-D472Dc2h.css">
@@ -140,16 +140,8 @@
                 </div>
                 <div class="form-two-cols">
                   <div>
-                    <label class="field-label" for="income-amount">Betrag</label>
-                    <div class="amount-currency-wrap">
-                      <input class="field-input" id="income-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
-                      <select class="field-input amount-currency-select" id="income-currency" name="input_currency">
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                        <option value="GBP">GBP</option>
-                        <option value="CHF">CHF</option>
-                      </select>
-                    </div>
+                    <label class="field-label" for="income-amount">Betrag (EUR)</label>
+                    <input class="field-input" id="income-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
                     <span class="field-hint">Betrag muss größer als 0 sein.</span>
                   </div>
                   <div>
@@ -235,16 +227,8 @@
                 </div>
                 <div class="form-two-cols">
                   <div>
-                    <label class="field-label" for="expense-amount">Betrag</label>
-                    <div class="amount-currency-wrap">
-                      <input class="field-input" id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
-                      <select class="field-input amount-currency-select" id="expense-currency" name="input_currency">
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                        <option value="GBP">GBP</option>
-                        <option value="CHF">CHF</option>
-                      </select>
-                    </div>
+                    <label class="field-label" for="expense-amount">Betrag (EUR)</label>
+                    <input class="field-input" id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
                     <span class="field-hint">Betrag muss größer als 0 sein.</span>
                   </div>
                   <div>

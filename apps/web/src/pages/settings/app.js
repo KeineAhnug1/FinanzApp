@@ -7,7 +7,6 @@ import { toastSuccess } from '@shared/js/api-client.js';
 import { initThemeSwitcher, initDesign, initContrast, getStoredDesign, saveAndApplyDesign } from '@shared/js/theme-utils.js';
 
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
-const CURRENCIES = ["EUR", "USD", "GBP", "CHF"];
 
 function settingsKey(userId) {
   return `${SETTINGS_STORAGE_PREFIX}.${userId || "anonymous"}`;
@@ -177,28 +176,24 @@ function initDesignCards() {
   }
 }
 
-/* ── Sprache & Währung ── */
+/* ── Sprache ── */
 function initSpracheForm(userId) {
   const form = document.getElementById("sprache-form");
   const localeSelect = document.getElementById("einst-locale");
-  const currencySelect = document.getElementById("einst-currency");
   const status = document.getElementById("sprache-status");
-  if (!form || !localeSelect || !currencySelect || !status) return;
+  if (!form || !localeSelect || !status) return;
 
   const settings = loadSettings(userId);
   const currentLocale = getLocale(userId) || settings.locale || "de-DE";
-  const currentCurrency = settings.currency || "EUR";
 
   localeSelect.value = currentLocale;
-  if (CURRENCIES.includes(currentCurrency)) currencySelect.value = currentCurrency;
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const nextLocale = localeSelect.value;
-    const nextCurrency = currencySelect.value;
     const prevLocale = getLocale(userId) || currentLocale;
 
-    saveSettings(userId, { locale: nextLocale, currency: nextCurrency });
+    saveSettings(userId, { locale: nextLocale });
 
     setLocale(nextLocale, { userId });
 

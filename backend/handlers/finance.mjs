@@ -2,8 +2,6 @@
 import http from "node:http";
 import { Pool } from "pg";
 import {
-  EXCHANGE_RATE_API_KEY,
-  EXCHANGE_RATE_BASE_URL,
   LOGO_DEV_API_KEY,
   LOGO_DEV_BASE_URL,
   PRESET_EXPENSE_CATEGORY_KEYS,
@@ -998,37 +996,6 @@ export function createFinanceHandlers(pool) {
    * @param {URL} requestUrl
    * @param {unknown} _session
    */
-  async function handleExchangeRates(req, res, requestUrl, _session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
-    if (!EXCHANGE_RATE_API_KEY) return sendJson(res, 500, { ok: false, message: "EXCHANGE_RATE_API_KEY fehlt im Backend." });
-
-    const requestedBase = String(requestUrl.searchParams.get("base") || "EUR").trim().toUpperCase();
-    const base = /^[A-Z]{3}$/.test(requestedBase) ? requestedBase : "EUR";
-    const upstreamUrl = `${EXCHANGE_RATE_BASE_URL}/${encodeURIComponent(EXCHANGE_RATE_API_KEY)}/latest/${encodeURIComponent(base)}`;
-
-    try {
-      const upstreamResponse = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
-      const payload = await upstreamResponse.json().catch(() => null);
-      if (!upstreamResponse.ok || !payload || payload.result !== "success") {
-        return sendJson(res, 502, { ok: false, message: payload?.["error-type"] || payload?.message || "Wechselkurse konnten nicht geladen werden." });
-      }
-      const conversionRates = payload.conversion_rates && typeof payload.conversion_rates === "object" ? payload.conversion_rates : {};
-      return sendJson(res, 200, { ok: true, base_code: String(payload.base_code || base).toUpperCase(), time_last_update_unix: Number(payload.time_last_update_unix) || null, rates: conversionRates });
-    } catch (/** @type {unknown} */ err) {
-      const error = /** @type {Error} */ (err);
-      return sendJson(res, 502, { ok: false, message: "Wechselkurs-Anfrage fehlgeschlagen.", detail: String(error?.message || error) });
-    }
-  }
-
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   * @param {URL} requestUrl
-   * @param {unknown} _session
-   */
   async function handleStockSearchProxy(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -1151,7 +1118,7 @@ export function createFinanceHandlers(pool) {
     handleExpenseEntries, handleExpenseEntryById,
     handlePositions, handleBankAccounts, handleBankAccountById,
     handleShareAccounts, handleShareAccountById, handleDebugPositions,
-    handleTwelveDataProxy, handleExchangeRates, handleStockSearchProxy, handleStockLogoProxy,
+    handleTwelveDataProxy, handleStockSearchProxy, handleStockLogoProxy,
     handleTransactions
   };
 }

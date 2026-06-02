@@ -4,7 +4,7 @@ import '@shared/js/topbar.js';
 import { t as _t, getLocale } from '@shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
 import { requestJson, requestJsonMerged, toastSuccess, toastError } from '@shared/js/api-client.js';
-import { formatFromEur, preloadRates } from '@shared/js/currency-utils.js';
+import { formatFromEur } from '@shared/js/currency-utils.js';
 import { escapeHtml } from '@shared/js/html-utils.js';
 
 const sessionUserBadge = document.getElementById("sessionUserBadge");
@@ -85,7 +85,6 @@ const DETAIL_TAB_OPTIONS = new Set(["members", "activities", "fundings", "chat"]
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 const GROUPS_VIEW_STORAGE_PREFIX = "finanzapp.groupsView";
 const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US"]);
-const SETTINGS_CURRENCY_OPTIONS = new Set(["EUR", "USD", "GBP", "CHF"]);
 const DEFAULT_GROUPS_VIEW_STATE = {
   isDetailOpen: false,
   selectedGroupId: "",
@@ -114,7 +113,7 @@ const GROUP_CHAT_REFRESH_INTERVAL_MS = 3000;
 let groupChatRefreshTimer = null;
 const DEFAULT_GROUP_LOCALE_SETTINGS = {
   locale: "de-DE",
-  currency: "EUR"
+
 };
 let groupLocaleSettings = { ...DEFAULT_GROUP_LOCALE_SETTINGS };
 
@@ -173,7 +172,7 @@ function normalizeGroupLocaleSettings(raw) {
   const base = raw && typeof raw === "object" ? raw : {};
   return {
     locale: sanitizeSettingChoice(base.locale, SETTINGS_LOCALE_OPTIONS, DEFAULT_GROUP_LOCALE_SETTINGS.locale),
-    currency: sanitizeSettingChoice(base.currency, SETTINGS_CURRENCY_OPTIONS, DEFAULT_GROUP_LOCALE_SETTINGS.currency)
+
   };
 }
 
@@ -233,7 +232,6 @@ function formatAmount(value) {
   if (value == null || Number.isNaN(Number(value))) return t("groups.na");
   return formatFromEur(Number(value), {
     locale: groupLocaleSettings.locale,
-    currency: groupLocaleSettings.currency
   });
 }
 
@@ -1520,7 +1518,6 @@ window.addEventListener("finanzapp:locale-changed", () => {
 });
 
 async function bootstrap() {
-  await preloadRates({ base: "EUR" });
   await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
   const canRestoreSelection = Boolean(
     initialGroupsViewState.selectedGroupId
