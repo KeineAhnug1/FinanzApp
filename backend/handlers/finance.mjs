@@ -119,6 +119,98 @@ async function resolveLogoDomainBySymbol(symbol, exchange) {
 }
 
 export function createFinanceHandlers(pool) {
+  async function handleTransactions(req, res, session) {
+    const userId = parseId(session.user.id);
+    if (!userId) return unauthorized(res, "Session user invalid");
+    const userAccounts = await ensureUserFinanceRoots(pool, userId);
+    const accountIds = userAccounts.map((a) => a.id);
+
+    if (req.method !== "GET") {
+      res.setHeader("Allow", "GET");
+      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+    }
+
+    const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
+    if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
+
+    const requestUrl = new URL(req.url || "/", "http://localhost");
+    const limitRaw = Number(requestUrl.searchParams.get("limit"));
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+    const cursorRaw = String(requestUrl.searchParams.get("cursor") || "").trim();
+    const categoryRaw = String(requestUrl.searchParams.get("category") || "").trim();
+    const category = normalizeCategoryValue(categoryRaw);
+
+    let cursorSortAt = null;
+    let cursorId = null;
+    if (cursorRaw) {
+      const m = cursorRaw.match(/^(\d+)[_:](\d+)$/);
+      if (m) {
+        const ts = Number(m[1]);
+        const idParsed = parseId(m[2]);
+        const d = new Date(ts);
+        if (Number.isFinite(ts) && idParsed && !Number.isNaN(d.getTime())) {
+          cursorSortAt = d;
+          cursorId = idParsed;
+        }
+      }
+    }
+
+    const params = [];
+    let p = 1;
+    const pAccounts = p++; params.push(filterResult.accountIds);
+    let pCategory = 0;
+    if (category) { pCategory = p++; params.push(category); }
+
+    const unionSql = `
+      SELECT id, bank_account_id, source, category, amount, cycle, recurrence, is_active, note, state, created_at, updated_at,
+             COALESCE(received_at, pay_date, created_at) AS sort_at,
+             'income'::text AS type,
+             received_at,
+             pay_date,
+             NULL::timestamp AS spent_at,
+             NULL::timestamp AS due_date
+        FROM income
+       WHERE bank_account_id = ANY($${pAccounts})${pCategory ? ` AND LOWER(category) = LOWER($${pCategory})` : ""}
+      UNION ALL
+      SELECT id, bank_account_id, source, category, amount, cycle, recurrence, is_active, note, state, created_at, updated_at,
+             COALESCE(spent_at, pay_date, due_date, created_at) AS sort_at,
+             'expense'::text AS type,
+             NULL::timestamp AS received_at,
+             pay_date,
+             spent_at,
+             due_date
+        FROM private_expenses
+       WHERE bank_account_id = ANY($${pAccounts})${pCategory ? ` AND LOWER(category) = LOWER($${pCategory})` : ""}
+    `;
+
+    let whereCursor = "";
+    if (cursorSortAt && cursorId) {
+      const pSort = p++; params.push(cursorSortAt);
+      const pId = p++; params.push(cursorId);
+      whereCursor = ` WHERE (sort_at, id) < ($${pSort}, $${pId})`;
+    }
+
+    const pLimit = p++; params.push(limit);
+    const query = `SELECT * FROM (${unionSql}) AS t${whereCursor} ORDER BY sort_at DESC NULLS LAST, id DESC LIMIT $${pLimit}`;
+
+    const { rows } = await pool.query(query, params);
+
+    const entries = rows.map((row) => {
+      if (row.type === "income") {
+        return { type: "income", ...serializeIncomeEntry(row, userId) };
+      }
+      return { type: "expense", ...serializeExpenseEntry(row, userId) };
+    });
+
+    let nextCursor = null;
+    if (rows.length === limit) {
+      const last = rows[rows.length - 1];
+      const ts = last.sort_at instanceof Date ? last.sort_at.getTime() : Date.parse(String(last.sort_at || ""));
+      if (Number.isFinite(ts)) nextCursor = `${ts}_${last.id}`;
+    }
+
+    return sendJson(res, 200, { ok: true, entries, next_cursor: nextCursor });
+  }
 
   async function handleCategories(req, res, session) {
     const userId = parseId(session.user.id);
@@ -932,6 +1024,7 @@ export function createFinanceHandlers(pool) {
     handleExpenseEntries, handleExpenseEntryById,
     handlePositions, handleBankAccounts, handleBankAccountById,
     handleShareAccounts, handleShareAccountById, handleDebugPositions,
-    handleTwelveDataProxy, handleExchangeRates, handleStockSearchProxy, handleStockLogoProxy
+    handleTwelveDataProxy, handleExchangeRates, handleStockSearchProxy, handleStockLogoProxy,
+    handleTransactions
   };
 }

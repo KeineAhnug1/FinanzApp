@@ -38,6 +38,19 @@ export async function loadExpenseEntries() {
   return Array.isArray(result.entries) ? result.entries : [];
 }
 
+// Laedt kombinierte Transaktionen (Einnahmen und Ausgaben) und splittet sie für bestehendes UI.
+export async function loadTransactions() {
+  const params = new URLSearchParams();
+  if (appState.selectedBankAccountId) params.set("bank_account_id", appState.selectedBankAccountId);
+  const endpoint = params.toString() ? `/api/transactions?${params.toString()}` : "/api/transactions";
+  const result = await requestJson(endpoint);
+  if (!result.ok) return { income: [], expense: [] };
+  const entries = Array.isArray(result.entries) ? result.entries : [];
+  const income = entries.filter((e) => e?.type === "income").map(({ type, ...rest }) => rest);
+  const expense = entries.filter((e) => e?.type === "expense").map(({ type, ...rest }) => rest);
+  return { income, expense };
+}
+
 export async function loadBankAccounts() {
   const result = await requestJson("/api/bank-accounts");
   if (!result || (result.ok === false)) return [];
@@ -75,13 +88,9 @@ export async function refreshDashboardData() {
   }
   renderBankAccountSelectors();
 
-  const [incomeEntries, expenseEntries] = await Promise.all([
-    loadIncomeEntries(appState.user.id),
-    loadExpenseEntries(appState.user.id)
-  ]);
-
-  appState.incomeEntries = incomeEntries;
-  appState.expenseEntries = expenseEntries;
+  const tx = await loadTransactions();
+  appState.incomeEntries = tx.income;
+  appState.expenseEntries = tx.expense;
   renderIncomeList(appState.incomeEntries);
   renderExpenseList(appState.expenseEntries);
   updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);

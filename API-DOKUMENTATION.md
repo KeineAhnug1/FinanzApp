@@ -1657,3 +1657,28 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind Ã
 | Nachrichten | `frontend/nachrichten/js/chat.js`, `nachrichten.js` | Direktnachrichten |
 | Konten | `frontend/accounts/js/app.js` | Bank-/Depotkontoverwaltung |
 | Einstellungen | `frontend/settings/app.js` | Passwort, Profilbild, Account |
+| **URL** | `/api/transactions` |
+| **Methoden** | `GET` |
+| **Frontend** | `frontend/dashboard/js/dashboard-api.js` â†’ `loadTransactions()` |
+
+Gibt kombinierte Transaktionen des Nutzers (Einnahmen und Ausgaben) chronologisch sortiert zurueck.
+
+Query-Parameter:
+- `limit` (optional, Standard 50, max 200)
+- `cursor` (optional, fuer Pagination; Wert aus `next_cursor` verwenden)
+- `category` (optional, Filter nach Kategorie, case-insensitive)
+- `bank_account_id` (optional, Filter auf ein Konto; muss dem Nutzer gehoeren)
+
+Response 200 Beispiel:
+```
+{
+  "ok": true,
+  "entries": [
+    { "type": "income", "id": "123", "source": "Gehalt", "category": "salary", "amount": 3500, "cycle": "once", "recurrence": null, "is_active": true, "note": "", "received_at": "2024-05-01T08:00:00.000Z", ... },
+    { "type": "expense", "id": "456", "source": "Miete", "category": "rent", "amount": 1200, "cycle": "monthly", "recurrence": null, "is_active": true, "note": "", "spent_at": "2024-05-03T08:00:00.000Z", ... }
+  ],
+  "next_cursor": "<opaque>"
+}
+```
+
+Hinweis: `next_cursor` kann fuer die naechste Seite an `cursor` uebergeben werden.

@@ -10,7 +10,8 @@
     "db:check": "node database/check-connection.mjs",
     "db:clear": "node database/clear-database.mjs",
     "db:migrate": "node database/migrate-to-supabase.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^17.2.4",

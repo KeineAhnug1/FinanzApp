@@ -55,5 +55,10 @@ export async function dispatchFinanceRoutes(ctx) {
     return true;
   }
 
+  if (pathname === "/api/transactions") {
+    await handlers.handleTransactions(req, res, session);
+    return true;
+  }
+
   return false;
 }
