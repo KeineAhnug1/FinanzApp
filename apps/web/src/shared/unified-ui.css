@@ -1443,9 +1443,9 @@ input.touched:invalid ~ .field-hint,
    MOBILE ≤ 768px — Kernoptimierungen
    ═══════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* Embedded Pages: Platz für den Fixed Toggle Button oben */
+  /* Embedded Pages: kein Extra-Padding mehr (Toggle-Button entfernt) */
   body.app-embedded-page {
-    padding-top: 60px !important;
+    padding-top: 0 !important;
   }
 
   /* Seite hat genug Luft durch Safe Area + Content Spacing */
@@ -1573,5 +1573,203 @@ input.touched:invalid ~ .field-hint,
 
   .income-actions > button {
     width: 100%;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE GLOBAL SCALE — ≤ 960px
+   Reduziert Schrift und Abstände global via
+   kleinere rem-Basis + Spacing-Variablen.
+   Desktop (> 960px) bleibt völlig unberührt.
+   ═══════════════════════════════════════════ */
+@media (max-width: 960px) {
+  html {
+    font-size: 13px;
+  }
+
+  :root {
+    --ui-space-1: 4px;
+    --ui-space-2: 8px;
+    --ui-space-3: 12px;
+    --ui-space-4: 16px;
+    --ui-space-5: 20px;
+    --ui-space-6: 28px;
+    --ui-radius-sm: 6px;
+    --ui-radius-md: 10px;
+    --ui-radius-lg: 14px;
+  }
+
+  /* Buttons + Inputs: kompaktere Mindesthöhe */
+  .logout-btn,
+  .action,
+  .submit-income,
+  .cancel-income,
+  .settings-reset-btn,
+  .ghost-button,
+  .danger-button,
+  .small-danger-button,
+  input:not([type="checkbox"]):not([type="radio"]):not(.ui-check),
+  select,
+  textarea {
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px; /* ~81% */
+  }
+
+  :root {
+    --ui-space-1: 3px;
+    --ui-space-2: 6px;
+    --ui-space-3: 10px;
+    --ui-space-4: 14px;
+    --ui-space-5: 18px;
+    --ui-space-6: 24px;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE BOTTOM NAVIGATION
+   Nur auf ≤ 960px — Desktop bleibt unberührt
+   ═══════════════════════════════════════════ */
+
+.app-bottom-nav {
+  display: none; /* Desktop: nie sichtbar */
+}
+
+@media (max-width: 960px) {
+  /* Bottom-Nav einblenden */
+  .app-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 80;
+    background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border-top: 1px solid var(--ui-border);
+    box-shadow: 0 -1px 0 var(--ui-border), 0 -4px 20px rgba(0, 0, 0, 0.06);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    align-items: stretch;
+  }
+
+  .app-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 56px;
+    padding: 8px 4px;
+    text-decoration: none;
+    color: var(--ui-text-muted);
+    font-size: 0.64rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 140ms ease, background-color 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app-bottom-nav-item:hover {
+    color: var(--ui-text);
+    background: color-mix(in srgb, var(--ui-primary) 5%, transparent);
+  }
+
+  .app-bottom-nav-item.is-active {
+    color: var(--ui-primary);
+  }
+
+  .app-bottom-nav-icon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .app-bottom-nav-icon img {
+    width: 22px;
+    height: 22px;
+  }
+
+  .app-bottom-nav-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  /* Aktiv-Indikator: kleine Linie oben am Icon */
+  .app-bottom-nav-item.is-active {
+    font-weight: 600;
+  }
+
+  /* Sidebar + Mobile-Toggle auf Mobile ausblenden, wenn Bottom-Nav aktiv */
+  body.has-bottom-nav .app-side-nav,
+  body.has-bottom-nav .side-nav-mobile-toggle {
+    display: none !important;
+  }
+
+  /* Topbar auf Mobile ausblenden wenn Bottom-Nav vorhanden */
+  body.has-bottom-nav .dash-topbar,
+  body.has-bottom-nav .layout-toolbar,
+  body.has-bottom-nav .page-topbar {
+    display: none;
+  }
+
+  /* Content-Bereich: Platz für Bottom-Nav lassen */
+  body.has-bottom-nav {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Wenn Sidebar hat, kein doppeltes Ausblenden */
+  body.has-shared-sidebar.has-bottom-nav .dash-topbar,
+  body.has-shared-sidebar.has-bottom-nav .layout-toolbar,
+  body.has-shared-sidebar.has-bottom-nav .page-topbar {
+    display: none;
+  }
+
+  /* Toast position über Bottom-Nav */
+  .toast-region {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--ui-space-2));
+  }
+
+  /* Profile/Settings Bottom-Sheet über Bottom-Nav */
+  .profile-menu,
+  .settings-panel {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Mobile Toggle: Top-Left Button ausblenden wenn Bottom-Nav da */
+  body.has-bottom-nav .side-nav-mobile-toggle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-bottom-nav-item {
+    font-size: 0.6rem;
+    min-height: 52px;
+  }
+
+  .app-bottom-nav-icon img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .app-bottom-nav-icon {
+    width: 20px;
+    height: 20px;
   }
 }

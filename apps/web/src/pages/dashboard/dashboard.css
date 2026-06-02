@@ -68,7 +68,7 @@ html.dashboard-view-preload .dash-main .view-panel {
 
 /* Entry-Tab-Navigation (Einnahmen / Ausgaben) */
 .page-tab-nav {
-  padding: var(--ui-space-4) var(--ui-space-4) 0;
+  padding: 6px 8px 0;
 }
 .entry-tab-nav {
   display: inline-flex;
@@ -1313,9 +1313,198 @@ html.dashboard-view-preload .dash-main .view-panel {
   }
 }
 
+/* ═══════════════════════════════════════════
+   MOBILE KOMPAKT — ≤ 720px
+   ═══════════════════════════════════════════ */
+@media (max-width: 720px) {
+  /* Shell: minimale Seitenränder */
+  .dash-shell {
+    width: calc(100% - 12px);
+    margin-bottom: 12px;
+  }
+
+  /* Tab-Nav: weniger Abstand nach oben */
+  .page-tab-nav {
+    padding: 8px 4px 0;
+  }
+
+  .dash-main {
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  /* Hero Card: sehr kompakt */
+  .hero-card {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .hero-value {
+    font-size: clamp(1.4rem, 7vw, 2rem);
+    margin: 4px 0;
+  }
+
+  .hero-label {
+    font-size: 0.72rem;
+  }
+
+  .hero-sub {
+    font-size: 0.78rem;
+  }
+
+  /* KPI-Grid: 3 nebeneinander, kompakte Karten */
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .kpi-grid > :last-child {
+    grid-column: auto;
+  }
+
+  .kpi-card {
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .kpi-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.03em;
+  }
+
+  .kpi-value {
+    font-size: 0.9rem;
+    margin: 4px 0 2px;
+  }
+
+  .kpi-trend {
+    font-size: 0.66rem;
+  }
+
+  /* Panel: weniger Innenabstand */
+  .panel {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .panel-title {
+    font-size: 0.86rem;
+    margin-bottom: 6px;
+  }
+
+  .panel-subtitle {
+    font-size: 0.72rem;
+    margin-bottom: 8px;
+  }
+
+  /* Cashflow Chart: deutlich flacher */
+  .cashflow-chart {
+    min-height: 190px;
+  }
+
+  .cashflow-y-axis-panel {
+    height: 200px;
+    width: 62px;
+    min-width: 62px;
+  }
+
+  .cashflow-y-axis-line {
+    height: 158px;
+  }
+
+  /* Pie Chart: kleiner */
+  .overview-pie-chart {
+    min-height: 160px;
+    padding: 8px;
+  }
+
+  .overview-pie-chart-visual {
+    width: 100px;
+    height: 100px;
+  }
+
+  /* Entry-Tabs volle Breite */
+  .entry-tab-nav {
+    width: 100%;
+  }
+
+  .entry-tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 8px;
+    min-height: 34px;
+    font-size: 0.78rem;
+  }
+
+  /* Budget Alerts kompakter */
+  .budget-alert-item {
+    padding: 7px 10px;
+    font-size: 0.78rem;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE SEHR KLEIN — ≤ 480px
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .dash-shell {
+    width: calc(100% - 8px);
+  }
+
+  .page-tab-nav {
+    padding: 6px 2px 0;
+  }
+
+  .dash-main {
+    gap: 6px;
+  }
+
+  /* KPIs: 3 in einer Reihe bleiben aber noch kleiner */
+  .kpi-card {
+    padding: 6px 7px;
+  }
+
+  .kpi-label {
+    font-size: 0.6rem;
+  }
+
+  .kpi-value {
+    font-size: 0.82rem;
+  }
+
+  .cashflow-chart {
+    min-height: 160px;
+  }
+
+  .cashflow-y-axis-panel {
+    height: 168px;
+    width: 54px;
+    min-width: 54px;
+  }
+
+  .cashflow-y-axis-line {
+    height: 128px;
+  }
+
+  .overview-pie-chart {
+    min-height: 140px;
+  }
+
+  .overview-pie-chart-visual {
+    width: 80px;
+    height: 80px;
+  }
+
+  .panel {
+    padding: 8px;
+  }
+
+  .hero-card {
+    padding: 10px;
+  }
+}
 
 .section-tab {
-  border: 0;
   background: transparent;
   border-radius: 999px;
   min-height: 40px;

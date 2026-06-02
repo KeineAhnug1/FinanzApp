@@ -343,6 +343,7 @@ function ensureContentFrameShell() {
 function syncSidebarAfterSoftNavigation() {
   updateBrandSub(findTopbar());
   refreshSidebarNav();
+  ensureBottomNav();
 }
 
 function navigateInContentFrame(targetUrl, options = {}) {
@@ -437,6 +438,69 @@ function bindSidebarSoftNavigation() {
   window.addEventListener("popstate", () => {
     if (!document.body.classList.contains("app-shell-frame-mode")) return;
     navigateInContentFrame(new URL(window.location.href), { pushState: false });
+  });
+}
+
+function ensureBottomNav() {
+  if (window.innerWidth > MOBILE_BREAKPOINT) return;
+
+  let bottomNav = document.querySelector(".app-bottom-nav");
+  if (!bottomNav) {
+    bottomNav = document.createElement("nav");
+    bottomNav.className = "app-bottom-nav";
+    bottomNav.setAttribute("aria-label", t("nav_app", "App-Navigation"));
+    document.body.appendChild(bottomNav);
+  }
+
+  const activeKey = currentNavKey();
+  bottomNav.innerHTML = NAV_ITEMS.map((item) => {
+    const isActive = item.key === activeKey;
+    const activeClass = isActive ? " is-active" : "";
+    const currentAttr = isActive ? ' aria-current="page"' : "";
+    const iconHtml = `<span class="app-bottom-nav-icon"><img src="${item.iconPath}" alt="" aria-hidden="true"></span>`;
+    const labelHtml = `<span class="app-bottom-nav-label">${t(item.labelKey, item.fallback)}</span>`;
+
+    if (isActive) {
+      return `<span class="app-bottom-nav-item${activeClass}"${currentAttr}>${iconHtml}${labelHtml}</span>`;
+    }
+    return `<a class="app-bottom-nav-item${activeClass}" href="${item.href}">${iconHtml}${labelHtml}</a>`;
+  }).join("");
+
+  document.body.classList.add("has-bottom-nav");
+}
+
+function bindBottomNavSoftNavigation() {
+  if (document.documentElement.dataset.bottomNavSoftNavBound === "1") return;
+  document.documentElement.dataset.bottomNavSoftNavBound = "1";
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const link = target.closest(".app-bottom-nav a[href]");
+    if (!(link instanceof HTMLAnchorElement)) return;
+    if (event.defaultPrevented) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    let nextUrl;
+    try {
+      nextUrl = new URL(link.href, window.location.origin);
+    } catch {
+      return;
+    }
+    if (!canSoftNavigateTo(nextUrl)) return;
+
+    const currentUrl = new URL(window.location.href);
+    const sameTarget =
+      normalizePath(nextUrl.pathname) === normalizePath(currentUrl.pathname) &&
+      nextUrl.search === currentUrl.search &&
+      nextUrl.hash === currentUrl.hash;
+    if (sameTarget) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    navigateInContentFrame(nextUrl, { pushState: true });
   });
 }
 
@@ -634,9 +698,11 @@ async function initTopbar() {
   // Settings-Wraps sofort entfernen, bevor die Sidebar gebaut wird
   for (const el of document.querySelectorAll(".settings-wrap, .global-settings-wrap")) el.remove();
   ensureSidebar(topbar, controls);
+  ensureBottomNav();
   window.addEventListener("hashchange", () => {
     updateBrandSub(topbar);
     ensureSidebar(topbar, controls);
+    ensureBottomNav();
   });
 
   initThemeSwitcher();
@@ -645,6 +711,11 @@ async function initTopbar() {
   disableActiveNavLinkClicks();
   bindSubNavToggle();
   bindSidebarSoftNavigation();
+  bindBottomNavSoftNavigation();
+
+  window.addEventListener("resize", () => {
+    ensureBottomNav();
+  });
 
   try {
     const sessionUser = await fetchSessionUser();
