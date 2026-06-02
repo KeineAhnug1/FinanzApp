@@ -1,3 +1,6 @@
+// @ts-check
+import http from "node:http";
+import { Pool } from "pg";
 import {
   EXCHANGE_RATE_API_KEY,
   EXCHANGE_RATE_BASE_URL,
@@ -43,6 +46,7 @@ const DOMAIN_CACHE_TTL = 24 * 60 * 60 * 1000;
 const logoCache = new Map();
 const domainCache = new Map();
 
+/** @param {string} key */
 function logoCacheGet(key) {
   const entry = logoCache.get(key);
   if (!entry) return null;
@@ -51,14 +55,19 @@ function logoCacheGet(key) {
   return entry;
 }
 
+/**
+ * @param {string} key
+ * @param {unknown} value
+ */
 function logoCacheSet(key, value) {
   if (logoCache.size >= LOGO_CACHE_MAX) {
     const oldest = logoCache.keys().next().value;
     logoCache.delete(oldest);
   }
-  logoCache.set(key, { ...value, cachedAt: Date.now() });
+  logoCache.set(key, { ...(/** @type {object} */ (value)), cachedAt: Date.now() });
 }
 
+/** @param {string} key */
 function domainCacheGet(key) {
   const entry = domainCache.get(key);
   if (!entry) return undefined;
@@ -66,14 +75,20 @@ function domainCacheGet(key) {
   return entry.domain;
 }
 
+/**
+ * @param {string} key
+ * @param {string} domain
+ */
 function domainCacheSet(key, domain) {
   domainCache.set(key, { domain, cachedAt: Date.now() });
 }
 
+/** @param {unknown} value */
 function normalizeExchangeCode(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+/** @param {unknown} rawValue */
 function extractHostnameCandidate(rawValue) {
   const value = String(rawValue || "").trim();
   if (!value) return "";
@@ -87,6 +102,10 @@ function extractHostnameCandidate(rawValue) {
   }
 }
 
+/**
+ * @param {any[]} rows
+ * @param {string} [symbolHint]
+ */
 function resolveLogoDomainFromSearchRows(rows, symbolHint = "") {
   const normalizedSymbol = String(symbolHint || "").trim().toUpperCase();
   const candidates = Array.isArray(rows) ? rows : [];
@@ -99,6 +118,10 @@ function resolveLogoDomainFromSearchRows(rows, symbolHint = "") {
   return "";
 }
 
+/**
+ * @param {string} symbol
+ * @param {string} exchange
+ */
 async function resolveLogoDomainBySymbol(symbol, exchange) {
   if (!STOCK_SEARCH_BASE_URL || !STOCK_API_KEY) return "";
   const sSymbol = String(symbol || "").trim().toUpperCase();
@@ -118,7 +141,13 @@ async function resolveLogoDomainBySymbol(symbol, exchange) {
   return domain;
 }
 
+/** @param {Pool} pool */
 export function createFinanceHandlers(pool) {
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleTransactions(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -190,7 +219,7 @@ export function createFinanceHandlers(pool) {
       whereCursor = ` WHERE (sort_at, id) < ($${pSort}, $${pId})`;
     }
 
-    const pLimit = p++; params.push(limit);
+    const pLimit = p; params.push(limit);
     const query = `SELECT * FROM (${unionSql}) AS t${whereCursor} ORDER BY sort_at DESC NULLS LAST, id DESC LIMIT $${pLimit}`;
 
     const { rows } = await pool.query(query, params);
@@ -212,6 +241,11 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, { ok: true, entries, next_cursor: nextCursor });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleCategories(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -276,6 +310,11 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, { ok: true, message: "Kategorie geloescht", kind, deleted_category: category, replaced_with: fallbackCategory, updated_entries: updateResult.rowCount });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleIncomeEntries(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -318,7 +357,7 @@ export function createFinanceHandlers(pool) {
     const category = normalizeCategoryValue(payload.category);
     const note = String(payload.note || "").trim();
     const amountNumber = Number(payload.amount);
-    const receivedAt = payload.received_at ? new Date(payload.received_at) : new Date();
+    const receivedAt = payload.received_at ? new Date(/** @type {string} */ (payload.received_at)) : new Date();
     const cycle = normalizeCycle(payload.cycle);
     const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
@@ -348,6 +387,12 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(rows[0], userId) });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} entryIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleIncomeEntryById(req, res, entryIdRaw, session) {
     const entryId = parseId(entryIdRaw);
     if (!entryId) return badRequest(res, "entry_id ist ungueltig");
@@ -380,7 +425,7 @@ export function createFinanceHandlers(pool) {
     const category = normalizeCategoryValue(payload.category);
     const note = String(payload.note || "").trim();
     const amountNumber = Number(payload.amount);
-    const receivedAt = payload.received_at ? new Date(payload.received_at) : null;
+    const receivedAt = payload.received_at ? new Date(/** @type {string} */ (payload.received_at)) : null;
     const cycle = normalizeCycle(payload.cycle);
     const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
@@ -426,6 +471,11 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated[0], userId) });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleExpenseEntries(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -468,7 +518,7 @@ export function createFinanceHandlers(pool) {
     const category = normalizeCategoryValue(payload.category);
     const note = String(payload.note || "").trim();
     const amountNumber = parsePositiveAmount(payload.amount);
-    const spentAt = payload.spent_at ? new Date(payload.spent_at) : new Date();
+    const spentAt = payload.spent_at ? new Date(/** @type {string} */ (payload.spent_at)) : new Date();
     const cycle = normalizeCycle(payload.cycle);
     const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
@@ -498,6 +548,12 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(rows[0], userId) });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} entryIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleExpenseEntryById(req, res, entryIdRaw, session) {
     const entryId = parseId(entryIdRaw);
     if (!entryId) return badRequest(res, "entry_id ist ungueltig");
@@ -530,7 +586,7 @@ export function createFinanceHandlers(pool) {
     const category = normalizeCategoryValue(payload.category);
     const note = String(payload.note || "").trim();
     const amountNumber = parsePositiveAmount(payload.amount);
-    const spentAt = payload.spent_at ? new Date(payload.spent_at) : null;
+    const spentAt = payload.spent_at ? new Date(/** @type {string} */ (payload.spent_at)) : null;
     const cycle = normalizeCycle(payload.cycle);
     const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
@@ -576,6 +632,7 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated[0], userId) });
   }
 
+  /** @param {string | number} userId */
   async function loadUserBankAccountsLocal(userId) {
     const userObjectId = parseId(userId);
     if (!userObjectId) return [];
@@ -590,6 +647,7 @@ export function createFinanceHandlers(pool) {
     }));
   }
 
+  /** @param {string | number} userId */
   async function loadUserShareAccountsLocal(userId) {
     const userObjectId = parseId(userId);
     if (!userObjectId) return [];
@@ -600,6 +658,10 @@ export function createFinanceHandlers(pool) {
     }));
   }
 
+  /**
+   * @param {string | number} userId
+   * @param {string} [shareAccountIdRaw]
+   */
   async function loadUserPositions(userId, shareAccountIdRaw = "") {
     const userObjectId = parseId(userId);
     if (!userObjectId) return [];
@@ -626,12 +688,19 @@ export function createFinanceHandlers(pool) {
       const boughtFor = toNumber(share.bought_for);
       const boughtAtMs = share.bought_at instanceof Date ? share.bought_at.getTime() : Date.parse(String(share.bought_at || ""));
       const createdAt = Number.isFinite(boughtAtMs) ? Math.floor(boughtAtMs / 1000) : Number.NaN;
-      const worthWhenBought = Number.isFinite(amount) && amount > 0 && Number.isFinite(boughtFor) ? boughtFor / amount : Number.NaN;
-      if (!symbol || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(createdAt) || createdAt <= 0 || !Number.isFinite(worthWhenBought) || worthWhenBought <= 0) return null;
+      if (!symbol || !Number.isFinite(amount) || amount === null || amount <= 0 || !Number.isFinite(createdAt) || createdAt <= 0) return null;
+      const worthWhenBought = Number.isFinite(boughtFor) && boughtFor !== null && boughtFor > 0 ? boughtFor / amount : Number.NaN;
+      if (!Number.isFinite(worthWhenBought) || worthWhenBought <= 0) return null;
       return { symbol, amount: Number(amount.toFixed(4)), created_at: createdAt, worthwhenbought: Number(worthWhenBought.toFixed(4)) };
     }).filter(Boolean);
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {URL} url
+   * @param {{ user: { id: string } }} session
+   */
   async function handlePositions(req, res, url, session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -642,6 +711,11 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, positions);
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleBankAccounts(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -669,6 +743,12 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 201, { ok: true, account: { id: String(rows[0].id), label, balance: 0 } });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} accountIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleBankAccountById(req, res, accountIdRaw, session) {
     const accountId = parseId(accountIdRaw);
     if (!accountId) return badRequest(res, "bank_account_id ist ungueltig");
@@ -698,7 +778,8 @@ export function createFinanceHandlers(pool) {
       const sourceAccount = sourceRows[0];
 
       let payload;
-      try { payload = await readBody(req); } catch (error) {
+      try { payload = await readBody(req); } catch (/** @type {unknown} */ err) {
+        const error = /** @type {Error} */ (err);
         if (error.message !== "invalid_json") {
           if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
           return badRequest(res, "Invalid JSON body");
@@ -731,7 +812,7 @@ export function createFinanceHandlers(pool) {
           [transferTargetId, userId]
         );
         if (targetRows.length === 0) return badRequest(res, "Zielkonto wurde nicht gefunden");
-        if (sourceBalance !== 0) await incrementBankAccountBalance(pool, transferTargetId, sourceBalance);
+        if (sourceBalance !== 0 && transferTargetId) await incrementBankAccountBalance(pool, transferTargetId, sourceBalance);
       }
 
       await deleteBankAccountAssociations(pool, accountId);
@@ -744,6 +825,11 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleShareAccounts(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -771,6 +857,12 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 201, { ok: true, account: { id: String(rows[0].id), label } });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} accountIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleShareAccountById(req, res, accountIdRaw, session) {
     const accountId = parseId(accountIdRaw);
     if (!accountId) return badRequest(res, "share_account_id ist ungueltig");
@@ -799,7 +891,8 @@ export function createFinanceHandlers(pool) {
       if (sourceRows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
 
       let payload;
-      try { payload = await readBody(req); } catch (error) {
+      try { payload = await readBody(req); } catch (/** @type {unknown} */ err) {
+        const error = /** @type {Error} */ (err);
         if (error.message !== "invalid_json") {
           if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
           return badRequest(res, "Invalid JSON body");
@@ -848,6 +941,12 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {URL} url
+   * @param {{ user: { id: string } }} session
+   */
   async function handleDebugPositions(req, res, url, session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -859,6 +958,13 @@ export function createFinanceHandlers(pool) {
     return sendJson(res, 200, { ok: true, user_id: session.user.id, selected_bank_account_id: bankAccountId || null, visible_accounts: accounts, positions_count: positions.length });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} pathname
+   * @param {URL} requestUrl
+   * @param {unknown} _session
+   */
   async function handleTwelveDataProxy(req, res, pathname, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -880,11 +986,18 @@ export function createFinanceHandlers(pool) {
       const body = await upstreamResponse.text();
       res.writeHead(upstreamResponse.status, { "Content-Type": "application/json; charset=utf-8" });
       res.end(body);
-    } catch (error) {
+    } catch (/** @type {unknown} */ err) {
+      const error = /** @type {Error} */ (err);
       return sendJson(res, 502, { status: "error", message: "Twelve Data Proxy Anfrage fehlgeschlagen.", detail: String(error?.message || error) });
     }
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {URL} requestUrl
+   * @param {unknown} _session
+   */
   async function handleExchangeRates(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -904,11 +1017,18 @@ export function createFinanceHandlers(pool) {
       }
       const conversionRates = payload.conversion_rates && typeof payload.conversion_rates === "object" ? payload.conversion_rates : {};
       return sendJson(res, 200, { ok: true, base_code: String(payload.base_code || base).toUpperCase(), time_last_update_unix: Number(payload.time_last_update_unix) || null, rates: conversionRates });
-    } catch (error) {
+    } catch (/** @type {unknown} */ err) {
+      const error = /** @type {Error} */ (err);
       return sendJson(res, 502, { ok: false, message: "Wechselkurs-Anfrage fehlgeschlagen.", detail: String(error?.message || error) });
     }
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {URL} requestUrl
+   * @param {unknown} _session
+   */
   async function handleStockSearchProxy(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -944,11 +1064,18 @@ export function createFinanceHandlers(pool) {
         .filter((row) => !exchange || normalizeExchangeCode(row.sExchange) === exchange)
         .slice(0, limit);
       return sendJson(res, 200, { ok: true, results });
-    } catch (error) {
+    } catch (/** @type {unknown} */ err) {
+      const error = /** @type {Error} */ (err);
       return sendJson(res, 502, { ok: false, message: "Stock-Suche fehlgeschlagen.", detail: String(error?.message || error) });
     }
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {URL} requestUrl
+   * @param {unknown} _session
+   */
   async function handleStockLogoProxy(req, res, requestUrl, _session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");

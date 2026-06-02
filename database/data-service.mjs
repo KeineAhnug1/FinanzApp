@@ -1,15 +1,28 @@
+// @ts-check
+import { Pool } from "pg";
+
+/** @param {unknown} value */
 function toNumber(value) {
   if (value == null) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {Map<unknown, any[]>} map
+ * @param {unknown} key
+ * @param {any} value
+ */
 function pushMapArray(map, key, value) {
   const current = map.get(key) ?? [];
   current.push(value);
   map.set(key, current);
 }
 
+/**
+ * @param {Pool} pool
+ * @param {{ username?: string | null }} [options]
+ */
 export async function getPreparedData(pool, options = {}) {
   const { username } = options;
 
@@ -96,22 +109,26 @@ export async function getPreparedData(pool, options = {}) {
   const groupsById = new Map(groups.map((g) => [g.id, g]));
   const accountById = new Map(bankAccounts.map((a) => [a.id, a]));
 
+  /** @type {Map<any, any[]>} */
   const accountsByUser = new Map();
   for (const account of bankAccounts) {
     pushMapArray(accountsByUser, account.user_id, account);
   }
 
+  /** @type {Map<any, any[]>} */
   const depotsByUser = new Map();
   for (const depot of depots) {
     pushMapArray(depotsByUser, depot.user_id, depot);
   }
 
+  /** @type {Map<any, any[]>} */
   const holdingsByDepot = new Map();
   for (const share of shares) {
     const depotKey = share.share_account_id || share.depot_id;
     if (depotKey) pushMapArray(holdingsByDepot, depotKey, share);
   }
 
+  /** @type {Map<any, any[]>} */
   const incomesByUser = new Map();
   for (const income of incomes) {
     const ownerId = accountById.get(income.bank_account_id)?.user_id;
@@ -119,6 +136,7 @@ export async function getPreparedData(pool, options = {}) {
     pushMapArray(incomesByUser, ownerId, income);
   }
 
+  /** @type {Map<any, any[]>} */
   const privateExpensesByUser = new Map();
   for (const expense of privateExpenses) {
     const ownerId = accountById.get(expense.bank_account_id)?.user_id;
@@ -126,6 +144,7 @@ export async function getPreparedData(pool, options = {}) {
     pushMapArray(privateExpensesByUser, ownerId, expense);
   }
 
+  /** @type {Map<any, any[]>} */
   const budgetsByUser = new Map();
   for (const budget of budgets) {
     pushMapArray(budgetsByUser, budget.user_id, budget);
@@ -133,6 +152,7 @@ export async function getPreparedData(pool, options = {}) {
 
   const userIdSet = new Set(userIds);
 
+  /** @type {Map<any, any[]>} */
   const membershipsByUser = new Map();
   for (const member of groupMembers) {
     pushMapArray(membershipsByUser, member.user_id, {
@@ -200,6 +220,7 @@ export async function getPreparedData(pool, options = {}) {
     if (tx.income_id) pushMapArray(txBySource.income, tx.income_id, tx);
   }
 
+  /** @type {Map<any, any[]>} */
   const fundingsByGroup = new Map();
   for (const funding of groupFunding) {
     pushMapArray(fundingsByGroup, funding.group_id, funding);
@@ -210,6 +231,7 @@ export async function getPreparedData(pool, options = {}) {
     pushMapArray(activitiesByGroup, activity.group_id, activity);
   }
 
+  /** @type {Map<any, any[]>} */
   const groupExpensesByFunding = new Map();
   for (const expense of groupExpenses) {
     pushMapArray(groupExpensesByFunding, expense.group_funding_id, expense);

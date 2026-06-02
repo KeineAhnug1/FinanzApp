@@ -1,6 +1,8 @@
+// @ts-check
 import { pool } from "./db-client.mjs";
 import { getPreparedData } from "./data-service.mjs";
 
+/** @param {string} flagName */
 function readArgValue(flagName) {
   const index = process.argv.indexOf(flagName);
   if (index === -1) {

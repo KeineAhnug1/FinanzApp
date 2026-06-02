@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+  <script>(function(){try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var d=localStorage.getItem("finanzapp.designTheme");if(d==="forest")document.documentElement.dataset.design=d;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Aktienansicht | FinanzApp</title>
+</head>
+
+<body>
+	<header class="page-topbar">
+		<div class="topbar-left">
+			<span class="brand-mark">FinanzApp</span>
+			<span class="brand-sub">Dashboard</span>
+		</div>
+		<div class="header-controls">
+			<div class="profile-wrap">
+				<button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
+					<span class="profile-avatar" id="profile-avatar" data-profile-avatar>U</span>
+					<span class="profile-name" id="profile-name" data-profile-name>Profil</span>
+				</button>
+				<div id="profile-menu" class="profile-menu" hidden>
+					<p class="menu-name" id="menu-name" data-profile-menu-name>-</p>
+					<p class="menu-mail" id="menu-mail" data-profile-menu-mail>-</p>
+					<button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
+				</div>
+			</div>
+		</div>
+	</header>
+
+	<div class="app stocks-page" id="stocks-page">
+		<main>
+			<div id="viewHost"></div>
+		</main>
+	</div>
+
+	<script type="module" src="/src/pages/stocks/main.js"></script>
+</body>
+
+</html>

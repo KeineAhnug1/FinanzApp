@@ -1,3 +1,6 @@
+// @ts-check
+
+/** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchUserRoutes(ctx) {
   const { req, res, pathname, session, handlers } = ctx;
 

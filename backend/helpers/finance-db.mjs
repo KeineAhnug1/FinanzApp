@@ -1,3 +1,6 @@
+// @ts-check
+import http from "node:http";
+import { Pool } from "pg";
 import {
   categoryKey,
   normalizeCategoryValue,
@@ -6,6 +9,10 @@ import {
   toNumber
 } from "../utils/data.mjs";
 
+/**
+ * @param {Pool} pool
+ * @param {number | string} userId
+ */
 export async function listUserBankAccounts(pool, userId) {
   const { rows } = await pool.query(
     `SELECT id, label, balance, created_at FROM bank_accounts WHERE user_id = $1 ORDER BY created_at ASC, id ASC`,
@@ -14,6 +21,10 @@ export async function listUserBankAccounts(pool, userId) {
   return rows;
 }
 
+/**
+ * @param {Pool} pool
+ * @param {number | string} userId
+ */
 export async function listUserShareAccounts(pool, userId) {
   const { rows } = await pool.query(
     `SELECT id, label, created_at FROM share_accounts WHERE user_id = $1 ORDER BY created_at ASC, id ASC`,
@@ -22,6 +33,10 @@ export async function listUserShareAccounts(pool, userId) {
   return rows;
 }
 
+/**
+ * @param {Pool} pool
+ * @param {number | string} userId
+ */
 export async function ensureUserFinanceRoots(pool, userId) {
   let bankAccounts = await listUserBankAccounts(pool, userId);
   if (bankAccounts.length === 0) {
@@ -43,6 +58,11 @@ export async function ensureUserFinanceRoots(pool, userId) {
   return bankAccounts;
 }
 
+/**
+ * @param {Pool} pool
+ * @param {number} accountId
+ * @param {number} deltaAmount
+ */
 export async function incrementBankAccountBalance(pool, accountId, deltaAmount) {
   const normalizedDelta = Number(Number(deltaAmount || 0).toFixed(2));
   if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
@@ -52,6 +72,10 @@ export async function incrementBankAccountBalance(pool, accountId, deltaAmount) 
   );
 }
 
+/**
+ * @param {Pool} pool
+ * @param {number} accountId
+ */
 export async function deleteBankAccountAssociations(pool, accountId) {
   await Promise.all([
     pool.query(`DELETE FROM income WHERE bank_account_id = $1`, [accountId]),
@@ -63,6 +87,12 @@ export async function deleteBankAccountAssociations(pool, accountId) {
   ]);
 }
 
+/**
+ * @param {Pool} pool
+ * @param {number | string} userId
+ * @param {string} kind
+ * @param {string} categoryValue
+ */
 export async function rememberUserCategory(pool, userId, kind, categoryValue) {
   const normalized = normalizeCategoryValue(categoryValue);
   if (!normalized) return;
@@ -75,6 +105,11 @@ export async function rememberUserCategory(pool, userId, kind, categoryValue) {
   );
 }
 
+/**
+ * @param {http.IncomingMessage} req
+ * @param {number[]} accountIds
+ * @returns {{ ok: true; accountIds: number[] } | { ok: false; status: number; message: string }}
+ */
 export function resolveRequestedBankAccountFilter(req, accountIds) {
   const requestUrl = new URL(req.url || "/", "http://localhost");
   const rawBankAccountId = String(requestUrl.searchParams.get("bank_account_id") || "").trim();
@@ -93,11 +128,13 @@ export function resolveRequestedBankAccountFilter(req, accountIds) {
   return { ok: true, accountIds: [selectedId] };
 }
 
+/** @param {unknown} value */
 function toNullableNumber(value) {
   const parsed = toNumber(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** @param {Record<string, unknown>} entry */
 function recurrenceMonthlyContribution(entry) {
   const amount = toNullableNumber(entry?.amount) ?? 0;
   if (amount <= 0) return 0;
@@ -112,23 +149,32 @@ function recurrenceMonthlyContribution(entry) {
   return 0;
 }
 
+/**
+ * @param {Record<string, unknown>} entry
+ * @param {string} dateField
+ */
 function resolveEntryDateForFilter(entry, dateField) {
   if (dateField === "received_at") return entry?.received_at ?? entry?.pay_date ?? entry?.created_at ?? null;
   if (dateField === "spent_at") return entry?.spent_at ?? entry?.pay_date ?? entry?.due_date ?? entry?.created_at ?? null;
   return entry?.[dateField] ?? null;
 }
 
+/** @param {unknown} value */
 function isDateInCurrentMonth(value) {
   if (!value) return false;
-  const date = new Date(value);
+  const date = new Date(/** @type {string | number} */ (value));
   if (Number.isNaN(date.getTime())) return false;
   const now = new Date();
   return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
+/**
+ * @param {Record<string, unknown>[]} entries
+ * @param {string} dateField
+ */
 export function calculateCurrentMonthTotal(entries, dateField) {
   const oneTime = entries
-    .filter((entry) => (normalizeCycle(entry?.cycle ?? "once") ?? "once") === "once")
+    .filter((entry) => (normalizeCycle(/** @type {string} */ (entry?.cycle ?? "once")) ?? "once") === "once")
     .filter((entry) => isDateInCurrentMonth(resolveEntryDateForFilter(entry, dateField)))
     .reduce((sum, entry) => sum + (toNullableNumber(entry?.amount) ?? 0), 0);
 
@@ -136,6 +182,10 @@ export function calculateCurrentMonthTotal(entries, dateField) {
   return Number((oneTime + recurring).toFixed(2));
 }
 
+/**
+ * @param {Pool} pool
+ * @param {number | string} userId
+ */
 export async function calculateDashboardStyleDonationBalance(pool, userId) {
   const userAccounts = await ensureUserFinanceRoots(pool, userId);
   const accountIds = userAccounts.map((account) => account.id);

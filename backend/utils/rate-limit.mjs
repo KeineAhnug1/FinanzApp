@@ -1,5 +1,12 @@
+// @ts-check
+import http from "node:http";
+
 const TRUST_PROXY = process.env.TRUST_PROXY === "true";
 
+/**
+ * @param {http.IncomingMessage} req
+ * @returns {string}
+ */
 export function getClientIp(req) {
   if (TRUST_PROXY) {
     const forwarded = req.headers["x-forwarded-for"];
@@ -8,10 +15,19 @@ export function getClientIp(req) {
   return req.socket?.remoteAddress || "unknown";
 }
 
+/** @type {Map<string, { windowStart: number; count: number }>} */
 const _rateLimitBuckets = new Map();
 
+/**
+ * @param {http.ServerResponse} res
+ * @param {string} key
+ * @param {number} maxAttempts
+ * @param {number} windowMs
+ * @returns {boolean}
+ */
 export function rateLimitBucket(res, key, maxAttempts, windowMs) {
   const { sendJson } = _sendJsonRef;
+  if (!sendJson) throw new Error("Rate limiter not initialized");
   const now = Date.now();
   let rec = _rateLimitBuckets.get(key);
   if (!rec || now - rec.windowStart > windowMs) {
@@ -28,12 +44,22 @@ export function rateLimitBucket(res, key, maxAttempts, windowMs) {
   return true;
 }
 
-// sendJson is injected once at startup to avoid a circular import
+/** @type {{ sendJson: ((res: http.ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void) | null }} */
 const _sendJsonRef = { sendJson: null };
+
+/**
+ * @param {(res: http.ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void} sendJsonFn
+ */
 export function initRateLimiter(sendJsonFn) {
   _sendJsonRef.sendJson = sendJsonFn;
 }
 
+/**
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ * @param {{ maxAttempts?: number; windowMs?: number; group?: string }} [options]
+ * @returns {boolean}
+ */
 export function checkRateLimit(req, res, { maxAttempts = 10, windowMs = 60_000, group = "general" } = {}) {
   const ip = getClientIp(req);
   return rateLimitBucket(res, `${group}:${ip}`, maxAttempts, windowMs);

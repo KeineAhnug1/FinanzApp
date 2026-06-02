@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <script>(function(){try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var d=localStorage.getItem("finanzapp.designTheme");if(d==="forest")document.documentElement.dataset.design=d;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanzApp | Homepage</title>
+  <script type="module" crossorigin src="/assets/homepage-BlBb7uJI.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/theme-utils-BcoEdm65.js">
+  <link rel="stylesheet" crossorigin href="/assets/theme-utils-2vV3yrmN.css">
+  <link rel="stylesheet" crossorigin href="/assets/homepage-C1wI-oLw.css">
+</head>
+<body>
+
+  <!-- ═══════════════ NAVBAR ═══════════════ -->
+  <header class="hp-nav">
+    <a id="homepage-brand-link" class="hp-nav__brand" href="/homepage/" aria-label="">
+      <span class="hp-nav__logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect width="28" height="28" rx="8" fill="currentColor" opacity="0.12"/>
+          <path d="M7 18L11.5 13L14.5 16L18 10.5L21 13.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="21" cy="13.5" r="1.5" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="hp-nav__wordmark">FinanzApp</span>
+    </a>
+    <nav class="hp-nav__links" aria-label="Hauptnavigation">
+      <a href="#features" class="hp-nav__link">Features</a>
+      <a href="#showcase" class="hp-nav__link">Screens</a>
+      <a href="#tech" class="hp-nav__link">Technologie</a>
+    </nav>
+    <div class="hp-nav__actions">
+      <a id="top-auth-btn" class="hp-nav__cta" href="/"></a>
+    </div>
+  </header>
+
+  <main class="hp-main">
+
+    <!-- ═══════════════ HERO ═══════════════ -->
+    <section class="hp-hero" aria-labelledby="homepage-hero-title">
+      <div class="hp-hero__bg" aria-hidden="true">
+        <div class="hp-hero__orb hp-hero__orb--1"></div>
+        <div class="hp-hero__orb hp-hero__orb--2"></div>
+        <div class="hp-hero__orb hp-hero__orb--3"></div>
+        <div class="hp-hero__grain"></div>
+        <div class="hp-hero__grid"></div>
+      </div>
+      <div class="hp-hero__content">
+        <div class="hp-hero__badge reveal-up" style="--delay:0ms">
+          <span class="hp-hero__badge-dot"></span>
+          <span id="homepage-hero-kicker"></span>
+        </div>
+        <h1 id="homepage-hero-title" class="hp-hero__title reveal-up" style="--delay:80ms"></h1>
+        <p id="homepage-hero-body" class="hp-hero__body reveal-up" style="--delay:160ms"></p>
+        <div class="hp-hero__actions reveal-up" style="--delay:240ms">
+          <a id="homepage-hero-cta" class="hp-btn hp-btn--primary" href="#features"></a>
+          <a class="hp-btn hp-btn--ghost" href="/">Jetzt starten &rarr;</a>
+        </div>
+        <div class="hp-hero__stats reveal-up" style="--delay:320ms">
+          <div class="hp-stat">
+            <span class="hp-stat__value">100%</span>
+            <span class="hp-stat__label">Kostenlos</span>
+          </div>
+          <div class="hp-stat__divider" aria-hidden="true"></div>
+          <div class="hp-stat">
+            <span class="hp-stat__value">5+</span>
+            <span class="hp-stat__label">Module</span>
+          </div>
+          <div class="hp-stat__divider" aria-hidden="true"></div>
+          <div class="hp-stat">
+            <span class="hp-stat__value">&lt;1s</span>
+            <span class="hp-stat__label">Ladezeit</span>
+          </div>
+          <div class="hp-stat__divider" aria-hidden="true"></div>
+          <div class="hp-stat">
+            <span class="hp-stat__value">Dark Mode</span>
+            <span class="hp-stat__label">Inklusive</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hp-hero__visual reveal-up" style="--delay:100ms" aria-hidden="true">
+        <div class="hp-hero__card hp-hero__card--main">
+          <div class="hp-mockup">
+            <div class="hp-mockup__topbar">
+              <span class="hp-mockup__dot"></span>
+              <span class="hp-mockup__dot"></span>
+              <span class="hp-mockup__dot"></span>
+              <span class="hp-mockup__title">Dashboard</span>
+            </div>
+            <div class="hp-mockup__body">
+              <div class="hp-mockup__balance">
+                <span class="hp-mockup__label">Gesamtvermögen</span>
+                <span class="hp-mockup__amount">€ 12.480,50</span>
+                <span class="hp-mockup__change hp-mockup__change--up">↑ +3,2% diesen Monat</span>
+              </div>
+              <div class="hp-mockup__chart" aria-hidden="true">
+                <svg viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="hp-mockup__chart-svg">
+                  <defs>
+                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--hp-accent)" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="var(--hp-accent)" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M0 60 C20 55, 35 40, 55 42 C75 44, 85 30, 110 25 C135 20, 150 35, 170 28 C185 23, 200 15, 220 10 L220 80 L0 80 Z" fill="url(#chartGrad)"/>
+                  <path d="M0 60 C20 55, 35 40, 55 42 C75 44, 85 30, 110 25 C135 20, 150 35, 170 28 C185 23, 200 15, 220 10" stroke="var(--hp-accent)" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="220" cy="10" r="3.5" fill="var(--hp-accent)"/>
+                </svg>
+              </div>
+              <div class="hp-mockup__rows">
+                <div class="hp-mockup__row">
+                  <span class="hp-mockup__row-dot" style="background: #4ade80"></span>
+                  <span class="hp-mockup__row-label">Gehalt</span>
+                  <span class="hp-mockup__row-val hp-mockup__row-val--pos">+€ 3.200</span>
+                </div>
+                <div class="hp-mockup__row">
+                  <span class="hp-mockup__row-dot" style="background: #f87171"></span>
+                  <span class="hp-mockup__row-label">Miete</span>
+                  <span class="hp-mockup__row-val hp-mockup__row-val--neg">−€ 950</span>
+                </div>
+                <div class="hp-mockup__row">
+                  <span class="hp-mockup__row-dot" style="background: #60a5fa"></span>
+                  <span class="hp-mockup__row-label">Aktien</span>
+                  <span class="hp-mockup__row-val hp-mockup__row-val--pos">+€ 412</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hp-hero__card hp-hero__card--float hp-hero__card--float-a">
+          <span class="hp-floatcard__icon">📈</span>
+          <span class="hp-floatcard__text">Portfolio +12%</span>
+        </div>
+        <div class="hp-hero__card hp-hero__card--float hp-hero__card--float-b">
+          <span class="hp-floatcard__icon">🔔</span>
+          <span class="hp-floatcard__text">Budget-Alarm: 85%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ FEATURES GRID ═══════════════ -->
+    <section id="features" class="hp-section hp-features reveal-up" style="--delay:0ms">
+      <div class="hp-section__head">
+        <p id="homepage-ai-tag" class="hp-label"></p>
+        <h2 id="homepage-ai-title" class="hp-section__title"></h2>
+        <p id="homepage-ai-body" class="hp-section__sub"></p>
+      </div>
+      <div class="hp-features__grid">
+        <article class="hp-feat-card hp-feat-card--wide">
+          <div class="hp-feat-card__icon-wrap">
+            <svg class="hp-feat-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h3 class="hp-feat-card__title">Einnahmen & Ausgaben</h3>
+          <p class="hp-feat-card__body">Buche Transaktionen in Sekunden. Behalte den Überblick über Kategorien, Zeiträume und Cashflow — alles auf einem Blick.</p>
+          <div class="hp-feat-card__pill">Core Feature</div>
+        </article>
+        <article class="hp-feat-card">
+          <div class="hp-feat-card__icon-wrap">
+            <svg class="hp-feat-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <h3 class="hp-feat-card__title">Aktien & Portfolio</h3>
+          <p class="hp-feat-card__body">Live-Kurse und Performance-Charts für dein Wertpapierdepot.</p>
+        </article>
+        <article class="hp-feat-card">
+          <div class="hp-feat-card__icon-wrap">
+            <svg class="hp-feat-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <h3 class="hp-feat-card__title">Gruppen & Chat</h3>
+          <p class="hp-feat-card__body">Finanziere gemeinsam. Gruppen-Chats und geteilte Budgets für Teams und Familien.</p>
+        </article>
+        <article class="hp-feat-card">
+          <div class="hp-feat-card__icon-wrap">
+            <svg class="hp-feat-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
+            </svg>
+          </div>
+          <h3 class="hp-feat-card__title">Finanz-Q&amp;A</h3>
+          <p class="hp-feat-card__body">Stelle Fragen, erhalte smarte Antworten. Deine persönliche Finanzberatung.</p>
+        </article>
+        <article class="hp-feat-card">
+          <div class="hp-feat-card__icon-wrap">
+            <svg class="hp-feat-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3 class="hp-feat-card__title">Sicherheit & Privatsphäre</h3>
+          <p class="hp-feat-card__body">Deine Daten bleiben deine Daten. Sichere Authentifizierung, keine Werbung.</p>
+        </article>
+        <article class="hp-feat-card">
+          <div class="hp-feat-card__icon-wrap">
+            <svg class="hp-feat-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.07 4.93A10 10 0 0 1 21 12M4.93 19.07A10 10 0 0 1 3 12"/>
+              <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+          </div>
+          <h3 class="hp-feat-card__title">Dark & Light Mode</h3>
+          <p class="hp-feat-card__body">Angenehm bei Tag und Nacht. Themes und mehrere Designvarianten inklusive.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ═══════════════ VIDEO REGISTRIERUNG ═══════════════ -->
+    <section id="quick-register" class="hp-video-story">
+      <div class="hp-video-story__sticky">
+        <video
+          class="hp-video-story__media js-autoplay-on-visible"
+          muted
+          playsinline
+          loop
+          preload="metadata"
+          id="homepage-register-video"
+          aria-label=""
+        >
+          <source src="./videos/register.mp4" type="video/mp4" />
+          <span id="homepage-video-fallback"></span>
+        </video>
+        <div class="hp-video-story__overlay">
+          <p id="homepage-video-tag" class="hp-label hp-label--light"></p>
+          <h2 id="homepage-video-title" class="hp-video-story__title"></h2>
+          <p id="homepage-video-body" class="hp-video-story__body"></p>
+          <a class="hp-btn hp-btn--outline-light" href="/">Jetzt registrieren &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ INCOME/EXPENSES SHOWCASE ═══════════════ -->
+    <section id="showcase" class="hp-section hp-showcase-row reveal-up" style="--delay:0ms">
+      <div class="hp-showcase-row__text">
+        <p id="homepage-income-expenses-tag" class="hp-label"></p>
+        <h2 id="homepage-income-expenses-title" class="hp-section__title"></h2>
+        <p id="homepage-income-expenses-body" class="hp-section__sub"></p>
+        <a class="hp-btn hp-btn--primary" href="/" style="margin-top:24px;">App starten &rarr;</a>
+      </div>
+      <div class="hp-showcase-row__media">
+        <div class="hp-showcase-row__frame">
+          <video
+            id="homepage-income-expenses-video"
+            class="hp-showcase-row__video js-autoplay-on-visible"
+            muted
+            playsinline
+            loop
+            preload="metadata"
+            aria-label=""
+          >
+            <source src="./videos/IncomeAndExpenses.mp4" type="video/mp4" />
+            <span id="homepage-income-expenses-fallback"></span>
+          </video>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ DESIGN CAROUSEL ═══════════════ -->
+    <section id="minimal-design" class="hp-section hp-carousel-section reveal-up" style="--delay:0ms">
+      <div class="hp-section__head">
+        <p id="homepage-design-tag" class="hp-label"></p>
+        <h2 id="homepage-design-title" class="hp-section__title"></h2>
+        <p id="homepage-design-body" class="hp-section__sub"></p>
+      </div>
+      <div id="homepage-design-carousel" class="hp-carousel">
+        <button id="homepage-design-prev" class="hp-carousel__arrow hp-carousel__arrow--prev" type="button" aria-label="">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="hp-carousel__viewport">
+          <article class="hp-carousel__slide is-active">
+            <div class="hp-carousel__img-wrap">
+              <img id="homepage-design-income-image" src="./images/DashboardIncome.png" alt="" loading="lazy" />
+            </div>
+            <div class="hp-carousel__caption">
+              <h3 id="homepage-design-income-title"></h3>
+              <p id="homepage-design-income-body"></p>
+            </div>
+          </article>
+          <article class="hp-carousel__slide">
+            <div class="hp-carousel__img-wrap">
+              <img id="homepage-design-expenses-image" src="./images/DashboardExpenses.png" alt="" loading="lazy" />
+            </div>
+            <div class="hp-carousel__caption">
+              <h3 id="homepage-design-expenses-title"></h3>
+              <p id="homepage-design-expenses-body"></p>
+            </div>
+          </article>
+          <article class="hp-carousel__slide">
+            <div class="hp-carousel__img-wrap">
+              <img id="homepage-design-groupchat-image" src="./images/Groupchat.png" alt="" loading="lazy" />
+            </div>
+            <div class="hp-carousel__caption">
+              <h3 id="homepage-design-groupchat-title"></h3>
+              <p id="homepage-design-groupchat-body"></p>
+            </div>
+          </article>
+          <article class="hp-carousel__slide">
+            <div class="hp-carousel__img-wrap">
+              <img id="homepage-design-stock1-image" src="./images/stock1.png" alt="" loading="lazy" />
+            </div>
+            <div class="hp-carousel__caption">
+              <h3 id="homepage-design-stock1-title"></h3>
+              <p id="homepage-design-stock1-body"></p>
+            </div>
+          </article>
+          <article class="hp-carousel__slide">
+            <div class="hp-carousel__img-wrap">
+              <img id="homepage-design-stock2-image" src="./images/stock2.png" alt="" loading="lazy" />
+            </div>
+            <div class="hp-carousel__caption">
+              <h3 id="homepage-design-stock2-title"></h3>
+              <p id="homepage-design-stock2-body"></p>
+            </div>
+          </article>
+        </div>
+        <button id="homepage-design-next" class="hp-carousel__arrow hp-carousel__arrow--next" type="button" aria-label="">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div id="homepage-design-dots" class="hp-carousel__dots" aria-label=""></div>
+    </section>
+
+    <!-- ═══════════════ TECH STACK ═══════════════ -->
+    <section id="tech" class="hp-section hp-tech-grid reveal-up" style="--delay:0ms">
+      <div class="hp-section__head">
+        <p class="hp-label">Technologie-Stack</p>
+        <h2 class="hp-section__title">Enterprise-Grade, <em>von Anfang an</em></h2>
+        <p class="hp-section__sub">Jede Entscheidung im Stack zielt auf Performance, Skalierbarkeit und Zukunftssicherheit.</p>
+      </div>
+      <div class="hp-tech-grid__items">
+
+        <article id="ai-enhancement" class="hp-tech-card reveal-up" style="--delay:0ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-ai-tech-image" src="./images/ai-enhancement.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-ai-tag-tech" class="hp-label"></p>
+            <h3 class="hp-tech-card__title">Adaptive Finance Intelligence</h3>
+            <p class="hp-tech-card__text">KI-Layer für dynamische Kategorisierung, Mustererkennung und proaktive Insights — ohne manuellen Aufwand.</p>
+          </div>
+        </article>
+
+        <article id="serverless" class="hp-tech-card hp-tech-card--alt reveal-up" style="--delay:60ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-serverless-image" src="./images/serverless.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-serverless-tag" class="hp-label"></p>
+            <h3 id="homepage-serverless-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-serverless-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+        <article id="quantum" class="hp-tech-card reveal-up" style="--delay:120ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-quantum-image" src="./images/quantum-ready.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-quantum-tag" class="hp-label"></p>
+            <h3 id="homepage-quantum-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-quantum-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+        <article id="blockchain" class="hp-tech-card hp-tech-card--alt reveal-up" style="--delay:180ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-blockchain-image" src="./images/blockchain.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-blockchain-tag" class="hp-label"></p>
+            <h3 id="homepage-blockchain-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-blockchain-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+        <article id="saas" class="hp-tech-card reveal-up" style="--delay:240ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-saas-image" src="./images/saas.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-saas-tag" class="hp-label"></p>
+            <h3 id="homepage-saas-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-saas-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+        <article id="loadbalanced" class="hp-tech-card hp-tech-card--alt reveal-up" style="--delay:300ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-loadbalanced-image" src="./images/load-balanced.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-loadbalanced-tag" class="hp-label"></p>
+            <h3 id="homepage-loadbalanced-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-loadbalanced-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+        <article id="scalable" class="hp-tech-card reveal-up" style="--delay:360ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-scalable-image" src="./images/scalable.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-scalable-tag" class="hp-label"></p>
+            <h3 id="homepage-scalable-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-scalable-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+        <article id="aws" class="hp-tech-card hp-tech-card--alt reveal-up" style="--delay:420ms">
+          <figure class="hp-tech-card__fig">
+            <img id="homepage-aws-image" src="./images/aws-backend.svg" alt="" loading="lazy" />
+          </figure>
+          <div class="hp-tech-card__body">
+            <p id="homepage-aws-tag" class="hp-label"></p>
+            <h3 id="homepage-aws-title" class="hp-tech-card__title"></h3>
+            <p id="homepage-aws-body" class="hp-tech-card__text"></p>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════ FINAL CTA ═══════════════ -->
+    <section class="hp-cta reveal-up" style="--delay:0ms">
+      <div class="hp-cta__bg" aria-hidden="true">
+        <div class="hp-cta__orb hp-cta__orb--1"></div>
+        <div class="hp-cta__orb hp-cta__orb--2"></div>
+        <div class="hp-cta__grain"></div>
+      </div>
+      <div class="hp-cta__content">
+        <h2 class="hp-cta__title">Bereit, deine Finanzen<br><em>in den Griff zu bekommen?</em></h2>
+        <p class="hp-cta__sub">Kostenlos starten, sofort loslegen. Kein Abo, keine versteckten Kosten.</p>
+        <div class="hp-cta__actions">
+          <a class="hp-btn hp-btn--primary hp-btn--lg" href="/">Kostenlos registrieren</a>
+          <a class="hp-btn hp-btn--ghost-dark" href="#features">Features ansehen</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <footer class="hp-footer">
+    <div class="hp-footer__inner">
+      <span class="hp-footer__brand">FinanzApp</span>
+      <span class="hp-footer__copy">© 2025 FinanzApp · Hochschulprojekt Web Engineering</span>
+    </div>
+  </footer>
+
+</body>
+</html>

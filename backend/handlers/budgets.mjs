@@ -1,10 +1,19 @@
+// @ts-check
+import http from "node:http";
+import { Pool } from "pg";
 import { parseId, parsePositiveAmount, normalizeCategoryValue } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, notFound, unauthorized } from "../helpers/responses.mjs";
 import { listUserBankAccounts } from "../helpers/finance-db.mjs";
 
+/** @param {Pool} pool */
 export function createBudgetHandlers(pool) {
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleBudgets(req, res, session) {
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -66,6 +75,12 @@ export function createBudgetHandlers(pool) {
     });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} budgetIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleBudgetById(req, res, budgetIdRaw, session) {
     const budgetId = parseId(budgetIdRaw);
     if (!budgetId) return badRequest(res, "budget_id ist ungueltig");
@@ -134,6 +149,11 @@ export function createBudgetHandlers(pool) {
     return sendJson(res, 405, { ok: false, message: "Method not allowed" });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleBudgetStatus(req, res, session) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");

@@ -1,37 +1,44 @@
+// @ts-check
 import path from "node:path";
+import http from "node:http";
 
-const PROTECTED_UI_PATHS = new Set(["/dashboard.html", "/questions", "/groups", "/accounts", "/stocks", "/settings"]);
-const PROTECTED_UI_PREFIXES = ["/questions/", "/groups/", "/accounts/", "/stocks/", "/js/", "/settings/"];
-const UI_ROOT_REDIRECTS = new Map([
-  ["/groups", "/groups/"],
-  ["/questions", "/questions/"],
-  ["/stocks", "/stocks/"],
-  ["/accounts", "/accounts/"],
-  ["/settings", "/settings/"],
-  ["/homepage", "/homepage/"]
+const PROTECTED_UI_PATHS = new Set([
+  "/pages/dashboard/dashboard.html",
+  "/pages/questions/",
+  "/pages/groups/",
+  "/pages/accounts/",
+  "/pages/stocks/",
+  "/pages/settings/",
 ]);
-const STATIC_EXACT_FILES = new Map([
-  ["/", ["frontend", "dashboard", "index.html"]],
-  ["/dashboard.html", ["frontend", "dashboard", "dashboard.html"]],
-  ["/dashboard.css", ["frontend", "dashboard", "dashboard.css"]],
-  ["/style.css", ["frontend", "dashboard", "style.css"]],
-  ["/script.js", ["frontend", "dashboard", "js", "script.js"]]
-]);
-const STATIC_SECTION_ROUTES = [
-  { basePath: "/homepage", directory: path.join("frontend", "homepage"), indexFile: "index.html" },
-  { basePath: "/groups", directory: path.join("frontend", "groups"), indexFile: "index.html" },
-  { basePath: "/questions", directory: path.join("frontend", "questions"), indexFile: "index.html" },
-  { basePath: "/stocks", directory: path.join("frontend", "stocks"), indexFile: "ShareView.html" },
-  { basePath: "/accounts", directory: path.join("frontend", "accounts"), indexFile: "index.html" },
-  { basePath: "/settings", directory: path.join("frontend", "settings"), indexFile: "index.html" }
+const PROTECTED_UI_PREFIXES = [
+  "/pages/dashboard/",
+  "/pages/questions/",
+  "/pages/groups/",
+  "/pages/accounts/",
+  "/pages/stocks/",
+  "/pages/settings/",
 ];
 
+// Short URLs without trailing slash → redirect to canonical form
+const UI_ROOT_REDIRECTS = new Map([
+  ["/pages/groups",    "/pages/groups/"],
+  ["/pages/questions", "/pages/questions/"],
+  ["/pages/stocks",    "/pages/stocks/"],
+  ["/pages/accounts",  "/pages/accounts/"],
+  ["/pages/settings",  "/pages/settings/"],
+  ["/pages/homepage",  "/pages/homepage/"],
+]);
+
+/** @param {string} pathname */
 export function isProtectedUiPath(pathname) {
-  if (pathname === "/js/script.js") return false;
   if (PROTECTED_UI_PATHS.has(pathname)) return true;
   return PROTECTED_UI_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+/**
+ * @param {string} pathname
+ * @param {http.ServerResponse} res
+ */
 export function redirectUiRoot(pathname, res) {
   const target = UI_ROOT_REDIRECTS.get(pathname);
   if (!target) return false;
@@ -40,31 +47,35 @@ export function redirectUiRoot(pathname, res) {
   return true;
 }
 
+/**
+ * Resolve a URL pathname to a file path in the Vite dist output.
+ * @param {string} projectRoot
+ * @param {string} pathname
+ */
 export function resolveStaticPath(projectRoot, pathname) {
-  const exactFile = STATIC_EXACT_FILES.get(pathname);
-  if (exactFile) return path.join(projectRoot, ...exactFile);
+  const distRoot = path.join(projectRoot, "apps", "web", "dist");
 
-  if (pathname.startsWith("/js/")) {
-    return path.join(projectRoot, "frontend", "dashboard", pathname.slice(1));
+  // Root auth/landing page
+  if (pathname === "/") return path.join(distRoot, "index.html");
+
+  // Hashed assets from Vite build — serve directly
+  if (pathname.startsWith("/assets/")) {
+    return path.join(distRoot, pathname.slice(1));
   }
 
-  if (pathname.startsWith("/shared/")) {
-    return path.join(projectRoot, "frontend", pathname.slice(1));
-  }
+  // Section index pages
+  const sectionMap = new Map([
+    ["/pages/accounts/",  path.join(distRoot, "pages", "accounts",  "index.html")],
+    ["/pages/groups/",    path.join(distRoot, "pages", "groups",    "index.html")],
+    ["/pages/settings/",  path.join(distRoot, "pages", "settings",  "index.html")],
+    ["/pages/homepage/",  path.join(distRoot, "pages", "homepage",  "index.html")],
+    ["/pages/questions/", path.join(distRoot, "pages", "questions", "index.html")],
+    ["/pages/stocks/",    path.join(distRoot, "pages", "stocks",    "index.html")],
+  ]);
 
-  if (pathname.startsWith("/global-information/")) {
-    return path.join(projectRoot, "frontend", "data", pathname.slice("/global-information/".length));
-  }
+  const sectionRoot = sectionMap.get(pathname);
+  if (sectionRoot) return sectionRoot;
 
-  for (const route of STATIC_SECTION_ROUTES) {
-    if (pathname === `${route.basePath}/`) {
-      return path.join(projectRoot, route.directory, route.indexFile);
-    }
-    if (pathname.startsWith(`${route.basePath}/`)) {
-      const relative = pathname.slice(route.basePath.length + 1);
-      return path.join(projectRoot, route.directory, relative);
-    }
-  }
-
-  return path.join(projectRoot, pathname.slice(1));
+  // All other paths: map directly from dist root (covers /pages/**/* and public assets)
+  return path.join(distRoot, pathname.slice(1));
 }

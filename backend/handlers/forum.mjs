@@ -1,3 +1,5 @@
+// @ts-check
+import http from "node:http";
 import { randomBytes } from "node:crypto";
 import {
   ANSWER_MESSAGE_MAX_LENGTH,
@@ -18,6 +20,7 @@ import { parseBody, sendJson } from "../utils/http.mjs";
 import { hashPassword } from "../utils/password.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
 
+/** @param {unknown} value */
 function parseQuestionTopic(value) {
   const topic = String(value || "").trim().replace(/\s+/g, " ");
   if (!topic) return null;
@@ -25,6 +28,7 @@ function parseQuestionTopic(value) {
   return topic;
 }
 
+/** @param {unknown} value */
 function normalizeSearchText(value) {
   return String(value || "")
     .toLowerCase()
@@ -32,6 +36,7 @@ function normalizeSearchText(value) {
     .replace(/[̀-ͯ]/g, "");
 }
 
+/** @param {unknown} value */
 function tokenizeSearch(value) {
   return normalizeSearchText(value)
     .split(/\s+/)
@@ -39,6 +44,7 @@ function tokenizeSearch(value) {
     .filter(Boolean);
 }
 
+/** @param {unknown} value */
 function tokenizeTitleWords(value) {
   return normalizeSearchText(value)
     .split(/[^\p{L}\p{N}]+/u)
@@ -46,6 +52,10 @@ function tokenizeTitleWords(value) {
     .filter(Boolean);
 }
 
+/**
+ * @param {unknown} leftRaw
+ * @param {unknown} rightRaw
+ */
 function isDistanceAtMostOne(leftRaw, rightRaw) {
   const left = String(leftRaw || "");
   const right = String(rightRaw || "");
@@ -86,6 +96,10 @@ function isDistanceAtMostOne(leftRaw, rightRaw) {
   return true;
 }
 
+/**
+ * @param {string} thema
+ * @param {string[]} searchTokens
+ */
 function scoreQuestionTitle(thema, searchTokens) {
   const normalizedTitle = normalizeSearchText(thema);
   const titleWords = tokenizeTitleWords(thema);
@@ -119,10 +133,18 @@ function scoreQuestionTitle(thema, searchTokens) {
   return { allMatched: matchedTokens === searchTokens.length, anyMatched: matchedTokens > 0, score };
 }
 
+/**
+ * @param {string} thema
+ * @param {string} message
+ */
 function containsFinzbroMention(thema, message) {
   return FINZBRO_MENTION_REGEX.test(`${String(thema || "")}\n${String(message || "")}`);
 }
 
+/**
+ * @param {any} question
+ * @param {{ meUserId?: any; usersById?: Map<string,any>; likesCountByQuestionId?: Map<string,number>; likedQuestionIds?: Set<string>; answersByQuestionId?: Map<string,any[]>; answerLikesCountByAnswerId?: Map<string,number>; likedAnswerIds?: Set<string> }} [options]
+ */
 function serializeQuestion(question, options = {}) {
   const {
     meUserId = null,
@@ -153,7 +175,7 @@ function serializeQuestion(question, options = {}) {
     can_edit: meUserId ? authorId === String(meUserId) : false,
     likes_count: likesCountByQuestionId.get(questionId) || 0,
     liked_by_me: likedQuestionIds.has(questionId),
-    answers: answers.map((answer) => {
+    answers: answers.map((/** @type {any} */ answer) => {
       const answerId = String(answer.id);
       const answerAuthorId = String(answer.from_user_id || "");
       const answerAuthor = usersById.get(answerAuthorId) || {};
@@ -175,6 +197,10 @@ function serializeQuestion(question, options = {}) {
   };
 }
 
+/**
+ * @param {string} thema
+ * @param {string} message
+ */
 export async function generateFinzbroAnswer(thema, message) {
   const openRouterKeys = [OPENROUTER_API_KEY, OPENROUTER_API_KEY_2].filter(Boolean);
   if (openRouterKeys.length === 0) {
@@ -236,6 +262,7 @@ export async function generateFinzbroAnswer(thema, message) {
   return "Ich bin Finzbro und konnte gerade keine KI-Antwort erzeugen. Versuch es bitte gleich nochmal.";
 }
 
+/** @param {any[]} chatHistory */
 export async function generateFinzbroChatAnswer(chatHistory) {
   const openRouterKeys = [OPENROUTER_API_KEY, OPENROUTER_API_KEY_2].filter(Boolean);
   if (openRouterKeys.length === 0) {
@@ -289,6 +316,7 @@ export async function generateFinzbroChatAnswer(chatHistory) {
   return "Ich bin Finzbro und konnte gerade keine KI-Antwort erzeugen. Versuch es bitte gleich nochmal.";
 }
 
+/** @param {import("pg").Pool} pool */
 export function createForumHandlers(pool) {
   async function ensureFinzbroUserId() {
     const { rows } = await pool.query(
@@ -306,7 +334,8 @@ export function createForumHandlers(pool) {
         [FINZBRO_USERNAME, FINZBRO_EMAIL, password, "Finzbro", "Bot"]
       );
       return inserted[0].id;
-    } catch (error) {
+    } catch (/** @type {unknown} */ err) {
+      const error = /** @type {{ code?: string }} */ (err);
       if (error?.code === "23505") {
         const { rows: concurrent } = await pool.query(
           `SELECT id FROM users WHERE username = $1 OR email = $2 LIMIT 1`,
@@ -318,6 +347,11 @@ export function createForumHandlers(pool) {
     }
   }
 
+  /**
+   * @param {string | number} questionId
+   * @param {string} thema
+   * @param {string} message
+   */
   async function maybeCreateFinzbroAutoAnswer(questionId, thema, message) {
     if (!containsFinzbroMention(thema, message)) return false;
 
@@ -338,6 +372,10 @@ export function createForumHandlers(pool) {
     return true;
   }
 
+  /**
+   * @param {string | number} userId
+   * @param {string} [searchRaw]
+   */
   async function listQuestionsWithRelations(userId, searchRaw = "") {
     const searchTokens = tokenizeSearch(searchRaw);
     const hasSearch = searchTokens.length > 0;
@@ -456,6 +494,12 @@ export function createForumHandlers(pool) {
     }));
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   * @param {URL} url
+   */
   async function handleQuestions(req, res, session, url) {
     const userId = parseObjectId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
@@ -506,6 +550,12 @@ export function createForumHandlers(pool) {
     return sendJson(res, 201, { ok: true, question: serialized });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} questionIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleQuestionById(req, res, questionIdRaw, session) {
     const questionId = parseObjectId(questionIdRaw);
     if (!questionId) return badRequest(res, "question_id ist ungueltig");
@@ -583,6 +633,12 @@ export function createForumHandlers(pool) {
     return sendJson(res, 200, { ok: true, question });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} questionIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleQuestionAnswerCreate(req, res, questionIdRaw, session) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -623,6 +679,12 @@ export function createForumHandlers(pool) {
     return sendJson(res, 201, { ok: true, question: updatedQuestion });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} answerIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleAnswerById(req, res, answerIdRaw, session) {
     const answerId = parseObjectId(answerIdRaw);
     if (!answerId) return badRequest(res, "answer_id ist ungueltig");
@@ -683,6 +745,12 @@ export function createForumHandlers(pool) {
     return sendJson(res, 200, { ok: true, question });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} questionIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleQuestionLike(req, res, questionIdRaw, session) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -716,7 +784,8 @@ export function createForumHandlers(pool) {
           `INSERT INTO question_likes (question_id, user_id, created_at) VALUES ($1, $2, NOW())`,
           [questionId, userId]
         );
-      } catch (error) {
+      } catch (/** @type {unknown} */ err) {
+        const error = /** @type {{ code?: string }} */ (err);
         if (error?.code === "23505") {
           liked = false;
         } else {
@@ -733,6 +802,12 @@ export function createForumHandlers(pool) {
     return sendJson(res, 200, { ok: true, question_id: String(questionId), liked, likes_count: likesCount });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {string} answerIdRaw
+   * @param {{ user: { id: string } }} session
+   */
   async function handleAnswerLike(req, res, answerIdRaw, session) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -766,7 +841,8 @@ export function createForumHandlers(pool) {
           `INSERT INTO answer_likes (answer_id, user_id, created_at) VALUES ($1, $2, NOW())`,
           [answerId, userId]
         );
-      } catch (error) {
+      } catch (/** @type {unknown} */ err) {
+        const error = /** @type {{ code?: string }} */ (err);
         if (error?.code === "23505") {
           liked = false;
         } else {

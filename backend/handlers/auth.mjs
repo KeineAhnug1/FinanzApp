@@ -1,3 +1,6 @@
+// @ts-check
+import http from "node:http";
+import { Pool } from "pg";
 import { randomInt } from "node:crypto";
 import nodemailer from "nodemailer";
 import {
@@ -23,6 +26,7 @@ import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized } from "../helpers/responses.mjs";
 import { ensureUserFinanceRoots } from "../helpers/finance-db.mjs";
 
+/** @type {import("nodemailer").Transporter | null} */
 let _mailerTransporter = null;
 
 function getMailer() {
@@ -38,6 +42,11 @@ function createVerificationCode() {
   return String(randomInt(100000, 999999));
 }
 
+/**
+ * @param {string} toEmail
+ * @param {string | null | undefined} firstName
+ * @param {string} code
+ */
 async function sendVerificationEmail(toEmail, firstName, code) {
   const mailer = getMailer();
   if (!mailer) {
@@ -121,6 +130,11 @@ async function sendVerificationEmail(toEmail, firstName, code) {
   return true;
 }
 
+/**
+ * @param {string} toEmail
+ * @param {string | null | undefined} firstName
+ * @param {string} code
+ */
 async function sendPasswordResetEmail(toEmail, firstName, code) {
   const mailer = getMailer();
   if (!mailer) {
@@ -139,6 +153,7 @@ async function sendPasswordResetEmail(toEmail, firstName, code) {
   return true;
 }
 
+/** @param {Pool} pool */
 export async function migratePlaintextPasswords(pool) {
   const { rows: users } = await pool.query(
     `SELECT id, password FROM users`
@@ -183,8 +198,20 @@ export async function migratePlaintextPasswords(pool) {
   }
 }
 
+/**
+ * @param {{
+ *   pool: Pool;
+ *   buildSessionCookie: (token: string) => string;
+ *   clearSessionCookie: () => string;
+ *   createSession: (userId: string | number) => Promise<string>;
+ *   destroySession: (token: string | undefined) => Promise<void>;
+ *   getSessionRecord: (token: string | undefined) => Promise<{ userId: string } | null>;
+ *   SESSION_COOKIE_NAME: string;
+ * }} opts
+ */
 export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME }) {
 
+  /** @param {http.IncomingMessage} req */
   async function getSessionUser(req) {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE_NAME];
@@ -216,6 +243,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     };
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function requireSessionUser(req, res) {
     const session = await getSessionUser(req);
     if (!session) {
@@ -225,6 +256,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     return session;
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handleLogin(req, res) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -270,6 +305,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     }, { "Set-Cookie": buildSessionCookie(token) });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handleSession(req, res) {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -278,12 +317,17 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
 
     const session = await getSessionUser(req);
     if (!session) {
-      return unauthorized(res, "Session abgelaufen oder nicht vorhanden", { "Set-Cookie": clearSessionCookie() });
+      res.setHeader("Set-Cookie", clearSessionCookie());
+      return unauthorized(res, "Session abgelaufen oder nicht vorhanden");
     }
 
     return sendJson(res, 200, { ok: true, session_user: session.user });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handleLogout(req, res) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -295,6 +339,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handleRegister(req, res) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -355,6 +403,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handleRegisterVerify(req, res) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -411,12 +463,17 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
         message: "E-Mail verifiziert und Konto erstellt",
         user: { id: String(userId), username: verification.username, email: verification.email }
       });
-    } catch (error) {
+    } catch (/** @type {unknown} */ err) {
+      const error = /** @type {{ code?: string }} */ (err);
       if (error?.code === "23505") return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
-      throw error;
+      throw err;
     }
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handlePasswordForgot(req, res) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -457,6 +514,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     return sendJson(res, 200, { ok: true, expires_in_seconds: VERIFICATION_TTL_MINUTES * 60, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   async function handlePasswordReset(req, res) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");

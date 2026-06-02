@@ -1,15 +1,27 @@
 // @ts-check
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
 export function parseIncome(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0) return null;
   return Number(numeric.toFixed(2));
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
 export function parsePositiveAmount(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
@@ -18,6 +30,10 @@ export function parsePositiveAmount(value) {
   return normalized;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
 export function parseId(value) {
   if (!value) return null;
   const id = Number(value);
@@ -27,6 +43,10 @@ export function parseId(value) {
 
 export const parseObjectId = parseId;
 
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
 export function toNumber(value) {
   if (value == null) return null;
   if (typeof value === "number") return value;
@@ -34,16 +54,28 @@ export function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 export function toDecimal(value) {
   return Number(Number(value).toFixed(2));
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string | null}
+ */
 export function normalizeCycle(value) {
   const normalized = String(value || "once").trim().toLowerCase();
   if (normalized === "weekly" || normalized === "monthly" || normalized === "yearly" || normalized === "once") return normalized;
   return null;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number | null | undefined}
+ */
 export function parseRecurrence(value) {
   if (value == null || value === "" || value === "null") return null;
   const n = Number(value);
@@ -51,6 +83,11 @@ export function parseRecurrence(value) {
   return n;
 }
 
+/**
+ * @param {unknown} value
+ * @param {boolean} [fallback]
+ * @returns {boolean}
+ */
 export function parseBoolean(value, fallback = false) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -60,15 +97,28 @@ export function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function normalizeCategoryValue(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function categoryKey(value) {
   return normalizeCategoryValue(value).toLowerCase();
 }
 
+/**
+ * @param {unknown[] | null | undefined} values
+ * @returns {string[]}
+ */
 export function uniqueCategoryList(values) {
+  /** @type {Map<string, string>} */
   const map = new Map();
   for (const value of values || []) {
     const normalized = normalizeCategoryValue(value);
@@ -79,10 +129,19 @@ export function uniqueCategoryList(values) {
   return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "de"));
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} maxLength
+ * @returns {string | null}
+ */
 export function parseLongText(value, maxLength) {
   const text = String(value || "").trim();
   if (!text) return null;
@@ -90,18 +149,30 @@ export function parseLongText(value, maxLength) {
   return text;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {Date | null}
+ */
 export function toNullableDate(value) {
   if (value == null || value === "") return null;
-  const parsed = new Date(value);
+  const parsed = new Date(/** @type {string | number} */ (value));
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
 export function toNullableNumber(value) {
   const parsed = toNumber(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 export function toFixedAmount(value) {
   return Number((toNumber(value) || 0).toFixed(2));
 }

@@ -1,3 +1,5 @@
+// @ts-check
+
 const BLOCKED_NAME_TERMS = Object.freeze([
   // Nationalsozialismus / NS-Bezug
   "adolfhitler",
@@ -296,6 +298,7 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "anon"
 ]);
 
+/** @param {unknown} value */
 function normalizeNameValue(value) {
   return String(value || "")
     .normalize("NFKD")
@@ -316,6 +319,10 @@ const NORMALIZED_BLOCKED_MESSAGE_TERMS = Object.freeze(
     .filter((entry) => /[a-z]/.test(entry))
 );
 
+/**
+ * @param {{ username: unknown; firstName: unknown; lastName: unknown }} opts
+ * @returns {string | null}
+ */
 export function detectBlockedRegistrationName({ username, firstName, lastName }) {
   const combinedCandidate = [
     username,
@@ -334,6 +341,10 @@ export function detectBlockedRegistrationName({ username, firstName, lastName })
   return null;
 }
 
+/**
+ * @param {unknown} message
+ * @returns {string | null}
+ */
 export function detectBlockedMessageTerm(message) {
   const normalizedMessage = normalizeNameValue(message);
   if (!normalizedMessage) return null;

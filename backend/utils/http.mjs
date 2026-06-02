@@ -1,3 +1,12 @@
+// @ts-check
+import http from "node:http";
+
+/**
+ * @param {http.ServerResponse} res
+ * @param {number} statusCode
+ * @param {unknown} payload
+ * @param {Record<string, string>} [extraHeaders]
+ */
 export function sendJson(res, statusCode, payload, extraHeaders = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
@@ -10,11 +19,16 @@ export function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.end(body);
 }
 
+/**
+ * @param {http.IncomingMessage} req
+ * @returns {Promise<Record<string, unknown>>}
+ */
 export function readBody(req) {
   return new Promise((resolve, reject) => {
+    /** @type {Buffer[]} */
     const chunks = [];
     let totalBytes = 0;
-    req.on("data", (chunk) => {
+    req.on("data", (/** @type {Buffer} */ chunk) => {
       totalBytes += chunk.length;
       if (totalBytes > 1_000_000) {
         reject(new Error("payload_too_large"));
@@ -37,18 +51,29 @@ export function readBody(req) {
 
 import { badRequest } from "../helpers/responses.mjs";
 
-export async function parseBody(req, res, options) {
+/**
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ * @returns {Promise<Record<string, unknown> | null>}
+ */
+export async function parseBody(req, res) {
   try {
-    return await readBody(req, options);
-  } catch (error) {
-    if (error.message === "payload_too_large") sendJson(res, 413, { ok: false, message: "Payload too large" });
+    return await readBody(req);
+  } catch (/** @type {unknown} */ error) {
+    const err = /** @type {Error} */ (error);
+    if (err.message === "payload_too_large") sendJson(res, 413, { ok: false, message: "Payload too large" });
     else badRequest(res, "Invalid JSON body");
     return null;
   }
 }
 
+/**
+ * @param {http.IncomingMessage} req
+ * @returns {Record<string, string>}
+ */
 export function parseCookies(req) {
   const raw = String(req.headers.cookie || "");
+  /** @type {Record<string, string>} */
   const out = {};
   for (const part of raw.split(";")) {
     const [k, ...rest] = part.trim().split("=");

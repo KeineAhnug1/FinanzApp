@@ -1,5 +1,7 @@
+// @ts-check
 import { parsePathParam } from "./common.mjs";
 
+/** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchBudgetRoutes(ctx) {
   const { req, res, pathname, session, handlers } = ctx;
 

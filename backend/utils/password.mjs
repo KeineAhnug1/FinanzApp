@@ -1,3 +1,4 @@
+// @ts-check
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
@@ -8,25 +9,46 @@ export const PASSWORD_HASH_SHA256_PREFIX = "sha256$";
 const PASSWORD_SALT_BYTES = 16;
 const PASSWORD_KEYLEN = 64;
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function hashValue(value) {
   return createHash("sha256").update(String(value)).digest("hex");
 }
 
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
 export function isScryptPasswordHash(value) {
   return typeof value === "string" && value.startsWith(PASSWORD_HASH_PREFIX);
 }
 
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
 export function isSha256PasswordHash(value) {
   return typeof value === "string" && value.startsWith(PASSWORD_HASH_SHA256_PREFIX);
 }
 
+/**
+ * @param {unknown} plainPassword
+ * @returns {Promise<string>}
+ */
 export async function hashPassword(plainPassword) {
   const password = String(plainPassword || "");
   const salt = randomBytes(PASSWORD_SALT_BYTES).toString("hex");
-  const derived = (await scryptAsync(password, salt, PASSWORD_KEYLEN)).toString("hex");
+  const derived = (/** @type {Buffer} */ (await scryptAsync(password, salt, PASSWORD_KEYLEN))).toString("hex");
   return `${PASSWORD_HASH_PREFIX}${salt}$${derived}`;
 }
 
+/**
+ * @param {unknown} plainPassword
+ * @param {unknown} storedPassword
+ * @returns {Promise<boolean>}
+ */
 export async function verifyPassword(plainPassword, storedPassword) {
   const plain = String(plainPassword || "");
   const stored = String(storedPassword || "");
@@ -46,7 +68,7 @@ export async function verifyPassword(plainPassword, storedPassword) {
 
     try {
       const expected = Buffer.from(expectedHex, "hex");
-      const actual = await scryptAsync(plain, salt, expected.length);
+      const actual = /** @type {Buffer} */ (await scryptAsync(plain, salt, expected.length));
       if (actual.length !== expected.length) return false;
       return timingSafeEqual(actual, expected);
     } catch {

@@ -1,3 +1,4 @@
+// @ts-check
 import "dotenv/config";
 import http from "node:http";
 import path from "node:path";
@@ -33,6 +34,11 @@ const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorize
 const sessionStore = createSessionStore({ cookieName: SESSION_COOKIE_NAME, ttlMinutes: SESSION_TTL_MINUTES });
 const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, gcSessions } = sessionStore;
 
+/**
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ * @param {string} pathname
+ */
 async function handleStatic(req, res, pathname) {
   let requestPath;
   try {
@@ -55,17 +61,20 @@ async function handleStatic(req, res, pathname) {
   try {
     const file = await readFile(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    const isImmutable = [".css", ".js", ".mjs", ".png", ".ico", ".svg"].includes(ext);
-    const cacheControl = isImmutable ? "public, max-age=86400" : "no-cache";
+    const isHashed = filePath.includes(`${path.sep}assets${path.sep}`);
+    const cacheControl = isHashed
+      ? "public, max-age=31536000, immutable"
+      : "no-cache";
     res.writeHead(200, {
-      "Content-Type": MIME_BY_EXT[ext] || "application/octet-stream",
+      "Content-Type": /** @type {Record<string,string>} */ (MIME_BY_EXT)[ext] || "application/octet-stream",
       "Cache-Control": cacheControl,
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "SAMEORIGIN"
     });
     if (req.method === "HEAD") { res.end(); return; }
     res.end(file);
-  } catch (error) {
+  } catch (/** @type {unknown} */ err) {
+    const error = /** @type {NodeJS.ErrnoException} */ (err);
     if (error.code === "ENOENT") { res.statusCode = 404; res.end("Not found"); return; }
     res.statusCode = 500;
     res.end("Internal server error");
@@ -79,9 +88,10 @@ async function start() {
   try {
     await pool.query("SELECT 1");
     console.log("[db] PostgreSQL connection established.");
-  } catch (error) {
+  } catch (/** @type {unknown} */ err) {
+    const error = /** @type {Error & { message: string; code?: string }} */ (err);
     console.error("[db] Connection error details:", error.message, error.code);
-    throw new Error(`PostgreSQL connection failed: ${error.message}`, { cause: error });
+    throw new Error(`PostgreSQL connection failed: ${error.message}`, { cause: err });
   }
 
   await init(pool);

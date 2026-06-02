@@ -1,8 +1,15 @@
+// @ts-check
 import { randomBytes } from "node:crypto";
+import { Pool } from "pg";
 
+/**
+ * @param {{ cookieName: string; ttlMinutes: number }} options
+ */
 export function createSessionStore({ cookieName, ttlMinutes }) {
+  /** @type {Pool | null} */
   let pool = null;
 
+  /** @param {Pool} db */
   async function init(db) {
     pool = db;
   }
@@ -11,7 +18,9 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     return new Date(Date.now() + ttlMinutes * 60 * 1000);
   }
 
+  /** @param {string | number} userId */
   async function createSession(userId) {
+    if (!pool) throw new Error("Session store not initialized");
     const token = randomBytes(32).toString("hex");
     await pool.query(
       `INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES ($1, $2, $3, NOW())`,
@@ -20,13 +29,17 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     return token;
   }
 
+  /** @param {string | undefined} token */
   async function destroySession(token) {
     if (!token) return;
+    if (!pool) throw new Error("Session store not initialized");
     await pool.query(`DELETE FROM sessions WHERE token = $1`, [token]);
   }
 
+  /** @param {string | undefined} token */
   async function getSessionRecord(token) {
     if (!token) return null;
+    if (!pool) throw new Error("Session store not initialized");
     const { rows } = await pool.query(
       `SELECT user_id, expires_at FROM sessions WHERE token = $1`,
       [token]
@@ -50,6 +63,7 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     return { userId: String(rec.user_id) };
   }
 
+  /** @param {string} token */
   function buildSessionCookie(token) {
     const attrs = [
       `${cookieName}=${encodeURIComponent(token)}`,

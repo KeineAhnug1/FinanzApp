@@ -7,11 +7,16 @@
   "scripts": {
     "start": "node backend/server.mjs",
     "backend:start": "node backend/server.mjs",
+    "web:dev": "vite --config apps/web/vite.config.ts",
+    "web:build": "vite build --config apps/web/vite.config.ts",
+    "web:preview": "vite preview --config apps/web/vite.config.ts",
+    "dev": "concurrently \"npm run backend:start\" \"npm run web:dev\"",
     "db:check": "node database/check-connection.mjs",
     "db:clear": "node database/clear-database.mjs",
     "db:migrate": "node database/migrate-to-supabase.mjs",
     "lint": "eslint .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "dotenv": "^17.2.4",
@@ -20,7 +25,16 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.1",
+    "@types/nodemailer": "^8.0.0",
+    "@types/pg": "^8.20.0",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "concurrently": "^10.0.3",
     "eslint": "^10.3.0",
-    "globals": "^17.6.0"
+    "globals": "^17.6.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
   }
 }

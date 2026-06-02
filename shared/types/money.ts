@@ -1,4 +1,4 @@
-export type Currency = 'EUR' | 'USD';
+export type Currency = 'EUR' | 'USD' | 'GBP' | 'CHF' | 'JPY' | 'CAD' | 'AUD';
 
 export type Brand<T, U extends string> = T & { readonly __brand: U };
 export type Cents = Brand<bigint, 'Cents'>;
@@ -25,3 +25,19 @@ export function fromCents(amount: Cents): string {
   return `${sign}${euros}.${cents.toString().padStart(2, '0')}`;
 }
 
+export function parseMoney(input: unknown, currency: Currency = 'EUR'): Money | null {
+  const str = String(input ?? '').trim();
+  if (!str || !/^-?\d+(\.\d{1,2})?$/.test(str)) return null;
+  return { amount: toCents(str), currency };
+}
+
+export function formatMoney(money: Money, locale = 'de-DE'): string {
+  const num = Number(fromCents(money.amount));
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: money.currency }).format(num);
+}
+
+export function parseCurrency(value: unknown): Currency | null {
+  const upper = String(value ?? '').trim().toUpperCase();
+  const VALID: Currency[] = ['EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD'];
+  return (VALID as string[]).includes(upper) ? upper as Currency : null;
+}

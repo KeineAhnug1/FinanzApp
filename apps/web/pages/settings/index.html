@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <script>(function(){try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var d=localStorage.getItem("finanzapp.designTheme");if(d==="forest")document.documentElement.dataset.design=d;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Einstellungen | FinanzApp</title>
+</head>
+<body>
+  <header class="page-topbar">
+    <div class="topbar-left">
+      <span class="brand-mark">FinanzApp</span>
+      <span class="brand-sub">Einstellungen</span>
+    </div>
+    <div class="header-controls">
+      <div class="profile-wrap">
+        <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
+          <span class="profile-avatar" id="profile-avatar" data-profile-avatar>U</span>
+          <span class="profile-name" id="profile-name" data-profile-name>Profil</span>
+        </button>
+        <div id="profile-menu" class="profile-menu" hidden>
+          <p class="menu-name" id="menu-name" data-profile-menu-name>-</p>
+          <p class="menu-mail" id="menu-mail" data-profile-menu-mail>-</p>
+          <a href="/settings/" class="settings-link" aria-current="page">Einstellungen</a>
+          <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="einst-layout">
+
+    <aside class="einst-nav" aria-label="Einstellungsnavigation">
+      <nav>
+        <a class="einst-nav-link" href="#s-profil">Profil</a>
+        <a class="einst-nav-link" href="#s-design">Design</a>
+        <a class="einst-nav-link" href="#s-sprache">Sprache & Format</a>
+        <a class="einst-nav-link" href="#s-sicherheit">Sicherheit</a>
+        <a class="einst-nav-link" href="#s-konto">Konto</a>
+      </nav>
+    </aside>
+
+    <div class="einst-content">
+
+      <!-- Profil -->
+      <section class="einst-section" id="s-profil">
+        <h2 class="einst-section-title">Profil</h2>
+        <div class="einst-card">
+          <div class="profil-header">
+            <div class="profil-avatar-wrap">
+              <div class="profil-avatar-large" id="profil-avatar-large">U</div>
+              <button type="button" class="profil-avatar-edit-btn" id="profil-avatar-edit-btn" aria-label="Profilbild ändern" title="Profilbild ändern">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <input type="file" id="profil-image-input" accept="image/jpeg,image/png,image/webp" hidden />
+            </div>
+            <div class="profil-info">
+              <p class="profil-fullname" id="profil-fullname">-</p>
+              <p class="profil-email-top" id="profil-email-top">-</p>
+            </div>
+          </div>
+          <p id="profil-image-status" class="form-status" aria-live="polite" style="margin-bottom: var(--ui-space-3);"></p>
+          <dl class="profil-details">
+            <div class="profil-row">
+              <dt>Benutzername</dt>
+              <dd id="profil-username">-</dd>
+            </div>
+            <div class="profil-row">
+              <dt>E-Mail</dt>
+              <dd id="profil-email">-</dd>
+            </div>
+            <div class="profil-row">
+              <dt>Mitglied seit</dt>
+              <dd id="profil-since">-</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- Design & Erscheinungsbild -->
+      <section class="einst-section" id="s-design">
+        <h2 class="einst-section-title">Design & Erscheinungsbild</h2>
+        <div class="einst-card">
+          <h3 class="einst-subsection-title">Farbschema</h3>
+          <div class="design-cards" role="group" aria-label="Farbschema wählen">
+
+            <button type="button" class="design-card" data-design="classic" aria-pressed="false">
+              <div class="design-preview">
+                <span class="design-swatch" style="background:#0a6ed1"></span>
+                <span class="design-swatch" style="background:#f0ece4"></span>
+                <span class="design-swatch" style="background:#3f97ff"></span>
+              </div>
+              <span class="design-label">Klassisch</span>
+              <span class="design-check" aria-hidden="true">✓</span>
+            </button>
+
+            <button type="button" class="design-card" data-design="forest" aria-pressed="false">
+              <div class="design-preview">
+                <span class="design-swatch" style="background:#2d6a4f"></span>
+                <span class="design-swatch" style="background:#d8efe4"></span>
+                <span class="design-swatch" style="background:#52b788"></span>
+              </div>
+              <span class="design-label">Forest</span>
+              <span class="design-check" aria-hidden="true">✓</span>
+            </button>
+
+          </div>
+
+          <h3 class="einst-subsection-title" style="margin-top:var(--ui-space-5)">Farbmodus</h3>
+          <div class="theme-mode-group" role="group" aria-label="Farbmodus wählen">
+            <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">☀</span>
+              Hell
+            </button>
+            <button type="button" class="theme-option" data-theme-choice="dark" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">☾</span>
+              Dunkel
+            </button>
+            <button type="button" class="theme-option" data-theme-choice="auto" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">⊙</span>
+              Automatisch
+            </button>
+          </div>
+
+          <h3 class="einst-subsection-title" style="margin-top:var(--ui-space-5)">Barrierefreiheit</h3>
+          <div class="contrast-mode-group" role="group" aria-label="Kontrastmodus wählen">
+            <button type="button" class="contrast-option" data-contrast-choice="normal" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">◑</span>
+              Normal
+            </button>
+            <button type="button" class="contrast-option" data-contrast-choice="high" aria-pressed="false">
+              <span class="theme-mode-icon" aria-hidden="true">◉</span>
+              Hoher Kontrast
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sprache & Format -->
+      <section class="einst-section" id="s-sprache">
+        <h2 class="einst-section-title">Sprache & Format</h2>
+        <div class="einst-card">
+          <form id="sprache-form" class="einst-form">
+            <div class="einst-field">
+              <label class="field-label" for="einst-locale">Sprache & Zahlenformat</label>
+              <select class="field-input" id="einst-locale" name="locale">
+                <option value="de-DE">Deutsch (Deutschland)</option>
+                <option value="en-US">Englisch (USA)</option>
+              </select>
+            </div>
+            <div class="einst-field">
+              <label class="field-label" for="einst-currency">Anzeigewährung</label>
+              <select class="field-input" id="einst-currency" name="currency">
+                <option value="EUR">Euro (EUR)</option>
+                <option value="USD">US-Dollar (USD)</option>
+                <option value="GBP">Pfund Sterling (GBP)</option>
+                <option value="CHF">Schweizer Franken (CHF)</option>
+              </select>
+            </div>
+            <div class="einst-actions">
+              <button type="submit" class="btn-primary">Speichern</button>
+            </div>
+            <p id="sprache-status" class="form-status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- Konto -->
+      <section class="einst-section" id="s-sicherheit">
+        <h2 class="einst-section-title">Sicherheit</h2>
+        <div class="einst-card">
+          <h3 class="einst-subsection-title">Passwort ändern</h3>
+          <form id="pw-change-form" class="einst-form" autocomplete="off">
+            <div class="einst-field">
+              <label class="field-label" for="pw-current">Aktuelles Passwort</label>
+              <input class="field-input" type="password" id="pw-current" name="current_password" autocomplete="current-password" required />
+            </div>
+            <div class="einst-field">
+              <label class="field-label" for="pw-new">Neues Passwort</label>
+              <input class="field-input" type="password" id="pw-new" name="new_password" autocomplete="new-password" required minlength="8" />
+            </div>
+            <div class="einst-field">
+              <label class="field-label" for="pw-new-confirm">Neues Passwort bestätigen</label>
+              <input class="field-input" type="password" id="pw-new-confirm" name="new_password_confirm" autocomplete="new-password" required minlength="8" />
+            </div>
+            <div class="einst-actions">
+              <button type="submit" class="btn-primary" id="pw-change-btn">Passwort ändern</button>
+            </div>
+            <p id="pw-change-status" class="form-status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- Konto -->
+      <section class="einst-section" id="s-konto">
+        <h2 class="einst-section-title">Konto</h2>
+        <div class="einst-card" style="margin-bottom: var(--ui-space-4);">
+          <h3 class="einst-subsection-title">Abmelden</h3>
+          <p class="einst-danger-desc">Du wirst von deinem Konto abgemeldet und zur Startseite weitergeleitet.</p>
+          <button type="button" class="btn-secondary" id="logout-btn">Abmelden</button>
+        </div>
+        <div class="einst-card einst-card--danger">
+          <h3 class="einst-subsection-title einst-subsection-title--danger">Konto löschen</h3>
+          <p class="einst-danger-desc">
+            Diese Aktion löscht dein Konto sowie alle damit verbundenen Daten dauerhaft.
+            Sie kann <strong>nicht</strong> rückgängig gemacht werden.
+          </p>
+          <button type="button" class="btn-danger" id="open-delete-modal">Konto löschen</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal: Konto löschen -->
+  <div id="delete-modal" class="modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="delete-modal-title">
+    <div class="modal-box">
+      <h2 class="modal-title" id="delete-modal-title">Konto wirklich löschen?</h2>
+      <p class="modal-desc">
+        Alle deine Daten – Einnahmen, Ausgaben, Konten, Gruppen – werden dauerhaft gelöscht.
+        Diese Aktion kann <strong>nicht</strong> rückgängig gemacht werden.
+      </p>
+      <label class="modal-confirm-label">
+        <input type="checkbox" id="delete-confirm-check" />
+        Ich verstehe, dass mein Konto dauerhaft und unwiderruflich gelöscht wird.
+      </label>
+      <p id="delete-modal-error" class="form-status is-error" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="delete-cancel-btn">Abbrechen</button>
+        <button type="button" class="btn-danger" id="delete-confirm-btn" disabled>Konto löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/pages/settings/app.js"></script>
+</body>
+</html>

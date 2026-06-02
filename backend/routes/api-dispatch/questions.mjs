@@ -1,3 +1,6 @@
+// @ts-check
+
+/** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchQuestionRoutes(ctx) {
   const { req, res, pathname, url, session, handlers } = ctx;
 

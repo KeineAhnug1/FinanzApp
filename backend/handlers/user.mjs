@@ -1,3 +1,6 @@
+// @ts-check
+import http from "node:http";
+import { Pool } from "pg";
 import { parseId } from "../utils/data.mjs";
 import { parseBody, readBody, sendJson, parseCookies } from "../utils/http.mjs";
 import { badRequest, unauthorized } from "../helpers/responses.mjs";
@@ -5,8 +8,16 @@ import { hashPassword, verifyPassword } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { SESSION_COOKIE_NAME } from "../config/runtime.mjs";
 
+/**
+ * @param {{ pool: Pool; destroySession: (token: string | undefined) => Promise<void>; clearSessionCookie: () => string }} opts
+ */
 export function createUserHandlers({ pool, destroySession, clearSessionCookie }) {
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleDeleteUserAccount(req, res, session) {
     if (req.method !== "DELETE") {
       res.setHeader("Allow", "DELETE");
@@ -36,6 +47,11 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
     return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handlePasswordChange(req, res, session) {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -65,6 +81,11 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
     return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich geändert" });
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {{ user: { id: string } }} session
+   */
   async function handleProfileImageUpload(req, res, session) {
     if (req.method !== "PUT") {
       res.setHeader("Allow", "PUT");
@@ -75,8 +96,9 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
 
     let payload;
     try {
-      payload = await readBody(req, { maxBytes: 300_000 });
-    } catch (error) {
+      payload = await readBody(req);
+    } catch (/** @type {unknown} */ err) {
+      const error = /** @type {Error} */ (err);
       if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Bild ist zu groß (max. 200 KB)" });
       return badRequest(res, "Invalid JSON body");
     }

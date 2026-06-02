@@ -1,0 +1,645 @@
+/* ═══════════════════════════════════════════
+   Einstellungsseite – Layout & Komponenten
+   ═══════════════════════════════════════════ */
+
+/* ── Layout ── */
+.einst-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--ui-space-6);
+  max-width: 900px;
+  margin: var(--ui-space-5) auto;
+  padding: 0 var(--ui-space-5);
+  align-items: start;
+}
+
+/* ── Seitennavigation ── */
+.einst-nav {
+  position: sticky;
+  top: calc(56px + var(--ui-space-4));
+}
+
+.einst-nav nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.einst-nav-link {
+  display: block;
+  padding: 7px var(--ui-space-2);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.13s, color 0.13s;
+}
+
+.einst-nav-link:hover {
+  background: var(--ui-surface-soft);
+  color: var(--ui-text);
+}
+
+.einst-nav-link.is-active {
+  background: var(--ui-surface-soft);
+  color: var(--ui-primary);
+  font-weight: 600;
+}
+
+/* ── Sektionen ── */
+.einst-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-5);
+}
+
+.einst-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ui-text);
+  margin: 0 0 var(--ui-space-3);
+  padding-bottom: var(--ui-space-2);
+  border-bottom: 1px solid var(--ui-border);
+  letter-spacing: -0.01em;
+}
+
+.einst-subsection-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ui-text-muted);
+  margin: 0 0 var(--ui-space-3);
+}
+
+.einst-subsection-title--danger {
+  color: var(--ui-danger);
+}
+
+/* ── Karten ── */
+.einst-card {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  padding: var(--ui-space-4);
+  box-shadow: var(--ui-shadow-soft);
+}
+
+.einst-card--danger {
+  border-color: var(--ui-danger-border);
+  background: var(--ui-danger-soft);
+}
+
+/* ── Profil ── */
+.profil-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  margin-bottom: var(--ui-space-4);
+  padding-bottom: var(--ui-space-3);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.profil-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.profil-avatar-large {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ui-primary) 15%, var(--ui-surface-soft));
+  color: var(--ui-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+}
+
+.profil-avatar-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profil-avatar-edit-btn {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.13s, color 0.13s, border-color 0.13s;
+}
+
+.profil-avatar-edit-btn:hover {
+  background: var(--ui-primary);
+  color: var(--ui-text-on-primary);
+  border-color: var(--ui-primary);
+}
+
+.profil-fullname {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ui-text);
+  margin: 0 0 3px;
+  letter-spacing: -0.02em;
+}
+
+.profil-email-top {
+  font-size: 0.84rem;
+  color: var(--ui-text-muted);
+  margin: 0;
+}
+
+.profil-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  margin: 0;
+}
+
+.profil-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ui-space-2);
+}
+
+.profil-row dt {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ui-text-muted);
+  min-width: 110px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profil-row dd {
+  font-size: 0.875rem;
+  color: var(--ui-text);
+  margin: 0;
+}
+
+/* ── Design-Karten ── */
+.design-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--ui-space-2);
+}
+
+.design-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-2) var(--ui-space-2);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-soft);
+  cursor: pointer;
+  transition: border-color 0.13s, box-shadow 0.13s, transform 0.1s;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.design-card:hover {
+  border-color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+  transform: translateY(-1px);
+}
+
+.design-card.is-active {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
+
+.design-check {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  font-size: 0.8rem;
+  color: var(--ui-primary);
+  opacity: 0;
+  transition: opacity 0.13s;
+}
+
+.design-card.is-active .design-check {
+  opacity: 1;
+}
+
+.design-preview {
+  display: flex;
+  gap: 3px;
+  border-radius: var(--ui-radius-sm);
+  overflow: hidden;
+}
+
+.design-swatch {
+  width: 22px;
+  height: 36px;
+  display: block;
+  border-radius: 3px;
+}
+
+.design-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ── Farbmodus-Buttons ── */
+.theme-mode-group {
+  display: flex;
+  gap: var(--ui-space-1);
+  flex-wrap: wrap;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px var(--ui-space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-soft);
+  color: var(--ui-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.13s, background 0.13s, box-shadow 0.13s;
+}
+
+.theme-option:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+}
+
+.theme-option.is-active {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+  font-weight: 600;
+}
+
+.theme-option.is-active:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+}
+
+.theme-mode-icon {
+  font-size: 0.95rem;
+}
+
+/* ── Kontrastmodus-Buttons (gleiche Basis wie theme-option) ── */
+.contrast-mode-group {
+  display: flex;
+  gap: var(--ui-space-1);
+  flex-wrap: wrap;
+}
+
+.contrast-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px var(--ui-space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-soft);
+  color: var(--ui-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.13s, background 0.13s, box-shadow 0.13s;
+}
+
+.contrast-option:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+}
+
+.contrast-option.is-active {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+  font-weight: 600;
+}
+
+.contrast-option.is-active:hover {
+  border-color: var(--ui-primary);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+}
+
+/* ── Formular ── */
+.einst-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.einst-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.einst-actions {
+  display: flex;
+  gap: var(--ui-space-1);
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px var(--ui-space-3);
+  border: none;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-primary);
+  color: var(--ui-text-on-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.13s, transform 0.13s;
+  letter-spacing: -0.01em;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px var(--ui-space-3);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.13s, border-color 0.13s;
+}
+
+.btn-secondary:hover {
+  background: var(--ui-surface-soft);
+  border-color: var(--ui-border-strong);
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px var(--ui-space-3);
+  border: none;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-danger);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.13s, transform 0.13s;
+}
+
+.btn-danger:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Danger Zone ── */
+.einst-danger-desc {
+  font-size: 0.875rem;
+  color: var(--ui-text);
+  margin: 0 0 var(--ui-space-3);
+  line-height: 1.58;
+}
+
+/* ── Formstatus ── */
+.form-status {
+  font-size: 0.8rem;
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.form-status.is-success {
+  color: var(--ui-success);
+}
+
+.form-status.is-error {
+  color: var(--ui-danger);
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--ui-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--ui-space-3);
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-box {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  padding: var(--ui-space-5);
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--ui-shadow-strong);
+}
+
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ui-text);
+  margin: 0 0 var(--ui-space-2);
+  letter-spacing: -0.02em;
+}
+
+.modal-desc {
+  font-size: 0.875rem;
+  color: var(--ui-text-muted);
+  line-height: 1.58;
+  margin: 0 0 var(--ui-space-3);
+}
+
+.modal-confirm-label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-2);
+  font-size: 0.875rem;
+  color: var(--ui-text);
+  cursor: pointer;
+  margin-bottom: var(--ui-space-3);
+  line-height: 1.5;
+}
+
+.modal-confirm-label input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--ui-danger);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ui-space-1);
+}
+
+/* ── Einstellungen-Link im Profil-Menü ── */
+.profile-menu .settings-link {
+  display: block;
+  padding: 7px 12px;
+  font-size: 0.875rem;
+  color: var(--ui-text);
+  text-decoration: none;
+  border-radius: var(--ui-radius-sm);
+  transition: background 0.11s;
+}
+
+.profile-menu .settings-link:hover {
+  background: var(--ui-surface-soft);
+}
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .einst-layout {
+    grid-template-columns: 1fr;
+    padding: 0 var(--ui-space-2);
+    gap: var(--ui-space-4);
+    margin: var(--ui-space-3) auto;
+  }
+
+  .einst-nav {
+    position: static;
+  }
+
+  /* Navigation als horizontaler Scroll */
+  .einst-nav nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--ui-space-1);
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .einst-nav nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .einst-nav-link {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px var(--ui-space-3);
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .einst-nav-link.is-active {
+    border-color: var(--ui-primary);
+    background: color-mix(in srgb, var(--ui-primary) 8%, var(--ui-surface));
+  }
+
+  /* Karten: etwas kompakter */
+  .einst-card {
+    padding: var(--ui-space-3);
+    border-radius: var(--ui-radius-md);
+  }
+
+  /* Profil Header: vertikal bei sehr kleinen Screens */
+  .profil-header {
+    flex-wrap: wrap;
+    gap: var(--ui-space-2);
+  }
+
+  /* Design Karten: 2-spaltig */
+  .design-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Theme Buttons: volle Breite */
+  .theme-mode-group,
+  .contrast-mode-group {
+    flex-direction: column;
+    gap: var(--ui-space-1);
+  }
+
+  .theme-option,
+  .contrast-option {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  /* Formular Aktionen: gestapelt */
+  .einst-actions {
+    flex-direction: column;
+  }
+
+  .einst-actions > button {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  /* Profil Row: Labels über dem Wert */
+  .profil-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .profil-row dt {
+    min-width: unset;
+    font-size: 0.7rem;
+  }
+
+  /* Modal Actions: gestapelt */
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: var(--ui-space-1);
+  }
+
+  .modal-actions > button {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+}
