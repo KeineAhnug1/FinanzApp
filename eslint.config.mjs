@@ -27,10 +27,7 @@ export default defineConfig([
       sourceType: "module"
     },
     rules: {
-      "no-unused-vars": ["error", {
-        argsIgnorePattern: "^_",
-        varsIgnorePattern: "^(http|Pool)$"
-      }]
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }]
     }
   },
   {

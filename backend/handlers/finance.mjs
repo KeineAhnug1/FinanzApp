@@ -1,6 +1,5 @@
 // @ts-check
-import http from "node:http";
-import { Pool } from "pg";
+// @ts-check
 import {
   LOGO_DEV_API_KEY,
   LOGO_DEV_BASE_URL,
@@ -24,7 +23,7 @@ import {
   toNumber,
   uniqueCategoryList
 } from "../utils/data.mjs";
-import { parseBody, readBody, sendJson } from "../utils/http.mjs";
+import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, unauthorized, notFound } from "../helpers/responses.mjs";
 import { serializeIncomeEntry, serializeExpenseEntry } from "../helpers/serializers.mjs";
 import {
@@ -775,15 +774,8 @@ export function createFinanceHandlers(pool) {
       if (sourceRows.length === 0) return notFound(res, "Bankkonto nicht gefunden");
       const sourceAccount = sourceRows[0];
 
-      let payload;
-      try { payload = await readBody(req); } catch (/** @type {unknown} */ err) {
-        const error = /** @type {Error} */ (err);
-        if (error.message !== "invalid_json") {
-          if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-          return badRequest(res, "Invalid JSON body");
-        }
-        payload = {};
-      }
+      const payload = await parseBody(req, res);
+      if (!payload) return;
 
       const transferTargetId = parseId(payload?.transfer_to_bank_account_id);
       const transferRequested = Boolean(transferTargetId);
@@ -888,15 +880,8 @@ export function createFinanceHandlers(pool) {
       );
       if (sourceRows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
 
-      let payload;
-      try { payload = await readBody(req); } catch (/** @type {unknown} */ err) {
-        const error = /** @type {Error} */ (err);
-        if (error.message !== "invalid_json") {
-          if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Payload too large" });
-          return badRequest(res, "Invalid JSON body");
-        }
-        payload = {};
-      }
+      const payload = await parseBody(req, res);
+      if (!payload) return;
 
       const transferTargetId = parseId(payload?.transfer_to_share_account_id);
       const transferRequested = Boolean(transferTargetId);

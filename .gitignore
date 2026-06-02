@@ -1,3 +1,11 @@
-.env
-node_modules
+# Node
+node_modules/
 .DS_Store
+
+# Builds
+apps/web/dist/
+dist/
+
+# Env
+.env
+

@@ -48,6 +48,11 @@ async function handleStatic(req, res, pathname) {
     res.end("Bad request");
     return;
   }
+  if (pathname.length > 2048 || pathname.includes("\0")) {
+    res.statusCode = 400;
+    res.end("Bad request");
+    return;
+  }
   const normalized = path.normalize(requestPath).replace(/^([/\\])+/, "");
   const filePath = resolveStaticPath(PROJECT_ROOT, `/${normalized}`);
   const relativePath = path.relative(PROJECT_ROOT, filePath);
@@ -116,6 +121,20 @@ async function start() {
   };
 
   const server = http.createServer(async (req, res) => {
+    const logEnabled = process.env.REQUEST_LOG === "true" || process.env.NODE_ENV !== "production";
+    const startedAt = Date.now();
+    if (logEnabled) {
+      res.on("finish", () => {
+        try {
+          const url = new URL(req.url || "/", "http://localhost");
+          const ms = Date.now() - startedAt;
+          // Keep log concise: METHOD PATH -> STATUS DURATIONms
+          console.log(`${req.method} ${url.pathname} -> ${res.statusCode} ${ms}ms`);
+        } catch {
+          void 0;
+        }
+      });
+    }
     try {
       const url = new URL(req.url || "/", "http://localhost");
       const pathname = url.pathname;

@@ -1,6 +1,5 @@
 // @ts-check
-import http from "node:http";
-import { Pool } from "pg";
+// @ts-check
 import { parseId, parsePositiveAmount, normalizeCategoryValue } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { badRequest, notFound, unauthorized } from "../helpers/responses.mjs";

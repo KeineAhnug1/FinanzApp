@@ -1,10 +1,9 @@
 // @ts-check
-import http from "node:http";
 
 const TRUST_PROXY = process.env.TRUST_PROXY === "true";
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {import('node:http').IncomingMessage} req
  * @returns {string}
  */
 export function getClientIp(req) {
@@ -44,19 +43,19 @@ export function rateLimitBucket(res, key, maxAttempts, windowMs) {
   return true;
 }
 
-/** @type {{ sendJson: ((res: http.ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void) | null }} */
+/** @type {{ sendJson: ((res: import('node:http').ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void) | null }} */
 const _sendJsonRef = { sendJson: null };
 
 /**
- * @param {(res: http.ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void} sendJsonFn
+ * @param {(res: import('node:http').ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void} sendJsonFn
  */
 export function initRateLimiter(sendJsonFn) {
   _sendJsonRef.sendJson = sendJsonFn;
 }
 
 /**
- * @param {http.IncomingMessage} req
- * @param {http.ServerResponse} res
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
  * @param {{ maxAttempts?: number; windowMs?: number; group?: string }} [options]
  * @returns {boolean}
  */

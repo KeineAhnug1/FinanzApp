@@ -1,6 +1,5 @@
 // @ts-check
 import { randomBytes } from "node:crypto";
-import { Pool } from "pg";
 
 /**
  * @param {{ cookieName: string; ttlMinutes: number }} options
@@ -63,23 +62,20 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     return { userId: String(rec.user_id) };
   }
 
-  /** @param {string} token */
-  function buildSessionCookie(token) {
-    const attrs = [
-      `${cookieName}=${encodeURIComponent(token)}`,
-      "HttpOnly",
-      "Path=/",
-      "SameSite=Lax",
-      `Max-Age=${ttlMinutes * 60}`
-    ];
-    if (process.env.NODE_ENV === "production") attrs.push("Secure");
+  function cookieAttrs(base, maxAge) {
+    const attrs = [base, "HttpOnly", "Path=/", "SameSite=Lax"];
+    if (typeof maxAge === "number") attrs.push(`Max-Age=${maxAge}`);
+    if (process.env.SESSION_SECURE_COOKIE === "true" || process.env.NODE_ENV === "production") attrs.push("Secure");
     return attrs.join("; ");
   }
 
+  /** @param {string} token */
+  function buildSessionCookie(token) {
+    return cookieAttrs(`${cookieName}=${encodeURIComponent(token)}`, ttlMinutes * 60);
+  }
+
   function clearSessionCookie() {
-    const attrs = [`${cookieName}=`, "HttpOnly", "Path=/", "SameSite=Lax", "Max-Age=0"];
-    if (process.env.NODE_ENV === "production") attrs.push("Secure");
-    return attrs.join("; ");
+    return cookieAttrs(`${cookieName}=`, 0);
   }
 
   async function gcSessions() {

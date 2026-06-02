@@ -1,15 +1,6 @@
 // @ts-check
 import path from "node:path";
-import http from "node:http";
-
-const PROTECTED_UI_PATHS = new Set([
-  "/pages/dashboard/dashboard.html",
-  "/pages/questions/",
-  "/pages/groups/",
-  "/pages/accounts/",
-  "/pages/stocks/",
-  "/pages/settings/",
-]);
+// @ts-check
 const PROTECTED_UI_PREFIXES = [
   "/pages/dashboard/",
   "/pages/questions/",
@@ -31,7 +22,6 @@ const UI_ROOT_REDIRECTS = new Map([
 
 /** @param {string} pathname */
 export function isProtectedUiPath(pathname) {
-  if (PROTECTED_UI_PATHS.has(pathname)) return true;
   return PROTECTED_UI_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 

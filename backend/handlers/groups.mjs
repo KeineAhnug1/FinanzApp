@@ -1,6 +1,5 @@
 // @ts-check
-import http from "node:http";
-import { Pool } from "pg";
+// @ts-check
 import { ANSWER_MESSAGE_MAX_LENGTH } from "../config/runtime.mjs";
 import { detectBlockedMessageTerm } from "../config/blocked-names.mjs";
 import { parseId as parseObjectId, parsePositiveAmount, parseLongText, toDecimal, toNullableDate, toNullableNumber } from "../utils/data.mjs";

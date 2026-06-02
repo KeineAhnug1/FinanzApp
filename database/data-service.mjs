@@ -1,5 +1,4 @@
 // @ts-check
-import { Pool } from "pg";
 
 /** @param {unknown} value */
 function toNumber(value) {

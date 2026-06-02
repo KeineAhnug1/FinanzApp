@@ -1,6 +1,5 @@
 // @ts-check
-import http from "node:http";
-import { Pool } from "pg";
+// @ts-check
 import {
   categoryKey,
   normalizeCategoryValue,

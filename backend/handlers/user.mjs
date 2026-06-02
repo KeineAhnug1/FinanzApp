@@ -1,8 +1,6 @@
 // @ts-check
-import http from "node:http";
-import { Pool } from "pg";
 import { parseId } from "../utils/data.mjs";
-import { parseBody, readBody, sendJson, parseCookies } from "../utils/http.mjs";
+import { parseBody, sendJson, parseCookies } from "../utils/http.mjs";
 import { badRequest, unauthorized } from "../helpers/responses.mjs";
 import { hashPassword, verifyPassword } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
@@ -94,14 +92,8 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
 
     if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "profile-image" })) return;
 
-    let payload;
-    try {
-      payload = await readBody(req);
-    } catch (/** @type {unknown} */ err) {
-      const error = /** @type {Error} */ (err);
-      if (error.message === "payload_too_large") return sendJson(res, 413, { ok: false, message: "Bild ist zu groß (max. 200 KB)" });
-      return badRequest(res, "Invalid JSON body");
-    }
+    const payload = await parseBody(req, res, { maxBytes: 210_000, tooLargeMessage: "Bild ist zu groß (max. 200 KB)" });
+    if (!payload) return;
 
     const profileImage = payload.profileImage;
     if (!profileImage || typeof profileImage !== "string") return badRequest(res, "profileImage ist ein Pflichtfeld");

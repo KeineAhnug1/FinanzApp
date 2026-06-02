@@ -1,8 +1,7 @@
 // @ts-check
-import http from "node:http";
 
 /**
- * @param {http.ServerResponse} res
+ * @param {import('node:http').ServerResponse} res
  * @param {number} statusCode
  * @param {unknown} payload
  * @param {Record<string, string>} [extraHeaders]
@@ -20,17 +19,18 @@ export function sendJson(res, statusCode, payload, extraHeaders = {}) {
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {import('node:http').IncomingMessage} req
+ * @param {number} [maxBytes]
  * @returns {Promise<Record<string, unknown>>}
  */
-export function readBody(req) {
+export function readBody(req, maxBytes = 1_000_000) {
   return new Promise((resolve, reject) => {
     /** @type {Buffer[]} */
     const chunks = [];
     let totalBytes = 0;
     req.on("data", (/** @type {Buffer} */ chunk) => {
       totalBytes += chunk.length;
-      if (totalBytes > 1_000_000) {
+      if (totalBytes > maxBytes) {
         reject(new Error("payload_too_large"));
         req.destroy();
         return;
@@ -52,23 +52,24 @@ export function readBody(req) {
 import { badRequest } from "../helpers/responses.mjs";
 
 /**
- * @param {http.IncomingMessage} req
- * @param {http.ServerResponse} res
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
+ * @param {{ maxBytes?: number; tooLargeMessage?: string }} [options]
  * @returns {Promise<Record<string, unknown> | null>}
  */
-export async function parseBody(req, res) {
+export async function parseBody(req, res, options = {}) {
   try {
-    return await readBody(req);
+    return await readBody(req, options.maxBytes);
   } catch (/** @type {unknown} */ error) {
     const err = /** @type {Error} */ (error);
-    if (err.message === "payload_too_large") sendJson(res, 413, { ok: false, message: "Payload too large" });
+    if (err.message === "payload_too_large") sendJson(res, 413, { ok: false, message: options.tooLargeMessage || "Payload too large" });
     else badRequest(res, "Invalid JSON body");
     return null;
   }
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {import('node:http').IncomingMessage} req
  * @returns {Record<string, string>}
  */
 export function parseCookies(req) {

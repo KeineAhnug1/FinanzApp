@@ -5,7 +5,7 @@ Ein zentraler Server steuert alle Module 🧠⚙️
 
 ## Module (aktuell) 🧩
 - Login: `/` 🔐
-- Dashboard: `/dashboard.html` 📈
+- Dashboard: `/pages/dashboard/dashboard.html` 📈
 - Gruppen: `/groups/` 👥
 - Stocks: `/stocks/` 📉
 - Fragen: `/questions/` ❓
@@ -34,7 +34,7 @@ npm start
 
 Danach:
 - `http://localhost:3000/` 🔐
-- `http://localhost:3000/dashboard.html` 📊
+- `http://localhost:3000/pages/dashboard/dashboard.html` 📊
 - `http://localhost:3000/groups/` 👥
 - `http://localhost:3000/stocks/` 📉
 - `http://localhost:3000/questions/` ❓
@@ -43,8 +43,8 @@ Danach:
 ## Nützliche Skripte 🛠️
 - `npm start` (zentraler Server) ⚡
 - `npm run db:check` (DB-Verbindung prüfen) 🧪
-- `npm run db:migrate` (Hinweise zum Supabase-Schema) 🧱
-- `npm run db:clear` (Platzhalter – keine Aktion) 🧹
+- `npm run db:migrate` (Hinweise zum Supabase-Schema – No‑Op, gibt nur Anweisungen aus) 🧱
+- `npm run db:clear` (Platzhalter – No‑Op, führt keine Löschung aus) 🧹
 - `npm run lint` (ESLint prüfen) ✨
 
 ## Aktueller Datenstruktur-Stand 🧭🗂️
