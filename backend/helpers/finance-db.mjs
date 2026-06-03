@@ -219,3 +219,10 @@ export async function calculateDashboardStyleDonationBalance(pool, userId) {
     userAccounts
   };
 }
+
+export function resolveEntryState(cycle, recurrence, isActive) {
+  const effectiveRecurrence = cycle === "once" ? null : recurrence;
+  const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
+  const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+  return { effectiveRecurrence, effectiveIsActive, effectiveState };
+}

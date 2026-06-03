@@ -13,44 +13,28 @@ import { fnToMsFromTimestamp, fnEscapeHtml } from './domain.js';
 const aPositionsEndpoints = [
 	window.SHAREVIEW_POSITIONS_ENDPOINT,
 	"/api/positions",
-	"http://127.0.0.1:5588/api/positions",
-	"http://localhost:5588/api/positions",
 ].filter(Boolean);
 const aShareAccountsEndpoints = [
 	window.SHAREVIEW_SHARE_ACCOUNTS_ENDPOINT,
 	"/api/share-accounts",
 	"/api/bank-accounts",
-	"http://127.0.0.1:5588/api/share-accounts",
-	"http://localhost:5588/api/share-accounts",
 ].filter(Boolean);
 const aShareAccountsCrudEndpoints = aShareAccountsEndpoints.filter((sEndpoint) => !String(sEndpoint).includes("/api/bank-accounts"));
 const aBankAccountsEndpoints = [
 	window.SHAREVIEW_BANK_ACCOUNTS_ENDPOINT,
 	"/api/bank-accounts",
-	"http://127.0.0.1:5588/api/bank-accounts",
-	"http://localhost:5588/api/bank-accounts",
 ].filter(Boolean);
 const aIncomeEntriesEndpoints = [
 	window.SHAREVIEW_INCOME_ENTRIES_ENDPOINT,
 	"/api/income-entries",
-	"http://127.0.0.1:3000/api/income-entries",
-	"http://localhost:3000/api/income-entries",
-	"http://127.0.0.1:5588/api/income-entries",
-	"http://localhost:5588/api/income-entries",
 ].filter(Boolean);
 const aExpenseEntriesEndpoints = [
 	window.SHAREVIEW_EXPENSE_ENTRIES_ENDPOINT,
 	"/api/expense-entries",
-	"http://127.0.0.1:3000/api/expense-entries",
-	"http://localhost:3000/api/expense-entries",
-	"http://127.0.0.1:5588/api/expense-entries",
-	"http://localhost:5588/api/expense-entries",
 ].filter(Boolean);
 const aBackendBaseUrls = [
 	window.SHAREVIEW_BACKEND_BASE_URL,
 	window.location.origin,
-	"http://127.0.0.1:5588",
-	"http://localhost:5588",
 ].filter((sValue, iIndex, aValues) => {
 	const sNormalized = String(sValue ?? "").trim();
 	return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;

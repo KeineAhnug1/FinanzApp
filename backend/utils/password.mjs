@@ -1,5 +1,5 @@
 // @ts-check
-import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
 const scryptAsync = promisify(scrypt);
@@ -85,4 +85,24 @@ export async function verifyPassword(plainPassword, storedPassword) {
   }
 
   return false;
+}
+
+export function hashCode(code) {
+  const str = String(code);
+  const secret = process.env.CODE_HMAC_SECRET || "";
+  if (secret) {
+    return createHmac("sha256", secret).update(str).digest("hex");
+  }
+  return createHash("sha256").update(str).digest("hex");
+}
+
+export function verifyCode(code, storedHash) {
+  try {
+    const candidate = Buffer.from(hashCode(String(code)), "hex");
+    const stored = Buffer.from(String(storedHash || ""), "hex");
+    if (candidate.length !== stored.length) return false;
+    return timingSafeEqual(candidate, stored);
+  } catch {
+    return false;
+  }
 }

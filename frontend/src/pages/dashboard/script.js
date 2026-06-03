@@ -334,12 +334,12 @@ class UsersLogin extends HTMLElement {
 
     this.innerHTML = `
       <section class="login-card">
-        <h1 class="login-title">${title}</h1>
-        <p class="login-subtitle">${subtitle}</p>
+        <h1 class="login-title">${escapeHtml(title)}</h1>
+        <p class="login-subtitle">${escapeHtml(subtitle)}</p>
 
         <form class="login-form">
           ${fields}
-          <button class="login-button" type="submit">${submitLabel}</button>
+          <button class="login-button" type="submit">${escapeHtml(submitLabel)}</button>
         </form>
 
         <p id="login-status" class="login-status"></p>
@@ -536,6 +536,14 @@ function escapeAttribute(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 

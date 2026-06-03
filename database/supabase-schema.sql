@@ -126,9 +126,9 @@ CREATE TABLE income (
   note TEXT,
   info TEXT,
   recurrence VARCHAR DEFAULT 'once',
-  cycle VARCHAR DEFAULT 'once',
+  cycle VARCHAR DEFAULT 'once' CHECK (cycle IN ('once','weekly','monthly','yearly')),
   is_active BOOLEAN DEFAULT TRUE,
-  state VARCHAR DEFAULT 'open',
+  state VARCHAR DEFAULT 'open' CHECK (state IN ('open','paused','completed')),
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -147,9 +147,9 @@ CREATE TABLE private_expenses (
   note TEXT,
   info TEXT,
   recurrence VARCHAR DEFAULT 'once',
-  cycle VARCHAR DEFAULT 'once',
+  cycle VARCHAR DEFAULT 'once' CHECK (cycle IN ('once','weekly','monthly','yearly')),
   is_active BOOLEAN DEFAULT TRUE,
-  state VARCHAR DEFAULT 'open',
+  state VARCHAR DEFAULT 'open' CHECK (state IN ('open','paused','completed')),
   group_funding_id INT,
   funding_participant_id INT,
   legacy_expense_entry_id VARCHAR UNIQUE,
@@ -194,8 +194,9 @@ CREATE TABLE group_members (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   group_id INT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-  role VARCHAR NOT NULL,
-  status VARCHAR
+  role VARCHAR NOT NULL CHECK (role IN ('admin','member')),
+  status VARCHAR CHECK (status IN ('accepted','invited','active','rejected','denied','left') OR status IS NULL),
+  UNIQUE (user_id, group_id)
 );
 
 -- Group Activities
@@ -267,7 +268,8 @@ CREATE TABLE transactions (
   to_bank_account_id INT,
   bank_account_id INT,
   user_id INT,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT transactions_has_source CHECK (private_expense_id IS NOT NULL OR request_id IS NOT NULL OR funding_participant_id IS NOT NULL OR group_expense_id IS NOT NULL OR income_id IS NOT NULL)
 );
 
 -- Group Messages (Gruppennachrichten)
@@ -341,3 +343,11 @@ CREATE INDEX idx_group_members_group ON group_members(group_id);
 CREATE INDEX idx_funding_participants_funding ON funding_participants(group_funding_id);
 CREATE INDEX idx_transactions_expense ON transactions(group_expense_id);
 CREATE INDEX idx_user_categories_user ON user_categories(user_id, kind);
+CREATE INDEX idx_transactions_request ON transactions(request_id);
+CREATE INDEX idx_transactions_private_expense ON transactions(private_expense_id);
+CREATE INDEX idx_transactions_funding_participant ON transactions(funding_participant_id);
+CREATE INDEX idx_transactions_income ON transactions(income_id);
+CREATE INDEX idx_transactions_from_account ON transactions(from_bank_account_id);
+CREATE INDEX idx_transactions_to_account ON transactions(to_bank_account_id);
+CREATE INDEX idx_income_category ON income(bank_account_id, LOWER(category));
+CREATE INDEX idx_expenses_category ON private_expenses(bank_account_id, LOWER(category));

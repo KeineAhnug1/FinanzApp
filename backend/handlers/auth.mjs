@@ -9,16 +9,19 @@ import {
   SMTP_PORT,
   SMTP_SECURE,
   SMTP_USER,
-  VERIFICATION_TTL_MINUTES
+  VERIFICATION_TTL_MINUTES,
+  SESSION_TTL_MINUTES
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
 import { normalizeEmail } from "../utils/data.mjs";
 import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
 import {
+  hashCode,
   hashPassword,
   hashValue,
   isSha256PasswordHash,
   isScryptPasswordHash,
+  verifyCode,
   verifyPassword
 } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
@@ -214,30 +217,45 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
   async function getSessionUser(req) {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE_NAME];
-    const rec = await getSessionRecord(token);
-    if (!rec) return null;
+    if (!token) return null;
 
     const { rows } = await pool.query(
-      `SELECT id, username, email, first_name, last_name, created_at, "profileImage" FROM users WHERE id = $1`,
-      [rec.userId]
+      `SELECT s.user_id, s.expires_at, u.id, u.username, u.email, u.first_name, u.last_name, u.created_at, u."profileImage"
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token = $1`,
+      [token]
     );
 
-    if (rows.length === 0) {
+    if (rows.length === 0) return null;
+
+    const row = rows[0];
+    const expiresAt = new Date(row.expires_at);
+
+    if (expiresAt.getTime() < Date.now()) {
       await destroySession(token);
       return null;
     }
 
-    const user = rows[0];
+    const halfTtlMs = SESSION_TTL_MINUTES * 60 * 1000 / 2;
+    if (expiresAt.getTime() - Date.now() < halfTtlMs) {
+      const newExpiry = new Date(Date.now() + SESSION_TTL_MINUTES * 60 * 1000);
+      await pool.query(
+        `UPDATE sessions SET expires_at = $1 WHERE token = $2`,
+        [newExpiry, token]
+      );
+    }
+
     return {
       token,
       user: {
-        id: String(user.id),
-        username: user.username,
-        email: user.email,
-        first_name: user.first_name || null,
-        last_name: user.last_name || null,
-        created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null,
-        profileImage: user.profileImage || null
+        id: String(row.id),
+        username: row.username,
+        email: row.email,
+        first_name: row.first_name || null,
+        last_name: row.last_name || null,
+        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : null,
+        profileImage: row.profileImage || null
       }
     };
   }
@@ -387,7 +405,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       `INSERT INTO email_verifications (email, username, password, first_name, last_name, code_hash, attempts, created_at, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8)
        ON CONFLICT (email) DO UPDATE SET username=$2, password=$3, first_name=$4, last_name=$5, code_hash=$6, attempts=0, created_at=$7, expires_at=$8`,
-      [email, username, passwordHash, firstName, lastName, hashValue(code), now, expiresAt]
+      [email, username, passwordHash, firstName, lastName, hashCode(code), now, expiresAt]
     );
 
     let delivered;
@@ -445,7 +463,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 429, { ok: false, message: "Zu viele Fehlversuche. Bitte erneut registrieren." });
     }
 
-    if (hashValue(code) !== verification.code_hash) {
+    if (!verifyCode(code, verification.code_hash)) {
       await pool.query(`UPDATE email_verifications SET attempts = attempts + 1 WHERE email = $1`, [email]);
       return badRequest(res, "Verifizierungscode ist ungueltig");
     }
@@ -454,24 +472,30 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       ? verification.password
       : await hashPassword(verification.password);
 
+    const client = await pool.connect();
     try {
-      const { rows: inserted } = await pool.query(
+      await client.query('BEGIN');
+      const { rows: inserted } = await client.query(
         `INSERT INTO users (username, email, password, first_name, last_name, created_at)
          VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
         [verification.username, verification.email, passwordHash, verification.first_name, verification.last_name]
       );
       const userId = inserted[0].id;
-      await ensureUserFinanceRoots(pool, userId);
-      await pool.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
+      await ensureUserFinanceRoots(client, userId);
+      await client.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
+      await client.query('COMMIT');
       return sendJson(res, 201, {
         ok: true,
         message: "E-Mail verifiziert und Konto erstellt",
         user: { id: String(userId), username: verification.username, email: verification.email }
       });
     } catch (/** @type {unknown} */ err) {
+      await client.query('ROLLBACK').catch(() => {});
       const error = /** @type {{ code?: string }} */ (err);
       if (error?.code === "23505") return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
       throw err;
+    } finally {
+      client.release();
     }
   }
 
@@ -507,7 +531,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
         `INSERT INTO password_resets (email, user_id, code_hash, attempts, created_at, expires_at)
          VALUES ($1, $2, $3, 0, $4, $5)
          ON CONFLICT (email) DO UPDATE SET user_id=$2, code_hash=$3, attempts=0, created_at=$4, expires_at=$5`,
-        [email, user.id, hashValue(code), now, expiresAt]
+        [email, user.id, hashCode(code), now, expiresAt]
       );
       try {
         await sendPasswordResetEmail(email, user.first_name, code);
@@ -556,7 +580,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 429, { ok: false, message: "Zu viele Fehlversuche. Bitte erneut anfordern." });
     }
 
-    if (hashValue(code) !== reset.code_hash) {
+    if (!verifyCode(code, reset.code_hash)) {
       await pool.query(`UPDATE password_resets SET attempts = attempts + 1 WHERE email = $1`, [email]);
       return badRequest(res, "Code ist ungültig");
     }

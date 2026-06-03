@@ -89,14 +89,16 @@ export async function refreshDashboardData() {
     }
     renderBankAccountSelectors();
 
-    const tx = await loadTransactions();
+    const [tx, budgetAlerts] = await Promise.all([
+      loadTransactions(),
+      loadBudgetStatus()
+    ]);
     appState.incomeEntries = tx.income;
     appState.expenseEntries = tx.expense;
     renderIncomeList(appState.incomeEntries);
     renderExpenseList(appState.expenseEntries);
     updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
-
-    appState.budgetAlerts = await loadBudgetStatus();
+    appState.budgetAlerts = budgetAlerts;
     renderBudgetAlerts();
   } catch (err) {
     console.error('refreshDashboardData failed', err);

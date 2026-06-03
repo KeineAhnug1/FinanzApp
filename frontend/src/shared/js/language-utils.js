@@ -86,14 +86,12 @@ export function getLocale(userId) {
   return normalizeLocale(dashboardLocale || defaultLocale);
 }
 
-function fetchJsonSync(url) {
-  const xhr = new XMLHttpRequest();
-  xhr.open("GET", url, false);
-  xhr.send();
-  if (xhr.status < 200 || xhr.status >= 300) {
-    throw new Error(`HTTP ${xhr.status} for ${url}`);
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${url}`);
   }
-  return JSON.parse(xhr.responseText || "{}");
+  return response.json();
 }
 
 function rebuildTokenLookup() {
@@ -128,16 +126,16 @@ function setDictionary(locale, payload) {
   }
 }
 
-function loadLocaleSync(locale) {
+async function loadLocale(locale) {
   if (dictionaryCache.has(locale)) return dictionaryCache.get(locale);
-  const payload = fetchJsonSync(localeFileUrl(locale));
+  const payload = await fetchJson(localeFileUrl(locale));
   setDictionary(locale, payload);
   return dictionaryCache.get(locale) || {};
 }
 
-function loadIndexSync() {
+async function loadIndex() {
   try {
-    const index = fetchJsonSync(INDEX_URL);
+    const index = await fetchJson(INDEX_URL);
     const locales = Array.isArray(index?.locales)
       ? index.locales.map((value) => String(value || "").trim()).filter(Boolean)
       : [];
@@ -228,10 +226,10 @@ function safeApply(root) {
   }
 }
 
-function setActiveLocale(nextLocale) {
+async function setActiveLocale(nextLocale) {
   activeLocale = normalizeLocale(nextLocale);
   try {
-    loadLocaleSync(activeLocale);
+    await loadLocale(activeLocale);
   } catch (error) {
     console.warn(`FinanzAppLanguage: Locale ${activeLocale} konnte nicht geladen werden.`, error);
     activeLocale = defaultLocale;
@@ -244,11 +242,12 @@ export function setLocale(nextLocale, options = {}) {
   const locale = normalizeLocale(nextLocale);
   window.localStorage.setItem(STORAGE_KEY, locale);
   if (userId) writeDashboardLocale(userId, locale);
-  setActiveLocale(locale);
-  safeApply(document.documentElement);
-  if (!options.silent) {
-    window.dispatchEvent(new CustomEvent("finanzapp:locale-changed", { detail: { locale } }));
-  }
+  setActiveLocale(locale).then(() => {
+    safeApply(document.documentElement);
+    if (!options.silent) {
+      window.dispatchEvent(new CustomEvent("finanzapp:locale-changed", { detail: { locale } }));
+    }
+  });
   return locale;
 }
 
@@ -262,15 +261,15 @@ export async function whenReady() {
 }
 
 async function runInit() {
-  loadIndexSync();
+  await loadIndex();
   try {
-    loadLocaleSync(sourceLocale);
+    await loadLocale(sourceLocale);
   } catch (error) {
     console.warn(`FinanzAppLanguage: Source-Locale ${sourceLocale} konnte nicht geladen werden.`, error);
     sourceDictionary = {};
     rebuildTokenLookup();
   }
-  setActiveLocale(getLocale());
+  await setActiveLocale(getLocale());
   safeApply(document.documentElement);
   isReady = true;
 
@@ -288,9 +287,10 @@ async function runInit() {
 
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY) return;
-    setActiveLocale(getLocale());
-    safeApply(document.body);
-    window.dispatchEvent(new CustomEvent("finanzapp:locale-changed", { detail: { locale: activeLocale } }));
+    setActiveLocale(getLocale()).then(() => {
+      safeApply(document.body);
+      window.dispatchEvent(new CustomEvent("finanzapp:locale-changed", { detail: { locale: activeLocale } }));
+    });
   });
 
   window.addEventListener("finanzapp:locale-changed", () => {

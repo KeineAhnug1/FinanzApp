@@ -4,6 +4,7 @@ import { ANSWER_MESSAGE_MAX_LENGTH } from "../config/runtime.mjs";
 import { detectBlockedMessageTerm } from "../config/blocked-names.mjs";
 import { parseId as parseObjectId, parsePositiveAmount, parseLongText, toDecimal, toNullableDate, toNullableNumber } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
+import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized, forbidden, notFound, conflict } from "../helpers/responses.mjs";
 import { calculateDashboardStyleDonationBalance } from "../helpers/finance-db.mjs";
 
@@ -333,6 +334,7 @@ export function createGroupHandlers(pool) {
    */
   async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session) {
     if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+    if (!checkRateLimit(req, res, { maxAttempts: 30, windowMs: 60_000, group: 'groups-write' })) return;
     const context = await getGroupContext(groupIdRaw, session.user.id);
     if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
 
@@ -364,44 +366,56 @@ export function createGroupHandlers(pool) {
       [fundingId, bankAccount.id]
     );
     const createdAt = new Date();
-    let fundingParticipantId;
-
-    if (existingResult.rows.length > 0) {
-      const existingParticipant = existingResult.rows[0];
-      fundingParticipantId = existingParticipant.id;
-      const currentAmount = toNullableNumber(existingParticipant.amount) ?? 0;
-      const nextAmount = Number((currentAmount + normalizedAmount).toFixed(2));
-      await pool.query(
-        `UPDATE funding_participants SET amount = $1 WHERE id = $2`,
-        [toDecimal(nextAmount), existingParticipant.id]
-      );
-    } else {
-      const insertParticipant = await pool.query(
-        `INSERT INTO funding_participants (group_funding_id, bank_account_id, amount, created_at) VALUES ($1, $2, $3, $4) RETURNING id`,
-        [fundingId, bankAccount.id, amount, createdAt]
-      );
-      fundingParticipantId = insertParticipant.rows[0].id;
-    }
 
     const currentFundingAmount = toNullableNumber(funding.amount) ?? 0;
     const updatedFundingAmount = Number((currentFundingAmount + normalizedAmount).toFixed(2));
-    await pool.query(
-      `UPDATE group_funding SET amount = $1 WHERE id = $2`,
-      [toDecimal(updatedFundingAmount), fundingId]
-    );
-
     const donationLabel = funding.info ? `Funding donation: ${funding.info}` : "Funding donation";
-    const donationExpenseResult = await pool.query(
-      `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, note, state, recurrence, cycle, is_active, created_at, updated_at, group_funding_id, funding_participant_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
-      [bankAccount.id, donationLabel, "other", amount, amount, createdAt, createdAt, createdAt, donationLabel, donationLabel, "open", null, "once", true, createdAt, createdAt, fundingId, fundingParticipantId]
-    );
-    await pool.query(
-      `INSERT INTO transactions (private_expense_id, created_at) VALUES ($1, $2)`,
-      [donationExpenseResult.rows[0].id, createdAt]
-    );
 
-    return sendJson(res, 201, { ok: true, donation: { funding_id: String(fundingId), amount: normalizedAmount, funding_total: updatedFundingAmount, bank_balance: Number((currentBalance - normalizedAmount).toFixed(2)) } });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      let fundingParticipantId;
+      if (existingResult.rows.length > 0) {
+        const existingParticipant = existingResult.rows[0];
+        fundingParticipantId = existingParticipant.id;
+        const currentAmount = toNullableNumber(existingParticipant.amount) ?? 0;
+        const nextAmount = Number((currentAmount + normalizedAmount).toFixed(2));
+        await client.query(
+          `UPDATE funding_participants SET amount = $1 WHERE id = $2`,
+          [toDecimal(nextAmount), existingParticipant.id]
+        );
+      } else {
+        const insertParticipant = await client.query(
+          `INSERT INTO funding_participants (group_funding_id, bank_account_id, amount, created_at) VALUES ($1, $2, $3, $4) RETURNING id`,
+          [fundingId, bankAccount.id, amount, createdAt]
+        );
+        fundingParticipantId = insertParticipant.rows[0].id;
+      }
+
+      await client.query(
+        `UPDATE group_funding SET amount = $1 WHERE id = $2`,
+        [toDecimal(updatedFundingAmount), fundingId]
+      );
+
+      const donationExpenseResult = await client.query(
+        `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, note, state, recurrence, cycle, is_active, created_at, updated_at, group_funding_id, funding_participant_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
+        [bankAccount.id, donationLabel, "other", amount, amount, createdAt, createdAt, createdAt, donationLabel, donationLabel, "open", null, "once", true, createdAt, createdAt, fundingId, fundingParticipantId]
+      );
+      await client.query(
+        `INSERT INTO transactions (private_expense_id, created_at) VALUES ($1, $2)`,
+        [donationExpenseResult.rows[0].id, createdAt]
+      );
+
+      await client.query('COMMIT');
+      return sendJson(res, 201, { ok: true, donation: { funding_id: String(fundingId), amount: normalizedAmount, funding_total: updatedFundingAmount, bank_balance: Number((currentBalance - normalizedAmount).toFixed(2)) } });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**

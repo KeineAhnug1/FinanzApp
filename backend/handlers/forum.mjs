@@ -19,6 +19,7 @@ import { parseObjectId, parseLongText } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
 import { hashPassword } from "../utils/password.mjs";
 import { badRequest, forbidden, notFound, unauthorized } from "../helpers/responses.mjs";
+import { checkRateLimit } from "../utils/rate-limit.mjs";
 
 /** @param {unknown} value */
 function parseQuestionTopic(value) {
@@ -348,6 +349,77 @@ export function createForumHandlers(pool) {
 
   /**
    * @param {string | number} userId
+   * @param {string | number} questionId
+   */
+  async function fetchSingleQuestionWithRelations(userId, questionId) {
+    const { rows: questionRows } = await pool.query(
+      `SELECT id, from_user_id, thema, message, answered, edited, created_at, updated_at
+       FROM global_questions WHERE id = $1`,
+      [questionId]
+    );
+    if (questionRows.length === 0) return null;
+    const question = questionRows[0];
+
+    const { rows: answers } = await pool.query(
+      `SELECT id, question_id, from_user_id, message, edited, created_at, updated_at
+       FROM global_answers WHERE question_id = $1 ORDER BY created_at ASC`,
+      [question.id]
+    );
+
+    const answerIds = answers.map((a) => a.id);
+
+    const userIdSet = new Map();
+    userIdSet.set(String(question.from_user_id), question.from_user_id);
+    for (const answer of answers) userIdSet.set(String(answer.from_user_id), answer.from_user_id);
+
+    const [usersResult, questionLikeRows, answerLikeRows, likedQuestionsByMe, likedAnswersByMe] =
+      await Promise.all([
+        pool.query(
+          `SELECT id, username, first_name FROM users WHERE id = ANY($1)`,
+          [Array.from(userIdSet.values())]
+        ).then((r) => r.rows),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM question_likes WHERE question_id = $1`,
+          [question.id]
+        ).then((r) => r.rows),
+        answerIds.length
+          ? pool.query(
+            `SELECT answer_id, COUNT(*)::int AS count FROM answer_likes WHERE answer_id = ANY($1) GROUP BY answer_id`,
+            [answerIds]
+          ).then((r) => r.rows)
+          : Promise.resolve([]),
+        pool.query(
+          `SELECT question_id FROM question_likes WHERE user_id = $1 AND question_id = $2`,
+          [userId, question.id]
+        ).then((r) => r.rows),
+        answerIds.length
+          ? pool.query(
+            `SELECT answer_id FROM answer_likes WHERE user_id = $1 AND answer_id = ANY($2)`,
+            [userId, answerIds]
+          ).then((r) => r.rows)
+          : Promise.resolve([])
+      ]);
+
+    const usersById = new Map(usersResult.map((u) => [String(u.id), u]));
+    const likesCountByQuestionId = new Map([[String(question.id), questionLikeRows[0]?.count || 0]]);
+    const answerLikesCountByAnswerId = new Map(answerLikeRows.map((r) => [String(r.answer_id), r.count]));
+    const likedQuestionIds = new Set(likedQuestionsByMe.map((item) => String(item.question_id)));
+    const likedAnswerIds = new Set(likedAnswersByMe.map((item) => String(item.answer_id)));
+    const answersByQuestionId = new Map([[String(question.id), answers]]);
+
+    return serializeQuestion(question, {
+      meUserId: userId,
+      usersById,
+      likesCountByQuestionId,
+      likedQuestionIds,
+      answersByQuestionId,
+      answerLikesCountByAnswerId,
+      likedAnswerIds
+    });
+  }
+
+  /**
+   * @param {string | number} userId
    * @param {string} [searchRaw]
    */
   async function listQuestionsWithRelations(userId, searchRaw = "") {
@@ -489,6 +561,8 @@ export function createForumHandlers(pool) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
+    if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: 'forum-questions' })) return;
+
     const payload = await parseBody(req, res);
     if (!payload) return;
 
@@ -602,8 +676,7 @@ export function createForumHandlers(pool) {
 
     if (updatedRows.length === 0) return notFound(res, "Frage nicht gefunden");
 
-    const questions = await listQuestionsWithRelations(userId);
-    const question = questions.find((item) => item.id === String(questionId));
+    const question = await fetchSingleQuestionWithRelations(userId, questionId);
     return sendJson(res, 200, { ok: true, question });
   }
 
@@ -648,8 +721,7 @@ export function createForumHandlers(pool) {
       [questionId]
     );
 
-    const questions = await listQuestionsWithRelations(userId);
-    const updatedQuestion = questions.find((item) => item.id === String(questionId));
+    const updatedQuestion = await fetchSingleQuestionWithRelations(userId, questionId);
     return sendJson(res, 201, { ok: true, question: updatedQuestion });
   }
 
@@ -692,8 +764,7 @@ export function createForumHandlers(pool) {
         );
       }
 
-      const questions = await listQuestionsWithRelations(userId);
-      const updatedQuestion = questions.find((item) => item.id === String(answer.question_id));
+      const updatedQuestion = await fetchSingleQuestionWithRelations(userId, answer.question_id);
       return sendJson(res, 200, { ok: true, question: updatedQuestion, message: "Antwort geloescht" });
     }
 
@@ -714,8 +785,7 @@ export function createForumHandlers(pool) {
       [message, answerId, userId]
     );
 
-    const questions = await listQuestionsWithRelations(userId);
-    const question = questions.find((item) => item.id === String(answer.question_id));
+    const question = await fetchSingleQuestionWithRelations(userId, answer.question_id);
     return sendJson(res, 200, { ok: true, question });
   }
 

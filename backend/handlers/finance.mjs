@@ -24,6 +24,7 @@ import {
   uniqueCategoryList
 } from "../utils/data.mjs";
 import { parseBody, sendJson } from "../utils/http.mjs";
+import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized, notFound } from "../helpers/responses.mjs";
 import { serializeIncomeEntry, serializeExpenseEntry } from "../helpers/serializers.mjs";
 import {
@@ -33,7 +34,8 @@ import {
   incrementBankAccountBalance,
   deleteBankAccountAssociations,
   rememberUserCategory,
-  resolveRequestedBankAccountFilter
+  resolveRequestedBankAccountFilter,
+  resolveEntryState
 } from "../helpers/finance-db.mjs";
 
 const LOGO_CACHE_TTL = 6 * 60 * 60 * 1000;
@@ -351,6 +353,8 @@ export function createFinanceHandlers(pool) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
+    if (!checkRateLimit(req, res, { maxAttempts: 60, windowMs: 60_000, group: 'finance-write' })) return;
+
     const payload = await parseBody(req, res);
     if (!payload) return;
 
@@ -374,9 +378,7 @@ export function createFinanceHandlers(pool) {
     const selectedBankAccountId = parseId(payload.bank_account_id);
     const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
 
-    const effectiveRecurrence = cycle === "once" ? null : recurrence;
-    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
-    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+    const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows } = await pool.query(
       `INSERT INTO income (bank_account_id, source, category, amount, received_at, pay_date, note, info, recurrence, cycle, is_active, state, created_at, updated_at)
@@ -450,9 +452,7 @@ export function createFinanceHandlers(pool) {
     const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
       ? requestedBankAccountId : existing[0].bank_account_id;
 
-    const effectiveRecurrence = cycle === "once" ? null : recurrence;
-    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
-    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+    const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows: updated } = await pool.query(
       `UPDATE income SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, received_at=$6, pay_date=$6, recurrence=$7, cycle=$8, state=$9, info=$10, is_active=$11, updated_at=NOW()
@@ -512,6 +512,8 @@ export function createFinanceHandlers(pool) {
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
+    if (!checkRateLimit(req, res, { maxAttempts: 60, windowMs: 60_000, group: 'finance-write' })) return;
+
     const payload = await parseBody(req, res);
     if (!payload) return;
 
@@ -535,9 +537,7 @@ export function createFinanceHandlers(pool) {
     const selectedBankAccountId = parseId(payload.bank_account_id);
     const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
 
-    const effectiveRecurrence = cycle === "once" ? null : recurrence;
-    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
-    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+    const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows } = await pool.query(
       `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, state, note, recurrence, cycle, is_active, created_at, updated_at)
@@ -611,9 +611,7 @@ export function createFinanceHandlers(pool) {
     const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
       ? requestedBankAccountId : existing[0].bank_account_id;
 
-    const effectiveRecurrence = cycle === "once" ? null : recurrence;
-    const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
-    const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+    const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows: updated } = await pool.query(
       `UPDATE private_expenses SET bank_account_id=$1, source=$2, category=$3, note=$4, amount=$5, theo_amount=$5, spent_at=$6, due_date=$6, pay_date=$6, info=$7, state=$8, recurrence=$9, cycle=$10, is_active=$11, updated_at=NOW()
