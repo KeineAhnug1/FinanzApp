@@ -9,9 +9,9 @@
 5. [Bankkonten](#bankkonten)
 6. [Depotkonten](#depotkonten)
 7. [Aktien & Marktdaten](#aktien--marktdaten)
-8. [Gruppen](#gruppen)
-9. [Fragen & Antworten](#fragen--antworten)
-10. [Nachrichten](#nachrichten)
+8. [Budgets](#budgets)
+9. [Gruppen](#gruppen)
+10. [Fragen & Antworten](#fragen--antworten)
 11. [Benutzereinstellungen](#benutzereinstellungen)
 
 ---
@@ -37,11 +37,11 @@ Alle Routen (außer Login, Register, Passwort vergessen) erfordern eine aktive S
 
 ### API-Client (Frontend)
 
-Zentrale Datei: `frontend/shared/js/api-client.js`
+Zentrale Datei: `apps/web/src/shared/js/api-client.js`
 
-Stellt zwei Funktionen bereit:
-- `window.FinanzAppApi.requestJson(url, options)` — Gibt `{ ok, status, responseOk, retryAfter, data }` zurück
-- `window.FinanzAppApi.requestJsonMerged(url, options)` — Gibt zusammengeführte Daten mit `ok`, `status`, `responseOk` zurück
+Stellt zwei Named-Exports bereit:
+- `requestJson(url, options)` — Gibt `{ ok, status, responseOk, retryAfter, data }` zurück
+- `requestJsonMerged(url, options)` — Gibt zusammengeführte Daten mit `ok`, `status`, `responseOk` zurück
 
 ---
 
@@ -53,7 +53,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/login` |
-| **Frontend** | `frontend/homepage/app.js` |
+| **Frontend** | `apps/web/src/pages/dashboard/script.js` |
 
 **Request Body:**
 ```json
@@ -67,13 +67,12 @@ Stellt zwei Funktionen bereit:
 ```json
 {
   "ok": true,
-  "session_user": {
+  "user": {
     "id": "string",
     "username": "string",
     "email": "string",
     "first_name": "string",
     "last_name": "string",
-    "profileImage": "string",
     "created_at": "ISO8601"
   }
 }
@@ -95,7 +94,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/register` |
-| **Frontend** | `frontend/homepage/app.js` |
+| **Frontend** | `apps/web/src/pages/dashboard/script.js` |
 
 **Request Body:**
 ```json
@@ -131,7 +130,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/register/verify` |
-| **Frontend** | `frontend/homepage/app.js` |
+| **Frontend** | `apps/web/src/pages/dashboard/script.js` |
 
 **Request Body:**
 ```json
@@ -144,7 +143,12 @@ Stellt zwei Funktionen bereit:
 **Response:**
 ```json
 {
-  "ok": true
+  "ok": true,
+  "user": {
+    "id": "string",
+    "username": "string",
+    "email": "string"
+  }
 }
 ```
 
@@ -156,7 +160,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/session` |
-| **Frontend** | `frontend/shared/js/session-utils.js` → `fnFetchSessionUser()` |
+| **Frontend** | `apps/web/src/shared/js/session-utils.js` → `fetchSessionUser()` |
 
 **Response (eingeloggt):**
 ```json
@@ -189,7 +193,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/logout` |
-| **Frontend** | `frontend/shared/js/session-utils.js` → `fnLogoutAndRedirect()` |
+| **Frontend** | `apps/web/src/shared/js/session-utils.js` → `logoutAndRedirect()` |
 
 **Response:**
 ```json
@@ -206,7 +210,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/password/forgot` |
-| **Frontend** | `frontend/settings/app.js` |
+| **Frontend** | `apps/web/src/pages/dashboard/script.js` |
 
 **Request Body:**
 ```json
@@ -219,7 +223,8 @@ Stellt zwei Funktionen bereit:
 ```json
 {
   "ok": true,
-  "message": "Reset email sent"
+  "expires_in_seconds": 900,
+  "message": "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet."
 }
 ```
 
@@ -231,7 +236,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/password/reset` |
-| **Frontend** | Passwort-Reset-Seite |
+| **Frontend** | `apps/web/src/pages/dashboard/script.js` |
 
 **Request Body:**
 ```json
@@ -245,7 +250,8 @@ Stellt zwei Funktionen bereit:
 **Response:**
 ```json
 {
-  "ok": true
+  "ok": true,
+  "message": "Passwort erfolgreich zurückgesetzt"
 }
 ```
 
@@ -260,7 +266,7 @@ Stellt zwei Funktionen bereit:
 | **Methode** | `GET` |
 | **URL** | `/api/income-entries` |
 | **Query-Parameter** | `?bank_account_id=<id>` (optional) |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `loadIncomeEntries()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `loadIncomeEntries()` |
 
 **Response:**
 ```json
@@ -292,7 +298,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/income-entries` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleCreateIncome()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleCreateIncome()` |
 
 **Request Body:**
 ```json
@@ -324,7 +330,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `PATCH` |
 | **URL** | `/api/income-entries/:id` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleUpdateIncome()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleUpdateIncome()` |
 
 **Request Body (nur geänderte Felder):**
 ```json
@@ -351,7 +357,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/income-entries/:id` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleDeleteIncome()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleDeleteIncome()` |
 
 **Response:**
 ```json
@@ -369,7 +375,7 @@ Stellt zwei Funktionen bereit:
 | **Methode** | `GET` |
 | **URL** | `/api/expense-entries` |
 | **Query-Parameter** | `?bank_account_id=<id>` (optional) |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `loadExpenseEntries()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `loadExpenseEntries()` |
 
 **Response:**
 ```json
@@ -401,7 +407,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/expense-entries` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleCreateExpense()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleCreateExpense()` |
 
 **Request Body:**
 ```json
@@ -433,7 +439,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `PATCH` |
 | **URL** | `/api/expense-entries/:id` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleUpdateExpense()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleUpdateExpense()` |
 
 **Request Body (nur geänderte Felder):**
 ```json
@@ -459,12 +465,57 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/expense-entries/:id` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleDeleteExpense()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleDeleteExpense()` |
 
 **Response:**
 ```json
 {
   "ok": true
+}
+```
+
+---
+
+### Transaktionen laden
+
+| | |
+|---|---|
+| **Methode** | `GET` |
+| **URL** | `/api/transactions` |
+| **Query-Parameter** | `?bank_account_id=<id>` (optional), `?limit=<n>` (optional, Standard 50, max 200), `?cursor=<opaque>` (optional, für Pagination), `?category=<string>` (optional, case-insensitiv) |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `loadTransactions()` |
+
+Gibt kombinierte Transaktionen des Nutzers (Einnahmen und Ausgaben) chronologisch sortiert zurück.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "entries": [
+    {
+      "type": "income",
+      "id": "string",
+      "source": "Gehalt",
+      "category": "salary",
+      "amount": 3500.00,
+      "recurrence": "monthly",
+      "is_active": true,
+      "note": "",
+      "received_at": "2026-05-01T08:00:00.000Z"
+    },
+    {
+      "type": "expense",
+      "id": "string",
+      "source": "Miete",
+      "category": "rent",
+      "amount": 1200.00,
+      "recurrence": "monthly",
+      "is_active": true,
+      "note": "",
+      "spent_at": "2026-05-03T08:00:00.000Z"
+    }
+  ],
+  "next_cursor": "string (optional, für nächste Seite)"
 }
 ```
 
@@ -478,7 +529,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/categories` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `loadUserCategories()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `loadUserCategories()` |
 
 **Response:**
 ```json
@@ -501,7 +552,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/categories` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `handleDeleteCategory()` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `handleDeleteCategory()` |
 
 **Request Body:**
 ```json
@@ -529,7 +580,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/bank-accounts` |
-| **Frontend** | `frontend/accounts/js/app.js`, `frontend/dashboard/js/dashboard-api.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js`, `apps/web/src/pages/dashboard/dashboard-api.js` |
 
 **Response:**
 ```json
@@ -555,7 +606,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/bank-accounts` |
-| **Frontend** | `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js` |
 
 **Request Body:**
 ```json
@@ -586,7 +637,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `PATCH` |
 | **URL** | `/api/bank-accounts/:id` |
-| **Frontend** | `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js` |
 
 **Request Body:**
 ```json
@@ -612,7 +663,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/bank-accounts/:id` |
-| **Frontend** | `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js` |
 
 **Request Body (optional):**
 ```json
@@ -638,7 +689,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/share-accounts` |
-| **Frontend** | `frontend/stocks/js/state-api.js`, `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/stocks/state-api.js`, `apps/web/src/pages/accounts/app.js` |
 
 **Response:**
 ```json
@@ -663,7 +714,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/share-accounts` |
-| **Frontend** | `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js` |
 
 **Request Body:**
 ```json
@@ -688,7 +739,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `PATCH` |
 | **URL** | `/api/share-accounts/:id` |
-| **Frontend** | `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js` |
 
 **Request Body:**
 ```json
@@ -713,7 +764,7 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/share-accounts/:id` |
-| **Frontend** | `frontend/accounts/js/app.js` |
+| **Frontend** | `apps/web/src/pages/accounts/app.js` |
 
 **Response:**
 ```json
@@ -731,7 +782,7 @@ Stellt zwei Funktionen bereit:
 | **Methode** | `GET` |
 | **URL** | `/api/positions` |
 | **Query-Parameter** | `?share_account_id=<id>` (optional) |
-| **Frontend** | `frontend/stocks/js/state-api.js` → `fnLoadPositions()` |
+| **Frontend** | `apps/web/src/pages/stocks/state-api.js` → `fnLoadPositions()` |
 
 **Response:**
 ```json
@@ -759,7 +810,7 @@ Stellt zwei Funktionen bereit:
 | **Methode** | `GET` |
 | **URL** | `/api/stocks/search` |
 | **Query-Parameter** | `?q=<Suchbegriff>&exchange=<Börse>&asset_class=<stock|etf>&limit=<Anzahl>` |
-| **Frontend** | `frontend/stocks/js/state-api.js` → `fnSearchStocksViaBackend()` |
+| **Frontend** | `apps/web/src/pages/stocks/state-api.js` → `fnSearchStocksViaBackend()` |
 
 **Response:**
 ```json
@@ -786,31 +837,9 @@ Stellt zwei Funktionen bereit:
 | **Methode** | `GET` |
 | **URL** | `/api/stocks/logo` |
 | **Query-Parameter** | `?symbol=<Symbol>&exchange=<Börse>&theme=<light|dark>&size=<Pixel>` |
-| **Frontend** | `frontend/stocks/js/state-api.js` → `fnBuildStockLogoUrl()` |
+| **Frontend** | `apps/web/src/pages/stocks/state-api.js` → `fnBuildStockLogoUrl()` |
 
 **Response:** Binärdatei (PNG/SVG Logo)
-
----
-
-### Wechselkurse abrufen
-
-| | |
-|---|---|
-| **Methode** | `GET` |
-| **URL** | `/api/exchange-rates/latest` |
-| **Frontend** | `frontend/stocks/js/state-api.js` |
-
-**Response:**
-```json
-{
-  "ok": true,
-  "rates": {
-    "USD": 1.08,
-    "GBP": 0.86,
-    "CHF": 0.97
-  }
-}
-```
 
 ---
 
@@ -820,11 +849,153 @@ Stellt zwei Funktionen bereit:
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/twelvedata/*` |
-| **Frontend** | `frontend/stocks/js/state-api.js` → `fnTdFetch()` |
+| **Frontend** | `apps/web/src/pages/stocks/state-api.js` → `fnTdFetch()` |
 
 Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind über diesen Proxy erreichbar (z.B. `/api/twelvedata/time_series`, `/api/twelvedata/quote`).
 
 **Response:** Direkte Weiterleitung der Twelve Data API-Antwort.
+
+---
+
+## Budgets
+
+### Alle Budgets laden
+
+| | |
+|---|---|
+| **Methode** | `GET` |
+| **URL** | `/api/budgets` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` |
+
+**Response:**
+```json
+{
+  "ok": true,
+  "budgets": [
+    {
+      "id": "string",
+      "category": "Lebensmittel",
+      "target_amount": 500.00,
+      "current_amount": 120.00,
+      "reset_date": "ISO8601 | null",
+      "created_at": "ISO8601"
+    }
+  ]
+}
+```
+
+---
+
+### Budget erstellen
+
+| | |
+|---|---|
+| **Methode** | `POST` |
+| **URL** | `/api/budgets` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` |
+
+**Request Body:**
+```json
+{
+  "category": "Lebensmittel",
+  "target_amount": 500.00
+}
+```
+
+**Response (Erfolg, HTTP 201):**
+```json
+{
+  "ok": true,
+  "budget": {
+    "id": "string",
+    "category": "Lebensmittel",
+    "target_amount": 500.00,
+    "current_amount": 0,
+    "reset_date": null,
+    "created_at": "ISO8601"
+  }
+}
+```
+
+**Response (Fehler — Kategorie bereits vorhanden, HTTP 409):**
+```json
+{
+  "ok": false,
+  "message": "Budget fuer diese Kategorie existiert bereits"
+}
+```
+
+---
+
+### Budget bearbeiten
+
+| | |
+|---|---|
+| **Methode** | `PATCH` |
+| **URL** | `/api/budgets/:id` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` |
+
+**Request Body (nur geänderte Felder):**
+```json
+{
+  "category": "Neue Kategorie (optional)",
+  "target_amount": 600.00
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "budget": { "...aktualisiertes Budget-Objekt..." }
+}
+```
+
+---
+
+### Budget löschen
+
+| | |
+|---|---|
+| **Methode** | `DELETE` |
+| **URL** | `/api/budgets/:id` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` |
+
+**Response:**
+```json
+{
+  "ok": true
+}
+```
+
+---
+
+### Budget-Status laden
+
+| | |
+|---|---|
+| **Methode** | `GET` |
+| **URL** | `/api/budgets/status` |
+| **Frontend** | `apps/web/src/pages/dashboard/dashboard-api.js` → `loadBudgetStatus()` |
+
+Gibt für jedes Budget des Nutzers den aktuellen Verbrauch des laufenden Monats zurück.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "alerts": [
+    {
+      "budget_id": "string",
+      "category": "Lebensmittel",
+      "target": 500.00,
+      "spent": 420.00,
+      "percentage": 84,
+      "exceeded": false
+    }
+  ]
+}
+```
 
 ---
 
@@ -836,7 +1007,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/groups` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -865,7 +1036,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -891,7 +1062,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/groups/:groupId` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -909,7 +1080,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/groups/:groupId` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -926,7 +1097,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/invite` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -950,7 +1121,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/leave` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -967,7 +1138,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/groups/:groupId/members/:userId` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -984,7 +1155,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/members/:userId/promote-admin` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -1001,7 +1172,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/inbox/invitations` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -1026,7 +1197,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/inbox/invitations/:groupId/accept` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -1043,7 +1214,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/inbox/invitations/:groupId/deny` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -1060,7 +1231,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/activities` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -1085,7 +1256,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/funding` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -1110,7 +1281,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/funding/:fundingId/donate` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -1134,7 +1305,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/expenses` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -1161,7 +1332,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/groups/:groupId/messages` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -1187,7 +1358,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/groups/:groupId/messages` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Request Body:**
 ```json
@@ -1212,7 +1383,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/groups/:groupId/messages/:messageId` |
-| **Frontend** | `frontend/groups/js/app.js` |
+| **Frontend** | `apps/web/src/pages/groups/app.js` |
 
 **Response:**
 ```json
@@ -1232,7 +1403,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 | **Methode** | `GET` |
 | **URL** | `/api/questions` |
 | **Query-Parameter** | `?search=<Suchbegriff>` (optional) |
-| **Frontend** | `frontend/questions/js/app.js` → `loadQuestions()` |
+| **Frontend** | `apps/web/src/pages/questions/app.js` → `loadQuestions()` |
 
 **Response:**
 ```json
@@ -1262,7 +1433,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/questions` |
-| **Frontend** | `frontend/questions/js/app.js` → `handleQuestionSubmit()` |
+| **Frontend** | `apps/web/src/pages/questions/app.js` → `handleQuestionSubmit()` |
 
 **Request Body:**
 ```json
@@ -1288,7 +1459,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/questions/:questionId` |
-| **Frontend** | `frontend/questions/js/question.js` → `refreshQuestion()` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` → `refreshQuestion()` |
 
 **Response:**
 ```json
@@ -1324,7 +1495,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `PATCH` |
 | **URL** | `/api/questions/:questionId` |
-| **Frontend** | `frontend/questions/js/app.js` → `handleQuestionSubmit()` |
+| **Frontend** | `apps/web/src/pages/questions/app.js` → `handleQuestionSubmit()` |
 
 **Request Body:**
 ```json
@@ -1344,13 +1515,30 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 
 ---
 
+### Frage löschen
+
+| | |
+|---|---|
+| **Methode** | `DELETE` |
+| **URL** | `/api/questions/:questionId` |
+| **Frontend** | `apps/web/src/pages/questions/app.js` |
+
+**Response:**
+```json
+{
+  "ok": true
+}
+```
+
+---
+
 ### Frage liken
 
 | | |
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/questions/:questionId/like` |
-| **Frontend** | `frontend/questions/js/question.js` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` |
 
 **Response:**
 ```json
@@ -1367,7 +1555,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/questions/:questionId/answers` |
-| **Frontend** | `frontend/questions/js/question.js` → `handleAnswerSubmit()` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` → `handleAnswerSubmit()` |
 
 **Request Body:**
 ```json
@@ -1392,7 +1580,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `GET` |
 | **URL** | `/api/answers/:answerId` |
-| **Frontend** | `frontend/questions/js/question.js` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` |
 
 **Response:**
 ```json
@@ -1411,158 +1599,60 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 
 ---
 
+### Antwort bearbeiten
+
+| | |
+|---|---|
+| **Methode** | `PATCH` |
+| **URL** | `/api/answers/:answerId` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` |
+
+**Request Body:**
+```json
+{
+  "message": "Aktualisierte Antwort"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "answer": { "...aktualisiertes Antwort-Objekt..." }
+}
+```
+
+---
+
+### Antwort löschen
+
+| | |
+|---|---|
+| **Methode** | `DELETE` |
+| **URL** | `/api/answers/:answerId` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` |
+
+**Response:**
+```json
+{
+  "ok": true
+}
+```
+
+---
+
 ### Antwort liken
 
 | | |
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/answers/:answerId/like` |
-| **Frontend** | `frontend/questions/js/question.js` |
+| **Frontend** | `apps/web/src/pages/questions/question.js` |
 
 **Response:**
 ```json
 {
   "ok": true
-}
-```
-
----
-
-## Nachrichten
-
-### Konversationen laden
-
-| | |
-|---|---|
-| **Methode** | `GET` |
-| **URL** | `/api/messages/conversations` |
-| **Frontend** | `frontend/nachrichten/js/nachrichten.js` → `loadConversations()` |
-
-**Response:**
-```json
-{
-  "ok": true,
-  "conversations": [
-    {
-      "partner_id": "string",
-      "partner_username": "MaxMustermann",
-      "last_message": "Hey, wie geht's?",
-      "last_message_at": "ISO8601",
-      "unread_count": 2
-    }
-  ]
-}
-```
-
----
-
-### Nachrichten einer Konversation laden
-
-| | |
-|---|---|
-| **Methode** | `GET` |
-| **URL** | `/api/messages/conversation/:partnerId` |
-| **Frontend** | `frontend/nachrichten/js/chat.js` → `loadMessages()` |
-
-**Response:**
-```json
-{
-  "ok": true,
-  "messages": [
-    {
-      "id": "string",
-      "content": "Hey, wie geht's?",
-      "sent_at": "ISO8601",
-      "is_own": false,
-      "read_at": "ISO8601 | null",
-      "deleted_at": "ISO8601 | null"
-    }
-  ]
-}
-```
-
----
-
-### Nachricht senden
-
-| | |
-|---|---|
-| **Methode** | `POST` |
-| **URL** | `/api/messages/send` |
-| **Frontend** | `frontend/nachrichten/js/chat.js` → `sendMessage()` |
-
-**Request Body:**
-```json
-{
-  "recipient_id": "string",
-  "content": "Hey, wie geht's?"
-}
-```
-
-**Response:**
-```json
-{
-  "ok": true,
-  "message": { "...Nachrichten-Objekt..." }
-}
-```
-
----
-
-### Nachricht löschen
-
-| | |
-|---|---|
-| **Methode** | `DELETE` |
-| **URL** | `/api/messages/:messageId` |
-| **Frontend** | `frontend/nachrichten/js/chat.js` → `deleteMessage()` |
-
-**Response:**
-```json
-{
-  "ok": true
-}
-```
-
----
-
-### Ungelesene Nachrichten Anzahl
-
-| | |
-|---|---|
-| **Methode** | `GET` |
-| **URL** | `/api/messages/unread-count` |
-| **Frontend** | `frontend/nachrichten/js/nachrichten.js` |
-
-**Response:**
-```json
-{
-  "ok": true,
-  "unread_count": 5
-}
-```
-
----
-
-### Benutzer suchen
-
-| | |
-|---|---|
-| **Methode** | `GET` |
-| **URL** | `/api/users/search` |
-| **Query-Parameter** | `?q=<Suchbegriff>` |
-| **Frontend** | `frontend/nachrichten/js/user-search.js` → `runSearch()` |
-
-**Response:**
-```json
-{
-  "ok": true,
-  "users": [
-    {
-      "id": "string",
-      "username": "MaxMustermann"
-    }
-  ]
 }
 ```
 
@@ -1576,7 +1666,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `POST` |
 | **URL** | `/api/password/change` |
-| **Frontend** | `frontend/settings/app.js` → `handlePasswordChange()` |
+| **Frontend** | `apps/web/src/pages/settings/app.js` → `initPasswordChange()` |
 
 **Request Body:**
 ```json
@@ -1609,12 +1699,12 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `PUT` |
 | **URL** | `/api/user/profile-image` |
-| **Frontend** | `frontend/settings/app.js` → `initProfileImageUpload()` |
+| **Frontend** | `apps/web/src/pages/settings/app.js` → `initProfileImageUpload()` |
 
 **Request Body:**
 ```json
 {
-  "profile_image": "data:image/png;base64,..."
+  "profileImage": "data:image/png;base64,..."
 }
 ```
 
@@ -1633,7 +1723,7 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 |---|---|
 | **Methode** | `DELETE` |
 | **URL** | `/api/user/account` |
-| **Frontend** | `frontend/settings/app.js` → `handleAccountDelete()` |
+| **Frontend** | `apps/web/src/pages/settings/app.js` → `initDeleteAccount()` |
 
 **Response:**
 ```json
@@ -1648,37 +1738,12 @@ Leitet Anfragen an die Twelve Data API weiter. Alle Twelve Data Endpunkte sind �
 
 | Frontend-Modul | Hauptdatei für API-Aufrufe | Beschreibung |
 |---|---|---|
-| Homepage (Login/Register) | `frontend/homepage/app.js` | Login, Registrierung, Verifizierung |
-| Shared (Session) | `frontend/shared/js/session-utils.js` | Session-Check, Logout |
-| Dashboard | `frontend/dashboard/js/dashboard-api.js` | Einnahmen, Ausgaben, Kategorien |
-| Aktien | `frontend/stocks/js/state-api.js` | Positionen, Aktiendaten, Depots |
-| Gruppen | `frontend/groups/js/app.js` | Gruppenverwaltung, Chat, Funding |
-| Fragen | `frontend/questions/js/app.js`, `question.js` | Q&A Forum |
-| Nachrichten | `frontend/nachrichten/js/chat.js`, `nachrichten.js` | Direktnachrichten |
-| Konten | `frontend/accounts/js/app.js` | Bank-/Depotkontoverwaltung |
-| Einstellungen | `frontend/settings/app.js` | Passwort, Profilbild, Account |
-| **URL** | `/api/transactions` |
-| **Methoden** | `GET` |
-| **Frontend** | `frontend/dashboard/js/dashboard-api.js` → `loadTransactions()` |
-
-Gibt kombinierte Transaktionen des Nutzers (Einnahmen und Ausgaben) chronologisch sortiert zurueck.
-
-Query-Parameter:
-- `limit` (optional, Standard 50, max 200)
-- `cursor` (optional, fuer Pagination; Wert aus `next_cursor` verwenden)
-- `category` (optional, Filter nach Kategorie, case-insensitive)
-- `bank_account_id` (optional, Filter auf ein Konto; muss dem Nutzer gehoeren)
-
-Response 200 Beispiel:
-```
-{
-  "ok": true,
-  "entries": [
-    { "type": "income", "id": "123", "source": "Gehalt", "category": "salary", "amount": 3500, "cycle": "once", "recurrence": null, "is_active": true, "note": "", "received_at": "2024-05-01T08:00:00.000Z", ... },
-    { "type": "expense", "id": "456", "source": "Miete", "category": "rent", "amount": 1200, "cycle": "monthly", "recurrence": null, "is_active": true, "note": "", "spent_at": "2024-05-03T08:00:00.000Z", ... }
-  ],
-  "next_cursor": "<opaque>"
-}
-```
-
-Hinweis: `next_cursor` kann fuer die naechste Seite an `cursor` uebergeben werden.
+| Homepage | `apps/web/src/pages/homepage/app.js` | Startseite |
+| Auth (Login/Register/Passwort) | `apps/web/src/pages/dashboard/script.js` | Login, Registrierung, Verifizierung, Passwort vergessen/zurücksetzen |
+| Shared (Session) | `apps/web/src/shared/js/session-utils.js` | Session-Check, Logout |
+| Dashboard | `apps/web/src/pages/dashboard/dashboard-api.js` | Einnahmen, Ausgaben, Transaktionen, Kategorien, Budgets |
+| Aktien | `apps/web/src/pages/stocks/state-api.js` | Positionen, Aktiendaten, Depots |
+| Gruppen | `apps/web/src/pages/groups/app.js` | Gruppenverwaltung, Chat, Funding |
+| Fragen | `apps/web/src/pages/questions/app.js`, `question.js` | Q&A Forum |
+| Konten | `apps/web/src/pages/accounts/app.js` | Bank-/Depotkontoverwaltung |
+| Einstellungen | `apps/web/src/pages/settings/app.js` | Passwort ändern, Profilbild, Account löschen |
