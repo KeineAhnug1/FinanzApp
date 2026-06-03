@@ -1767,3 +1767,19 @@ input.touched:invalid ~ .field-hint,
     height: 20px;
   }
 }
+
+/* ── Nav icon light mode base ──
+   Render all nav icons as a consistent muted dark tone in light mode. */
+.app-nav-icon-img,
+.app-bottom-nav-icon img,
+.settings-icon-img {
+  filter: brightness(0) opacity(0.55);
+}
+
+/* ── Nav icon theme adaptation ──
+   SVG icons use fill="currentColor". In dark mode, invert so they appear light. */
+[data-theme="dark"] .app-nav-icon-img,
+[data-theme="dark"] .app-bottom-nav-icon img,
+[data-theme="dark"] .settings-icon-img {
+  filter: brightness(0) invert(1) opacity(0.8);
+}
