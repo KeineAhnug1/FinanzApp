@@ -767,6 +767,9 @@ export function fnGetPositionShareAccountId(oPosition) {
  * Scope: [SHARED]
  * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCurrency: string, sType: string}>>}
  */
+let _catalogCache = null;
+let _catalogCacheTs = 0;
+const CATALOG_TTL_MS = 10 * 60 * 1000;
 export async function fnLoadAllStocksCatalog(oOptions = {}) {
 	try {
 		const bExchangeProvided = oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
@@ -774,10 +777,18 @@ export async function fnLoadAllStocksCatalog(oOptions = {}) {
 		const sExchange = bExchangeProvided && !bNoExchangeSelection
 			? fnNormalizeTradingExchange(oOptions?.sExchange)
 			: fnNormalizeTradingExchange(fnGetTradingExchange());
-		const oResponse = await fetch(sAllStocksDataPath);
-		if (!oResponse.ok) return [];
 
-		const oData = await oResponse.json();
+		let oData;
+		if (_catalogCache && Date.now() - _catalogCacheTs < CATALOG_TTL_MS) {
+			oData = _catalogCache;
+		} else {
+			const oResponse = await fetch(sAllStocksDataPath);
+			if (!oResponse.ok) return [];
+			oData = await oResponse.json();
+			_catalogCache = oData;
+			_catalogCacheTs = Date.now();
+		}
+
 		const aRows = Array.isArray(oData?.data)
 			? oData.data
 				.map((oRow) => ({

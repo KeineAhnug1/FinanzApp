@@ -223,7 +223,7 @@ const aBankAccountsEndpoints = [
 
     const onClose = () => { elBackdrop.hidden = true; };
     elClose.addEventListener("click", onClose, { once: true });
-    elBackdrop.addEventListener("click", (e) => { if (e.target === elBackdrop) onClose(); });
+    elBackdrop.addEventListener("click", (e) => { if (e.target === elBackdrop) onClose(); }, { once: true });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") onClose(); }, { once: true });
 
     try {

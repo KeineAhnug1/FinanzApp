@@ -1136,6 +1136,15 @@ textarea:focus,
   background: var(--ui-surface);
 }
 
+button:focus-visible,
+.entry-tab-btn:focus-visible,
+.app-nav-link:focus-visible,
+.hp-btn:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+  border-radius: var(--ui-radius-sm);
+}
+
 @media (max-width: 960px) {
   body.has-shared-sidebar,
   body.has-shared-sidebar.side-nav-collapsed {

@@ -14,7 +14,6 @@ import {
 } from './dashboard-api.js';
 import { initConfirmModal } from './modal.js';
 import { initSettingsMenu } from './settings-menu.js';
-import { hydrateProfile, initProfileMenu, initDashboardMobileNav } from './profile-menu.js';
 import { initIncomeForm, initIncomeListActions } from './income.js';
 import { initExpenseForm, initExpenseListActions } from './expense.js';
 import { initOverviewPieControls } from './overview-cashflow.js';
@@ -47,15 +46,7 @@ export async function bootstrap() {
   initThemeSwitcher();
   initSectionTabs();
   initEntryTabs();
-  const bUseSharedTopbar = true;
-  if (!bUseSharedTopbar) {
-    initDashboardMobileNav();
-    hydrateProfile(appState.user);
-  }
   initSettingsMenu();
-  if (!bUseSharedTopbar) {
-    initProfileMenu();
-  }
 
   const askConfirm = initConfirmModal();
   incomeState.askConfirm = askConfirm;

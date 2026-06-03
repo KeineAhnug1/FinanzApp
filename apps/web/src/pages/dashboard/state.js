@@ -73,17 +73,6 @@ export const EXPENSE_CATEGORY_OPTIONS = [
 ];
 export const PRESET_INCOME_CATEGORY_KEYS = new Set(INCOME_CATEGORY_OPTIONS.map((item) => item.value.toLowerCase()));
 export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(EXPENSE_CATEGORY_OPTIONS.map((item) => item.value.toLowerCase()));
-export const CATEGORY_LABELS = {
-  salary: "Gehalt",
-  freelance: "Freelance",
-  bonus: "Bonus",
-  refund: "Rueckzahlung",
-  investment: "Kapitalertraege",
-  rent: "Miete",
-  groceries: "Lebensmittel",
-  utilities: "Nebenkosten",
-  transport: "Mobilitaet",
-  health: "Gesundheit",
-  entertainment: "Freizeit",
-  other: "Sonstiges"
-};
+export const CATEGORY_LABELS = Object.fromEntries(
+  [...INCOME_CATEGORY_OPTIONS, ...EXPENSE_CATEGORY_OPTIONS].map(({ value, label }) => [value, label])
+);

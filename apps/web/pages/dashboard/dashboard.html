@@ -33,13 +33,13 @@
 
     <main class="dash-main">
 
-      <nav class="entry-tab-nav page-tab-nav" aria-label="Dashboard-Bereiche">
-        <button type="button" class="entry-tab-btn is-active" data-view-tab="overview" aria-selected="true">Übersicht</button>
-        <button type="button" class="entry-tab-btn" data-view-tab="income" aria-selected="false">Einnahmen</button>
-        <button type="button" class="entry-tab-btn" data-view-tab="expense" aria-selected="false">Ausgaben</button>
-      </nav>
+      <div role="tablist" aria-label="Dashboard-Bereiche" class="entry-tab-nav page-tab-nav">
+        <button type="button" role="tab" id="tab-overview" class="entry-tab-btn is-active" data-view-tab="overview" aria-selected="true" aria-controls="panel-overview">Übersicht</button>
+        <button type="button" role="tab" id="tab-income" class="entry-tab-btn" data-view-tab="income" aria-selected="false" aria-controls="panel-income">Einnahmen</button>
+        <button type="button" role="tab" id="tab-expense" class="entry-tab-btn" data-view-tab="expense" aria-selected="false" aria-controls="panel-expense">Ausgaben</button>
+      </div>
 
-      <section class="view-panel" data-view-panel="overview">
+      <section role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" class="view-panel" data-view-panel="overview" tabindex="0">
         <section class="panel account-filter-panel" id="dashboard-account-filter-wrap" hidden>
           <h2 class="panel-title">Kontofilter</h2>
           <div>
@@ -102,7 +102,7 @@
         </section>
       </section>
 
-      <section class="view-panel" data-view-panel="income" hidden>
+      <section role="tabpanel" id="panel-income" aria-labelledby="tab-income" class="view-panel" data-view-panel="income" hidden tabindex="0">
           <section class="income-grid">
             <article class="panel">
               <h2 class="panel-title">Einnahme erfassen</h2>
@@ -188,7 +188,7 @@
           </section>
       </section>
 
-      <section class="view-panel" data-view-panel="expense" hidden>
+      <section role="tabpanel" id="panel-expense" aria-labelledby="tab-expense" class="view-panel" data-view-panel="expense" hidden tabindex="0">
           <section class="income-grid">
             <article class="panel">
               <h2 class="panel-title">Ausgabe erfassen</h2>

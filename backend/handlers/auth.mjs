@@ -364,6 +364,10 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     if (detectBlockedRegistrationName({ username, firstName, lastName })) {
       return sendJson(res, 400, { ok: false, code: "forbidden_name", message: "Der angegebene Name ist verboten und kann nicht verwendet werden." });
     }
+    if (username.length > 50) return badRequest(res, 'Username zu lang (max. 50 Zeichen)');
+    if (firstName.length > 100) return badRequest(res, 'Vorname zu lang (max. 100 Zeichen)');
+    if (lastName.length > 100) return badRequest(res, 'Nachname zu lang (max. 100 Zeichen)');
+    if (email.length > 254) return badRequest(res, 'E-Mail zu lang');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest(res, "Bitte eine gueltige E-Mail-Adresse angeben");
     if (password.length < 8) return badRequest(res, "Passwort muss mindestens 8 Zeichen haben");
 
@@ -411,6 +415,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       res.setHeader("Allow", "POST");
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
+
+    if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: 'register-verify' })) return;
 
     const payload = await parseBody(req, res);
     if (!payload) return;
@@ -496,7 +502,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       const user = rows[0];
       const code = createVerificationCode();
       const now = new Date();
-      const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+      const expiresAt = new Date(now.getTime() + VERIFICATION_TTL_MINUTES * 60 * 1000);
       await pool.query(
         `INSERT INTO password_resets (email, user_id, code_hash, attempts, created_at, expires_at)
          VALUES ($1, $2, $3, 0, $4, $5)

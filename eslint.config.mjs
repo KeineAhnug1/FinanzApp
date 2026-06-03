@@ -26,9 +26,7 @@ export default defineConfig([
       globals: { ...globals.node },
       sourceType: "module"
     },
-    rules: {
-      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }]
-    }
+    rules: { "no-unused-vars": ["error", { argsIgnorePattern: "^_" }] }
   },
   {
     files: ["shared/**/*.ts", "backend/**/*.ts", "database/**/*.ts"],

@@ -70,7 +70,7 @@ export async function loadUserCategories() {
 // Aktualisiert die Kategorie-Selects im UI.
 export async function refreshCategoryData() {
   if (!appState.user?.id) return;
-  const categories = await loadUserCategories(appState.user.id);
+  const categories = await loadUserCategories();
   categoryState.income = categories.income;
   categoryState.expense = categories.expense;
   applyCategoryOptions();
@@ -79,24 +79,28 @@ export async function refreshCategoryData() {
 // Holt Einnahmen/Ausgaben neu und rendert alle abhängigen UI-Bausteine.
 export async function refreshDashboardData() {
   if (!appState.user?.id) return;
-  appState.bankAccounts = await loadBankAccounts(appState.user.id);
-  if (
-    appState.selectedBankAccountId &&
-    !appState.bankAccounts.some((account) => String(account.id) === String(appState.selectedBankAccountId))
-  ) {
-    appState.selectedBankAccountId = "";
+  try {
+    appState.bankAccounts = await loadBankAccounts();
+    if (
+      appState.selectedBankAccountId &&
+      !appState.bankAccounts.some((account) => String(account.id) === String(appState.selectedBankAccountId))
+    ) {
+      appState.selectedBankAccountId = "";
+    }
+    renderBankAccountSelectors();
+
+    const tx = await loadTransactions();
+    appState.incomeEntries = tx.income;
+    appState.expenseEntries = tx.expense;
+    renderIncomeList(appState.incomeEntries);
+    renderExpenseList(appState.expenseEntries);
+    updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
+
+    appState.budgetAlerts = await loadBudgetStatus();
+    renderBudgetAlerts();
+  } catch (err) {
+    console.error('refreshDashboardData failed', err);
   }
-  renderBankAccountSelectors();
-
-  const tx = await loadTransactions();
-  appState.incomeEntries = tx.income;
-  appState.expenseEntries = tx.expense;
-  renderIncomeList(appState.incomeEntries);
-  renderExpenseList(appState.expenseEntries);
-  updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
-
-  appState.budgetAlerts = await loadBudgetStatus();
-  renderBudgetAlerts();
 }
 
 export function formatBankAccountLabel(account) {
@@ -143,7 +147,6 @@ export function renderBankAccountSelectors() {
   }
   if (dashboardFilterWrap) {
     dashboardFilterWrap.hidden = !hasMultipleAccounts;
-    dashboardFilterWrap.style.display = hasMultipleAccounts ? "" : "none";
   }
   if (dashboardFilterSelect) {
     if (!hasMultipleAccounts) {
@@ -162,7 +165,12 @@ export function initDashboardAccountFilter() {
 
   dashboardFilterSelect.addEventListener("change", async () => {
     appState.selectedBankAccountId = String(dashboardFilterSelect.value || "").trim();
-    await refreshDashboardData();
+    dashboardFilterSelect.disabled = true;
+    try {
+      await refreshDashboardData();
+    } finally {
+      dashboardFilterSelect.disabled = false;
+    }
   });
 }
 

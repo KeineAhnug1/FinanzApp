@@ -249,7 +249,9 @@ function fnBuildRangeDevelopmentBySymbol(aRows, aPositions, mSeriesBySymbol, oQu
  * - `bPnlOnly`: Ob Gewinn/Verlust statt Depotwert angezeigt wird.
  * - Diverse `el...`: Referenzen auf KPIs, Tabelle und Canvas.
  */
+let _resizeCleanup = null;
 export async function fnInitDepotView() {
+	if (_resizeCleanup) { _resizeCleanup(); _resizeCleanup = null; }
 	const elDepotInfo = document.getElementById("depotInfo");
 	const elHoldingsTbody = document.querySelector("#holdingsTable tbody");
 	const elHoldingsDevelopmentHeader = document.getElementById("holdingsDevelopmentHeader");
@@ -395,7 +397,7 @@ export async function fnInitDepotView() {
         <tr>
           <td>
             <span class="stock-cell-with-logo">
-              <img class="stock-logo stock-logo--sm" data-symbol="${sSymbol}" data-logo-size="48" src="${sLogoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';">
+              <img class="stock-logo stock-logo--sm" data-symbol="${sSymbol}" data-logo-size="48" src="${sLogoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
               <b>${sSymbol}</b>
             </span>
           </td>
@@ -406,6 +408,9 @@ export async function fnInitDepotView() {
       `;
 			})
 			.join("");
+		elHoldingsTbody.querySelectorAll('img.stock-logo').forEach((img) => {
+			img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
+		});
 	};
 
 	const fnSetRangeLabels = (sRange) => {
@@ -443,42 +448,49 @@ export async function fnInitDepotView() {
 	let sActiveRange = "1D";
 	fnSetRangeLabels(sActiveRange);
 
+		let bDepotChartRefreshing = false;
 		const fnRefreshDepotChart = async () => {
-			await fnBuildDepotChart({
-			aPositions,
-			aDepotRows,
-			sRange: sActiveRange,
-			oCtx,
-			elCanvas,
-			elInfo: elDepotInfo,
-			elKTotal,
-			elKTotalLabel,
-			elKProfitLoss,
-			bPnlOnly: Boolean(elPnlOnly.checked),
-			oPieCtx,
-			elPieCanvas,
-			elPieLegend,
-				fnOnCompositionChange: (aComposition) => {
-					aPieItemsCurrent = aComposition;
-					if (iSelectedPieIndex >= aPieItemsCurrent.length) iSelectedPieIndex = -1;
-					fnRenderPie();
-				},
-				fnOnPointsChange: (aPoints, bPnlOnlyCurrent) => {
-					aLastDepotChartPoints = Array.isArray(aPoints) ? aPoints : [];
-					bLastDepotPnlOnly = Boolean(bPnlOnlyCurrent);
-				},
-				fnOnProfitLossChange: (nAbs, nPct) => {
-					nProfitLossAbs = Number(nAbs);
-					nProfitLossPct = Number(nPct);
-					fnRenderProfitLoss();
-				},
-				fnOnDevelopmentBySymbolChange: (mNextDevelopmentBySymbol) => {
-					mRangeDevelopmentBySymbol = mNextDevelopmentBySymbol instanceof Map
-						? mNextDevelopmentBySymbol
-						: new Map();
-					fnRenderDepotRows();
-				},
-			});
+			if (bDepotChartRefreshing) return;
+			bDepotChartRefreshing = true;
+			try {
+				await fnBuildDepotChart({
+				aPositions,
+				aDepotRows,
+				sRange: sActiveRange,
+				oCtx,
+				elCanvas,
+				elInfo: elDepotInfo,
+				elKTotal,
+				elKTotalLabel,
+				elKProfitLoss,
+				bPnlOnly: Boolean(elPnlOnly.checked),
+				oPieCtx,
+				elPieCanvas,
+				elPieLegend,
+					fnOnCompositionChange: (aComposition) => {
+						aPieItemsCurrent = aComposition;
+						if (iSelectedPieIndex >= aPieItemsCurrent.length) iSelectedPieIndex = -1;
+						fnRenderPie();
+					},
+					fnOnPointsChange: (aPoints, bPnlOnlyCurrent) => {
+						aLastDepotChartPoints = Array.isArray(aPoints) ? aPoints : [];
+						bLastDepotPnlOnly = Boolean(bPnlOnlyCurrent);
+					},
+					fnOnProfitLossChange: (nAbs, nPct) => {
+						nProfitLossAbs = Number(nAbs);
+						nProfitLossPct = Number(nPct);
+						fnRenderProfitLoss();
+					},
+					fnOnDevelopmentBySymbolChange: (mNextDevelopmentBySymbol) => {
+						mRangeDevelopmentBySymbol = mNextDevelopmentBySymbol instanceof Map
+							? mNextDevelopmentBySymbol
+							: new Map();
+						fnRenderDepotRows();
+					},
+				});
+			} finally {
+				bDepotChartRefreshing = false;
+			}
 		};
 
 	aElRangeButtons.forEach((elButton) => {
@@ -502,6 +514,7 @@ export async function fnInitDepotView() {
 	});
 
 	window.addEventListener("resize", fnScheduleResponsiveRedraw);
+	_resizeCleanup = () => window.removeEventListener("resize", fnScheduleResponsiveRedraw);
 
 	await fnRefreshDepotChart();
 }
@@ -818,24 +831,33 @@ export async function fnInitAnalysisView() {
 		}
 	};
 
+	let bAnalysisChartRefreshing = false;
 	const fnRefreshAnalysisChart = async () => {
-		const oChartResult = await fnBuildAnalysisChart({
-			aPositions,
-			sSelectedSymbol,
-			sRange: sActiveRange,
-			oCtx,
-			elCanvas,
-			elInfo,
-			elTotal,
-			elTotalLabel,
-			elChange,
-		});
-		nLastKnownClose = Number.isFinite(oChartResult?.nLastClose) ? oChartResult.nLastClose : Number.NaN;
+		if (bAnalysisChartRefreshing) return;
+		bAnalysisChartRefreshing = true;
+		try {
+			const oChartResult = await fnBuildAnalysisChart({
+				aPositions,
+				sSelectedSymbol,
+				sRange: sActiveRange,
+				oCtx,
+				elCanvas,
+				elInfo,
+				elTotal,
+				elTotalLabel,
+				elChange,
+			});
+			nLastKnownClose = Number.isFinite(oChartResult?.nLastClose) ? oChartResult.nLastClose : Number.NaN;
+		} finally {
+			bAnalysisChartRefreshing = false;
+		}
 	};
 
-	elCatalogSearchInput.addEventListener("input", async () => {
+	let _searchDebounceTimer = null;
+	elCatalogSearchInput.addEventListener("input", () => {
 		sCatalogSearchTerm = String(elCatalogSearchInput.value || "").trim();
-		await fnRenderSearchResults();
+		clearTimeout(_searchDebounceTimer);
+		_searchDebounceTimer = setTimeout(() => fnRenderSearchResults(), 250);
 	});
 
 	elExchangeSelect.addEventListener("change", async () => {
@@ -899,202 +921,218 @@ export async function fnInitAnalysisView() {
 	});
 
 	elBuyBtn.addEventListener("click", async () => {
-		const sSymbol = String(sSelectedSymbol || "").trim().toUpperCase();
-		const nAmount = Number(elTradeAmountInput.value);
-
-		if (!sSymbol) {
-			elBuyFeedback.textContent = fnT("stocks.select_stock_first", "Bitte zuerst eine Aktie auswählen.");
-			return;
-		}
-
-		if (!Number.isFinite(nAmount) || nAmount <= 0) {
-			elBuyFeedback.textContent = fnT("stocks.invalid_buy_amount", "Bitte eine gültige Kaufmenge größer als 0 eingeben.");
-			return;
-		}
-
-		const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
-		if (!sTargetShareAccountId) {
-			elBuyFeedback.textContent = fnT("stocks.buy_missing_share_account", "Kauf nicht möglich: Bitte ein Aktienkonto auswählen.");
-			return;
-		}
-
-		let nBuyPrice = await fnGetLatestPriceBySymbol(sSymbol);
-		if (!Number.isFinite(nBuyPrice) || nBuyPrice <= 0) {
-			nBuyPrice = nLastKnownClose;
-		}
-		if (!Number.isFinite(nBuyPrice) || nBuyPrice <= 0) {
-			elBuyFeedback.textContent = fnT("stocks.buy_price_unavailable", "Kauf nicht möglich: aktueller Kurs konnte nicht geladen werden.");
-			return;
-		}
-
-		const nTradeTotalValue = nAmount * nBuyPrice;
-		let oSelectedBankAccount;
+		if (elBuyBtn.disabled) return;
+		elBuyBtn.disabled = true;
+		elSellBtn.disabled = true;
 		try {
-			oSelectedBankAccount = await fnPromptBankAccountSelection({
-				sActionLabel: "Kauf",
-				sSymbol,
-				nAmount,
-				nTotalValue: nTradeTotalValue,
+			const sSymbol = String(sSelectedSymbol || "").trim().toUpperCase();
+			const nAmount = Number(elTradeAmountInput.value);
+
+			if (!sSymbol) {
+				elBuyFeedback.textContent = fnT("stocks.select_stock_first", "Bitte zuerst eine Aktie auswählen.");
+				return;
+			}
+
+			if (!Number.isFinite(nAmount) || nAmount <= 0) {
+				elBuyFeedback.textContent = fnT("stocks.invalid_buy_amount", "Bitte eine gültige Kaufmenge größer als 0 eingeben.");
+				return;
+			}
+
+			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
+			if (!sTargetShareAccountId) {
+				elBuyFeedback.textContent = fnT("stocks.buy_missing_share_account", "Kauf nicht möglich: Bitte ein Aktienkonto auswählen.");
+				return;
+			}
+
+			let nBuyPrice = await fnGetLatestPriceBySymbol(sSymbol);
+			if (!Number.isFinite(nBuyPrice) || nBuyPrice <= 0) {
+				nBuyPrice = nLastKnownClose;
+			}
+			if (!Number.isFinite(nBuyPrice) || nBuyPrice <= 0) {
+				elBuyFeedback.textContent = fnT("stocks.buy_price_unavailable", "Kauf nicht möglich: aktueller Kurs konnte nicht geladen werden.");
+				return;
+			}
+
+			const nTradeTotalValue = nAmount * nBuyPrice;
+			let oSelectedBankAccount;
+			try {
+				oSelectedBankAccount = await fnPromptBankAccountSelection({
+					sActionLabel: "Kauf",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `${fnT("stocks.buy_not_possible", "Kauf nicht möglich")}: ${String(oError?.message || oError)}`;
+				return;
+			}
+
+			if (!oSelectedBankAccount?.id) {
+				elBuyFeedback.textContent = fnT("stocks.buy_cancelled", "Kauf abgebrochen.");
+				return;
+			}
+
+			try {
+				await fnCreateDashboardTradeEntry({
+					sType: "expense",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+					sBankAccountId: oSelectedBankAccount.id,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `${fnT("stocks.buy_not_saved", "Kauf nicht gespeichert")}: ${String(oError?.message || oError)}`;
+				return;
+			}
+
+			const iNowUnixSeconds = Math.floor(Date.now() / 1000);
+			const oNewPosition = {
+				symbol: sSymbol,
+				amount: nAmount,
+				created_at: iNowUnixSeconds,
+				worthwhenbought: nBuyPrice,
+				share_account_id: sTargetShareAccountId,
+			};
+
+			fnPersistBoughtPosition(oNewPosition);
+			if (fnIsAllAccountsSelected() || fnNormalizeAccountId(sSelectedShareAccountId) === sTargetShareAccountId) {
+				aPositions.push(oNewPosition);
+			}
+			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
+			await fnRenderOwnedRows();
+			fnRenderOwnedSelectOptions();
+			const sTargetShareLabel = fnGetShareAccountLabel(sTargetShareAccountId);
+			elBuyFeedback.textContent = fnT("stocks.buy_saved_detail", "Kauf gespeichert: {amount} x {symbol} zu {price} auf {shareAccount}, abgebucht von {bankAccount}.", {
+				amount: fnFmtNumber(nAmount, 4),
+				symbol: sSymbol,
+				price: fnFmtMoney(nBuyPrice, "USD"),
+				shareAccount: sTargetShareLabel,
+				bankAccount: oSelectedBankAccount.label,
 			});
-		} catch (oError) {
-			elBuyFeedback.textContent = `${fnT("stocks.buy_not_possible", "Kauf nicht möglich")}: ${String(oError?.message || oError)}`;
-			return;
+			await fnRefreshAnalysisChart();
+		} finally {
+			elBuyBtn.disabled = false;
+			elSellBtn.disabled = false;
 		}
-
-		if (!oSelectedBankAccount?.id) {
-			elBuyFeedback.textContent = fnT("stocks.buy_cancelled", "Kauf abgebrochen.");
-			return;
-		}
-
-		try {
-			await fnCreateDashboardTradeEntry({
-				sType: "expense",
-				sSymbol,
-				nAmount,
-				nTotalValue: nTradeTotalValue,
-				sBankAccountId: oSelectedBankAccount.id,
-			});
-		} catch (oError) {
-			elBuyFeedback.textContent = `${fnT("stocks.buy_not_saved", "Kauf nicht gespeichert")}: ${String(oError?.message || oError)}`;
-			return;
-		}
-
-		const iNowUnixSeconds = Math.floor(Date.now() / 1000);
-		const oNewPosition = {
-			symbol: sSymbol,
-			amount: nAmount,
-			created_at: iNowUnixSeconds,
-			worthwhenbought: nBuyPrice,
-			share_account_id: sTargetShareAccountId,
-		};
-
-		fnPersistBoughtPosition(oNewPosition);
-		if (fnIsAllAccountsSelected() || fnNormalizeAccountId(sSelectedShareAccountId) === sTargetShareAccountId) {
-			aPositions.push(oNewPosition);
-		}
-		aOwnedRows = fnAggregateOwnedSymbols(aPositions);
-		await fnRenderOwnedRows();
-		fnRenderOwnedSelectOptions();
-		const sTargetShareLabel = fnGetShareAccountLabel(sTargetShareAccountId);
-		elBuyFeedback.textContent = fnT("stocks.buy_saved_detail", "Kauf gespeichert: {amount} x {symbol} zu {price} auf {shareAccount}, abgebucht von {bankAccount}.", {
-			amount: fnFmtNumber(nAmount, 4),
-			symbol: sSymbol,
-			price: fnFmtMoney(nBuyPrice, "USD"),
-			shareAccount: sTargetShareLabel,
-			bankAccount: oSelectedBankAccount.label,
-		});
-		await fnRefreshAnalysisChart();
 	});
 
 	elSellBtn.addEventListener("click", async () => {
-		const sSymbol = String(sSelectedSymbol || "").trim().toUpperCase();
-		const nAmount = Number(elTradeAmountInput.value);
-
-		if (!sSymbol) {
-			elBuyFeedback.textContent = fnT("stocks.select_stock_first", "Bitte zuerst eine Aktie auswählen.");
-			return;
-		}
-
-		if (!Number.isFinite(nAmount) || nAmount <= 0) {
-			elBuyFeedback.textContent = fnT("stocks.invalid_sell_amount", "Bitte eine gültige Verkaufsmenge größer als 0 eingeben.");
-			return;
-		}
-
-		const oOwnedRow = aOwnedRows.find((oRow) => oRow.sSymbol === sSymbol);
-		const nOwnedAmount = Number(oOwnedRow?.nTotalAmount);
-		if (!Number.isFinite(nOwnedAmount) || nOwnedAmount <= 0) {
-			elBuyFeedback.textContent = fnT("stocks.sell_not_possible_not_owned", "Verkauf nicht möglich: {symbol} ist nicht im Bestand.", { symbol: sSymbol });
-			return;
-		}
-		if (nAmount > nOwnedAmount) {
-			elBuyFeedback.textContent = fnT("stocks.sell_not_possible_stock", "Verkauf nicht möglich: Bestand {amount} {symbol}.", {
-				amount: fnFmtNumber(nOwnedAmount, 4),
-				symbol: sSymbol,
-			});
-			return;
-		}
-
-		const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
-		if (!sTargetShareAccountId) {
-			elBuyFeedback.textContent = fnT("stocks.sell_missing_share_account", "Verkauf nicht möglich: Bitte ein Aktienkonto auswählen.");
-			return;
-		}
-
-		const nOwnedAmountOnTargetAccount = aPositions
-			.filter((oPosition) => String(oPosition?.symbol || "").trim().toUpperCase() === sSymbol)
-			.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sTargetShareAccountId)
-			.reduce((nSum, oPosition) => nSum + Number(oPosition?.amount || 0), 0);
-		if (nAmount > nOwnedAmountOnTargetAccount) {
-			elBuyFeedback.textContent = fnT("stocks.sell_not_possible_account_stock", "Verkauf nicht möglich: Bestand auf {account} ist {amount} {symbol}.", {
-				account: fnGetShareAccountLabel(sTargetShareAccountId),
-				amount: fnFmtNumber(nOwnedAmountOnTargetAccount, 4),
-				symbol: sSymbol,
-			});
-			return;
-		}
-
-		let nSellPrice = await fnGetLatestPriceBySymbol(sSymbol);
-		if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
-			nSellPrice = nLastKnownClose;
-		}
-		if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
-			elBuyFeedback.textContent = fnT("stocks.sell_price_unavailable", "Verkauf nicht möglich: aktueller Kurs konnte nicht geladen werden.");
-			return;
-		}
-
-		const nTradeTotalValue = nAmount * nSellPrice;
-		let oSelectedBankAccount;
+		if (elSellBtn.disabled) return;
+		elBuyBtn.disabled = true;
+		elSellBtn.disabled = true;
 		try {
-			oSelectedBankAccount = await fnPromptBankAccountSelection({
-				sActionLabel: "Verkauf",
-				sSymbol,
-				nAmount,
-				nTotalValue: nTradeTotalValue,
+			const sSymbol = String(sSelectedSymbol || "").trim().toUpperCase();
+			const nAmount = Number(elTradeAmountInput.value);
+
+			if (!sSymbol) {
+				elBuyFeedback.textContent = fnT("stocks.select_stock_first", "Bitte zuerst eine Aktie auswählen.");
+				return;
+			}
+
+			if (!Number.isFinite(nAmount) || nAmount <= 0) {
+				elBuyFeedback.textContent = fnT("stocks.invalid_sell_amount", "Bitte eine gültige Verkaufsmenge größer als 0 eingeben.");
+				return;
+			}
+
+			const oOwnedRow = aOwnedRows.find((oRow) => oRow.sSymbol === sSymbol);
+			const nOwnedAmount = Number(oOwnedRow?.nTotalAmount);
+			if (!Number.isFinite(nOwnedAmount) || nOwnedAmount <= 0) {
+				elBuyFeedback.textContent = fnT("stocks.sell_not_possible_not_owned", "Verkauf nicht möglich: {symbol} ist nicht im Bestand.", { symbol: sSymbol });
+				return;
+			}
+			if (nAmount > nOwnedAmount) {
+				elBuyFeedback.textContent = fnT("stocks.sell_not_possible_stock", "Verkauf nicht möglich: Bestand {amount} {symbol}.", {
+					amount: fnFmtNumber(nOwnedAmount, 4),
+					symbol: sSymbol,
+				});
+				return;
+			}
+
+			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
+			if (!sTargetShareAccountId) {
+				elBuyFeedback.textContent = fnT("stocks.sell_missing_share_account", "Verkauf nicht möglich: Bitte ein Aktienkonto auswählen.");
+				return;
+			}
+
+			const nOwnedAmountOnTargetAccount = aPositions
+				.filter((oPosition) => String(oPosition?.symbol || "").trim().toUpperCase() === sSymbol)
+				.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sTargetShareAccountId)
+				.reduce((nSum, oPosition) => nSum + Number(oPosition?.amount || 0), 0);
+			if (nAmount > nOwnedAmountOnTargetAccount) {
+				elBuyFeedback.textContent = fnT("stocks.sell_not_possible_account_stock", "Verkauf nicht möglich: Bestand auf {account} ist {amount} {symbol}.", {
+					account: fnGetShareAccountLabel(sTargetShareAccountId),
+					amount: fnFmtNumber(nOwnedAmountOnTargetAccount, 4),
+					symbol: sSymbol,
+				});
+				return;
+			}
+
+			let nSellPrice = await fnGetLatestPriceBySymbol(sSymbol);
+			if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
+				nSellPrice = nLastKnownClose;
+			}
+			if (!Number.isFinite(nSellPrice) || nSellPrice <= 0) {
+				elBuyFeedback.textContent = fnT("stocks.sell_price_unavailable", "Verkauf nicht möglich: aktueller Kurs konnte nicht geladen werden.");
+				return;
+			}
+
+			const nTradeTotalValue = nAmount * nSellPrice;
+			let oSelectedBankAccount;
+			try {
+				oSelectedBankAccount = await fnPromptBankAccountSelection({
+					sActionLabel: "Verkauf",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `${fnT("stocks.sell_not_possible", "Verkauf nicht möglich")}: ${String(oError?.message || oError)}`;
+				return;
+			}
+
+			if (!oSelectedBankAccount?.id) {
+				elBuyFeedback.textContent = fnT("stocks.sell_cancelled", "Verkauf abgebrochen.");
+				return;
+			}
+
+			try {
+				await fnCreateDashboardTradeEntry({
+					sType: "income",
+					sSymbol,
+					nAmount,
+					nTotalValue: nTradeTotalValue,
+					sBankAccountId: oSelectedBankAccount.id,
+				});
+			} catch (oError) {
+				elBuyFeedback.textContent = `${fnT("stocks.sell_not_saved", "Verkauf nicht gespeichert")}: ${String(oError?.message || oError)}`;
+				return;
+			}
+
+			const iNowUnixSeconds = Math.floor(Date.now() / 1000);
+			const oSoldPosition = {
+				symbol: sSymbol,
+				amount: nAmount,
+				created_at: iNowUnixSeconds,
+				share_account_id: sTargetShareAccountId,
+			};
+
+			fnPersistSoldPosition(oSoldPosition);
+			aPositions = fnApplySoldPositions(aPositions, [oSoldPosition]);
+			aOwnedRows = fnAggregateOwnedSymbols(aPositions);
+			await fnRenderOwnedRows();
+			fnRenderOwnedSelectOptions();
+
+			elBuyFeedback.textContent = fnT("stocks.sell_saved_detail", "Verkauf gespeichert: {amount} x {symbol} von {shareAccount}, gutgeschrieben auf {bankAccount}.", {
+				amount: fnFmtNumber(nAmount, 4),
+				symbol: sSymbol,
+				shareAccount: fnGetShareAccountLabel(sTargetShareAccountId),
+				bankAccount: oSelectedBankAccount.label,
 			});
-		} catch (oError) {
-			elBuyFeedback.textContent = `${fnT("stocks.sell_not_possible", "Verkauf nicht möglich")}: ${String(oError?.message || oError)}`;
-			return;
+			await fnRefreshAnalysisChart();
+		} finally {
+			elBuyBtn.disabled = false;
+			elSellBtn.disabled = false;
 		}
-
-		if (!oSelectedBankAccount?.id) {
-			elBuyFeedback.textContent = fnT("stocks.sell_cancelled", "Verkauf abgebrochen.");
-			return;
-		}
-
-		try {
-			await fnCreateDashboardTradeEntry({
-				sType: "income",
-				sSymbol,
-				nAmount,
-				nTotalValue: nTradeTotalValue,
-				sBankAccountId: oSelectedBankAccount.id,
-			});
-		} catch (oError) {
-			elBuyFeedback.textContent = `${fnT("stocks.sell_not_saved", "Verkauf nicht gespeichert")}: ${String(oError?.message || oError)}`;
-			return;
-		}
-
-		const iNowUnixSeconds = Math.floor(Date.now() / 1000);
-		const oSoldPosition = {
-			symbol: sSymbol,
-			amount: nAmount,
-			created_at: iNowUnixSeconds,
-			share_account_id: sTargetShareAccountId,
-		};
-
-		fnPersistSoldPosition(oSoldPosition);
-		aPositions = fnApplySoldPositions(aPositions, [oSoldPosition]);
-		aOwnedRows = fnAggregateOwnedSymbols(aPositions);
-		await fnRenderOwnedRows();
-		fnRenderOwnedSelectOptions();
-
-		elBuyFeedback.textContent = fnT("stocks.sell_saved_detail", "Verkauf gespeichert: {amount} x {symbol} von {shareAccount}, gutgeschrieben auf {bankAccount}.", {
-			amount: fnFmtNumber(nAmount, 4),
-			symbol: sSymbol,
-			shareAccount: fnGetShareAccountLabel(sTargetShareAccountId),
-			bankAccount: oSelectedBankAccount.label,
-		});
-		await fnRefreshAnalysisChart();
 	});
 
 	await fnRenderOwnedRows();
@@ -1346,7 +1384,7 @@ export async function fnInitCategoryView(sCategoryView) {
           <td><b>${fnEscapeHtml(oRow.sSymbol)}</b></td>
           <td>
             <span class="stock-cell-with-logo">
-              <img class="stock-logo stock-logo--sm" data-symbol="${fnEscapeHtml(oRow.sSymbol)}" data-logo-size="48" src="${sLogoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';">
+              <img class="stock-logo stock-logo--sm" data-symbol="${fnEscapeHtml(oRow.sSymbol)}" data-logo-size="48" src="${sLogoUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
               <span>${fnEscapeHtml(sName)}</span>
             </span>
           </td>
@@ -1358,6 +1396,9 @@ export async function fnInitCategoryView(sCategoryView) {
       `;
 		})
 		.join("");
+	elTableTbody.querySelectorAll('img.stock-logo').forEach((img) => {
+		img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
+	});
 }
 
 export function fnAskTransferTargetPrompt(aOptions) {

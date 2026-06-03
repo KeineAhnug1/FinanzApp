@@ -40,6 +40,7 @@ const LOGO_CACHE_TTL = 6 * 60 * 60 * 1000;
 const LOGO_NEGATIVE_TTL = 30 * 60 * 1000;
 const LOGO_CACHE_MAX = 500;
 const DOMAIN_CACHE_TTL = 24 * 60 * 60 * 1000;
+const DOMAIN_CACHE_MAX = 2000;
 const logoCache = new Map();
 const domainCache = new Map();
 
@@ -77,6 +78,9 @@ function domainCacheGet(key) {
  * @param {string} domain
  */
 function domainCacheSet(key, domain) {
+  if (domainCache.size >= DOMAIN_CACHE_MAX) {
+    domainCache.delete(domainCache.keys().next().value);
+  }
   domainCache.set(key, { domain, cachedAt: Date.now() });
 }
 

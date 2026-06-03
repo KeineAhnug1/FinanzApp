@@ -31,10 +31,10 @@
 
 	<div class="app stocks-page" id="stocks-page">
 		<main>
-			<nav class="entry-tab-nav page-tab-nav" aria-label="Aktien-Bereiche">
-				<button type="button" class="entry-tab-btn is-active" data-stocks-tab="depot" aria-selected="true">Gesamtdepot</button>
-				<button type="button" class="entry-tab-btn" data-stocks-tab="analysis" aria-selected="false">Einzelanalyse</button>
-			</nav>
+			<div role="tablist" aria-label="Aktien-Bereiche" class="entry-tab-nav page-tab-nav">
+				<button type="button" role="tab" id="tab-depot" class="entry-tab-btn is-active" data-stocks-tab="depot" aria-selected="true" aria-controls="panel-depot">Gesamtdepot</button>
+				<button type="button" role="tab" id="tab-analysis" class="entry-tab-btn" data-stocks-tab="analysis" aria-selected="false" aria-controls="panel-analysis">Einzelanalyse</button>
+			</div>
 			<div id="viewHost"></div>
 		</main>
 	</div>

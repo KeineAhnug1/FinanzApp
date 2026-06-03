@@ -24,17 +24,13 @@ export function createGroupHandlers(pool) {
     const userObjectId = parseObjectId(sessionUserId);
     if (!userObjectId) return { ok: false, status: 401, message: "Session user invalid" };
 
-    const userResult = await pool.query(
-      `SELECT id, username, first_name, last_name FROM users WHERE id = $1`,
-      [userObjectId]
-    );
+    const [userResult, groupResult] = await Promise.all([
+      pool.query(`SELECT id, username, first_name, last_name FROM users WHERE id = $1`, [userObjectId]),
+      pool.query(`SELECT * FROM groups WHERE id = $1`, [groupId])
+    ]);
     if (userResult.rows.length === 0) return { ok: false, status: 404, message: "Session user not found" };
     const user = userResult.rows[0];
 
-    const groupResult = await pool.query(
-      `SELECT * FROM groups WHERE id = $1`,
-      [groupId]
-    );
     if (groupResult.rows.length === 0) return { ok: false, status: 404, message: "Group not found" };
     const group = groupResult.rows[0];
 
@@ -809,6 +805,13 @@ export function createGroupHandlers(pool) {
     if (rows.length === 0) return notFound(res, "Nachricht nicht gefunden");
 
     const existing = rows[0];
+
+    const memberCheck = await pool.query(
+      `SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2 AND ${ACTIVE_MEMBER_FILTER}`,
+      [groupId, userId]
+    );
+    if (memberCheck.rows.length === 0) return forbidden(res, 'Not an active group member');
+
     if (existing.from_user_id !== userId)
       return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
     if (existing.deleted_at)

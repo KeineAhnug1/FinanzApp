@@ -281,7 +281,6 @@ async function runInit() {
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
-      characterData: true,
       attributes: true,
       attributeFilter: ["placeholder", "aria-label", "title"]
     });

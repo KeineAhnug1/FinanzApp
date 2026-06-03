@@ -55,17 +55,22 @@ export function initListSearch() {
   const incomeSearch = document.getElementById("income-search");
   const expenseSearch = document.getElementById("expense-search");
 
+  let incomeSearchTimer;
+  let expenseSearchTimer;
+
   if (incomeSearch) {
     incomeSearch.addEventListener("input", () => {
       listState.incomeSearch = incomeSearch.value;
-      renderIncomeList(appState.incomeEntries);
+      clearTimeout(incomeSearchTimer);
+      incomeSearchTimer = setTimeout(() => renderIncomeList(appState.incomeEntries), 180);
     });
   }
 
   if (expenseSearch) {
     expenseSearch.addEventListener("input", () => {
       listState.expenseSearch = expenseSearch.value;
-      renderExpenseList(appState.expenseEntries);
+      clearTimeout(expenseSearchTimer);
+      expenseSearchTimer = setTimeout(() => renderExpenseList(appState.expenseEntries), 180);
     });
   }
 }

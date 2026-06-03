@@ -7,8 +7,9 @@ export const SESSION_COOKIE_NAME = "finanzapp_session";
 
 export const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 export const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
+// Leave empty by default; must be provided via env instead of using a baked-in IP
 export const STOCK_SEARCH_BASE_URL = String(
-  process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || "http://3.225.21.161"
+  process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || ""
 ).trim();
 export const STOCK_API_KEY = String(process.env.STOCK_API_KEY || "").trim();
 export const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ")
@@ -20,7 +21,7 @@ export const LOGO_DEV_API_KEY = String(process.env.LOGO_DEV_API_KEY || process.e
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
 export const OPENROUTER_API_KEY_2 = String(process.env.OPENROUTER_API_KEY_2 || "").trim();
-export const OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free";
+export const OPENROUTER_MODEL = String(process.env.OPENROUTER_MODEL || "arcee-ai/trinity-large-preview:free").trim();
 export const OPENROUTER_SITE_URL = String(process.env.OPENROUTER_SITE_URL || "http://localhost:3000").trim();
 export const OPENROUTER_APP_NAME = String(process.env.OPENROUTER_APP_NAME || "FinanzApp").trim();
 

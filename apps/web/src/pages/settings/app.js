@@ -288,16 +288,22 @@ function initDeleteAccount() {
 
   if (!openBtn || !modal || !cancelBtn || !confirmCheck || !confirmBtn) return;
 
+  const onKeyDown = (event) => {
+    if (event.key === "Escape" && !modal.hidden) closeModal();
+  };
+
   const openModal = () => {
     confirmCheck.checked = false;
     confirmBtn.disabled = true;
     if (errorEl) errorEl.hidden = true;
     modal.hidden = false;
     cancelBtn.focus();
+    document.addEventListener("keydown", onKeyDown);
   };
 
   const closeModal = () => {
     modal.hidden = true;
+    document.removeEventListener("keydown", onKeyDown);
   };
 
   openBtn.addEventListener("click", openModal);
@@ -305,10 +311,6 @@ function initDeleteAccount() {
 
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !modal.hidden) closeModal();
   });
 
   confirmCheck.addEventListener("change", () => {

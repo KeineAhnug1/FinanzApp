@@ -25,20 +25,28 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized(res, "Session user invalid");
 
-    await Promise.all([
-      pool.query(`DELETE FROM income WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]),
-      pool.query(`DELETE FROM private_expenses WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]),
-      pool.query(`DELETE FROM user_categories WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM bank_accounts WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM share_accounts WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM transactions WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM group_members WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM question_likes WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM answer_likes WHERE user_id = $1`, [userId]),
-      pool.query(`DELETE FROM email_verifications WHERE email IN (SELECT email FROM users WHERE id = $1)`, [userId])
-    ]);
-
-    await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Zuerst abhängige Zeilen (child rows), dann parent rows
+      await client.query(`DELETE FROM income WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]);
+      await client.query(`DELETE FROM private_expenses WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]);
+      await client.query(`DELETE FROM transactions WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM user_categories WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM bank_accounts WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM share_accounts WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM group_members WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM question_likes WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM answer_likes WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM email_verifications WHERE email IN (SELECT email FROM users WHERE id = $1)`, [userId]);
+      await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
 
     await destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
 
