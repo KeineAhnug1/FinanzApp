@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <script>(function(){try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var d=localStorage.getItem("finanzapp.designTheme");if(d==="forest")document.documentElement.dataset.design=d;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}})();</script>
+  <script>(function(){document.documentElement.classList.add("topbar-preload");try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}try{if(new URLSearchParams(location.search).get("embedded")==="1"||self!==top)document.documentElement.classList.add("is-embedded-preload");}catch(e2){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Einstellungen | FinanzApp</title>
@@ -83,32 +83,7 @@
       <section class="einst-section" id="s-design">
         <h2 class="einst-section-title">Design & Erscheinungsbild</h2>
         <div class="einst-card">
-          <h3 class="einst-subsection-title">Farbschema</h3>
-          <div class="design-cards" role="group" aria-label="Farbschema wählen">
-
-            <button type="button" class="design-card" data-design="classic" aria-pressed="false">
-              <div class="design-preview">
-                <span class="design-swatch" style="background:#0a6ed1"></span>
-                <span class="design-swatch" style="background:#f0ece4"></span>
-                <span class="design-swatch" style="background:#3f97ff"></span>
-              </div>
-              <span class="design-label">Klassisch</span>
-              <span class="design-check" aria-hidden="true">✓</span>
-            </button>
-
-            <button type="button" class="design-card" data-design="forest" aria-pressed="false">
-              <div class="design-preview">
-                <span class="design-swatch" style="background:#2d6a4f"></span>
-                <span class="design-swatch" style="background:#d8efe4"></span>
-                <span class="design-swatch" style="background:#52b788"></span>
-              </div>
-              <span class="design-label">Forest</span>
-              <span class="design-check" aria-hidden="true">✓</span>
-            </button>
-
-          </div>
-
-          <h3 class="einst-subsection-title" style="margin-top:var(--ui-space-5)">Farbmodus</h3>
+          <h3 class="einst-subsection-title">Farbmodus</h3>
           <div class="theme-mode-group" role="group" aria-label="Farbmodus wählen">
             <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false">
               <span class="theme-mode-icon" aria-hidden="true">☀</span>

@@ -47,6 +47,13 @@ Danach:
 - `npm run db:clear` (Platzhalter – No‑Op, führt keine Löschung aus) 🧹
 - `npm run lint` (ESLint prüfen) ✨
 
+## Sicherheit/Deployment Hinweise 🔒
+
+- Cloudflare/Reverse Proxy: Setze `TRUST_PROXY=true`, damit Rate‑Limits die Client‑IP aus `CF-Connecting-IP`/`X-Forwarded-For` korrekt nutzen.
+- DB‑SSL: Steuere SSL via `DB_SSL_MODE` (`disable` | `prefer` | `require`). Lokal z. B. `disable`, in Produktion `require`.
+- CSRF: State‑changing API‑Requests (POST/PUT/PATCH/DELETE) erwarten einen Header `x-csrf-token`, der dem `csrf_token`‑Cookie entspricht. Der Client (`frontend/src/shared/js/api-client.js`) lädt diesen Token automatisch über `/api/session` und sendet ihn bei Schreib‑Requests mit.
+- CSP/Security‑Header: Der Server setzt sichere Default‑Header für HTML/JSON. Wenn externe Ressourcen (CDNs etc.) benötigt werden, müssen deren Domains in der CSP erlaubt werden.
+
 ## Aktueller Datenstruktur-Stand 🧭🗂️
 ![Aktuelle Datenstruktur](./Structure.png)
 

@@ -1,8 +1,12 @@
 // @ts-check
+import { isStateChangingMethod, checkCsrf } from "../../utils/csrf.mjs";
 
 /** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchQuestionRoutes(ctx) {
   const { req, res, pathname, url, session, handlers } = ctx;
+  if (isStateChangingMethod(req.method)) {
+    if (!checkCsrf(req, res)) return true;
+  }
 
   if (pathname === "/api/questions") {
     await handlers.handleQuestions(req, res, session, url);

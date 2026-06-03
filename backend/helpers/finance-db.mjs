@@ -76,14 +76,22 @@ export async function incrementBankAccountBalance(pool, accountId, deltaAmount) 
  * @param {number} accountId
  */
 export async function deleteBankAccountAssociations(pool, accountId) {
-  await Promise.all([
-    pool.query(`DELETE FROM income WHERE bank_account_id = $1`, [accountId]),
-    pool.query(`DELETE FROM private_expenses WHERE bank_account_id = $1`, [accountId]),
-    pool.query(`DELETE FROM funding_participants WHERE bank_account_id = $1`, [accountId]),
-    pool.query(`DELETE FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`, [accountId]),
-    pool.query(`DELETE FROM transactions WHERE from_bank_account_id = $1 OR to_bank_account_id = $1 OR bank_account_id = $1`, [accountId]),
-    pool.query(`DELETE FROM requests WHERE from_bank_account_id = $1 OR to_bank_account_id = $1`, [accountId])
-  ]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM income WHERE bank_account_id = $1`, [accountId]);
+    await client.query(`DELETE FROM private_expenses WHERE bank_account_id = $1`, [accountId]);
+    await client.query(`DELETE FROM funding_participants WHERE bank_account_id = $1`, [accountId]);
+    await client.query(`DELETE FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`, [accountId]);
+    await client.query(`DELETE FROM transactions WHERE from_bank_account_id = $1 OR to_bank_account_id = $1 OR bank_account_id = $1`, [accountId]);
+    await client.query(`DELETE FROM requests WHERE from_bank_account_id = $1 OR to_bank_account_id = $1`, [accountId]);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 /**

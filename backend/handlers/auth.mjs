@@ -212,6 +212,17 @@ export async function migratePlaintextPasswords(pool) {
  * }} opts
  */
 export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME }) {
+  function getOrCreateCsrfToken(req, res) {
+    const cookies = parseCookies(req);
+    let token = cookies["csrf_token"];
+    if (!token) {
+      token = String(randomInt(1e9, 9e9));
+      const existing = res.getHeader("Set-Cookie");
+      const next = [`csrf_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`];
+      res.setHeader("Set-Cookie", existing ? ([]).concat(existing, next) : next);
+    }
+    return token;
+  }
 
   /** @param {http.IncomingMessage} req */
   async function getSessionUser(req) {
@@ -283,7 +294,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "login" })) return;
+    // Tighter login rate limit: 5/min per IP
+    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "login" })) return;
 
     const payload = await parseBody(req, res);
     if (!payload) return;
@@ -333,12 +345,9 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
     }
 
     const session = await getSessionUser(req);
-    if (!session) {
-      res.setHeader("Set-Cookie", clearSessionCookie());
-      return unauthorized(res, "Session abgelaufen oder nicht vorhanden");
-    }
-
-    return sendJson(res, 200, { ok: true, session_user: session.user });
+    const csrf = getOrCreateCsrfToken(req, res);
+    if (!session) return sendJson(res, 200, { ok: true, session_user: null, csrf });
+    return sendJson(res, 200, { ok: true, session_user: session.user, csrf });
   }
 
   /**
@@ -353,7 +362,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
 
     const cookies = parseCookies(req);
     await destroySession(cookies[SESSION_COOKIE_NAME]);
-    return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
+    const set = [clearSessionCookie(), `csrf_token=; Max-Age=0; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`];
+    return sendJson(res, 200, { ok: true }, { "Set-Cookie": set });
   }
 
   /**
@@ -366,7 +376,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "register" })) return;
+    // Registration: 3/min per IP
+    if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "register" })) return;
 
     const payload = await parseBody(req, res);
     if (!payload) return;
@@ -434,7 +445,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: 'register-verify' })) return;
+    // Code verify: 5/min per IP
+    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: 'register-verify' })) return;
 
     const payload = await parseBody(req, res);
     if (!payload) return;
@@ -509,7 +521,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "password-forgot" })) return;
+    // Password forgot: 2/min per IP
+    if (!checkRateLimit(req, res, { maxAttempts: 2, windowMs: 60_000, group: "password-forgot" })) return;
 
     const payload = await parseBody(req, res);
     if (!payload) return;
@@ -556,7 +569,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       return sendJson(res, 405, { ok: false, message: "Method not allowed" });
     }
 
-    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "password-reset" })) return;
+    // Password reset: 3/min per IP
+    if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "password-reset" })) return;
 
     const payload = await parseBody(req, res);
     if (!payload) return;

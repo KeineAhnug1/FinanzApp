@@ -29,7 +29,12 @@ if (!PORT || !Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error(`PORT is invalid: "${process.env.PORT}"`);
 }
 
-const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+// Configure DB SSL: allow disabling in dev, enforce in production
+const DB_SSL_MODE = String(process.env.DB_SSL_MODE || "prefer").toLowerCase(); // "disable" | "prefer" | "require"
+const sslConfig = DB_SSL_MODE === "disable"
+  ? false
+  : { rejectUnauthorized: DB_SSL_MODE === "require" };
+const pool = new Pool({ connectionString: DATABASE_URL, ssl: sslConfig });
 
 const sessionStore = createSessionStore({ cookieName: SESSION_COOKIE_NAME, ttlMinutes: SESSION_TTL_MINUTES });
 const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, gcSessions } = sessionStore;
@@ -71,7 +76,7 @@ async function handleStatic(req, res, pathname) {
       ? "public, max-age=31536000, immutable"
       : "no-cache";
     const csp = ext === ".html"
-      ? "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
+      ? "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
       : "default-src 'none'";
     res.writeHead(200, {
       "Content-Type": /** @type {Record<string,string>} */ (MIME_BY_EXT)[ext] || "application/octet-stream",

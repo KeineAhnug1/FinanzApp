@@ -1,9 +1,13 @@
 // @ts-check
 import { parsePathParam } from "./common.mjs";
+import { isStateChangingMethod, checkCsrf } from "../../utils/csrf.mjs";
 
 /** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchFinanceRoutes(ctx) {
   const { req, res, pathname, url, session, handlers } = ctx;
+  if (isStateChangingMethod(req.method)) {
+    if (!checkCsrf(req, res)) return true;
+  }
 
   if (pathname === "/api/positions") {
     await handlers.handlePositions(req, res, url, session);

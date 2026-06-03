@@ -8,8 +8,12 @@ const TRUST_PROXY = process.env.TRUST_PROXY === "true";
  */
 export function getClientIp(req) {
   if (TRUST_PROXY) {
+    const cfIp = req.headers["cf-connecting-ip"];
+    if (cfIp) return String(cfIp).split(",")[0].trim();
     const forwarded = req.headers["x-forwarded-for"];
     if (forwarded) return String(forwarded).split(",")[0].trim();
+    const realIp = req.headers["x-real-ip"];
+    if (realIp) return String(realIp).split(",")[0].trim();
   }
   return req.socket?.remoteAddress || "unknown";
 }

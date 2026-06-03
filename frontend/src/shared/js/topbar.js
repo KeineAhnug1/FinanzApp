@@ -687,11 +687,15 @@ function initProfileMenus() {
 async function initTopbar() {
   if (isEmbeddedPageContext()) {
     removeTopbarForEmbeddedContext();
+    document.documentElement.classList.remove("topbar-preload");
     return;
   }
 
   const topbar = findTopbar();
-  if (!topbar) return;
+  if (!topbar) {
+    document.documentElement.classList.remove("topbar-preload");
+    return;
+  }
 
   ensureTopbarBrandLink(topbar);
   const controls = findControls(topbar);
@@ -703,6 +707,7 @@ async function initTopbar() {
   // Settings-Wraps sofort entfernen, bevor die Sidebar gebaut wird
   for (const el of document.querySelectorAll(".settings-wrap, .global-settings-wrap")) el.remove();
   ensureSidebar(topbar, controls);
+  document.documentElement.classList.remove("topbar-preload");
   ensureBottomNav();
   window.addEventListener("hashchange", () => {
     updateBrandSub(topbar);

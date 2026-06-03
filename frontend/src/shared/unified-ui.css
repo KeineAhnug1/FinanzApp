@@ -125,33 +125,6 @@
 }
 
 /* ═══════════════════════════════════════════
-   DESIGN THEMES — gesteuert via data-design
-   ═══════════════════════════════════════════ */
-
-/* Forest – Grün/Erde */
-:root[data-design="forest"] {
-  --ui-primary: #16a34a;
-  --ui-primary-dark: #15803d;
-  --ui-text-on-primary: #ffffff;
-  --ui-accent-blue: #4ade80;
-  --ui-accent-orange: #ca8a04;
-  --ui-accent-violet: #059669;
-  --ui-focus-ring: rgba(22, 163, 74, 0.22);
-  --ui-bg-atmo-cool: rgba(22, 163, 74, 0.1);
-  --ui-bg-atmo-warm: rgba(202, 138, 4, 0.12);
-}
-:root[data-design="forest"][data-theme="dark"] {
-  --ui-primary: #4ade80;
-  --ui-primary-dark: #22c55e;
-  --ui-text-on-primary: #052e16;
-  --ui-accent-blue: #86efac;
-  --ui-accent-orange: #fbbf24;
-  --ui-accent-violet: #6ee7b7;
-  --ui-focus-ring: rgba(74, 222, 128, 0.3);
-  --ui-bg-atmo-cool: rgba(74, 222, 128, 0.08);
-}
-
-/* ═══════════════════════════════════════════
    HIGH CONTRAST — gesteuert via data-contrast
    ═══════════════════════════════════════════ */
 
@@ -324,6 +297,12 @@ body.has-shared-sidebar .page-topbar {
   display: none;
 }
 
+html.topbar-preload .dash-topbar,
+html.topbar-preload .page-topbar,
+html.topbar-preload .layout-toolbar {
+  visibility: hidden;
+}
+
 body.app-shell-frame-mode {
   min-height: 100vh;
 }
@@ -350,6 +329,12 @@ body.app-shell-frame-loading .app-content-frame {
 
 body.app-embedded-page {
   padding-left: 0 !important;
+}
+
+html.is-embedded-preload .dash-topbar,
+html.is-embedded-preload .page-topbar,
+html.is-embedded-preload .layout-toolbar {
+  display: none !important;
 }
 
 .topbar-left {

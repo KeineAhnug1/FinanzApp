@@ -13,10 +13,35 @@ export function sendJson(res, statusCode, payload, extraHeaders = {}) {
     "Content-Length": Buffer.byteLength(body),
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
+    // Very strict CSP for JSON responses; static HTML has its own CSP in server
     "Content-Security-Policy": "default-src 'none'",
     ...extraHeaders
   });
   res.end(body);
+}
+
+/**
+ * Add basic security headers for static HTML responses.
+ * @param {import('node:http').ServerResponse} res
+ */
+export function applySecurityHeadersForHtml(res) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  // CSP allows self assets and images/data for logos; adjust if needed
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'self'"
+  ].join("; ");
+  res.setHeader("Content-Security-Policy", csp);
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()\n");
 }
 
 /**

@@ -3,7 +3,7 @@ const sThemeStorageKey = "finanzapp.themeMode";
 const sDesignStorageKey = "finanzapp.designTheme";
 const sContrastStorageKey = "finanzapp.contrast";
 const oThemeOptions = new Set(["light", "dark", "auto"]);
-const oDesignOptions = new Set(["classic", "forest"]);
+const oDesignOptions = new Set(["classic"]);
 const oContrastOptions = new Set(["normal", "high"]);
 const oPrefersDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 

@@ -10,6 +10,15 @@ function normalizeHeaders(rawHeaders = {}) {
 export async function requestJson(url, options = {}) {
   const method = options.method || "GET";
   const headers = normalizeHeaders(options.headers);
+  try {
+    if (method !== 'GET' && method !== 'HEAD' && !headers['x-csrf-token']) {
+      const resp = await fetch('/api/session', { credentials: 'same-origin' });
+      if (resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        if (json && json.csrf) headers['x-csrf-token'] = json.csrf;
+      }
+    }
+  } catch {}
   const requestInit = {
     credentials: options.credentials || "same-origin",
     ...options,

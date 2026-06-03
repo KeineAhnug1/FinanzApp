@@ -43,7 +43,8 @@ export function redirectUiRoot(pathname, res) {
  * @param {string} pathname
  */
 export function resolveStaticPath(projectRoot, pathname) {
-  const distRoot = path.join(projectRoot, "apps", "web", "dist");
+  // Serve built frontend from frontend/dist
+  const distRoot = path.join(projectRoot, "frontend", "dist");
 
   // Root auth/landing page
   if (pathname === "/") return path.join(distRoot, "index.html");
