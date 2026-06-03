@@ -13,6 +13,7 @@ export function sendJson(res, statusCode, payload, extraHeaders = {}) {
     "Content-Length": Buffer.byteLength(body),
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
+    "Content-Security-Policy": "default-src 'none'",
     ...extraHeaders
   });
   res.end(body);

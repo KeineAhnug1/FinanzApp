@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanzApp — System Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #080c12;
+    --bg2: #0d1117;
+    --blue: #3b82f6;
+    --blue-dim: #1d4ed8;
+    --blue-glow: rgba(59,130,246,0.15);
+    --green: #22c55e;
+    --green-dim: #15803d;
+    --green-glow: rgba(34,197,94,0.15);
+    --purple: #a855f7;
+    --purple-dim: #7e22ce;
+    --purple-glow: rgba(168,85,247,0.15);
+    --orange: #f97316;
+    --orange-dim: #c2410c;
+    --orange-glow: rgba(249,115,22,0.15);
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 32px 64px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+  header p {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* ── MAIN GRID ── */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 24px;
+    position: relative;
+  }
+
+  /* ── COLUMN PANELS ── */
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .col-header {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin-bottom: 4px;
+  }
+  .col-header .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  .col-fe .col-header { color: var(--blue); background: var(--blue-glow); }
+  .col-fe .col-header .dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+  .col-be .col-header { color: var(--green); background: var(--green-glow); }
+  .col-be .col-header .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .col-db .col-header { color: var(--purple); background: var(--purple-glow); }
+  .col-db .col-header .dot { background: var(--purple); box-shadow: 0 0 6px var(--purple); }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+
+  .card:hover { transform: translateY(-2px); }
+
+  .col-fe .card:hover { border-color: rgba(59,130,246,0.5); box-shadow: 0 4px 24px var(--blue-glow), 0 0 0 1px rgba(59,130,246,0.2); }
+  .col-fe .card:hover::before { background: radial-gradient(ellipse at top left, var(--blue-glow), transparent 70%); opacity: 1; }
+
+  .col-be .card:hover { border-color: rgba(34,197,94,0.5); box-shadow: 0 4px 24px var(--green-glow), 0 0 0 1px rgba(34,197,94,0.2); }
+  .col-be .card:hover::before { background: radial-gradient(ellipse at top left, var(--green-glow), transparent 70%); opacity: 1; }
+
+  .col-db .card:hover { border-color: rgba(168,85,247,0.5); box-shadow: 0 4px 24px var(--purple-glow), 0 0 0 1px rgba(168,85,247,0.2); }
+  .col-db .card:hover::before { background: radial-gradient(ellipse at top left, var(--purple-glow), transparent 70%); opacity: 1; }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .col-fe .card-title { color: var(--blue); }
+  .col-be .card-title { color: var(--green); }
+  .col-db .card-title { color: var(--purple); }
+
+  .card-title .icon { font-size: 0.9rem; }
+
+  .tag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .col-fe .tag { border-color: rgba(59,130,246,0.3); color: #93c5fd; background: rgba(59,130,246,0.06); }
+  .col-fe .tag:hover { background: rgba(59,130,246,0.18); }
+  .col-be .tag { border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.06); }
+  .col-be .tag:hover { background: rgba(34,197,94,0.18); }
+  .col-db .tag { border-color: rgba(168,85,247,0.3); color: #c4b5fd; background: rgba(168,85,247,0.06); }
+  .col-db .tag:hover { background: rgba(168,85,247,0.18); }
+
+  /* ── SERVER MAIN CARD ── */
+  .server-main {
+    background: linear-gradient(135deg, #0d1a0f 0%, #0a1a0a 100%);
+    border-color: rgba(34,197,94,0.25);
+    padding: 18px;
+  }
+  .server-main .card-title { font-size: 0.85rem; }
+  .badge {
+    font-size: 0.62rem;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.35);
+    color: #86efac;
+    margin-left: auto;
+  }
+
+  /* ── CONNECTIONS SVG ── */
+  .connections-wrap {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    overflow: visible;
+  }
+
+  @keyframes dashflow {
+    to { stroke-dashoffset: -20; }
+  }
+  @keyframes dashflow-rev {
+    to { stroke-dashoffset: 20; }
+  }
+
+  .conn-line {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    animation: dashflow 1.2s linear infinite;
+  }
+  .conn-line.reverse { animation: dashflow-rev 1.2s linear infinite; }
+
+  .conn-fe { stroke: rgba(59,130,246,0.6); }
+  .conn-be { stroke: rgba(34,197,94,0.6); }
+  .conn-ext { stroke: rgba(249,115,22,0.5); }
+
+  /* ── EXTERNAL APIS ROW ── */
+  .ext-row {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+  }
+  .ext-row-inner {
+    background: var(--bg2);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ext-row-inner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--orange), transparent);
+  }
+  .ext-header {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--orange);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .ext-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+
+  .ext-apis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+
+  .api-card {
+    background: rgba(249,115,22,0.05);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .api-card:hover {
+    background: rgba(249,115,22,0.12);
+    border-color: rgba(249,115,22,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(249,115,22,0.15);
+  }
+  .api-card .name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #fb923c;
+    margin-bottom: 4px;
+    font-family: 'Syne', sans-serif;
+  }
+  .api-card .desc {
+    font-size: 0.63rem;
+    color: var(--text-dim);
+  }
+  .api-card .caller {
+    font-size: 0.6rem;
+    color: rgba(249,115,22,0.6);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(249,115,22,0.15);
+  }
+
+  /* ── FLOW ARROWS between columns ── */
+  .flow-arrows {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    margin: -8px 0;
+    pointer-events: none;
+  }
+  .arrow-pair {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 6px 0;
+  }
+  .arrow-label {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 0.05em;
+    position: relative;
+  }
+  .arrow-label::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 1px;
+    margin-bottom: 4px;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+  }
+  .arrow-fe-be { color: rgba(59,130,246,0.6); }
+  .arrow-be-db { color: rgba(168,85,247,0.6); }
+
+  /* ── DIVIDER ── */
+  .col-divider {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 4px;
+  }
+  .divider-line {
+    width: 1px;
+    flex: 1;
+    min-height: 20px;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1), transparent);
+  }
+  .divider-arrow {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg2);
+    white-space: nowrap;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    margin-top: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    padding: 16px 24px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .legend-line {
+    width: 24px;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, currentColor 0, currentColor 4px, transparent 4px, transparent 8px);
+  }
+
+  /* ── TOPOLOGY CANVAS ── */
+  #topology {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* ── PULSE DOT ── */
+  @keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+  .pulse {
+    display: inline-block;
+    position: relative;
+    width: 8px;
+    height: 8px;
+  }
+  .pulse::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse-ring 1.6s ease-out infinite;
+  }
+  .pulse::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .arch-grid { grid-template-columns: 1fr; }
+    .ext-apis { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>FinanzApp — System Architecture</h1>
+    <p>Node.js · PostgreSQL · Vanilla JS · Supabase · External APIs</p>
+  </header>
+
+  <div class="arch-grid" id="archGrid">
+
+    <!-- ═══════════════ FRONTEND ═══════════════ -->
+    <div class="col col-fe">
+      <div class="col-header">
+        <span class="dot"></span>
+        Browser / Frontend
+      </div>
+
+      <!-- Pages -->
+      <div class="card">
+        <div class="card-title"><span class="icon">📄</span>Pages (Multi-Page-App)</div>
+        <div class="tag-grid">
+          <span class="tag">Homepage</span>
+          <span class="tag">Login / Register</span>
+          <span class="tag">Dashboard</span>
+          <span class="tag">Stocks Portfolio</span>
+          <span class="tag">Groups &amp; Chat</span>
+          <span class="tag">Questions Forum</span>
+          <span class="tag">Accounts</span>
+          <span class="tag">Settings</span>
+        </div>
+      </div>
+
+      <!-- Build tool -->
+      <div class="card">
+        <div class="card-title"><span class="icon">⚡</span>Build Tool</div>
+        <div class="tag-grid">
+          <span class="tag">Vite + TypeScript</span>
+          <span class="tag">Multi-Entry</span>
+          <span class="tag">HMR Dev Server</span>
+          <span class="tag">Hashed Assets</span>
+        </div>
+      </div>
+
+      <!-- Shared utils -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🔧</span>Shared Utilities</div>
+        <div class="tag-grid">
+          <span class="tag">api-client.js</span>
+          <span class="tag">session-utils.js</span>
+          <span class="tag">language-utils.js</span>
+          <span class="tag">theme-utils.js</span>
+          <span class="tag">currency-utils.js</span>
+          <span class="tag">topbar.js</span>
+        </div>
+      </div>
+
+      <!-- Storage -->
+      <div class="card">
+        <div class="card-title"><span class="icon">💾</span>Client Storage</div>
+        <div class="tag-grid">
+          <span class="tag">SessionStorage (User)</span>
+          <span class="tag">Cookie (Session Token)</span>
+          <span class="tag">LocalStorage (Theme)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ BACKEND ═══════════════ -->
+    <div class="col col-be">
+      <div class="col-header">
+        <span class="dot"></span>
+        Backend · Node.js · Port 3000
+      </div>
+
+      <!-- Server -->
+      <div class="card server-main">
+        <div class="card-title">
+          <span class="icon">🖥</span>server.mjs
+          <div class="pulse" style="margin-left:4px"></div>
+          <span class="badge">HTTP Server</span>
+        </div>
+        <div class="tag-grid">
+          <span class="tag">Native http.createServer()</span>
+          <span class="tag">ES Modules</span>
+          <span class="tag">No Express</span>
+        </div>
+      </div>
+
+      <!-- Routing -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🔀</span>Routing Layer</div>
+        <div class="tag-grid">
+          <span class="tag">ui-routes.mjs</span>
+          <span class="tag">api-dispatch.mjs</span>
+          <span class="tag">Pattern Matching</span>
+          <span class="tag">Static /frontend/dist</span>
+        </div>
+      </div>
+
+      <!-- Handlers -->
+      <div class="card">
+        <div class="card-title"><span class="icon">⚙️</span>Domain Handlers</div>
+        <div class="tag-grid">
+          <span class="tag">auth.mjs</span>
+          <span class="tag">finance.mjs</span>
+          <span class="tag">budgets.mjs</span>
+          <span class="tag">groups.mjs</span>
+          <span class="tag">forum.mjs</span>
+          <span class="tag">user.mjs</span>
+        </div>
+      </div>
+
+      <!-- Utils -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🛡</span>Utilities</div>
+        <div class="tag-grid">
+          <span class="tag">session-store.mjs</span>
+          <span class="tag">password.mjs (Scrypt)</span>
+          <span class="tag">rate-limit.mjs</span>
+          <span class="tag">responses.mjs</span>
+          <span class="tag">http.mjs</span>
+        </div>
+      </div>
+
+      <!-- Auth flow -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🔐</span>Auth Flow</div>
+        <div class="tag-grid">
+          <span class="tag">Register + Email Code</span>
+          <span class="tag">Login → Session Cookie</span>
+          <span class="tag">Password Reset</span>
+          <span class="tag">180 min TTL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ DATABASE ═══════════════ -->
+    <div class="col col-db">
+      <div class="col-header">
+        <span class="dot"></span>
+        Database · PostgreSQL / Supabase
+      </div>
+
+      <!-- User tables -->
+      <div class="card">
+        <div class="card-title"><span class="icon">👤</span>User Tables</div>
+        <div class="tag-grid">
+          <span class="tag">users</span>
+          <span class="tag">sessions</span>
+          <span class="tag">email_verifications</span>
+          <span class="tag">password_resets</span>
+        </div>
+      </div>
+
+      <!-- Finance tables -->
+      <div class="card">
+        <div class="card-title"><span class="icon">💰</span>Finance Tables</div>
+        <div class="tag-grid">
+          <span class="tag">bank_accounts</span>
+          <span class="tag">share_accounts</span>
+          <span class="tag">shares</span>
+          <span class="tag">income</span>
+          <span class="tag">private_expenses</span>
+          <span class="tag">transactions</span>
+          <span class="tag">user_categories</span>
+        </div>
+      </div>
+
+      <!-- Budget -->
+      <div class="card">
+        <div class="card-title"><span class="icon">📊</span>Budget Tables</div>
+        <div class="tag-grid">
+          <span class="tag">budgets</span>
+        </div>
+      </div>
+
+      <!-- Group tables -->
+      <div class="card">
+        <div class="card-title"><span class="icon">👥</span>Group Tables</div>
+        <div class="tag-grid">
+          <span class="tag">groups</span>
+          <span class="tag">group_members</span>
+          <span class="tag">group_activities</span>
+          <span class="tag">group_funding</span>
+          <span class="tag">funding_participants</span>
+          <span class="tag">group_expenses</span>
+          <span class="tag">group_message</span>
+        </div>
+      </div>
+
+      <!-- Forum tables -->
+      <div class="card">
+        <div class="card-title"><span class="icon">💬</span>Forum Tables</div>
+        <div class="tag-grid">
+          <span class="tag">global_questions</span>
+          <span class="tag">global_answers</span>
+          <span class="tag">question_likes</span>
+          <span class="tag">answer_likes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ EXTERNAL APIS ═══════════════ -->
+    <div class="ext-row">
+      <div class="ext-row-inner">
+        <div class="ext-header">
+          <span class="dot"></span>
+          External APIs &amp; Services
+        </div>
+        <div class="ext-apis">
+          <div class="api-card">
+            <div class="name">📈 TwelveData</div>
+            <div class="desc">Historical stock price data &amp; time series</div>
+            <div class="caller">← finance.mjs via /api/twelvedata/* proxy</div>
+          </div>
+          <div class="api-card">
+            <div class="name">🔍 Stock Search API</div>
+            <div class="desc">Symbol lookup &amp; autocomplete</div>
+            <div class="caller">← finance.mjs via /api/stocks/search</div>
+          </div>
+          <div class="api-card">
+            <div class="name">🖼 logo.dev</div>
+            <div class="desc">Company logo images by ticker symbol</div>
+            <div class="caller">← finance.mjs via /api/stocks/logo</div>
+          </div>
+          <div class="api-card">
+            <div class="name">🤖 OpenRouter AI</div>
+            <div class="desc">LLM responses for @finzbro bot in forum</div>
+            <div class="caller">← forum.mjs on @mention</div>
+          </div>
+          <div class="api-card">
+            <div class="name">✉️ Gmail SMTP</div>
+            <div class="desc">Email verification codes &amp; password reset</div>
+            <div class="caller">← auth.mjs on register &amp; reset</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end arch-grid -->
+
+  <!-- ── CONNECTION DIAGRAM ── -->
+  <div style="margin-top: 32px;">
+    <svg viewBox="0 0 900 80" style="width:100%;height:80px;display:block;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr-blue" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(59,130,246,0.8)"/>
+        </marker>
+        <marker id="arr-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(34,197,94,0.8)"/>
+        </marker>
+        <marker id="arr-purple" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(168,85,247,0.8)"/>
+        </marker>
+        <marker id="arr-orange" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(249,115,22,0.8)"/>
+        </marker>
+      </defs>
+
+      <!-- FE → BE: REST API calls -->
+      <line x1="200" y1="30" x2="370" y2="30" stroke="rgba(59,130,246,0.7)" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arr-blue)">
+        <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <text x="285" y="22" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="rgba(59,130,246,0.8)">REST /api/* + Cookie</text>
+
+      <!-- BE → FE: Static files -->
+      <line x1="370" y1="50" x2="200" y2="50" stroke="rgba(34,197,94,0.6)" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arr-green)">
+        <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <text x="285" y="64" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="rgba(34,197,94,0.7)">Static HTML/JS/CSS</text>
+
+      <!-- BE → DB: SQL queries -->
+      <line x1="530" y1="30" x2="700" y2="30" stroke="rgba(168,85,247,0.7)" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arr-purple)">
+        <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <text x="615" y="22" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="rgba(168,85,247,0.8)">SQL via pg driver</text>
+
+      <!-- DB → BE: Results -->
+      <line x1="700" y1="50" x2="530" y2="50" stroke="rgba(168,85,247,0.5)" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arr-purple)">
+        <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <text x="615" y="64" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="rgba(168,85,247,0.6)">Result Sets / Rows</text>
+
+      <!-- BE ↓ External APIs -->
+      <line x1="450" y1="55" x2="450" y2="72" stroke="rgba(249,115,22,0.6)" stroke-width="2" marker-end="url(#arr-orange)"/>
+      <text x="458" y="68" font-family="JetBrains Mono" font-size="9" fill="rgba(249,115,22,0.7)">External API calls</text>
+
+      <!-- Column labels -->
+      <text x="100" y="78" text-anchor="middle" font-family="Syne,sans-serif" font-size="9" fill="rgba(59,130,246,0.5)" letter-spacing="2">FRONTEND</text>
+      <text x="450" y="78" text-anchor="middle" font-family="Syne,sans-serif" font-size="9" fill="rgba(34,197,94,0.5)" letter-spacing="2">BACKEND</text>
+      <text x="800" y="78" text-anchor="middle" font-family="Syne,sans-serif" font-size="9" fill="rgba(168,85,247,0.5)" letter-spacing="2">DATABASE</text>
+    </svg>
+  </div>
+
+  <!-- ── LEGEND ── -->
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>
+      Frontend · Browser
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>
+      Backend · Node.js
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--purple);box-shadow:0 0 6px var(--purple)"></div>
+      Database · PostgreSQL
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--orange);box-shadow:0 0 6px var(--orange)"></div>
+      External APIs
+    </div>
+    <div class="legend-item" style="margin-left:16px">
+      <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="rgba(59,130,246,0.7)" stroke-width="2" stroke-dasharray="5 3"/></svg>
+      API Request
+    </div>
+    <div class="legend-item">
+      <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="rgba(168,85,247,0.7)" stroke-width="2" stroke-dasharray="5 3"/></svg>
+      SQL Query
+    </div>
+    <div class="legend-item">
+      <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="rgba(249,115,22,0.6)" stroke-width="2" stroke-dasharray="5 3"/></svg>
+      External Call
+    </div>
+  </div>
+
+  <p style="text-align:center;margin-top:24px;font-size:0.62rem;color:var(--text-dim);letter-spacing:0.1em">
+    FinanzApp · Hochschule Semester 1 · Web Engineering · 28 DB Tables · 40+ REST Endpoints
+  </p>
+
+</div>
+</body>
+</html>

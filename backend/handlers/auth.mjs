@@ -522,6 +522,8 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       [email]
     );
 
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 400));
+
     if (rows.length > 0) {
       const user = rows[0];
       const code = createVerificationCode();
@@ -540,6 +542,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       }
     }
 
+    await minDelay;
     return sendJson(res, 200, { ok: true, expires_in_seconds: VERIFICATION_TTL_MINUTES * 60, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." });
   }
 

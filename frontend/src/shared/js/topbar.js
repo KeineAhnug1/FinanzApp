@@ -648,7 +648,12 @@ function fillProfileElements(sessionUser) {
   const avatarElements = document.querySelectorAll("[data-profile-avatar], #profile-avatar");
   for (const element of avatarElements) {
     if (sessionUser.profileImage) {
-      element.innerHTML = `<img src="${sessionUser.profileImage}" alt="Profilbild" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+      element.textContent = "";
+      const img = document.createElement("img");
+      img.src = sessionUser.profileImage;
+      img.alt = "Profilbild";
+      img.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:50%;";
+      element.appendChild(img);
     } else {
       element.textContent = avatarInitials;
     }

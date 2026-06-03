@@ -145,7 +145,7 @@ export function fnRenderView(sViewName) {
 
             <label>
               ${fnT("amount", "Menge")}
-              <input id="analysisTradeAmountInput" type="number" min="0.0001" step="0.0001" value="1">
+              <input id="analysisTradeAmountInput" type="number" min="0.0001" step="0.0001" value="1" max="1000000">
             </label>
 
             <label>

@@ -1,5 +1,5 @@
 import '@shared/js/topbar.js';
-import { t as _t, getLocale } from '@shared/js/language-utils.js';
+import { createT, getLocale } from '@shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
 import { requestJson, requestJsonMerged, toastSuccess, toastError } from '@shared/js/api-client.js';
 import { formatFromEur } from '@shared/js/currency-utils.js';
@@ -115,12 +115,7 @@ const DEFAULT_GROUP_LOCALE_SETTINGS = {
 };
 let groupLocaleSettings = { ...DEFAULT_GROUP_LOCALE_SETTINGS };
 
-function t(key, fallback = "", params = {}) {
-  const translated = _t(key, params);
-  if (translated && translated !== key) return translated;
-  if (!params || !Object.keys(params).length) return fallback || key;
-  return String(fallback || key).replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
-}
+const t = createT();
 
 function groupsViewStorageKey(userId) {
   return `${GROUPS_VIEW_STORAGE_PREFIX}.${userId || "anonymous"}`;

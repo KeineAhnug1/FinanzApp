@@ -1,5 +1,5 @@
 import '@shared/js/topbar.js';
-import { t as _t, getLocale } from '@shared/js/language-utils.js';
+import { createT, getLocale } from '@shared/js/language-utils.js';
 import { requestJsonMerged } from '@shared/js/api-client.js';
 import { escapeHtml } from '@shared/js/html-utils.js';
 
@@ -12,12 +12,7 @@ const state = {
   editingQuestionId: null
 };
 
-function t(key, fallback, params = {}) {
-  const translated = _t(key, params);
-  if (translated && translated !== key) return translated;
-  if (!params || !Object.keys(params).length) return fallback;
-  return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
-}
+const t = createT();
 
 function formatDate(value) {
   const date = new Date(value);

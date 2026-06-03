@@ -937,6 +937,10 @@ export async function fnInitAnalysisView() {
 				elBuyFeedback.textContent = fnT("stocks.invalid_buy_amount", "Bitte eine gültige Kaufmenge größer als 0 eingeben.");
 				return;
 			}
+			if (nAmount > 1_000_000) {
+				elBuyFeedback.textContent = fnT("stocks.buy_amount_too_large", "Kaufmenge darf 1.000.000 nicht überschreiten.");
+				return;
+			}
 
 			const sTargetShareAccountId = fnNormalizeAccountId(sSelectedTradeShareAccountId);
 			if (!sTargetShareAccountId) {
@@ -1031,6 +1035,10 @@ export async function fnInitAnalysisView() {
 
 			if (!Number.isFinite(nAmount) || nAmount <= 0) {
 				elBuyFeedback.textContent = fnT("stocks.invalid_sell_amount", "Bitte eine gültige Verkaufsmenge größer als 0 eingeben.");
+				return;
+			}
+			if (nAmount > 1_000_000) {
+				elBuyFeedback.textContent = fnT("stocks.sell_amount_too_large", "Verkaufsmenge darf 1.000.000 nicht überschreiten.");
 				return;
 			}
 
@@ -1248,7 +1256,7 @@ async function fnBuildAnalysisChart(oArgs) {
 	const nChangeAbs = nLast - nFirst;
 	const nChangePct = nFirst !== 0 ? (nChangeAbs / nFirst) * 100 : Number.NaN;
 
-	oArgs.elTotalLabel.textContent = `Kurs ${sSymbol} (letzter Punkt)`;
+	oArgs.elTotalLabel.textContent = fnT("stocks.price_symbol_last_point", "Kurs {symbol} (letzter Punkt)", { symbol: sSymbol });
 	oArgs.elTotal.textContent = fnFmtMoney(nLast, "USD");
 	oArgs.elChange.textContent = `${fnFmtMoney(nChangeAbs, "USD")} (${Number.isFinite(nChangePct) ? nChangePct.toFixed(2) : "—"}%)`;
 
@@ -1259,8 +1267,15 @@ async function fnBuildAnalysisChart(oArgs) {
 		const nAmount = Number(oPosition?.amount);
 		return Number.isFinite(nAmount) ? nSum + nAmount : nSum;
 	}, 0);
-	const sOwnedHint = nOwnedAmount > 0 ? `, Bestand: ${fnFmtNumber(nOwnedAmount, 4)} Stk` : ", nicht im Depot";
-	oArgs.elInfo.textContent = `Chart aktualisiert: ${sSymbol}, ${oArgs.sRange}${bFromCache ? " (aus Cache)" : ""}${sOwnedHint}`;
+	const sOwnedHint = nOwnedAmount > 0
+		? fnT("stocks.owned_hint", ", Bestand: {amount} Stk", { amount: fnFmtNumber(nOwnedAmount, 4) })
+		: fnT("stocks.not_in_depot", ", nicht im Depot");
+	oArgs.elInfo.textContent = fnT("stocks.chart_updated_detail", "Chart aktualisiert: {symbol}, {range}{cache}{owned}", {
+		symbol: sSymbol,
+		range: oArgs.sRange,
+		cache: bFromCache ? fnT("stocks.from_cache_suffix", " (aus Cache)") : "",
+		owned: sOwnedHint,
+	});
 	return { nLastClose: nLast };
 }
 

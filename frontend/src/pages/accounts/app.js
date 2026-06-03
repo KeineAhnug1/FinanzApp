@@ -1,5 +1,5 @@
 import '@shared/js/topbar.js';
-import { t as _t, getLocale } from '@shared/js/language-utils.js';
+import { createT, getLocale } from '@shared/js/language-utils.js';
 import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
 import { formatFromEur } from '@shared/js/currency-utils.js';
 import { escapeHtml } from '@shared/js/html-utils.js';
@@ -14,12 +14,7 @@ const aBankAccountsEndpoints = [
   let aShareAccounts = [];
   let aBankAccounts = [];
 
-  function t(key, fallback, params = {}) {
-    const translated = _t(key, params);
-    if (translated && translated !== key) return translated;
-    if (!params || !Object.keys(params).length) return fallback;
-    return String(fallback || "").replaceAll(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
-  }
+  const t = createT();
 
   function fnEscapeHtml(sValue) {
     return escapeHtml(sValue);

@@ -70,11 +70,15 @@ async function handleStatic(req, res, pathname) {
     const cacheControl = isHashed
       ? "public, max-age=31536000, immutable"
       : "no-cache";
+    const csp = ext === ".html"
+      ? "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
+      : "default-src 'none'";
     res.writeHead(200, {
       "Content-Type": /** @type {Record<string,string>} */ (MIME_BY_EXT)[ext] || "application/octet-stream",
       "Cache-Control": cacheControl,
       "X-Content-Type-Options": "nosniff",
-      "X-Frame-Options": "SAMEORIGIN"
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": csp
     });
     if (req.method === "HEAD") { res.end(); return; }
     res.end(file);
