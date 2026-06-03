@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <script>(function(){try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var d=localStorage.getItem("finanzapp.designTheme");if(d==="forest")document.documentElement.dataset.design=d;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kontenverwaltung | FinanzApp</title>
+  <link rel="stylesheet" href="/src/shared/unified-ui.css" />
+  <link rel="stylesheet" href="/src/pages/accounts/style.css" />
+</head>
+<body>
+  <header class="page-topbar">
+    <div class="topbar-left">
+      <span class="brand-mark">FinanzApp</span>
+      <span class="brand-sub">Dashboard</span>
+    </div>
+    <div class="header-controls">
+      <div class="profile-wrap">
+        <button id="profile-btn" class="profile-btn" type="button" aria-expanded="false">
+          <span class="profile-avatar" id="profile-avatar" data-profile-avatar>U</span>
+          <span class="profile-name" id="profile-name" data-profile-name>Profil</span>
+        </button>
+        <div id="profile-menu" class="profile-menu" hidden>
+          <p class="menu-name" id="menu-name" data-profile-menu-name>-</p>
+          <p class="menu-mail" id="menu-mail" data-profile-menu-mail>-</p>
+          <button id="logout-btn" class="logout-btn" type="button">Abmelden</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="accounts-main">
+    <section class="card">
+      <h2>Aktienkonten</h2>
+      <div class="row">
+        <label>
+          Neues Aktienkonto
+          <input id="shareAccountNameInput" type="text" placeholder="z. B. Langfristig" />
+        </label>
+        <button class="action primary" id="createShareAccountBtn" type="button">Erstellen</button>
+      </div>
+      <div id="shareAccountsList" class="accounts-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Bankkonto</h2>
+      <div class="row">
+        <label>
+          Neues Bankkonto
+          <input id="bankAccountNameInput" type="text" placeholder="z. B. Girokonto" />
+        </label>
+        <button class="action primary" id="createBankAccountBtn" type="button">Erstellen</button>
+      </div>
+      <div id="bankAccountsList" class="accounts-list"></div>
+    </section>
+
+    <p class="muted" id="accountsFeedback"></p>
+  </main>
+
+  <div id="transferModalBackdrop" class="transfer-modal-backdrop" hidden>
+    <div class="transfer-modal-card" role="dialog" aria-modal="true" aria-labelledby="transferModalTitle">
+      <h3 id="transferModalTitle" class="transfer-modal-title">Guthaben übertragen</h3>
+      <p id="transferModalMessage" class="transfer-modal-message">
+        Dieses Konto enthält noch Guthaben oder verknüpfte Buchungen. Bitte wähle ein Zielkonto.
+      </p>
+      <div class="transfer-modal-field">
+        <label class="field-label" for="transferTargetSelect">Zielkonto</label>
+        <select id="transferTargetSelect" class="field-input"></select>
+      </div>
+      <div class="transfer-modal-actions">
+        <button id="transferModalCancelBtn" class="action" type="button">Abbrechen</button>
+        <button id="transferModalConfirmBtn" class="action primary" type="button">Übertragen & löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="accountDetailBackdrop" class="account-detail-backdrop" hidden>
+    <div class="account-detail-card" role="dialog" aria-modal="true" aria-labelledby="accountDetailTitle">
+      <div class="account-detail-head">
+        <h2 id="accountDetailTitle" class="account-detail-title">Kontobewegungen</h2>
+        <button id="accountDetailCloseBtn" class="account-detail-close" type="button" aria-label="Schließen">✕</button>
+      </div>
+      <div id="accountDetailContent" class="account-detail-content">
+        <p class="muted">Wird geladen...</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/pages/accounts/app.js"></script>
+</body>
+</html>

@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node backend/server.mjs",
     "backend:start": "node backend/server.mjs",
-    "web:dev": "vite --config apps/web/vite.config.ts",
-    "web:build": "vite build --config apps/web/vite.config.ts",
-    "web:preview": "vite preview --config apps/web/vite.config.ts",
+    "web:dev": "vite --config frontend/vite.config.ts",
+    "web:build": "vite build --config frontend/vite.config.ts",
+    "web:preview": "vite preview --config frontend/vite.config.ts",
     "dev": "concurrently \"npm run backend:start\" \"npm run web:dev\"",
     "db:check": "node database/check-connection.mjs",
     "db:clear": "node database/clear-database.mjs",
