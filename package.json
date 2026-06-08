@@ -10,7 +10,7 @@
     "web:dev": "vite --config frontend/vite.config.ts",
     "web:build": "vite build --config frontend/vite.config.ts",
     "web:preview": "vite preview --config frontend/vite.config.ts",
-    "dev": "concurrently \"npm run backend:start\" \"npm run web:dev\"",
+    "dev": "concurrently \"npm run backend:start\" \"wait-on tcp:3000 && npm run web:dev\"",
     "db:check": "node database/check-connection.mjs",
     "db:clear": "node database/clear-database.mjs",
     "db:migrate": "node database/migrate-to-supabase.mjs",
@@ -33,6 +33,7 @@
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
+    "wait-on": "^9.0.10",
     "wrangler": "^4.97.0"
   }
 }
