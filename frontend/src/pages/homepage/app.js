@@ -23,13 +23,13 @@ function setAttr(id, attr, key, fallback) {
 }
 
 function renderHomepageCopy() {
-  document.title = t("homepage.page_title", "FinanzApp | Homepage");
+  document.title = t("homepage.page_title", "FBM Finance | Homepage");
 
-  setAttr("homepage-brand-link", "aria-label", "homepage.brand_aria", "Zur FinanzApp Homepage");
+  setAttr("homepage-brand-link", "aria-label", "homepage.brand_aria", "Zur FBM Finance Homepage");
 
   setText("homepage-hero-kicker", "homepage.hero.kicker", "The Next Generation Finance Platform");
   setText("homepage-hero-title", "homepage.hero.title", "Wenn Finanzmanagement wie ein Enterprise-System denkt, aber schnell wie ein Startup liefert.");
-  setText("homepage-hero-body", "homepage.hero.body", "FinanzApp verbindet AI Assist, Cloud-Native Skalierung und belastbare Security zu einer Plattform, die für persönliche und kollaborative Finanzen gleichermaßen gebaut ist.");
+  setText("homepage-hero-body", "homepage.hero.body", "FBM Finance verbindet AI Assist, Cloud-Native Skalierung und belastbare Security zu einer Plattform, die für persönliche und kollaborative Finanzen gleichermaßen gebaut ist.");
   setText("homepage-hero-cta", "homepage.hero.cta", "Features entdecken");
 
   setText("homepage-ai-tag", "homepage.ai.tag", "AI Enhancement");
@@ -37,7 +37,7 @@ function renderHomepageCopy() {
   setText("homepage-ai-body", "homepage.ai.body", "Unsere AI-Layer priorisieren relevante Ausgabenmuster, kategorisieren dynamisch und liefern Kontext, bevor man aktiv suchen muss. Ergebnis: weniger Rauschen, mehr Entscheidungen.");
   setAttr("homepage-ai-image", "alt", "homepage.ai.alt", "Abstrakte KI-Analyse mit Score-Linien und Vorhersagefenstern");
 
-  setAttr("homepage-register-video", "aria-label", "homepage.video.aria", "Demo der schnellen Registrierung in der FinanzApp");
+  setAttr("homepage-register-video", "aria-label", "homepage.video.aria", "Demo der schnellen Registrierung in FBM Finance");
   setText("homepage-video-fallback", "homepage.video.unsupported", "Dein Browser unterstützt dieses Videoformat nicht.");
   setText("homepage-video-tag", "homepage.video.tag", "Onboarding Experience");
   setText("homepage-video-title", "homepage.video.title", "Schnelle Registrierung in Sekunden");
@@ -46,7 +46,7 @@ function renderHomepageCopy() {
   setText("homepage-income-expenses-tag", "homepage.income_expenses.tag", "Tracking Workflow");
   setText("homepage-income-expenses-title", "homepage.income_expenses.title", "Einnahmen und Ausgaben in einem Flow");
   setText("homepage-income-expenses-body", "homepage.income_expenses.body", "Das Video zeigt, wie Buchungen schnell erfasst und sofort im Finanzbild sichtbar werden. So bleibt der Alltag übersichtlich, ohne lange Eingaben.");
-  setAttr("homepage-income-expenses-video", "aria-label", "homepage.income_expenses.aria", "Demo zum Erfassen von Einnahmen und Ausgaben in der FinanzApp");
+  setAttr("homepage-income-expenses-video", "aria-label", "homepage.income_expenses.aria", "Demo zum Erfassen von Einnahmen und Ausgaben in FBM Finance");
   setText("homepage-income-expenses-fallback", "homepage.income_expenses.unsupported", "Dein Browser unterstützt dieses Videoformat nicht.");
 
   setText("homepage-design-tag", "homepage.design.tag", "Minimalist Design");

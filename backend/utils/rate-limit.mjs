@@ -1,36 +1,34 @@
 // @ts-check
+// Rate limiting (in-memory, Workers-kompatibel)
 
-const TRUST_PROXY = process.env.TRUST_PROXY === "true";
+const TRUST_PROXY = typeof process !== "undefined" ? process.env.TRUST_PROXY === "true" : true;
 
 /**
- * @param {import('node:http').IncomingMessage} req
+ * @param {Request} request
  * @returns {string}
  */
-export function getClientIp(req) {
+export function getClientIp(request) {
   if (TRUST_PROXY) {
-    const cfIp = req.headers["cf-connecting-ip"];
-    if (cfIp) return String(cfIp).split(",")[0].trim();
-    const forwarded = req.headers["x-forwarded-for"];
-    if (forwarded) return String(forwarded).split(",")[0].trim();
-    const realIp = req.headers["x-real-ip"];
-    if (realIp) return String(realIp).split(",")[0].trim();
+    const cfIp = request.headers.get("cf-connecting-ip");
+    if (cfIp) return cfIp.split(",")[0].trim();
+    const forwarded = request.headers.get("x-forwarded-for");
+    if (forwarded) return forwarded.split(",")[0].trim();
+    const realIp = request.headers.get("x-real-ip");
+    if (realIp) return realIp.split(",")[0].trim();
   }
-  return req.socket?.remoteAddress || "unknown";
+  return "unknown";
 }
 
 /** @type {Map<string, { windowStart: number; count: number }>} */
 const _rateLimitBuckets = new Map();
 
 /**
- * @param {http.ServerResponse} res
  * @param {string} key
  * @param {number} maxAttempts
  * @param {number} windowMs
- * @returns {boolean}
+ * @returns {boolean} true if allowed, false if rate limited
  */
-export function rateLimitBucket(res, key, maxAttempts, windowMs) {
-  const { sendJson } = _sendJsonRef;
-  if (!sendJson) throw new Error("Rate limiter not initialized");
+export function rateLimitBucket(key, maxAttempts, windowMs) {
   const now = Date.now();
   let rec = _rateLimitBuckets.get(key);
   if (!rec || now - rec.windowStart > windowMs) {
@@ -38,39 +36,31 @@ export function rateLimitBucket(res, key, maxAttempts, windowMs) {
   }
   rec.count++;
   _rateLimitBuckets.set(key, rec);
-  if (rec.count > maxAttempts) {
-    const retryAfter = Math.ceil((rec.windowStart + windowMs - now) / 1000);
-    sendJson(res, 429, { ok: false, message: "Zu viele Anfragen. Bitte warte kurz und versuche es erneut." },
-      { "Retry-After": String(retryAfter) });
-    return false;
-  }
-  return true;
-}
-
-/** @type {{ sendJson: ((res: import('node:http').ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void) | null }} */
-const _sendJsonRef = { sendJson: null };
-
-/**
- * @param {(res: import('node:http').ServerResponse, status: number, payload: unknown, headers?: Record<string,string>) => void} sendJsonFn
- */
-export function initRateLimiter(sendJsonFn) {
-  _sendJsonRef.sendJson = sendJsonFn;
+  return rec.count <= maxAttempts;
 }
 
 /**
- * @param {import('node:http').IncomingMessage} req
- * @param {import('node:http').ServerResponse} res
+ * Returns null if allowed, or a 429 Response if rate limited.
+ * @param {Request} request
  * @param {{ maxAttempts?: number; windowMs?: number; group?: string }} [options]
- * @returns {boolean}
+ * @returns {Response | null}
  */
-export function checkRateLimit(req, res, { maxAttempts = 10, windowMs = 60_000, group = "general" } = {}) {
-  const ip = getClientIp(req);
-  return rateLimitBucket(res, `${group}:${ip}`, maxAttempts, windowMs);
+export function checkRateLimit(request, { maxAttempts = 10, windowMs = 60_000, group = "general" } = {}) {
+  const ip = getClientIp(request);
+  const allowed = rateLimitBucket(`${group}:${ip}`, maxAttempts, windowMs);
+  if (!allowed) {
+    return new Response(
+      JSON.stringify({ ok: false, message: "Zu viele Anfragen. Bitte warte kurz und versuche es erneut." }),
+      { status: 429, headers: { "Content-Type": "application/json; charset=utf-8" } }
+    );
+  }
+  return null;
 }
 
+// Cleanup old buckets periodically
 setInterval(() => {
   const cutoff = Date.now() - 300_000;
   for (const [key, rec] of _rateLimitBuckets) {
     if (rec.windowStart < cutoff) _rateLimitBuckets.delete(key);
   }
-}, 120_000).unref();
+}, 120_000).unref?.();

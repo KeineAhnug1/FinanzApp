@@ -367,7 +367,7 @@ html.is-embedded-preload .layout-toolbar {
   letter-spacing: -0.01em;
 }
 
-/* Breadcrumb: "FinanzApp › Seitenname" sichtbar machen */
+/* Breadcrumb: "FBM Finance › Seitenname" sichtbar machen */
 .topbar-left .brand-link {
   flex-direction: row;
   align-items: center;
@@ -1782,4 +1782,15 @@ input.touched:invalid ~ .field-hint,
 [data-theme="dark"] .app-bottom-nav-icon img,
 [data-theme="dark"] .settings-icon-img {
   filter: brightness(0) invert(1) opacity(0.8);
+}
+
+.app-bottom-nav-icon svg {
+  width: 22px;
+  height: 22px;
+  color: var(--ui-text-muted);
+  flex-shrink: 0;
+}
+
+.app-bottom-nav-item.is-active .app-bottom-nav-icon svg {
+  color: var(--ui-primary);
 }

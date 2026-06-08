@@ -1,105 +1,56 @@
 // @ts-check
 import { isStateChangingMethod, checkCsrf } from "../../utils/csrf.mjs";
+import { jsonResponse } from "../../utils/http.mjs";
 
 /** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchGroupRoutes(ctx) {
-  const { req, res, pathname, session, handlers, sendJson } = ctx;
-  if (isStateChangingMethod(req.method)) {
-    if (!checkCsrf(req, res)) return true;
+  const { request, pathname, session, handlers } = ctx;
+  if (isStateChangingMethod(request.method)) {
+    if (!checkCsrf(request)) return jsonResponse({ ok: false, message: "CSRF token invalid or missing" }, 403);
   }
 
-  if (pathname === "/api/groups") {
-    await handlers.handleGroups(req, res, session);
-    return true;
-  }
-
-  if (pathname === "/api/inbox/invitations") {
-    await handlers.handleGetInvitations(req, res, session);
-    return true;
-  }
+  if (pathname === "/api/groups") return await handlers.handleGroups(request, session);
+  if (pathname === "/api/inbox/invitations") return await handlers.handleGetInvitations(request, session);
 
   const invitationDecisionMatch = pathname.match(/^\/api\/inbox\/invitations\/([^/]+)\/(accept|deny)$/);
-  if (invitationDecisionMatch) {
-    await handlers.handleInvitationDecision(req, res, invitationDecisionMatch[1], invitationDecisionMatch[2], session);
-    return true;
-  }
+  if (invitationDecisionMatch) return await handlers.handleInvitationDecision(request, invitationDecisionMatch[1], invitationDecisionMatch[2], session);
 
   const inviteMatch = pathname.match(/^\/api\/groups\/([^/]+)\/invite$/);
-  if (inviteMatch) {
-    await handlers.handleInviteUser(req, res, inviteMatch[1], session);
-    return true;
-  }
+  if (inviteMatch) return await handlers.handleInviteUser(request, inviteMatch[1], session);
 
   const createActivityMatch = pathname.match(/^\/api\/groups\/([^/]+)\/activities$/);
-  if (createActivityMatch) {
-    await handlers.handleCreateGroupActivity(req, res, createActivityMatch[1], session);
-    return true;
-  }
+  if (createActivityMatch) return await handlers.handleCreateGroupActivity(request, createActivityMatch[1], session);
 
   const createFundingMatch = pathname.match(/^\/api\/groups\/([^/]+)\/funding$/);
-  if (createFundingMatch) {
-    await handlers.handleCreateGroupFunding(req, res, createFundingMatch[1], session);
-    return true;
-  }
+  if (createFundingMatch) return await handlers.handleCreateGroupFunding(request, createFundingMatch[1], session);
 
   const donateMatch = pathname.match(/^\/api\/groups\/([^/]+)\/funding\/([^/]+)\/donate$/);
-  if (donateMatch) {
-    await handlers.handleDonateToFunding(req, res, donateMatch[1], donateMatch[2], session);
-    return true;
-  }
+  if (donateMatch) return await handlers.handleDonateToFunding(request, donateMatch[1], donateMatch[2], session);
 
   const createExpenseMatch = pathname.match(/^\/api\/groups\/([^/]+)\/expenses$/);
-  if (createExpenseMatch) {
-    await handlers.handleCreateGroupExpense(req, res, createExpenseMatch[1], session);
-    return true;
-  }
+  if (createExpenseMatch) return await handlers.handleCreateGroupExpense(request, createExpenseMatch[1], session);
 
   const groupMessagesMatch = pathname.match(/^\/api\/groups\/([^/]+)\/messages$/);
-  if (groupMessagesMatch) {
-    await handlers.handleGroupMessages(req, res, groupMessagesMatch[1], session);
-    return true;
-  }
+  if (groupMessagesMatch) return await handlers.handleGroupMessages(request, groupMessagesMatch[1], session);
 
   const groupMessageItemMatch = pathname.match(/^\/api\/groups\/([^/]+)\/messages\/([^/]+)$/);
-  if (groupMessageItemMatch) {
-    await handlers.handleDeleteGroupMessage(req, res, groupMessageItemMatch[1], groupMessageItemMatch[2], session);
-    return true;
-  }
+  if (groupMessageItemMatch) return await handlers.handleDeleteGroupMessage(request, groupMessageItemMatch[1], groupMessageItemMatch[2], session);
 
   const promoteAdminMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)\/promote-admin$/);
-  if (promoteAdminMatch) {
-    await handlers.handlePromoteMemberToAdmin(req, res, promoteAdminMatch[1], promoteAdminMatch[2], session);
-    return true;
-  }
+  if (promoteAdminMatch) return await handlers.handlePromoteMemberToAdmin(request, promoteAdminMatch[1], promoteAdminMatch[2], session);
 
   const leaveGroupMatch = pathname.match(/^\/api\/groups\/([^/]+)\/leave$/);
-  if (leaveGroupMatch) {
-    await handlers.handleLeaveGroup(req, res, leaveGroupMatch[1], session);
-    return true;
-  }
+  if (leaveGroupMatch) return await handlers.handleLeaveGroup(request, leaveGroupMatch[1], session);
 
   const removeMemberMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)$/);
-  if (removeMemberMatch) {
-    await handlers.handleRemoveMember(req, res, removeMemberMatch[1], removeMemberMatch[2], session);
-    return true;
-  }
+  if (removeMemberMatch) return await handlers.handleRemoveMember(request, removeMemberMatch[1], removeMemberMatch[2], session);
 
   const groupMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
   if (groupMatch) {
-    if (req.method === "GET") {
-      await handlers.handleGroupDetail(req, res, groupMatch[1], session);
-      return true;
-    }
-
-    if (req.method === "DELETE") {
-      await handlers.handleDeleteGroup(req, res, groupMatch[1], session);
-      return true;
-    }
-
-    res.setHeader("Allow", "GET, DELETE");
-    sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    return true;
+    if (request.method === "GET") return await handlers.handleGroupDetail(request, groupMatch[1], session);
+    if (request.method === "DELETE") return await handlers.handleDeleteGroup(request, groupMatch[1], session);
+    return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, DELETE" });
   }
 
-  return false;
+  return null;
 }

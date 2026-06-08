@@ -1,111 +1,79 @@
 // @ts-check
+// Web Fetch API utils (Cloudflare Workers / Pages Functions)
 
 /**
- * @param {import('node:http').ServerResponse} res
- * @param {number} statusCode
  * @param {unknown} payload
- * @param {Record<string, string>} [extraHeaders]
+ * @param {number} [status]
+ * @param {Record<string, string | string[]>} [extraHeaders]
+ * @returns {Response}
  */
-export function sendJson(res, statusCode, payload, extraHeaders = {}) {
+export function jsonResponse(payload, status = 200, extraHeaders = {}) {
   const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
+  const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(body),
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
-    // Very strict CSP for JSON responses; static HTML has its own CSP in server
     "Content-Security-Policy": "default-src 'none'",
-    ...extraHeaders
   });
-  res.end(body);
+  for (const [key, value] of Object.entries(extraHeaders)) {
+    if (Array.isArray(value)) {
+      for (const v of value) headers.append(key, v);
+    } else {
+      headers.set(key, value);
+    }
+  }
+  return new Response(body, { status, headers });
 }
 
 /**
- * Add basic security headers for static HTML responses.
- * @param {import('node:http').ServerResponse} res
- */
-export function applySecurityHeadersForHtml(res) {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
-  // CSP allows self assets and images/data for logos; adjust if needed
-  const csp = [
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
-    "connect-src 'self'",
-    "font-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "frame-ancestors 'self'"
-  ].join("; ");
-  res.setHeader("Content-Security-Policy", csp);
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()\n");
-}
-
-/**
- * @param {import('node:http').IncomingMessage} req
+ * @param {Request} request
  * @param {number} [maxBytes]
- * @returns {Promise<Record<string, unknown>>}
- */
-export function readBody(req, maxBytes = 1_000_000) {
-  return new Promise((resolve, reject) => {
-    /** @type {Buffer[]} */
-    const chunks = [];
-    let totalBytes = 0;
-    req.on("data", (/** @type {Buffer} */ chunk) => {
-      totalBytes += chunk.length;
-      if (totalBytes > maxBytes) {
-        reject(new Error("payload_too_large"));
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on("end", () => {
-      try {
-        const raw = Buffer.concat(chunks).toString("utf8");
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch {
-        reject(new Error("invalid_json"));
-      }
-    });
-    req.on("error", reject);
-  });
-}
-
-import { badRequest } from "../helpers/responses.mjs";
-
-/**
- * @param {import('node:http').IncomingMessage} req
- * @param {import('node:http').ServerResponse} res
- * @param {{ maxBytes?: number; tooLargeMessage?: string }} [options]
  * @returns {Promise<Record<string, unknown> | null>}
  */
-export async function parseBody(req, res, options = {}) {
+export async function parseBody(request, maxBytes = 1_000_000) {
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > maxBytes) return null;
+
+  const arrayBuffer = await request.arrayBuffer();
+  if (arrayBuffer.byteLength > maxBytes) return null;
+
+  const raw = new TextDecoder().decode(arrayBuffer);
+  if (!raw) return {};
   try {
-    return await readBody(req, options.maxBytes);
-  } catch (/** @type {unknown} */ error) {
-    const err = /** @type {Error} */ (error);
-    if (err.message === "payload_too_large") sendJson(res, 413, { ok: false, message: options.tooLargeMessage || "Payload too large" });
-    else badRequest(res, "Invalid JSON body");
+    return JSON.parse(raw);
+  } catch {
     return null;
   }
 }
 
 /**
- * @param {import('node:http').IncomingMessage} req
+ * @param {Request} request
  * @returns {Record<string, string>}
  */
-export function parseCookies(req) {
-  const raw = String(req.headers.cookie || "");
+export function parseCookies(request) {
+  const raw = request.headers.get("cookie") || "";
   /** @type {Record<string, string>} */
   const out = {};
   for (const part of raw.split(";")) {
     const [k, ...rest] = part.trim().split("=");
     if (!k) continue;
-    out[k] = decodeURIComponent(rest.join("=") || "");
+    try {
+      out[k] = decodeURIComponent(rest.join("=") || "");
+    } catch {
+      out[k] = rest.join("=") || "";
+    }
   }
   return out;
+}
+
+/**
+ * Legacy compatibility: same signature as old sendJson but returns a Response.
+ * @param {unknown} _res - ignored, kept for call-site compat during migration
+ * @param {number} statusCode
+ * @param {unknown} payload
+ * @param {Record<string, string | string[]>} [extraHeaders]
+ * @returns {Response}
+ */
+export function sendJson(_res, statusCode, payload, extraHeaders = {}) {
+  return jsonResponse(payload, statusCode, extraHeaders);
 }

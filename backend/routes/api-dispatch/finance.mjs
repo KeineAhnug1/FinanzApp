@@ -1,65 +1,33 @@
 // @ts-check
-import { parsePathParam } from "./common.mjs";
 import { isStateChangingMethod, checkCsrf } from "../../utils/csrf.mjs";
+import { jsonResponse } from "../../utils/http.mjs";
 
 /** @param {import('./types.mjs').ApiRouteContext} ctx */
 export async function dispatchFinanceRoutes(ctx) {
-  const { req, res, pathname, url, session, handlers } = ctx;
-  if (isStateChangingMethod(req.method)) {
-    if (!checkCsrf(req, res)) return true;
+  const { request, pathname, url, session, handlers } = ctx;
+  if (isStateChangingMethod(request.method)) {
+    if (!checkCsrf(request)) return jsonResponse({ ok: false, message: "CSRF token invalid or missing" }, 403);
   }
 
-  if (pathname === "/api/positions") {
-    await handlers.handlePositions(req, res, url, session);
-    return true;
-  }
-
-  if (pathname === "/api/bank-accounts") {
-    await handlers.handleBankAccounts(req, res, session);
-    return true;
-  }
-
+  if (pathname === "/api/positions") return await handlers.handlePositions(request, url, session);
+  if (pathname === "/api/bank-accounts") return await handlers.handleBankAccounts(request, session);
   const bankAccountId = parsePathParam(pathname, "/api/bank-accounts/");
-  if (bankAccountId) {
-    await handlers.handleBankAccountById(req, res, bankAccountId, session);
-    return true;
-  }
-
-  if (pathname === "/api/share-accounts") {
-    await handlers.handleShareAccounts(req, res, session);
-    return true;
-  }
-
+  if (bankAccountId) return await handlers.handleBankAccountById(request, bankAccountId, session);
+  if (pathname === "/api/share-accounts") return await handlers.handleShareAccounts(request, session);
   const shareAccountId = parsePathParam(pathname, "/api/share-accounts/");
-  if (shareAccountId) {
-    await handlers.handleShareAccountById(req, res, shareAccountId, session);
-    return true;
-  }
+  if (shareAccountId) return await handlers.handleShareAccountById(request, shareAccountId, session);
+  if (pathname === "/api/debug/positions") return await handlers.handleDebugPositions(request, url, session);
+  if (pathname.startsWith("/api/twelvedata")) return await handlers.handleTwelveDataProxy(request, pathname, url, session);
+  if (pathname === "/api/stocks/search") return await handlers.handleStockSearchProxy(request, url, session);
+  if (pathname === "/api/stocks/logo") return await handlers.handleStockLogoProxy(request, url, session);
+  if (pathname === "/api/transactions") return await handlers.handleTransactions(request, session);
 
-  if (pathname === "/api/debug/positions") {
-    await handlers.handleDebugPositions(req, res, url, session);
-    return true;
-  }
+  return null;
+}
 
-  if (pathname.startsWith("/api/twelvedata")) {
-    await handlers.handleTwelveDataProxy(req, res, pathname, url, session);
-    return true;
-  }
-
-  if (pathname === "/api/stocks/search") {
-    await handlers.handleStockSearchProxy(req, res, url, session);
-    return true;
-  }
-
-  if (pathname === "/api/stocks/logo") {
-    await handlers.handleStockLogoProxy(req, res, url, session);
-    return true;
-  }
-
-  if (pathname === "/api/transactions") {
-    await handlers.handleTransactions(req, res, session);
-    return true;
-  }
-
-  return false;
+function parsePathParam(pathname, prefix) {
+  if (!pathname.startsWith(prefix)) return null;
+  const rawValue = pathname.slice(prefix.length);
+  if (!rawValue) return null;
+  return decodeURIComponent(rawValue);
 }

@@ -143,7 +143,7 @@ async function loadIndex() {
     LOCALES = new Set(locales.length ? locales : FALLBACK_LOCALES);
     sourceLocale = defaultLocale;
   } catch (error) {
-    console.warn("FinanzAppLanguage: i18n index konnte nicht geladen werden.", error);
+    console.warn("FBMFinanceLanguage: i18n index konnte nicht geladen werden.", error);
     defaultLocale = DEFAULT_LOCALE;
     LOCALES = new Set(FALLBACK_LOCALES);
     sourceLocale = DEFAULT_LOCALE;
@@ -231,7 +231,7 @@ async function setActiveLocale(nextLocale) {
   try {
     await loadLocale(activeLocale);
   } catch (error) {
-    console.warn(`FinanzAppLanguage: Locale ${activeLocale} konnte nicht geladen werden.`, error);
+    console.warn(`FBMFinanceLanguage: Locale ${activeLocale} konnte nicht geladen werden.`, error);
     activeLocale = defaultLocale;
     activeDictionary = sourceDictionary;
   }
@@ -265,7 +265,7 @@ async function runInit() {
   try {
     await loadLocale(sourceLocale);
   } catch (error) {
-    console.warn(`FinanzAppLanguage: Source-Locale ${sourceLocale} konnte nicht geladen werden.`, error);
+    console.warn(`FBMFinanceLanguage: Source-Locale ${sourceLocale} konnte nicht geladen werden.`, error);
     sourceDictionary = {};
     rebuildTokenLookup();
   }

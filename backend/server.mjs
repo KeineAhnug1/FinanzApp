@@ -182,7 +182,7 @@ async function start() {
   });
 
   server.listen(PORT, () => {
-    console.log(`FinanzApp läuft auf http://localhost:${PORT}`);
+    console.log(`FBM Finance läuft auf http://localhost:${PORT}`);
   });
 
   async function shutdown() {

@@ -1,8 +1,8 @@
 {
-  "name": "finanzapp",
+  "name": "fbm-finance",
   "version": "1.0.0",
   "private": true,
-  "description": "FinanzApp - PostgreSQL/Supabase Backend",
+  "description": "FBM Finance - PostgreSQL/Supabase Backend",
   "main": "backend/server.mjs",
   "scripts": {
     "start": "node backend/server.mjs",
@@ -15,12 +15,15 @@
     "db:clear": "node database/clear-database.mjs",
     "db:migrate": "node database/migrate-to-supabase.mjs",
     "type-check": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "cf:dev": "npm run web:build && wrangler pages dev frontend/dist",
+    "cf:deploy": "npm run web:build && wrangler pages deploy frontend/dist --project-name finanzapp"
   },
   "dependencies": {
     "dotenv": "^17.2.4",
     "nodemailer": "^8.0.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "resend": "^6.12.4"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
@@ -29,6 +32,7 @@
     "concurrently": "^10.0.3",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "wrangler": "^4.97.0"
   }
 }

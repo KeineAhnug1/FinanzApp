@@ -1,5 +1,4 @@
 // @ts-check
-// @ts-check
 import {
   LOGO_DEV_API_KEY,
   LOGO_DEV_BASE_URL,
@@ -23,7 +22,7 @@ import {
   toNumber,
   uniqueCategoryList
 } from "../utils/data.mjs";
-import { parseBody, sendJson } from "../utils/http.mjs";
+import { jsonResponse, parseBody } from "../utils/http.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized, notFound } from "../helpers/responses.mjs";
 import { serializeIncomeEntry, serializeExpenseEntry } from "../helpers/serializers.mjs";
@@ -46,7 +45,6 @@ const DOMAIN_CACHE_MAX = 2000;
 const logoCache = new Map();
 const domainCache = new Map();
 
-/** @param {string} key */
 function logoCacheGet(key) {
   const entry = logoCache.get(key);
   if (!entry) return null;
@@ -55,19 +53,11 @@ function logoCacheGet(key) {
   return entry;
 }
 
-/**
- * @param {string} key
- * @param {unknown} value
- */
 function logoCacheSet(key, value) {
-  if (logoCache.size >= LOGO_CACHE_MAX) {
-    const oldest = logoCache.keys().next().value;
-    logoCache.delete(oldest);
-  }
+  if (logoCache.size >= LOGO_CACHE_MAX) { logoCache.delete(logoCache.keys().next().value); }
   logoCache.set(key, { ...(/** @type {object} */ (value)), cachedAt: Date.now() });
 }
 
-/** @param {string} key */
 function domainCacheGet(key) {
   const entry = domainCache.get(key);
   if (!entry) return undefined;
@@ -75,23 +65,15 @@ function domainCacheGet(key) {
   return entry.domain;
 }
 
-/**
- * @param {string} key
- * @param {string} domain
- */
 function domainCacheSet(key, domain) {
-  if (domainCache.size >= DOMAIN_CACHE_MAX) {
-    domainCache.delete(domainCache.keys().next().value);
-  }
+  if (domainCache.size >= DOMAIN_CACHE_MAX) { domainCache.delete(domainCache.keys().next().value); }
   domainCache.set(key, { domain, cachedAt: Date.now() });
 }
 
-/** @param {unknown} value */
 function normalizeExchangeCode(value) {
   return String(value || "").trim().toUpperCase();
 }
 
-/** @param {unknown} rawValue */
 function extractHostnameCandidate(rawValue) {
   const value = String(rawValue || "").trim();
   if (!value) return "";
@@ -100,15 +82,9 @@ function extractHostnameCandidate(rawValue) {
     const cleaned = value.replace(/^www\./i, "");
     if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cleaned)) return "";
     return cleaned.toLowerCase();
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
-/**
- * @param {any[]} rows
- * @param {string} [symbolHint]
- */
 function resolveLogoDomainFromSearchRows(rows, symbolHint = "") {
   const normalizedSymbol = String(symbolHint || "").trim().toUpperCase();
   const candidates = Array.isArray(rows) ? rows : [];
@@ -121,10 +97,6 @@ function resolveLogoDomainFromSearchRows(rows, symbolHint = "") {
   return "";
 }
 
-/**
- * @param {string} symbol
- * @param {string} exchange
- */
 async function resolveLogoDomainBySymbol(symbol, exchange) {
   if (!STOCK_SEARCH_BASE_URL || !STOCK_API_KEY) return "";
   const sSymbol = String(symbol || "").trim().toUpperCase();
@@ -146,26 +118,23 @@ async function resolveLogoDomainBySymbol(symbol, exchange) {
 
 /** @param {Pool} pool */
 export function createFinanceHandlers(pool) {
+
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleTransactions(req, res, session) {
+  async function handleTransactions(request, session) {
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
     const userAccounts = await ensureUserFinanceRoots(pool, userId);
     const accountIds = userAccounts.map((a) => a.id);
 
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
 
-    const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
-    if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
+    const requestUrl = new URL(request.url);
+    const filterResult = resolveRequestedBankAccountFilter(requestUrl, accountIds);
+    if (!filterResult.ok) return jsonResponse({ ok: false, message: filterResult.message }, filterResult.status);
 
-    const requestUrl = new URL(req.url || "/", "http://localhost");
     const limitRaw = Number(requestUrl.searchParams.get("limit"));
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
     const cursorRaw = String(requestUrl.searchParams.get("cursor") || "").trim();
@@ -180,10 +149,7 @@ export function createFinanceHandlers(pool) {
         const ts = Number(m[1]);
         const idParsed = parseId(m[2]);
         const d = new Date(ts);
-        if (Number.isFinite(ts) && idParsed && !Number.isNaN(d.getTime())) {
-          cursorSortAt = d;
-          cursorId = idParsed;
-        }
+        if (Number.isFinite(ts) && idParsed && !Number.isNaN(d.getTime())) { cursorSortAt = d; cursorId = idParsed; }
       }
     }
 
@@ -195,24 +161,14 @@ export function createFinanceHandlers(pool) {
 
     const unionSql = `
       SELECT id, bank_account_id, source, category, amount, cycle, recurrence, is_active, note, state, created_at, updated_at,
-             COALESCE(received_at, pay_date, created_at) AS sort_at,
-             'income'::text AS type,
-             received_at,
-             pay_date,
-             NULL::timestamp AS spent_at,
-             NULL::timestamp AS due_date
-        FROM income
-       WHERE bank_account_id = ANY($${pAccounts})${pCategory ? ` AND LOWER(category) = LOWER($${pCategory})` : ""}
+             COALESCE(received_at, pay_date, created_at) AS sort_at, 'income'::text AS type,
+             received_at, pay_date, NULL::timestamp AS spent_at, NULL::timestamp AS due_date
+        FROM income WHERE bank_account_id = ANY($${pAccounts})${pCategory ? ` AND LOWER(category) = LOWER($${pCategory})` : ""}
       UNION ALL
       SELECT id, bank_account_id, source, category, amount, cycle, recurrence, is_active, note, state, created_at, updated_at,
-             COALESCE(spent_at, pay_date, due_date, created_at) AS sort_at,
-             'expense'::text AS type,
-             NULL::timestamp AS received_at,
-             pay_date,
-             spent_at,
-             due_date
-        FROM private_expenses
-       WHERE bank_account_id = ANY($${pAccounts})${pCategory ? ` AND LOWER(category) = LOWER($${pCategory})` : ""}
+             COALESCE(spent_at, pay_date, due_date, created_at) AS sort_at, 'expense'::text AS type,
+             NULL::timestamp AS received_at, pay_date, spent_at, due_date
+        FROM private_expenses WHERE bank_account_id = ANY($${pAccounts})${pCategory ? ` AND LOWER(category) = LOWER($${pCategory})` : ""}
     `;
 
     let whereCursor = "";
@@ -224,15 +180,12 @@ export function createFinanceHandlers(pool) {
 
     const pLimit = p; params.push(limit);
     const query = `SELECT * FROM (${unionSql}) AS t${whereCursor} ORDER BY sort_at DESC NULLS LAST, id DESC LIMIT $${pLimit}`;
-
     const { rows } = await pool.query(query, params);
 
-    const entries = rows.map((row) => {
-      if (row.type === "income") {
-        return { type: "income", ...serializeIncomeEntry(row, userId) };
-      }
-      return { type: "expense", ...serializeExpenseEntry(row, userId) };
-    });
+    const entries = rows.map((row) => row.type === "income"
+      ? { type: "income", ...serializeIncomeEntry(row, userId) }
+      : { type: "expense", ...serializeExpenseEntry(row, userId) }
+    );
 
     let nextCursor = null;
     if (rows.length === limit) {
@@ -241,60 +194,54 @@ export function createFinanceHandlers(pool) {
       if (Number.isFinite(ts)) nextCursor = `${ts}_${last.id}`;
     }
 
-    return sendJson(res, 200, { ok: true, entries, next_cursor: nextCursor });
+    return jsonResponse({ ok: true, entries, next_cursor: nextCursor }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleCategories(req, res, session) {
+  async function handleCategories(request, session) {
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
     const userAccounts = await listUserBankAccounts(pool, userId);
     const accountIds = userAccounts.map((a) => a.id);
 
-    if (req.method === "GET") {
+    if (request.method === "GET") {
       const [storedResult, incomeDistinct, expenseDistinct] = await Promise.all([
         pool.query(`SELECT kind, value FROM user_categories WHERE user_id = $1`, [userId]),
         accountIds.length ? pool.query(`SELECT DISTINCT category FROM income WHERE bank_account_id = ANY($1) AND category IS NOT NULL`, [accountIds]) : { rows: [] },
         accountIds.length ? pool.query(`SELECT DISTINCT category FROM private_expenses WHERE bank_account_id = ANY($1) AND category IS NOT NULL`, [accountIds]) : { rows: [] }
       ]);
-
       const incomeValues = [];
       const expenseValues = [];
       for (const entry of storedResult.rows) {
         if (entry.kind === "income") incomeValues.push(entry.value);
         if (entry.kind === "expense") expenseValues.push(entry.value);
       }
-
-      return sendJson(res, 200, {
+      return jsonResponse({
         ok: true,
         income: uniqueCategoryList(incomeValues.concat(incomeDistinct.rows.map((r) => r.category))),
         expense: uniqueCategoryList(expenseValues.concat(expenseDistinct.rows.map((r) => r.category)))
-      });
+      }, 200);
     }
 
-    if (req.method !== "DELETE") {
-      res.setHeader("Allow", "GET, DELETE");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "DELETE") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, DELETE" });
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const kind = String(payload.kind || "").trim().toLowerCase();
-    if (kind !== "income" && kind !== "expense") return badRequest(res, "kind muss income oder expense sein");
+    if (kind !== "income" && kind !== "expense") return badRequest("kind muss income oder expense sein");
 
     const category = normalizeCategoryValue(payload.category);
-    if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
+    if (!category) return badRequest("Kategorie ist ein Pflichtfeld");
 
     const presetSet = kind === "income" ? PRESET_INCOME_CATEGORY_KEYS : PRESET_EXPENSE_CATEGORY_KEYS;
-    if (presetSet.has(category.toLowerCase())) return badRequest(res, "Standardkategorien koennen nicht geloescht werden");
+    if (presetSet.has(category.toLowerCase())) return badRequest("Standardkategorien koennen nicht geloescht werden");
 
     const fallbackCategory = normalizeCategoryValue(payload.replace_with || "other");
-    if (!fallbackCategory) return badRequest(res, "replace_with ist ungueltig");
+    if (!fallbackCategory) return badRequest("replace_with ist ungueltig");
 
     const tableName = kind === "income" ? "income" : "private_expenses";
     let updateResult;
@@ -310,31 +257,27 @@ export function createFinanceHandlers(pool) {
     await pool.query(`DELETE FROM user_categories WHERE user_id = $1 AND kind = $2 AND key = $3`, [userId, kind, categoryKey(category)]);
     if (!presetSet.has(fallbackCategory.toLowerCase())) await rememberUserCategory(pool, userId, kind, fallbackCategory);
 
-    return sendJson(res, 200, { ok: true, message: "Kategorie geloescht", kind, deleted_category: category, replaced_with: fallbackCategory, updated_entries: updateResult.rowCount });
+    return jsonResponse({ ok: true, message: "Kategorie geloescht", kind, deleted_category: category, replaced_with: fallbackCategory, updated_entries: updateResult.rowCount }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleIncomeEntries(req, res, session) {
+  async function handleIncomeEntries(request, session) {
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
     const userAccounts = await ensureUserFinanceRoots(pool, userId);
     const accountIds = userAccounts.map((a) => a.id);
 
-    if (req.method === "GET") {
-      const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
-      if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
-
-      const requestUrl = new URL(req.url || "/", "http://localhost");
+    if (request.method === "GET") {
+      const requestUrl = new URL(request.url);
+      const filterResult = resolveRequestedBankAccountFilter(requestUrl, accountIds);
+      if (!filterResult.ok) return jsonResponse({ ok: false, message: filterResult.message }, filterResult.status);
       const limitRaw = Number(requestUrl.searchParams.get("limit"));
       const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 200;
       const cursorId = parseId(requestUrl.searchParams.get("cursor"));
-
-      let query;
-      let params;
+      let query; let params;
       if (cursorId) {
         query = `SELECT * FROM income WHERE bank_account_id = ANY($1) AND id < $2 ORDER BY id DESC LIMIT $3`;
         params = [filterResult.accountIds, cursorId, limit];
@@ -342,21 +285,18 @@ export function createFinanceHandlers(pool) {
         query = `SELECT * FROM income WHERE bank_account_id = ANY($1) ORDER BY received_at DESC NULLS LAST, pay_date DESC NULLS LAST, created_at DESC LIMIT $2`;
         params = [filterResult.accountIds, limit];
       }
-
       const { rows: entries } = await pool.query(query, params);
       const nextCursor = entries.length === limit ? String(entries[entries.length - 1].id) : null;
-      return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeIncomeEntry(entry, userId)), next_cursor: nextCursor });
+      return jsonResponse({ ok: true, entries: entries.map((e) => serializeIncomeEntry(e, userId)), next_cursor: nextCursor }, 200);
     }
 
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "GET, POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
 
-    if (!checkRateLimit(req, res, { maxAttempts: 60, windowMs: 60_000, group: 'finance-write' })) return;
+    const rl = checkRateLimit(request, { maxAttempts: 60, windowMs: 60_000, group: "finance-write" });
+    if (rl) return rl;
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -367,17 +307,16 @@ export function createFinanceHandlers(pool) {
     const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
 
-    if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
-    if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
-    if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest(res, "Betrag muss groesser 0 sein");
-    if (Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
-    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
+    if (!source) return badRequest("Quelle ist ein Pflichtfeld");
+    if (!category) return badRequest("Kategorie ist ein Pflichtfeld");
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest("Betrag muss groesser 0 sein");
+    if (Number.isNaN(receivedAt.getTime())) return badRequest("Datum ist ungueltig");
+    if (!cycle) return badRequest("Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest("Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "income", category);
     const selectedBankAccountId = parseId(payload.bank_account_id);
     const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
-
     const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows } = await pool.query(
@@ -387,42 +326,34 @@ export function createFinanceHandlers(pool) {
     );
 
     await incrementBankAccountBalance(pool, bankAccountId, amountNumber);
-    return sendJson(res, 201, { ok: true, entry: serializeIncomeEntry(rows[0], userId) });
+    return jsonResponse({ ok: true, entry: serializeIncomeEntry(rows[0], userId) }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} entryIdRaw
    * @param {{ user: { id: string } }} session
    */
-  async function handleIncomeEntryById(req, res, entryIdRaw, session) {
+  async function handleIncomeEntryById(request, entryIdRaw, session) {
     const entryId = parseId(entryIdRaw);
-    if (!entryId) return badRequest(res, "entry_id ist ungueltig");
-
+    if (!entryId) return badRequest("entry_id ist ungueltig");
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
     const accountIds = (await listUserBankAccounts(pool, userId)).map((a) => a.id);
-    if (accountIds.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (accountIds.length === 0) return notFound("Eintrag wurde nicht gefunden");
 
-    if (req.method === "DELETE") {
-      const { rows: existing } = await pool.query(
-        `SELECT id, amount, bank_account_id FROM income WHERE id = $1 AND bank_account_id = ANY($2)`,
-        [entryId, accountIds]
-      );
-      if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (request.method === "DELETE") {
+      const { rows: existing } = await pool.query(`SELECT id, amount, bank_account_id FROM income WHERE id = $1 AND bank_account_id = ANY($2)`, [entryId, accountIds]);
+      if (existing.length === 0) return notFound("Eintrag wurde nicht gefunden");
       await pool.query(`DELETE FROM income WHERE id = $1`, [entryId]);
       await incrementBankAccountBalance(pool, existing[0].bank_account_id, -toFixedAmount(existing[0].amount));
-      return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
+      return jsonResponse({ ok: true, message: "Eintrag geloescht" }, 200);
     }
 
-    if (req.method !== "PATCH") {
-      res.setHeader("Allow", "PATCH, DELETE");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "PATCH") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "PATCH, DELETE" });
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -434,24 +365,18 @@ export function createFinanceHandlers(pool) {
     const isActive = parseBoolean(payload.is_active, true);
     const requestedBankAccountId = parseId(payload.bank_account_id);
 
-    if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
-    if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
-    if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest(res, "Betrag muss groesser 0 sein");
-    if (!receivedAt || Number.isNaN(receivedAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
-    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
+    if (!source) return badRequest("Quelle ist ein Pflichtfeld");
+    if (!category) return badRequest("Kategorie ist ein Pflichtfeld");
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) return badRequest("Betrag muss groesser 0 sein");
+    if (!receivedAt || Number.isNaN(receivedAt.getTime())) return badRequest("Datum ist ungueltig");
+    if (!cycle) return badRequest("Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest("Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "income", category);
+    const { rows: existing } = await pool.query(`SELECT id, amount, bank_account_id FROM income WHERE id = $1 AND bank_account_id = ANY($2)`, [entryId, accountIds]);
+    if (existing.length === 0) return notFound("Eintrag wurde nicht gefunden");
 
-    const { rows: existing } = await pool.query(
-      `SELECT id, amount, bank_account_id FROM income WHERE id = $1 AND bank_account_id = ANY($2)`,
-      [entryId, accountIds]
-    );
-    if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
-
-    const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
-      ? requestedBankAccountId : existing[0].bank_account_id;
-
+    const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId) ? requestedBankAccountId : existing[0].bank_account_id;
     const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows: updated } = await pool.query(
@@ -459,7 +384,7 @@ export function createFinanceHandlers(pool) {
        WHERE id = $12 RETURNING *`,
       [nextBankAccountId, source, category, note, amountNumber, receivedAt, effectiveRecurrence, cycle, effectiveState, source || note || null, effectiveIsActive, entryId]
     );
-    if (updated.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (updated.length === 0) return notFound("Eintrag wurde nicht gefunden");
 
     const previousAmount = toFixedAmount(existing[0].amount);
     const nextAmount = Number(amountNumber.toFixed(2));
@@ -469,31 +394,27 @@ export function createFinanceHandlers(pool) {
       await incrementBankAccountBalance(pool, existing[0].bank_account_id, -previousAmount);
       await incrementBankAccountBalance(pool, nextBankAccountId, nextAmount);
     }
-    return sendJson(res, 200, { ok: true, entry: serializeIncomeEntry(updated[0], userId) });
+    return jsonResponse({ ok: true, entry: serializeIncomeEntry(updated[0], userId) }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleExpenseEntries(req, res, session) {
+  async function handleExpenseEntries(request, session) {
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
     const userAccounts = await ensureUserFinanceRoots(pool, userId);
     const accountIds = userAccounts.map((a) => a.id);
 
-    if (req.method === "GET") {
-      const filterResult = resolveRequestedBankAccountFilter(req, accountIds);
-      if (!filterResult.ok) return sendJson(res, filterResult.status, { ok: false, message: filterResult.message });
-
-      const requestUrl = new URL(req.url || "/", "http://localhost");
+    if (request.method === "GET") {
+      const requestUrl = new URL(request.url);
+      const filterResult = resolveRequestedBankAccountFilter(requestUrl, accountIds);
+      if (!filterResult.ok) return jsonResponse({ ok: false, message: filterResult.message }, filterResult.status);
       const limitRaw = Number(requestUrl.searchParams.get("limit"));
       const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 200;
       const cursorId = parseId(requestUrl.searchParams.get("cursor"));
-
-      let query;
-      let params;
+      let query; let params;
       if (cursorId) {
         query = `SELECT * FROM private_expenses WHERE bank_account_id = ANY($1) AND id < $2 ORDER BY id DESC LIMIT $3`;
         params = [filterResult.accountIds, cursorId, limit];
@@ -501,21 +422,18 @@ export function createFinanceHandlers(pool) {
         query = `SELECT * FROM private_expenses WHERE bank_account_id = ANY($1) ORDER BY spent_at DESC NULLS LAST, pay_date DESC NULLS LAST, due_date DESC NULLS LAST, created_at DESC LIMIT $2`;
         params = [filterResult.accountIds, limit];
       }
-
       const { rows: entries } = await pool.query(query, params);
       const nextCursor = entries.length === limit ? String(entries[entries.length - 1].id) : null;
-      return sendJson(res, 200, { ok: true, entries: entries.map((entry) => serializeExpenseEntry(entry, userId)), next_cursor: nextCursor });
+      return jsonResponse({ ok: true, entries: entries.map((e) => serializeExpenseEntry(e, userId)), next_cursor: nextCursor }, 200);
     }
 
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "GET, POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
 
-    if (!checkRateLimit(req, res, { maxAttempts: 60, windowMs: 60_000, group: 'finance-write' })) return;
+    const rl = checkRateLimit(request, { maxAttempts: 60, windowMs: 60_000, group: "finance-write" });
+    if (rl) return rl;
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -526,17 +444,16 @@ export function createFinanceHandlers(pool) {
     const recurrence = parseRecurrence(payload.recurrence);
     const isActive = parseBoolean(payload.is_active, true);
 
-    if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
-    if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
-    if (amountNumber == null) return badRequest(res, "Betrag muss groesser 0 sein");
-    if (Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
-    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
+    if (!source) return badRequest("Quelle ist ein Pflichtfeld");
+    if (!category) return badRequest("Kategorie ist ein Pflichtfeld");
+    if (amountNumber == null) return badRequest("Betrag muss groesser 0 sein");
+    if (Number.isNaN(spentAt.getTime())) return badRequest("Datum ist ungueltig");
+    if (!cycle) return badRequest("Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest("Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "expense", category);
     const selectedBankAccountId = parseId(payload.bank_account_id);
     const bankAccountId = selectedBankAccountId && accountIds.includes(selectedBankAccountId) ? selectedBankAccountId : accountIds[0];
-
     const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows } = await pool.query(
@@ -546,42 +463,34 @@ export function createFinanceHandlers(pool) {
     );
 
     await incrementBankAccountBalance(pool, bankAccountId, -amountNumber);
-    return sendJson(res, 201, { ok: true, entry: serializeExpenseEntry(rows[0], userId) });
+    return jsonResponse({ ok: true, entry: serializeExpenseEntry(rows[0], userId) }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} entryIdRaw
    * @param {{ user: { id: string } }} session
    */
-  async function handleExpenseEntryById(req, res, entryIdRaw, session) {
+  async function handleExpenseEntryById(request, entryIdRaw, session) {
     const entryId = parseId(entryIdRaw);
-    if (!entryId) return badRequest(res, "entry_id ist ungueltig");
-
+    if (!entryId) return badRequest("entry_id ist ungueltig");
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
     const accountIds = (await listUserBankAccounts(pool, userId)).map((a) => a.id);
-    if (accountIds.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (accountIds.length === 0) return notFound("Eintrag wurde nicht gefunden");
 
-    if (req.method === "DELETE") {
-      const { rows: existing } = await pool.query(
-        `SELECT id, amount, bank_account_id FROM private_expenses WHERE id = $1 AND bank_account_id = ANY($2)`,
-        [entryId, accountIds]
-      );
-      if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (request.method === "DELETE") {
+      const { rows: existing } = await pool.query(`SELECT id, amount, bank_account_id FROM private_expenses WHERE id = $1 AND bank_account_id = ANY($2)`, [entryId, accountIds]);
+      if (existing.length === 0) return notFound("Eintrag wurde nicht gefunden");
       await pool.query(`DELETE FROM private_expenses WHERE id = $1`, [entryId]);
       await incrementBankAccountBalance(pool, existing[0].bank_account_id, toFixedAmount(existing[0].amount));
-      return sendJson(res, 200, { ok: true, message: "Eintrag geloescht" });
+      return jsonResponse({ ok: true, message: "Eintrag geloescht" }, 200);
     }
 
-    if (req.method !== "PATCH") {
-      res.setHeader("Allow", "PATCH, DELETE");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "PATCH") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "PATCH, DELETE" });
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const source = String(payload.source || "").trim();
     const category = normalizeCategoryValue(payload.category);
@@ -593,24 +502,18 @@ export function createFinanceHandlers(pool) {
     const isActive = parseBoolean(payload.is_active, true);
     const requestedBankAccountId = parseId(payload.bank_account_id);
 
-    if (!source) return badRequest(res, "Quelle ist ein Pflichtfeld");
-    if (!category) return badRequest(res, "Kategorie ist ein Pflichtfeld");
-    if (amountNumber == null) return badRequest(res, "Betrag muss groesser 0 sein");
-    if (!spentAt || Number.isNaN(spentAt.getTime())) return badRequest(res, "Datum ist ungueltig");
-    if (!cycle) return badRequest(res, "Zyklus muss once, weekly, monthly oder yearly sein");
-    if (recurrence === undefined) return badRequest(res, "Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
+    if (!source) return badRequest("Quelle ist ein Pflichtfeld");
+    if (!category) return badRequest("Kategorie ist ein Pflichtfeld");
+    if (amountNumber == null) return badRequest("Betrag muss groesser 0 sein");
+    if (!spentAt || Number.isNaN(spentAt.getTime())) return badRequest("Datum ist ungueltig");
+    if (!cycle) return badRequest("Zyklus muss once, weekly, monthly oder yearly sein");
+    if (recurrence === undefined) return badRequest("Wiederholung muss eine positive Ganzzahl oder leer (unbegrenzt) sein");
 
     await rememberUserCategory(pool, userId, "expense", category);
+    const { rows: existing } = await pool.query(`SELECT id, amount, bank_account_id FROM private_expenses WHERE id = $1 AND bank_account_id = ANY($2)`, [entryId, accountIds]);
+    if (existing.length === 0) return notFound("Eintrag wurde nicht gefunden");
 
-    const { rows: existing } = await pool.query(
-      `SELECT id, amount, bank_account_id FROM private_expenses WHERE id = $1 AND bank_account_id = ANY($2)`,
-      [entryId, accountIds]
-    );
-    if (existing.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
-
-    const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId)
-      ? requestedBankAccountId : existing[0].bank_account_id;
-
+    const nextBankAccountId = requestedBankAccountId && accountIds.includes(requestedBankAccountId) ? requestedBankAccountId : existing[0].bank_account_id;
     const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
     const { rows: updated } = await pool.query(
@@ -618,7 +521,7 @@ export function createFinanceHandlers(pool) {
        WHERE id = $12 RETURNING *`,
       [nextBankAccountId, source, category, note, amountNumber, spentAt, source || note || null, effectiveState, effectiveRecurrence, cycle, effectiveIsActive, entryId]
     );
-    if (updated.length === 0) return notFound(res, "Eintrag wurde nicht gefunden");
+    if (updated.length === 0) return notFound("Eintrag wurde nicht gefunden");
 
     const previousAmount = toFixedAmount(existing[0].amount);
     const nextAmount = Number(amountNumber.toFixed(2));
@@ -628,45 +531,28 @@ export function createFinanceHandlers(pool) {
       await incrementBankAccountBalance(pool, existing[0].bank_account_id, previousAmount);
       await incrementBankAccountBalance(pool, nextBankAccountId, -nextAmount);
     }
-    return sendJson(res, 200, { ok: true, entry: serializeExpenseEntry(updated[0], userId) });
+    return jsonResponse({ ok: true, entry: serializeExpenseEntry(updated[0], userId) }, 200);
   }
 
-  /** @param {string | number} userId */
   async function loadUserBankAccountsLocal(userId) {
     const userObjectId = parseId(userId);
     if (!userObjectId) return [];
-    const { rows } = await pool.query(
-      `SELECT id, label, balance, created_at FROM bank_accounts WHERE user_id = $1 ORDER BY created_at ASC`,
-      [userObjectId]
-    );
-    return rows.map((account, index) => ({
-      id: String(account.id),
-      label: String(account.label || `Bankkonto ${index + 1}`),
-      balance: toFixedAmount(account.balance)
-    }));
+    const { rows } = await pool.query(`SELECT id, label, balance, created_at FROM bank_accounts WHERE user_id = $1 ORDER BY created_at ASC`, [userObjectId]);
+    return rows.map((account, index) => ({ id: String(account.id), label: String(account.label || `Bankkonto ${index + 1}`), balance: toFixedAmount(account.balance) }));
   }
 
-  /** @param {string | number} userId */
   async function loadUserShareAccountsLocal(userId) {
     const userObjectId = parseId(userId);
     if (!userObjectId) return [];
     const shareAccounts = await listUserShareAccounts(pool, userObjectId);
-    return shareAccounts.map((account, index) => ({
-      id: String(account.id),
-      label: String(account.label || `Aktienkonto ${index + 1}`)
-    }));
+    return shareAccounts.map((account, index) => ({ id: String(account.id), label: String(account.label || `Aktienkonto ${index + 1}`) }));
   }
 
-  /**
-   * @param {string | number} userId
-   * @param {string} [shareAccountIdRaw]
-   */
   async function loadUserPositions(userId, shareAccountIdRaw = "") {
     const userObjectId = parseId(userId);
     if (!userObjectId) return [];
     const shareAccounts = await listUserShareAccounts(pool, userObjectId);
     if (!shareAccounts.length) return [];
-
     const shareAccountIds = shareAccounts.map((a) => a.id);
     let filteredShareAccountIds = shareAccountIds;
     const selectedAccountId = parseId(shareAccountIdRaw);
@@ -675,12 +561,10 @@ export function createFinanceHandlers(pool) {
       if (!shareAccountIds.includes(selectedAccountId)) return [];
       filteredShareAccountIds = [selectedAccountId];
     }
-
     const { rows: shares } = await pool.query(
       `SELECT * FROM shares WHERE share_account_id = ANY($1) OR depot_id = ANY($1) OR bank_account_id = ANY($1) ORDER BY bought_at ASC LIMIT 500`,
       [filteredShareAccountIds]
     );
-
     return shares.map((share) => {
       const symbol = String(share.symbol || "").trim().toUpperCase();
       const amount = toNumber(share.units);
@@ -695,267 +579,189 @@ export function createFinanceHandlers(pool) {
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {URL} url
    * @param {{ user: { id: string } }} session
    */
-  async function handlePositions(req, res, url, session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handlePositions(request, url, session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
     const shareAccountId = String(url.searchParams.get("share_account_id") || url.searchParams.get("bank_account_id") || "").trim();
     const positions = await loadUserPositions(session.user.id, shareAccountId);
-    return sendJson(res, 200, positions);
+    return jsonResponse(positions, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleBankAccounts(req, res, session) {
+  async function handleBankAccounts(request, session) {
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
-    if (req.method === "GET") {
+    if (request.method === "GET") {
       const accounts = await loadUserBankAccountsLocal(session.user.id);
-      return sendJson(res, 200, { ok: true, accounts });
+      return jsonResponse({ ok: true, accounts }, 200);
     }
 
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "GET, POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
-
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
     const label = String(payload?.label || payload?.name || "").trim();
-    if (!label) return badRequest(res, "Kontoname ist erforderlich");
+    if (!label) return badRequest("Kontoname ist erforderlich");
 
-    const { rows } = await pool.query(
-      `INSERT INTO bank_accounts (user_id, label, balance, created_at) VALUES ($1, $2, 0, NOW()) RETURNING id, label, balance`,
-      [userId, label]
-    );
-    return sendJson(res, 201, { ok: true, account: { id: String(rows[0].id), label, balance: 0 } });
+    const { rows } = await pool.query(`INSERT INTO bank_accounts (user_id, label, balance, created_at) VALUES ($1, $2, 0, NOW()) RETURNING id, label, balance`, [userId, label]);
+    return jsonResponse({ ok: true, account: { id: String(rows[0].id), label, balance: 0 } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} accountIdRaw
    * @param {{ user: { id: string } }} session
    */
-  async function handleBankAccountById(req, res, accountIdRaw, session) {
+  async function handleBankAccountById(request, accountIdRaw, session) {
     const accountId = parseId(accountIdRaw);
-    if (!accountId) return badRequest(res, "bank_account_id ist ungueltig");
-
+    if (!accountId) return badRequest("bank_account_id ist ungueltig");
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
-    if (req.method === "PATCH") {
-      const payload = await parseBody(req, res);
-      if (!payload) return;
+    if (request.method === "PATCH") {
+      const payload = await parseBody(request);
+      if (!payload) return badRequest("Invalid JSON body");
       const label = String(payload?.label || payload?.name || "").trim();
-      if (!label) return badRequest(res, "Kontoname ist erforderlich");
-      const { rows } = await pool.query(
-        `UPDATE bank_accounts SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING id, label, balance`,
-        [label, accountId, userId]
-      );
-      if (rows.length === 0) return notFound(res, "Bankkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, account: { id: String(rows[0].id), label: rows[0].label, balance: toFixedAmount(rows[0].balance) } });
+      if (!label) return badRequest("Kontoname ist erforderlich");
+      const { rows } = await pool.query(`UPDATE bank_accounts SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING id, label, balance`, [label, accountId, userId]);
+      if (rows.length === 0) return notFound("Bankkonto nicht gefunden");
+      return jsonResponse({ ok: true, account: { id: String(rows[0].id), label: rows[0].label, balance: toFixedAmount(rows[0].balance) } }, 200);
     }
 
-    if (req.method === "DELETE") {
-      const { rows: sourceRows } = await pool.query(
-        `SELECT id, label, balance FROM bank_accounts WHERE id = $1 AND user_id = $2`,
-        [accountId, userId]
-      );
-      if (sourceRows.length === 0) return notFound(res, "Bankkonto nicht gefunden");
+    if (request.method === "DELETE") {
+      const { rows: sourceRows } = await pool.query(`SELECT id, label, balance FROM bank_accounts WHERE id = $1 AND user_id = $2`, [accountId, userId]);
+      if (sourceRows.length === 0) return notFound("Bankkonto nicht gefunden");
       const sourceAccount = sourceRows[0];
-
-      const payload = await parseBody(req, res);
-      if (!payload) return;
-
+      const payload = await parseBody(request);
+      if (!payload) return badRequest("Invalid JSON body");
       const transferTargetId = parseId(payload?.transfer_to_bank_account_id);
-      const transferRequested = Boolean(transferTargetId);
       const sourceBalance = toFixedAmount(sourceAccount.balance);
-      const { rows: transferOptions } = await pool.query(
-        `SELECT id, label, balance FROM bank_accounts WHERE user_id = $1 AND id != $2 ORDER BY created_at ASC`,
-        [userId, accountId]
-      );
+      const { rows: transferOptions } = await pool.query(`SELECT id, label, balance FROM bank_accounts WHERE user_id = $1 AND id != $2 ORDER BY created_at ASC`, [userId, accountId]);
       const hasAlternativeAccount = transferOptions.length > 0;
       const needsTransferPrompt = sourceBalance !== 0 && hasAlternativeAccount;
-
-      if (needsTransferPrompt && !transferRequested) {
-        return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, balance: sourceBalance, message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.", transfer_options: transferOptions.map((account, index) => ({ id: String(account.id), label: String(account.label || `Bankkonto ${index + 1}`), balance: toFixedAmount(account.balance) })) });
+      if (needsTransferPrompt && !transferTargetId) {
+        return jsonResponse({ ok: false, code: "transfer_required", requires_transfer: true, balance: sourceBalance, message: "Bankkonto kann nur mit Transfer auf ein anderes Konto geloescht werden.", transfer_options: transferOptions.map((a, i) => ({ id: String(a.id), label: String(a.label || `Bankkonto ${i + 1}`), balance: toFixedAmount(a.balance) })) }, 409);
       }
-
       if (sourceBalance !== 0 && !hasAlternativeAccount) {
-        return sendJson(res, 409, { ok: false, requires_transfer: false, message: "Dieses Konto hat einen Kontostand ungleich 0. Lege zuerst ein weiteres Bankkonto an, um den Betrag zu uebertragen." });
+        return jsonResponse({ ok: false, requires_transfer: false, message: "Dieses Konto hat einen Kontostand ungleich 0. Lege zuerst ein weiteres Bankkonto an, um den Betrag zu uebertragen." }, 409);
       }
-
-      if (transferRequested) {
-        if (transferTargetId === accountId) return badRequest(res, "Zielkonto muss ein anderes Konto sein");
-        const { rows: targetRows } = await pool.query(
-          `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`,
-          [transferTargetId, userId]
-        );
-        if (targetRows.length === 0) return badRequest(res, "Zielkonto wurde nicht gefunden");
-        if (sourceBalance !== 0 && transferTargetId) await incrementBankAccountBalance(pool, transferTargetId, sourceBalance);
+      if (transferTargetId) {
+        if (transferTargetId === accountId) return badRequest("Zielkonto muss ein anderes Konto sein");
+        const { rows: targetRows } = await pool.query(`SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`, [transferTargetId, userId]);
+        if (targetRows.length === 0) return badRequest("Zielkonto wurde nicht gefunden");
+        if (sourceBalance !== 0) await incrementBankAccountBalance(pool, transferTargetId, sourceBalance);
       }
-
       await deleteBankAccountAssociations(pool, accountId);
       const { rowCount } = await pool.query(`DELETE FROM bank_accounts WHERE id = $1 AND user_id = $2`, [accountId, userId]);
-      if (rowCount === 0) return notFound(res, "Bankkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, message: "Bankkonto geloescht" });
+      if (rowCount === 0) return notFound("Bankkonto nicht gefunden");
+      return jsonResponse({ ok: true, message: "Bankkonto geloescht" }, 200);
     }
 
-    res.setHeader("Allow", "PATCH, DELETE");
-    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+    return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "PATCH, DELETE" });
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleShareAccounts(req, res, session) {
+  async function handleShareAccounts(request, session) {
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
-    if (req.method === "GET") {
+    if (request.method === "GET") {
       const accounts = await loadUserShareAccountsLocal(session.user.id);
-      return sendJson(res, 200, { accounts });
+      return jsonResponse({ accounts }, 200);
     }
 
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "GET, POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
-
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
     const label = String(payload?.label || payload?.name || "").trim();
-    if (!label) return badRequest(res, "Kontoname ist erforderlich");
+    if (!label) return badRequest("Kontoname ist erforderlich");
 
-    const { rows } = await pool.query(
-      `INSERT INTO share_accounts (user_id, label, created_at) VALUES ($1, $2, NOW()) RETURNING id, label`,
-      [userId, label]
-    );
-    return sendJson(res, 201, { ok: true, account: { id: String(rows[0].id), label } });
+    const { rows } = await pool.query(`INSERT INTO share_accounts (user_id, label, created_at) VALUES ($1, $2, NOW()) RETURNING id, label`, [userId, label]);
+    return jsonResponse({ ok: true, account: { id: String(rows[0].id), label } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} accountIdRaw
    * @param {{ user: { id: string } }} session
    */
-  async function handleShareAccountById(req, res, accountIdRaw, session) {
+  async function handleShareAccountById(request, accountIdRaw, session) {
     const accountId = parseId(accountIdRaw);
-    if (!accountId) return badRequest(res, "share_account_id ist ungueltig");
-
+    if (!accountId) return badRequest("share_account_id ist ungueltig");
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
-    if (req.method === "PATCH") {
-      const payload = await parseBody(req, res);
-      if (!payload) return;
+    if (request.method === "PATCH") {
+      const payload = await parseBody(request);
+      if (!payload) return badRequest("Invalid JSON body");
       const label = String(payload?.label || payload?.name || "").trim();
-      if (!label) return badRequest(res, "Kontoname ist erforderlich");
-      const { rows } = await pool.query(
-        `UPDATE share_accounts SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING id, label`,
-        [label, accountId, userId]
-      );
-      if (rows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, account: { id: String(rows[0].id), label: rows[0].label } });
+      if (!label) return badRequest("Kontoname ist erforderlich");
+      const { rows } = await pool.query(`UPDATE share_accounts SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING id, label`, [label, accountId, userId]);
+      if (rows.length === 0) return notFound("Aktienkonto nicht gefunden");
+      return jsonResponse({ ok: true, account: { id: String(rows[0].id), label: rows[0].label } }, 200);
     }
 
-    if (req.method === "DELETE") {
-      const { rows: sourceRows } = await pool.query(
-        `SELECT id, label FROM share_accounts WHERE id = $1 AND user_id = $2`,
-        [accountId, userId]
-      );
-      if (sourceRows.length === 0) return notFound(res, "Aktienkonto nicht gefunden");
-
-      const payload = await parseBody(req, res);
-      if (!payload) return;
-
+    if (request.method === "DELETE") {
+      const { rows: sourceRows } = await pool.query(`SELECT id, label FROM share_accounts WHERE id = $1 AND user_id = $2`, [accountId, userId]);
+      if (sourceRows.length === 0) return notFound("Aktienkonto nicht gefunden");
+      const payload = await parseBody(request);
+      if (!payload) return badRequest("Invalid JSON body");
       const transferTargetId = parseId(payload?.transfer_to_share_account_id);
-      const transferRequested = Boolean(transferTargetId);
       const shareAccounts = await listUserShareAccounts(pool, userId);
       const transferOptions = shareAccounts.filter((a) => a.id !== accountId).map((a, i) => ({ id: String(a.id), label: String(a.label || `Aktienkonto ${i + 1}`) }));
-      const hasAlternativeAccount = transferOptions.length > 0;
-
-      if (!hasAlternativeAccount) {
-        return sendJson(res, 409, { ok: false, requires_transfer: false, message: "Du hast nur ein Aktienkonto. Lege zuerst ein weiteres an, bevor du dieses loescht." });
-      }
-
-      const { rows: shareCountRows } = await pool.query(
-        `SELECT COUNT(*) as cnt FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`,
-        [accountId]
-      );
+      if (!transferOptions.length) return jsonResponse({ ok: false, requires_transfer: false, message: "Du hast nur ein Aktienkonto. Lege zuerst ein weiteres an, bevor du dieses loescht." }, 409);
+      const { rows: shareCountRows } = await pool.query(`SELECT COUNT(*) as cnt FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`, [accountId]);
       const shareCount = Number(shareCountRows[0]?.cnt || 0);
-
-      if (shareCount > 0 && !transferRequested) {
-        return sendJson(res, 409, { ok: false, code: "transfer_required", requires_transfer: true, message: "Aktienkonto kann nur geloescht werden, wenn die Shares auf ein anderes Aktienkonto uebertragen werden.", transfer_options: transferOptions });
-      }
-
-      if (transferRequested) {
-        if (transferTargetId === accountId) return badRequest(res, "Zielkonto muss ein anderes Konto sein");
-        const { rows: targetRows } = await pool.query(
-          `SELECT id FROM share_accounts WHERE id = $1 AND user_id = $2`,
-          [transferTargetId, userId]
-        );
-        if (targetRows.length === 0) return badRequest(res, "Zielkonto wurde nicht gefunden");
+      if (shareCount > 0 && !transferTargetId) return jsonResponse({ ok: false, code: "transfer_required", requires_transfer: true, message: "Aktienkonto kann nur geloescht werden, wenn die Shares auf ein anderes Aktienkonto uebertragen werden.", transfer_options: transferOptions }, 409);
+      if (transferTargetId) {
+        if (transferTargetId === accountId) return badRequest("Zielkonto muss ein anderes Konto sein");
+        const { rows: targetRows } = await pool.query(`SELECT id FROM share_accounts WHERE id = $1 AND user_id = $2`, [transferTargetId, userId]);
+        if (targetRows.length === 0) return badRequest("Zielkonto wurde nicht gefunden");
         await pool.query(`UPDATE shares SET share_account_id = $1 WHERE share_account_id = $2`, [transferTargetId, accountId]);
         await pool.query(`UPDATE shares SET depot_id = $1 WHERE depot_id = $2`, [transferTargetId, accountId]);
         await pool.query(`UPDATE shares SET bank_account_id = $1 WHERE bank_account_id = $2`, [transferTargetId, accountId]);
       }
-
       const { rowCount } = await pool.query(`DELETE FROM share_accounts WHERE id = $1 AND user_id = $2`, [accountId, userId]);
-      if (rowCount === 0) return notFound(res, "Aktienkonto nicht gefunden");
-      return sendJson(res, 200, { ok: true, message: "Aktienkonto geloescht" });
+      if (rowCount === 0) return notFound("Aktienkonto nicht gefunden");
+      return jsonResponse({ ok: true, message: "Aktienkonto geloescht" }, 200);
     }
 
-    res.setHeader("Allow", "PATCH, DELETE");
-    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+    return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "PATCH, DELETE" });
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {URL} url
    * @param {{ user: { id: string } }} session
    */
-  async function handleDebugPositions(req, res, url, session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handleDebugPositions(request, url, session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
     const bankAccountId = String(url.searchParams.get("bank_account_id") || url.searchParams.get("share_account_id") || "").trim();
     const accounts = await loadUserBankAccountsLocal(session.user.id);
     const positions = await loadUserPositions(session.user.id, bankAccountId);
-    return sendJson(res, 200, { ok: true, user_id: session.user.id, selected_bank_account_id: bankAccountId || null, visible_accounts: accounts, positions_count: positions.length });
+    return jsonResponse({ ok: true, user_id: session.user.id, selected_bank_account_id: bankAccountId || null, visible_accounts: accounts, positions_count: positions.length }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} pathname
    * @param {URL} requestUrl
    * @param {unknown} _session
    */
-  async function handleTwelveDataProxy(req, res, pathname, requestUrl, _session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
-    if (!TWELVE_DATA_API_KEY) return sendJson(res, 500, { status: "error", message: "TWELVE_DATA_API_KEY fehlt im Backend." });
+  async function handleTwelveDataProxy(request, pathname, requestUrl, _session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
+    if (!TWELVE_DATA_API_KEY) return jsonResponse({ status: "error", message: "TWELVE_DATA_API_KEY fehlt im Backend." }, 500);
 
     const tdPathRaw = pathname.slice("/api/twelvedata".length) || "/";
     const tdPath = tdPathRaw.startsWith("/") ? tdPathRaw : `/${tdPathRaw}`;
@@ -969,30 +775,25 @@ export function createFinanceHandlers(pool) {
     try {
       const upstreamResponse = await fetch(tdUrl.toString(), { headers: { Accept: "application/json" } });
       const body = await upstreamResponse.text();
-      res.writeHead(upstreamResponse.status, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(body);
+      return new Response(body, { status: upstreamResponse.status, headers: { "Content-Type": "application/json; charset=utf-8" } });
     } catch (/** @type {unknown} */ err) {
       const error = /** @type {Error} */ (err);
-      return sendJson(res, 502, { status: "error", message: "Twelve Data Proxy Anfrage fehlgeschlagen.", detail: String(error?.message || error) });
+      return jsonResponse({ status: "error", message: "Twelve Data Proxy Anfrage fehlgeschlagen.", detail: String(error?.message || error) }, 502);
     }
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {URL} requestUrl
    * @param {unknown} _session
    */
-  async function handleStockSearchProxy(req, res, requestUrl, _session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
-    if (!STOCK_SEARCH_BASE_URL) return sendJson(res, 500, { ok: false, message: "STOCK_SEARCH_BASE_URL fehlt im Backend." });
-    if (!STOCK_API_KEY) return sendJson(res, 500, { ok: false, message: "STOCK_API_KEY fehlt im Backend." });
+  async function handleStockSearchProxy(request, requestUrl, _session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
+    if (!STOCK_SEARCH_BASE_URL) return jsonResponse({ ok: false, message: "STOCK_SEARCH_BASE_URL fehlt im Backend." }, 500);
+    if (!STOCK_API_KEY) return jsonResponse({ ok: false, message: "STOCK_API_KEY fehlt im Backend." }, 500);
 
     const query = String(requestUrl.searchParams.get("q") || "").trim();
-    if (!query) return badRequest(res, "Query-Parameter 'q' fehlt.");
+    if (!query) return badRequest("Query-Parameter 'q' fehlt.");
 
     const requestedExchange = String(requestUrl.searchParams.get("exchange") || "").trim().toUpperCase();
     const exchange = /^[A-Z0-9._-]{2,15}$/.test(requestedExchange) ? requestedExchange : "";
@@ -1011,31 +812,27 @@ export function createFinanceHandlers(pool) {
       const upstreamResponse = await fetch(upstreamUrl.toString(), { headers: { Accept: "application/json", "x-api-key": STOCK_API_KEY } });
       const payload = await upstreamResponse.json().catch(() => null);
       if (!upstreamResponse.ok || !Array.isArray(payload)) {
-        return sendJson(res, 502, { ok: false, message: payload?.detail || payload?.message || "Stock-Suche konnte nicht geladen werden." });
+        return jsonResponse({ ok: false, message: payload?.detail || payload?.message || "Stock-Suche konnte nicht geladen werden." }, 502);
       }
       const results = payload.map((row) => ({ sSymbol: String(row?.symbol || "").trim().toUpperCase(), sName: String(row?.name || "").trim(), sExchange: String(row?.exchange || "").trim(), sCountry: String(row?.country || "").trim() }))
         .filter((row) => Boolean(row.sSymbol))
         .filter((row) => !exchange || normalizeExchangeCode(row.sExchange) === exchange)
         .slice(0, limit);
-      return sendJson(res, 200, { ok: true, results });
+      return jsonResponse({ ok: true, results }, 200);
     } catch (/** @type {unknown} */ err) {
       const error = /** @type {Error} */ (err);
-      return sendJson(res, 502, { ok: false, message: "Stock-Suche fehlgeschlagen.", detail: String(error?.message || error) });
+      return jsonResponse({ ok: false, message: "Stock-Suche fehlgeschlagen.", detail: String(error?.message || error) }, 502);
     }
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {URL} requestUrl
    * @param {unknown} _session
    */
-  async function handleStockLogoProxy(req, res, requestUrl, _session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
-    if (!LOGO_DEV_BASE_URL || !LOGO_DEV_API_KEY) return sendJson(res, 500, { ok: false, message: "LOGO_DEV_API_KEY fehlt im Backend." });
+  async function handleStockLogoProxy(request, requestUrl, _session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
+    if (!LOGO_DEV_BASE_URL || !LOGO_DEV_API_KEY) return jsonResponse({ ok: false, message: "LOGO_DEV_API_KEY fehlt im Backend." }, 500);
 
     const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
     const domainFromQuery = extractHostnameCandidate(requestUrl.searchParams.get("domain"));
@@ -1046,15 +843,13 @@ export function createFinanceHandlers(pool) {
     const sizeRaw = Number(requestUrl.searchParams.get("size"));
     const size = Number.isFinite(sizeRaw) ? Math.max(16, Math.min(128, Math.round(sizeRaw))) : 28;
 
-    if (!symbol && !domainFromQuery) return badRequest(res, "Query-Parameter 'symbol' oder 'domain' fehlt.");
+    if (!symbol && !domainFromQuery) return badRequest("Query-Parameter 'symbol' oder 'domain' fehlt.");
 
     const cacheKey = `${symbol || domainFromQuery}:${size}:${theme}`;
     const cached = logoCacheGet(cacheKey);
     if (cached) {
-      if (cached.notFound) return sendJson(res, 404, { ok: false, message: "Logo konnte nicht geladen werden." });
-      res.writeHead(200, { "Content-Type": cached.contentType, "Cache-Control": "public, max-age=21600" });
-      res.end(cached.buffer);
-      return;
+      if (cached.notFound) return jsonResponse({ ok: false, message: "Logo konnte nicht geladen werden." }, 404);
+      return new Response(cached.buffer, { status: 200, headers: { "Content-Type": cached.contentType, "Cache-Control": "public, max-age=21600" } });
     }
 
     let domain = domainFromQuery;
@@ -1065,7 +860,7 @@ export function createFinanceHandlers(pool) {
     const logoCandidates = [];
     if (domain) logoCandidates.push(`/${encodeURIComponent(domain)}`);
     if (symbol) logoCandidates.push(`/ticker/${encodeURIComponent(symbol)}`);
-    if (!logoCandidates.length) return notFound(res, "Kein Logo-Kandidat gefunden.");
+    if (!logoCandidates.length) return jsonResponse({ ok: false, message: "Kein Logo-Kandidat gefunden." }, 404);
 
     const formatVariants = [{ format: "svg", background: "transparent" }, { format: "svg" }, { format: "png", background: "transparent" }, { format: "png" }];
     const fetches = [];
@@ -1081,7 +876,7 @@ export function createFinanceHandlers(pool) {
           fetch(logoUrl.toString(), { headers: { Accept: "image/*", Authorization: `Bearer ${LOGO_DEV_API_KEY}` } })
             .then(async (r) => {
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
-              const buffer = Buffer.from(await r.arrayBuffer());
+              const buffer = await r.arrayBuffer();
               const contentType = r.headers.get("content-type") || "image/png";
               return { buffer, contentType };
             })
@@ -1092,11 +887,10 @@ export function createFinanceHandlers(pool) {
     try {
       const result = await Promise.any(fetches);
       logoCacheSet(cacheKey, result);
-      res.writeHead(200, { "Content-Type": result.contentType, "Cache-Control": "public, max-age=21600" });
-      res.end(result.buffer);
+      return new Response(result.buffer, { status: 200, headers: { "Content-Type": result.contentType, "Cache-Control": "public, max-age=21600" } });
     } catch {
       logoCacheSet(cacheKey, { notFound: true });
-      return sendJson(res, 404, { ok: false, message: "Logo konnte nicht geladen werden." });
+      return jsonResponse({ ok: false, message: "Logo konnte nicht geladen werden." }, 404);
     }
   }
 

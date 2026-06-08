@@ -1,13 +1,13 @@
 // @ts-check
-import { sendJson } from "../utils/http.mjs";
+import { jsonResponse } from "../utils/http.mjs";
 
-/** @param {import('node:http').ServerResponse} res @param {string} message */
-export function badRequest(res, message) { return sendJson(res, 400, { ok: false, message }); }
-/** @param {import('node:http').ServerResponse} res @param {string} message */
-export function unauthorized(res, message) { return sendJson(res, 401, { ok: false, message }); }
-/** @param {import('node:http').ServerResponse} res @param {string} message */
-export function forbidden(res, message) { return sendJson(res, 403, { ok: false, message }); }
-/** @param {import('node:http').ServerResponse} res @param {string} message */
-export function notFound(res, message) { return sendJson(res, 404, { ok: false, message }); }
-/** @param {import('node:http').ServerResponse} res @param {string} message */
-export function conflict(res, message) { return sendJson(res, 409, { ok: false, message }); }
+/** @param {string} message @returns {Response} */
+export function badRequest(message) { return jsonResponse({ ok: false, message }, 400); }
+/** @param {string} message @returns {Response} */
+export function unauthorized(message) { return jsonResponse({ ok: false, message }, 401); }
+/** @param {string} message @returns {Response} */
+export function forbidden(message) { return jsonResponse({ ok: false, message }, 403); }
+/** @param {string} message @returns {Response} */
+export function notFound(message) { return jsonResponse({ ok: false, message }, 404); }
+/** @param {string} message @returns {Response} */
+export function conflict(message) { return jsonResponse({ ok: false, message }, 409); }

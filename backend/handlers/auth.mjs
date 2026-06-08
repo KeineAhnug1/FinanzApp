@@ -1,24 +1,16 @@
 // @ts-check
-// @ts-check
 import { randomInt } from "node:crypto";
-import nodemailer from "nodemailer";
 import {
-  SMTP_FROM,
-  SMTP_HOST,
-  SMTP_PASS,
-  SMTP_PORT,
-  SMTP_SECURE,
-  SMTP_USER,
   VERIFICATION_TTL_MINUTES,
-  SESSION_TTL_MINUTES
+  SESSION_TTL_MINUTES,
+  SESSION_COOKIE_NAME
 } from "../config/runtime.mjs";
 import { detectBlockedRegistrationName } from "../config/blocked-names.mjs";
 import { normalizeEmail } from "../utils/data.mjs";
-import { parseBody, parseCookies, sendJson } from "../utils/http.mjs";
+import { jsonResponse, parseBody, parseCookies } from "../utils/http.mjs";
 import {
   hashCode,
   hashPassword,
-  hashValue,
   isSha256PasswordHash,
   isScryptPasswordHash,
   verifyCode,
@@ -27,385 +19,185 @@ import {
 import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized } from "../helpers/responses.mjs";
 import { ensureUserFinanceRoots } from "../helpers/finance-db.mjs";
-
-/** @type {import("nodemailer").Transporter | null} */
-let _mailerTransporter = null;
-
-function getMailer() {
-  if (!SMTP_HOST || !SMTP_FROM) return null;
-  if (!_mailerTransporter) {
-    const auth = SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined;
-    _mailerTransporter = nodemailer.createTransport({ host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE, auth });
-  }
-  return _mailerTransporter;
-}
+import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/email.mjs";
 
 function createVerificationCode() {
   return String(randomInt(100000, 999999));
 }
 
-/**
- * @param {string} toEmail
- * @param {string | null | undefined} firstName
- * @param {string} code
- */
-async function sendVerificationEmail(toEmail, firstName, code) {
-  const mailer = getMailer();
-  if (!mailer) {
-    console.warn(`[verification] SMTP not configured. Verification code for ${toEmail} was not sent.`);
-    return false;
-  }
-  const greetingName = firstName || "Nutzer";
-  const safe = String(greetingName).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const codeDigits = String(code).split("").map(d =>
-    `<span style="display:inline-block;width:44px;height:56px;line-height:56px;text-align:center;background:#f5f3ef;border:1.5px solid #e4e2de;border-radius:10px;font-size:28px;font-weight:700;color:#18181b;margin:0 4px;">${d}</span>`
-  ).join("");
-  await mailer.sendMail({
-    from: SMTP_FROM,
-    to: toEmail,
-    subject: "FinanzApp – Dein Verifizierungscode",
-    text: `Hallo ${greetingName},\n\ndein Verifizierungscode lautet: ${code}\n\nDer Code ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.\n\nFalls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.\n\n– Das FinanzApp-Team`,
-    html: `<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ef;padding:40px 16px;">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e4e2de;overflow:hidden;">
-
-        <!-- Header -->
-        <tr>
-          <td style="background:#2563eb;padding:32px 40px 28px;">
-            <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">FinanzApp</p>
-            <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.75);letter-spacing:0.2px;">Deine persönliche Finanzverwaltung</p>
-          </td>
-        </tr>
-
-        <!-- Body -->
-        <tr>
-          <td style="padding:36px 40px 16px;">
-            <p style="margin:0 0 8px;font-size:20px;font-weight:600;color:#18181b;">Hallo ${safe},</p>
-            <p style="margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;">
-              um deine Registrierung abzuschließen, gib bitte folgenden Code ein:
-            </p>
-
-            <!-- Code Box -->
-            <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
-              <tr><td align="center" style="padding:24px 28px;background:#faf9f7;border:1.5px solid #e4e2de;border-radius:12px;">
-                ${codeDigits}
-              </td></tr>
-            </table>
-
-            <!-- Validity hint -->
-            <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:8px;">
-              <tr>
-                <td style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;">
-                  <p style="margin:0;font-size:13px;color:#92400e;">
-                    ⏱ Dieser Code ist <strong>${VERIFICATION_TTL_MINUTES} Minuten</strong> gültig.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Divider -->
-        <tr><td style="padding:0 40px;"><hr style="border:none;border-top:1px solid #e4e2de;margin:20px 0 0;"></td></tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 40px 32px;">
-            <p style="margin:0;font-size:12px;color:#a1a1aa;line-height:1.6;">
-              Falls du dich nicht bei FinanzApp registriert hast, kannst du diese E-Mail einfach ignorieren.
-            </p>
-          </td>
-        </tr>
-
-      </table>
-
-      <p style="margin:20px 0 0;font-size:12px;color:#a1a1aa;">© ${new Date().getFullYear()} FinanzApp</p>
-    </td></tr>
-  </table>
-</body>
-</html>`
-  });
-  return true;
-}
-
-/**
- * @param {string} toEmail
- * @param {string | null | undefined} firstName
- * @param {string} code
- */
-async function sendPasswordResetEmail(toEmail, firstName, code) {
-  const mailer = getMailer();
-  if (!mailer) {
-    console.warn(`[password-reset] SMTP not configured. Reset code for ${toEmail} was not sent.`);
-    return false;
-  }
-  const greetingName = firstName || "Nutzer";
-  const safe = String(greetingName).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  await mailer.sendMail({
-    from: SMTP_FROM,
-    to: toEmail,
-    subject: "FinanzApp - Passwort zurücksetzen",
-    text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.`,
-    html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.</p>`
-  });
-  return true;
-}
-
 /** @param {Pool} pool */
 export async function migratePlaintextPasswords(pool) {
-  const { rows: users } = await pool.query(
-    `SELECT id, password FROM users`
-  );
-
+  const { rows: users } = await pool.query(`SELECT id, password FROM users`);
   let migratedUsers = 0;
   for (const user of users) {
     const password = typeof user.password === "string" ? user.password : "";
     let nextPassword = null;
-
     if (isScryptPasswordHash(password) || isSha256PasswordHash(password)) {
       nextPassword = password;
     } else if (password) {
       nextPassword = await hashPassword(password);
     }
-
-    if (!nextPassword) continue;
-    if (password === nextPassword) continue;
-
+    if (!nextPassword || password === nextPassword) continue;
     await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [nextPassword, user.id]);
-    migratedUsers += 1;
+    migratedUsers++;
   }
 
-  const { rows: verifications } = await pool.query(
-    `SELECT id, password FROM email_verifications`
-  );
-
+  const { rows: verifications } = await pool.query(`SELECT id, password FROM email_verifications`);
   let migratedVerifications = 0;
-  for (const verification of verifications) {
-    if (isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)) continue;
-    const password = String(verification.password || "");
-    if (!password) continue;
-    await pool.query(
-      `UPDATE email_verifications SET password = $1 WHERE id = $2`,
-      [await hashPassword(password), verification.id]
-    );
-    migratedVerifications += 1;
+  for (const v of verifications) {
+    if (isScryptPasswordHash(v.password) || isSha256PasswordHash(v.password)) continue;
+    const pw = String(v.password || "");
+    if (!pw) continue;
+    await pool.query(`UPDATE email_verifications SET password = $1 WHERE id = $2`, [await hashPassword(pw), v.id]);
+    migratedVerifications++;
   }
 
   if (migratedUsers > 0 || migratedVerifications > 0) {
-    console.log(`[migration] Passwort-Migration abgeschlossen: users=${migratedUsers}, verifications=${migratedVerifications}.`);
+    console.log(`[migration] Passwort-Migration: users=${migratedUsers}, verifications=${migratedVerifications}.`);
   }
 }
 
 /**
  * @param {{
  *   pool: Pool;
+ *   kv: KVNamespace;
  *   buildSessionCookie: (token: string) => string;
  *   clearSessionCookie: () => string;
- *   createSession: (userId: string | number) => Promise<string>;
- *   destroySession: (token: string | undefined) => Promise<void>;
- *   getSessionRecord: (token: string | undefined) => Promise<{ userId: string } | null>;
- *   SESSION_COOKIE_NAME: string;
+ *   createSession: (userId: string | number, kv: KVNamespace) => Promise<string>;
+ *   destroySession: (token: string | undefined, kv: KVNamespace) => Promise<void>;
+ *   getSessionRecord: (token: string | undefined, kv: KVNamespace) => Promise<{ userId: string } | null>;
+ *   env: Record<string, string | undefined>;
  * }} opts
  */
-export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME }) {
-  function getOrCreateCsrfToken(req, res) {
-    const cookies = parseCookies(req);
-    let token = cookies["csrf_token"];
-    if (!token) {
-      token = String(randomInt(1e9, 9e9));
-      const existing = res.getHeader("Set-Cookie");
-      const next = [`csrf_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`];
-      res.setHeader("Set-Cookie", existing ? ([]).concat(existing, next) : next);
-    }
-    return token;
-  }
+export function createAuthHandlers({ pool, kv, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, env }) {
+  const isSecure = env.NODE_ENV === "production" || env.SESSION_SECURE_COOKIE === "true";
 
-  /** @param {http.IncomingMessage} req */
-  async function getSessionUser(req) {
-    const cookies = parseCookies(req);
+  /** @param {Request} request */
+  async function getSessionUser(request) {
+    const cookies = parseCookies(request);
     const token = cookies[SESSION_COOKIE_NAME];
     if (!token) return null;
 
+    const rec = await getSessionRecord(token, kv);
+    if (!rec) return null;
+
     const { rows } = await pool.query(
-      `SELECT s.user_id, s.expires_at, u.id, u.username, u.email, u.first_name, u.last_name, u.created_at, u."profileImage"
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token = $1`,
-      [token]
+      `SELECT id, username, email, first_name, last_name, created_at, "profileImage" FROM users WHERE id = $1`,
+      [rec.userId]
     );
-
     if (rows.length === 0) return null;
-
-    const row = rows[0];
-    const expiresAt = new Date(row.expires_at);
-
-    if (expiresAt.getTime() < Date.now()) {
-      await destroySession(token);
-      return null;
-    }
-
-    const halfTtlMs = SESSION_TTL_MINUTES * 60 * 1000 / 2;
-    if (expiresAt.getTime() - Date.now() < halfTtlMs) {
-      const newExpiry = new Date(Date.now() + SESSION_TTL_MINUTES * 60 * 1000);
-      await pool.query(
-        `UPDATE sessions SET expires_at = $1 WHERE token = $2`,
-        [newExpiry, token]
-      );
-    }
-
+    const u = rows[0];
     return {
       token,
       user: {
-        id: String(row.id),
-        username: row.username,
-        email: row.email,
-        first_name: row.first_name || null,
-        last_name: row.last_name || null,
-        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : null,
-        profileImage: row.profileImage || null
+        id: String(u.id),
+        username: u.username,
+        email: u.email,
+        first_name: u.first_name || null,
+        last_name: u.last_name || null,
+        created_at: u.created_at instanceof Date ? u.created_at.toISOString() : null,
+        profileImage: u.profileImage || null
       }
     };
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function requireSessionUser(req, res) {
-    const session = await getSessionUser(req);
-    if (!session) {
-      unauthorized(res, "Session abgelaufen oder nicht vorhanden");
-      return null;
-    }
+  /** @param {Request} request */
+  async function requireSessionUser(request) {
+    const session = await getSessionUser(request);
+    if (!session) return unauthorized("Session abgelaufen oder nicht vorhanden");
     return session;
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handleLogin(req, res) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  /** @param {Request} request */
+  async function handleLogin(request) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 5, windowMs: 60_000, group: "login" });
+    if (rl) return rl;
 
-    // Tighter login rate limit: 5/min per IP
-    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "login" })) return;
-
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const email = normalizeEmail(payload.email);
     const password = String(payload.password || "");
-
-    if (!email || !password) return badRequest(res, "Email und Passwort sind Pflichtfelder");
+    if (!email || !password) return badRequest("Email und Passwort sind Pflichtfelder");
 
     const { rows } = await pool.query(
       `SELECT id, username, email, password, first_name, last_name, created_at FROM users WHERE email = $1`,
       [email]
     );
-
-    if (rows.length === 0) return unauthorized(res, "E-Mail oder Passwort falsch");
+    if (rows.length === 0) return unauthorized("E-Mail oder Passwort falsch");
     const user = rows[0];
 
     const isValid = await verifyPassword(password, user.password);
-    if (!isValid) return unauthorized(res, "E-Mail oder Passwort falsch");
+    if (!isValid) return unauthorized("E-Mail oder Passwort falsch");
 
     if (!isScryptPasswordHash(user.password)) {
       await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [await hashPassword(password), user.id]);
     }
 
-    const token = await createSession(user.id);
-    return sendJson(res, 200, {
+    const token = await createSession(user.id, kv);
+    return jsonResponse({
       ok: true,
-      user: {
-        id: String(user.id),
-        username: user.username,
-        email: user.email,
-        first_name: user.first_name || null,
-        last_name: user.last_name || null,
-        created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null
-      }
-    }, { "Set-Cookie": buildSessionCookie(token) });
+      user: { id: String(user.id), username: user.username, email: user.email, first_name: user.first_name || null, last_name: user.last_name || null, created_at: user.created_at instanceof Date ? user.created_at.toISOString() : null }
+    }, 200, { "Set-Cookie": buildSessionCookie(token) });
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handleSession(req, res) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  /** @param {Request} request */
+  async function handleSession(request) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
 
-    const session = await getSessionUser(req);
-    const csrf = getOrCreateCsrfToken(req, res);
-    if (!session) return sendJson(res, 200, { ok: true, session_user: null, csrf });
-    return sendJson(res, 200, { ok: true, session_user: session.user, csrf });
+    const session = await getSessionUser(request);
+    const cookies = parseCookies(request);
+    const extraHeaders = /** @type {Record<string, string>} */ ({});
+    let csrf = cookies["csrf_token"];
+    if (!csrf) {
+      csrf = String(randomInt(1e9, 9e9));
+      extraHeaders["Set-Cookie"] = `csrf_token=${encodeURIComponent(csrf)}; Path=/; SameSite=Lax${isSecure ? "; Secure" : ""}`;
+    }
+    return jsonResponse({ ok: true, session_user: session?.user ?? null, csrf }, 200, extraHeaders);
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handleLogout(req, res) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
-
-    const cookies = parseCookies(req);
-    await destroySession(cookies[SESSION_COOKIE_NAME]);
-    const set = [clearSessionCookie(), `csrf_token=; Max-Age=0; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`];
-    return sendJson(res, 200, { ok: true }, { "Set-Cookie": set });
+  /** @param {Request} request */
+  async function handleLogout(request) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const cookies = parseCookies(request);
+    await destroySession(cookies[SESSION_COOKIE_NAME], kv);
+    const secureSuffix = isSecure ? "; Secure" : "";
+    const setCookies = [clearSessionCookie(), `csrf_token=; Max-Age=0; Path=/; SameSite=Lax${secureSuffix}`];
+    return jsonResponse({ ok: true }, 200, { "Set-Cookie": setCookies });
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handleRegister(req, res) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  /** @param {Request} request */
+  async function handleRegister(request) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 3, windowMs: 60_000, group: "register" });
+    if (rl) return rl;
 
-    // Registration: 3/min per IP
-    if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "register" })) return;
-
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const username = String(payload.username || "").trim().toLowerCase();
     const email = normalizeEmail(payload.email);
     const password = String(payload.password || "");
     const firstName = String(payload.first_name || "").trim();
     const lastName = String(payload.last_name || "").trim();
-    if (!username || !email || !password || !firstName || !lastName) {
-      return badRequest(res, "Username, Vorname, Nachname, E-Mail und Passwort sind Pflichtfelder");
-    }
-    if (detectBlockedRegistrationName({ username, firstName, lastName })) {
-      return sendJson(res, 400, { ok: false, code: "forbidden_name", message: "Der angegebene Name ist verboten und kann nicht verwendet werden." });
-    }
-    if (username.length > 50) return badRequest(res, 'Username zu lang (max. 50 Zeichen)');
-    if (firstName.length > 100) return badRequest(res, 'Vorname zu lang (max. 100 Zeichen)');
-    if (lastName.length > 100) return badRequest(res, 'Nachname zu lang (max. 100 Zeichen)');
-    if (email.length > 254) return badRequest(res, 'E-Mail zu lang');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest(res, "Bitte eine gueltige E-Mail-Adresse angeben");
-    if (password.length < 8) return badRequest(res, "Passwort muss mindestens 8 Zeichen haben");
 
+    if (!username || !email || !password || !firstName || !lastName)
+      return badRequest("Username, Vorname, Nachname, E-Mail und Passwort sind Pflichtfelder");
+    if (detectBlockedRegistrationName({ username, firstName, lastName }))
+      return jsonResponse({ ok: false, code: "forbidden_name", message: "Der angegebene Name ist verboten und kann nicht verwendet werden." }, 400);
+    if (username.length > 50) return badRequest("Username zu lang (max. 50 Zeichen)");
+    if (firstName.length > 100) return badRequest("Vorname zu lang (max. 100 Zeichen)");
+    if (lastName.length > 100) return badRequest("Nachname zu lang (max. 100 Zeichen)");
+    if (email.length > 254) return badRequest("E-Mail zu lang");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest("Bitte eine gueltige E-Mail-Adresse angeben");
+    if (password.length < 8) return badRequest("Passwort muss mindestens 8 Zeichen haben");
 
     const { rows: existing } = await pool.query(
       `SELECT id FROM users WHERE email = $1 OR username = $2 LIMIT 1`,
       [email, username]
     );
-    if (existing.length > 0) return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
+    if (existing.length > 0) return jsonResponse({ ok: false, message: "Username oder E-Mail existiert bereits" }, 409);
 
     const code = createVerificationCode();
     const now = new Date();
@@ -421,63 +213,51 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
 
     let delivered;
     try {
-      delivered = await sendVerificationEmail(email, firstName, code);
+      delivered = await sendVerificationEmail(email, firstName, code, env);
     } catch (error) {
-      console.error("Verification email sending failed:", error);
-      return sendJson(res, 502, { ok: false, message: "E-Mail konnte nicht versendet werden. Bitte SMTP-Konfiguration pruefen." });
+      console.error("Verification email failed:", error);
+      return jsonResponse({ ok: false, message: "E-Mail konnte nicht versendet werden." }, 502);
     }
 
-    return sendJson(res, 200, {
+    return jsonResponse({
       ok: true,
       pending_email: email,
       expires_in_seconds: VERIFICATION_TTL_MINUTES * 60,
-      message: delivered ? "Verifizierungscode wurde per E-Mail versendet" : "SMTP nicht konfiguriert. Der Code wurde nicht versendet."
-    });
+      message: delivered ? "Verifizierungscode wurde per E-Mail versendet" : "E-Mail-Service nicht konfiguriert."
+    }, 200);
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handleRegisterVerify(req, res) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  /** @param {Request} request */
+  async function handleRegisterVerify(request) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 5, windowMs: 60_000, group: "register-verify" });
+    if (rl) return rl;
 
-    // Code verify: 5/min per IP
-    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: 'register-verify' })) return;
-
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const email = normalizeEmail(payload.email);
     const code = String(payload.code || "").trim();
-    if (!email || !code) return badRequest(res, "E-Mail und Code sind Pflichtfelder");
+    if (!email || !code) return badRequest("E-Mail und Code sind Pflichtfelder");
 
-    const { rows: verifications } = await pool.query(
-      `SELECT * FROM email_verifications WHERE email = $1`,
-      [email]
-    );
-    if (verifications.length === 0) return sendJson(res, 404, { ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" });
+    const { rows: verifications } = await pool.query(`SELECT * FROM email_verifications WHERE email = $1`, [email]);
+    if (verifications.length === 0) return jsonResponse({ ok: false, message: "Keine offene Verifizierung fuer diese E-Mail" }, 404);
     const verification = verifications[0];
 
     if (detectBlockedRegistrationName({ username: verification.username, firstName: verification.first_name, lastName: verification.last_name })) {
       await pool.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
-      return sendJson(res, 400, { ok: false, code: "forbidden_name", message: "Der angegebene Name ist verboten und kann nicht verwendet werden." });
+      return jsonResponse({ ok: false, code: "forbidden_name", message: "Der angegebene Name ist verboten." }, 400);
     }
-
     if (verification.expires_at && new Date(verification.expires_at).getTime() < Date.now()) {
       await pool.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
-      return sendJson(res, 410, { ok: false, message: "Code abgelaufen. Bitte erneut registrieren." });
+      return jsonResponse({ ok: false, message: "Code abgelaufen. Bitte erneut registrieren." }, 410);
     }
     if ((verification.attempts || 0) >= 5) {
-      return sendJson(res, 429, { ok: false, message: "Zu viele Fehlversuche. Bitte erneut registrieren." });
+      return jsonResponse({ ok: false, message: "Zu viele Fehlversuche. Bitte erneut registrieren." }, 429);
     }
-
     if (!verifyCode(code, verification.code_hash)) {
       await pool.query(`UPDATE email_verifications SET attempts = attempts + 1 WHERE email = $1`, [email]);
-      return badRequest(res, "Verifizierungscode ist ungueltig");
+      return badRequest("Verifizierungscode ist ungueltig");
     }
 
     const passwordHash = isScryptPasswordHash(verification.password) || isSha256PasswordHash(verification.password)
@@ -486,7 +266,7 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
 
     const client = await pool.connect();
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       const { rows: inserted } = await client.query(
         `INSERT INTO users (username, email, password, first_name, last_name, created_at)
          VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
@@ -495,46 +275,35 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
       const userId = inserted[0].id;
       await ensureUserFinanceRoots(client, userId);
       await client.query(`DELETE FROM email_verifications WHERE email = $1`, [email]);
-      await client.query('COMMIT');
-      return sendJson(res, 201, {
+      await client.query("COMMIT");
+      return jsonResponse({
         ok: true,
         message: "E-Mail verifiziert und Konto erstellt",
         user: { id: String(userId), username: verification.username, email: verification.email }
-      });
+      }, 201);
     } catch (/** @type {unknown} */ err) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client.query("ROLLBACK").catch(() => {});
       const error = /** @type {{ code?: string }} */ (err);
-      if (error?.code === "23505") return sendJson(res, 409, { ok: false, message: "Username oder E-Mail existiert bereits" });
+      if (error?.code === "23505") return jsonResponse({ ok: false, message: "Username oder E-Mail existiert bereits" }, 409);
       throw err;
     } finally {
       client.release();
     }
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handlePasswordForgot(req, res) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  /** @param {Request} request */
+  async function handlePasswordForgot(request) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 2, windowMs: 60_000, group: "password-forgot" });
+    if (rl) return rl;
 
-    // Password forgot: 2/min per IP
-    if (!checkRateLimit(req, res, { maxAttempts: 2, windowMs: 60_000, group: "password-forgot" })) return;
-
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const email = normalizeEmail(payload.email);
-    if (!email) return badRequest(res, "E-Mail ist ein Pflichtfeld");
+    if (!email) return badRequest("E-Mail ist ein Pflichtfeld");
 
-    const { rows } = await pool.query(
-      `SELECT id, first_name, email FROM users WHERE email = $1`,
-      [email]
-    );
-
+    const { rows } = await pool.query(`SELECT id, first_name, email FROM users WHERE email = $1`, [email]);
     const minDelay = new Promise((resolve) => setTimeout(resolve, 400));
 
     if (rows.length > 0) {
@@ -549,63 +318,52 @@ export function createAuthHandlers({ pool, buildSessionCookie, clearSessionCooki
         [email, user.id, hashCode(code), now, expiresAt]
       );
       try {
-        await sendPasswordResetEmail(email, user.first_name, code);
+        await sendPasswordResetEmail(email, user.first_name, code, env);
       } catch (error) {
-        console.error("Password reset email sending failed:", error);
+        console.error("Password reset email failed:", error);
       }
     }
 
     await minDelay;
-    return sendJson(res, 200, { ok: true, expires_in_seconds: VERIFICATION_TTL_MINUTES * 60, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." });
+    return jsonResponse({ ok: true, expires_in_seconds: VERIFICATION_TTL_MINUTES * 60, message: "Falls ein Konto mit dieser E-Mail existiert, wurde ein Code versendet." }, 200);
   }
 
-  /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   */
-  async function handlePasswordReset(req, res) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  /** @param {Request} request */
+  async function handlePasswordReset(request) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 3, windowMs: 60_000, group: "password-reset" });
+    if (rl) return rl;
 
-    // Password reset: 3/min per IP
-    if (!checkRateLimit(req, res, { maxAttempts: 3, windowMs: 60_000, group: "password-reset" })) return;
-
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const email = normalizeEmail(payload.email);
     const code = String(payload.code || "").trim();
     const newPassword = String(payload.new_password || "");
 
-    if (!email || !code || !newPassword) return badRequest(res, "E-Mail, Code und neues Passwort sind Pflichtfelder");
-    if (newPassword.length < 8) return badRequest(res, "Neues Passwort muss mindestens 8 Zeichen haben");
+    if (!email || !code || !newPassword) return badRequest("E-Mail, Code und neues Passwort sind Pflichtfelder");
+    if (newPassword.length < 8) return badRequest("Neues Passwort muss mindestens 8 Zeichen haben");
 
-    const { rows: resets } = await pool.query(
-      `SELECT * FROM password_resets WHERE email = $1`,
-      [email]
-    );
-    if (resets.length === 0) return badRequest(res, "Kein aktiver Reset-Code für diese E-Mail");
+    const { rows: resets } = await pool.query(`SELECT * FROM password_resets WHERE email = $1`, [email]);
+    if (resets.length === 0) return badRequest("Kein aktiver Reset-Code für diese E-Mail");
     const reset = resets[0];
 
     if (reset.expires_at && new Date(reset.expires_at).getTime() < Date.now()) {
       await pool.query(`DELETE FROM password_resets WHERE email = $1`, [email]);
-      return sendJson(res, 410, { ok: false, message: "Code abgelaufen. Bitte erneut anfordern." });
+      return jsonResponse({ ok: false, message: "Code abgelaufen. Bitte erneut anfordern." }, 410);
     }
     if ((reset.attempts || 0) >= 5) {
-      return sendJson(res, 429, { ok: false, message: "Zu viele Fehlversuche. Bitte erneut anfordern." });
+      return jsonResponse({ ok: false, message: "Zu viele Fehlversuche. Bitte erneut anfordern." }, 429);
     }
-
     if (!verifyCode(code, reset.code_hash)) {
       await pool.query(`UPDATE password_resets SET attempts = attempts + 1 WHERE email = $1`, [email]);
-      return badRequest(res, "Code ist ungültig");
+      return badRequest("Code ist ungültig");
     }
 
     await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [await hashPassword(newPassword), reset.user_id]);
     await pool.query(`DELETE FROM password_resets WHERE email = $1`, [email]);
 
-    return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich zurückgesetzt" });
+    return jsonResponse({ ok: true, message: "Passwort erfolgreich zurückgesetzt" }, 200);
   }
 
   return {

@@ -1,34 +1,34 @@
 // @ts-check
 import { parseId } from "../utils/data.mjs";
-import { parseBody, sendJson, parseCookies } from "../utils/http.mjs";
+import { jsonResponse, parseBody, parseCookies } from "../utils/http.mjs";
 import { badRequest, unauthorized } from "../helpers/responses.mjs";
 import { hashPassword, verifyPassword } from "../utils/password.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { SESSION_COOKIE_NAME } from "../config/runtime.mjs";
 
 /**
- * @param {{ pool: Pool; destroySession: (token: string | undefined) => Promise<void>; clearSessionCookie: () => string }} opts
+ * @param {{
+ *   pool: Pool;
+ *   kv: KVNamespace;
+ *   destroySession: (token: string | undefined, kv: KVNamespace) => Promise<void>;
+ *   clearSessionCookie: () => string;
+ * }} opts
  */
-export function createUserHandlers({ pool, destroySession, clearSessionCookie }) {
+export function createUserHandlers({ pool, kv, destroySession, clearSessionCookie }) {
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleDeleteUserAccount(req, res, session) {
-    if (req.method !== "DELETE") {
-      res.setHeader("Allow", "DELETE");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handleDeleteUserAccount(request, session) {
+    if (request.method !== "DELETE") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "DELETE" });
 
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
     const client = await pool.connect();
     try {
-      await client.query('BEGIN');
-      // Zuerst abhängige Zeilen (child rows), dann parent rows
+      await client.query("BEGIN");
       await client.query(`DELETE FROM income WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]);
       await client.query(`DELETE FROM private_expenses WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE user_id = $1)`, [userId]);
       await client.query(`DELETE FROM transactions WHERE user_id = $1`, [userId]);
@@ -40,85 +40,76 @@ export function createUserHandlers({ pool, destroySession, clearSessionCookie })
       await client.query(`DELETE FROM answer_likes WHERE user_id = $1`, [userId]);
       await client.query(`DELETE FROM email_verifications WHERE email IN (SELECT email FROM users WHERE id = $1)`, [userId]);
       await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
-      await client.query('COMMIT');
+      await client.query("COMMIT");
     } catch (err) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw err;
     } finally {
       client.release();
     }
 
-    await destroySession(parseCookies(req)[SESSION_COOKIE_NAME]);
+    const cookies = parseCookies(request);
+    await destroySession(cookies[SESSION_COOKIE_NAME], kv);
 
-    return sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
+    return jsonResponse({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() });
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handlePasswordChange(req, res, session) {
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handlePasswordChange(request, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 5, windowMs: 60_000, group: "password-change" });
+    if (rl) return rl;
 
-    if (!checkRateLimit(req, res, { maxAttempts: 5, windowMs: 60_000, group: "password-change" })) return;
-
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const currentPassword = String(payload.current_password || "");
     const newPassword = String(payload.new_password || "");
 
-    if (!currentPassword || !newPassword) return badRequest(res, "Aktuelles und neues Passwort sind Pflichtfelder");
-    if (newPassword.length < 8) return badRequest(res, "Neues Passwort muss mindestens 8 Zeichen haben");
+    if (!currentPassword || !newPassword) return badRequest("Aktuelles und neues Passwort sind Pflichtfelder");
+    if (newPassword.length < 8) return badRequest("Neues Passwort muss mindestens 8 Zeichen haben");
 
     const userId = parseId(session.user.id);
     const { rows } = await pool.query(`SELECT password FROM users WHERE id = $1`, [userId]);
-    if (rows.length === 0) return unauthorized(res, "Benutzer nicht gefunden");
+    if (rows.length === 0) return unauthorized("Benutzer nicht gefunden");
 
     const isValid = await verifyPassword(currentPassword, rows[0].password);
-    if (!isValid) return sendJson(res, 400, { ok: false, code: "wrong_password", message: "Aktuelles Passwort ist falsch" });
+    if (!isValid) return jsonResponse({ ok: false, code: "wrong_password", message: "Aktuelles Passwort ist falsch" }, 400);
 
     await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [await hashPassword(newPassword), userId]);
-
-    return sendJson(res, 200, { ok: true, message: "Passwort erfolgreich geändert" });
+    return jsonResponse({ ok: true, message: "Passwort erfolgreich geändert" }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string } }} session
    */
-  async function handleProfileImageUpload(req, res, session) {
-    if (req.method !== "PUT") {
-      res.setHeader("Allow", "PUT");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handleProfileImageUpload(request, session) {
+    if (request.method !== "PUT") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "PUT" });
+    const rl = checkRateLimit(request, { maxAttempts: 10, windowMs: 60_000, group: "profile-image" });
+    if (rl) return rl;
 
-    if (!checkRateLimit(req, res, { maxAttempts: 10, windowMs: 60_000, group: "profile-image" })) return;
-
-    const payload = await parseBody(req, res, { maxBytes: 210_000, tooLargeMessage: "Bild ist zu groß (max. 200 KB)" });
-    if (!payload) return;
+    const payload = await parseBody(request, 210_000);
+    if (!payload) return jsonResponse({ ok: false, message: "Bild ist zu groß (max. 200 KB)" }, 413);
 
     const profileImage = payload.profileImage;
-    if (!profileImage || typeof profileImage !== "string") return badRequest(res, "profileImage ist ein Pflichtfeld");
+    if (!profileImage || typeof profileImage !== "string") return badRequest("profileImage ist ein Pflichtfeld");
 
     const dataUrlMatch = profileImage.match(/^data:(image\/(?:jpeg|png|webp));base64,/);
-    if (!dataUrlMatch) return badRequest(res, "Nur JPEG, PNG und WebP sind erlaubt");
+    if (!dataUrlMatch) return badRequest("Nur JPEG, PNG und WebP sind erlaubt");
 
     const base64Data = profileImage.slice(profileImage.indexOf(",") + 1);
     const approxBytes = Math.ceil(base64Data.length * 0.75);
-    if (approxBytes > 210_000) return sendJson(res, 413, { ok: false, message: "Bild ist zu groß (max. 200 KB)" });
+    if (approxBytes > 210_000) return jsonResponse({ ok: false, message: "Bild ist zu groß (max. 200 KB)" }, 413);
 
     const userId = parseId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
     await pool.query(`UPDATE users SET "profileImage" = $1 WHERE id = $2`, [profileImage, userId]);
-
-    return sendJson(res, 200, { ok: true, message: "Profilbild gespeichert" });
+    return jsonResponse({ ok: true, message: "Profilbild gespeichert" }, 200);
   }
 
   return { handleDeleteUserAccount, handlePasswordChange, handleProfileImageUpload };

@@ -1,9 +1,8 @@
 // @ts-check
-// @ts-check
 import { ANSWER_MESSAGE_MAX_LENGTH } from "../config/runtime.mjs";
 import { detectBlockedMessageTerm } from "../config/blocked-names.mjs";
 import { parseId as parseObjectId, parsePositiveAmount, parseLongText, toDecimal, toNullableDate, toNullableNumber } from "../utils/data.mjs";
-import { parseBody, sendJson } from "../utils/http.mjs";
+import { jsonResponse, parseBody } from "../utils/http.mjs";
 import { checkRateLimit } from "../utils/rate-limit.mjs";
 import { badRequest, unauthorized, forbidden, notFound, conflict } from "../helpers/responses.mjs";
 import { calculateDashboardStyleDonationBalance } from "../helpers/finance-db.mjs";
@@ -47,17 +46,13 @@ export function createGroupHandlers(pool) {
 
   /** @param {number | string} groupId */
   async function deleteGroupCascade(groupId) {
-    const fundingResult = await pool.query(
-      `SELECT id FROM group_funding WHERE group_id = $1`,
-      [groupId]
-    );
+    const fundingResult = await pool.query(`SELECT id FROM group_funding WHERE group_id = $1`, [groupId]);
     const fundingIds = fundingResult.rows.map((row) => row.id);
 
     let groupExpenseIds = [];
     if (fundingIds.length) {
       const expenseResult = await pool.query(
-        `SELECT id FROM group_expenses WHERE group_funding_id = ANY($1)`,
-        [fundingIds]
+        `SELECT id FROM group_expenses WHERE group_funding_id = ANY($1)`, [fundingIds]
       );
       groupExpenseIds = expenseResult.rows.map((row) => row.id);
     }
@@ -84,15 +79,14 @@ export function createGroupHandlers(pool) {
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {{ user: { id: string; username?: string } }} session
    */
-  async function handleGroups(req, res, session) {
+  async function handleGroups(request, session) {
     const userId = parseObjectId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
-    if (req.method === "GET") {
+    if (request.method === "GET") {
       const result = await pool.query(
         `SELECT g.id AS group_id, g.name, g.address, g.created_at, gm.role, gm.status
          FROM group_members gm
@@ -101,8 +95,7 @@ export function createGroupHandlers(pool) {
          ORDER BY g.created_at DESC`,
         [userId]
       );
-
-      return sendJson(res, 200, {
+      return jsonResponse({
         ok: true,
         session_username: session.user.username,
         groups: result.rows.map((entry) => ({
@@ -113,16 +106,16 @@ export function createGroupHandlers(pool) {
           role: entry.role,
           status: entry.status ?? null
         }))
-      });
+      }, 200);
     }
 
-    if (req.method === "POST") {
-      const payload = await parseBody(req, res);
-      if (!payload) return;
+    if (request.method === "POST") {
+      const payload = await parseBody(request);
+      if (!payload) return badRequest("Invalid JSON body");
 
       const name = String(payload.name || "").trim();
       const address = String(payload.address || "").trim();
-      if (!name) return badRequest(res, "Gruppenname ist erforderlich.");
+      if (!name) return badRequest("Gruppenname ist erforderlich.");
 
       const now = new Date();
       const groupResult = await pool.query(
@@ -136,27 +129,22 @@ export function createGroupHandlers(pool) {
         [groupId, userId, "admin", "accepted"]
       );
 
-      return sendJson(res, 201, { ok: true, group: { group_id: String(groupId), name, address: address || null, role: "admin", status: "accepted", created_at: now } });
+      return jsonResponse({ ok: true, group: { group_id: String(groupId), name, address: address || null, role: "admin", status: "accepted", created_at: now } }, 201);
     }
 
-    res.setHeader("Allow", "GET, POST");
-    return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+    return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleGroupDetail(req, res, groupIdRaw, session) {
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handleGroupDetail(request, groupIdRaw, session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
 
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
 
     const membersResult = await pool.query(
       `SELECT u.id AS user_id, u.username, u.first_name, u.last_name, u."profileImage", gm.role, gm.status
@@ -179,8 +167,8 @@ export function createGroupHandlers(pool) {
     );
     const fundings = fundingsResult.rows;
 
-    const activityById = new Map(activities.map((activity) => [String(activity.id), activity]));
-    const fundingIds = fundings.map((funding) => funding.id);
+    const activityById = new Map(activities.map((a) => [String(a.id), a]));
+    const fundingIds = fundings.map((f) => f.id);
 
     let participants = [];
     let expenses = [];
@@ -193,8 +181,7 @@ export function createGroupHandlers(pool) {
          JOIN bank_accounts ba ON ba.id = fp.bank_account_id
          JOIN users u ON u.id = ba.user_id
          JOIN group_members gm ON gm.user_id = u.id AND gm.group_id = $1
-         WHERE fp.group_funding_id = ANY($2)
-           AND ${ACTIVE_MEMBER_FILTER}
+         WHERE fp.group_funding_id = ANY($2) AND ${ACTIVE_MEMBER_FILTER}
          ORDER BY fp.created_at DESC`,
         [/** @type {number} */ (context.groupId), fundingIds]
       );
@@ -202,13 +189,12 @@ export function createGroupHandlers(pool) {
 
       const expensesResult = await pool.query(
         `SELECT id, group_funding_id, amount, info, state, cycle, pay_date, due_date, created_at
-         FROM group_expenses WHERE group_funding_id = ANY($1)
-         ORDER BY created_at DESC`,
+         FROM group_expenses WHERE group_funding_id = ANY($1) ORDER BY created_at DESC`,
         [fundingIds]
       );
       expenses = expensesResult.rows;
 
-      const expenseIds = expenses.map((expense) => expense.id);
+      const expenseIds = expenses.map((e) => e.id);
       if (expenseIds.length) {
         const transactionsResult = await pool.query(
           `SELECT id, group_expense_id, created_at FROM transactions WHERE group_expense_id = ANY($1) ORDER BY created_at DESC`,
@@ -219,92 +205,90 @@ export function createGroupHandlers(pool) {
     }
 
     const participantsByFunding = new Map();
-    for (const participant of participants) {
-      const fundingKey = String(participant.group_funding_id);
-      if (!participantsByFunding.has(fundingKey)) participantsByFunding.set(fundingKey, []);
-      participantsByFunding.get(fundingKey).push(participant);
+    for (const p of participants) {
+      const key = String(p.group_funding_id);
+      if (!participantsByFunding.has(key)) participantsByFunding.set(key, []);
+      participantsByFunding.get(key).push(p);
     }
 
-    const expensesById = new Map(expenses.map((expense) => [String(expense.id), expense]));
-    const fundingById = new Map(fundings.map((funding) => [String(funding.id), funding]));
+    const expensesById = new Map(expenses.map((e) => [String(e.id), e]));
+    const fundingById = new Map(fundings.map((f) => [String(f.id), f]));
 
-    return sendJson(res, 200, {
+    return jsonResponse({
       ok: true,
       group: { group_id: String(context.group.id), name: context.group.name, address: context.group.address ?? null, created_at: context.group.created_at ?? null },
       is_admin: context.membership.role === "admin",
       session_user_id: String(context.user.id),
-      members: membersResult.rows.map((member) => ({ user_id: String(member.user_id), username: member.username, first_name: member.first_name ?? null, last_name: member.last_name ?? null, profileImage: member.profileImage ?? null, role: member.role, status: member.status ?? null })),
-      activities: activities.map((activity) => ({ activity_id: String(activity.id), info: activity.info ?? null, date: activity.date ?? null, created_at: activity.created_at ?? null })),
-      fundings: fundings.map((funding) => {
-        const linkedActivity = funding.group_activity_id ? activityById.get(String(funding.group_activity_id)) : null;
-        const contributions = participantsByFunding.get(String(funding.id)) ?? [];
+      members: membersResult.rows.map((m) => ({ user_id: String(m.user_id), username: m.username, first_name: m.first_name ?? null, last_name: m.last_name ?? null, profileImage: m.profileImage ?? null, role: m.role, status: m.status ?? null })),
+      activities: activities.map((a) => ({ activity_id: String(a.id), info: a.info ?? null, date: a.date ?? null, created_at: a.created_at ?? null })),
+      fundings: fundings.map((f) => {
+        const linkedActivity = f.group_activity_id ? activityById.get(String(f.group_activity_id)) : null;
+        const contributions = participantsByFunding.get(String(f.id)) ?? [];
         return {
-          funding_id: String(funding.id), group_activity_id: funding.group_activity_id ? String(funding.group_activity_id) : null, amount: toNullableNumber(funding.amount), info: funding.info ?? null, created_at: funding.created_at ?? null,
-          contributions: contributions.map((/** @type {any} */ entry) => ({ user_id: String(entry.user_id), username: entry.username, first_name: entry.first_name ?? null, last_name: entry.last_name ?? null, amount: toNullableNumber(entry.amount), created_at: entry.created_at ?? null })),
-          total_donated: Number(contributions.reduce((/** @type {number} */ sum, /** @type {any} */ entry) => sum + (toNullableNumber(entry.amount) ?? 0), 0).toFixed(2)),
+          funding_id: String(f.id), group_activity_id: f.group_activity_id ? String(f.group_activity_id) : null, amount: toNullableNumber(f.amount), info: f.info ?? null, created_at: f.created_at ?? null,
+          contributions: contributions.map((/** @type {any} */ c) => ({ user_id: String(c.user_id), username: c.username, first_name: c.first_name ?? null, last_name: c.last_name ?? null, amount: toNullableNumber(c.amount), created_at: c.created_at ?? null })),
+          total_donated: Number(contributions.reduce((/** @type {number} */ sum, /** @type {any} */ c) => sum + (toNullableNumber(c.amount) ?? 0), 0).toFixed(2)),
           linked_activity: linkedActivity ? { activity_id: String(linkedActivity.id), info: linkedActivity.info ?? null, date: linkedActivity.date ?? null } : null
         };
       }),
-      expenses: expenses.map((expense) => {
-        const funding = fundingById.get(String(expense.group_funding_id));
-        return { group_expense_id: String(expense.id), group_funding_id: String(expense.group_funding_id), funding_info: funding?.info ?? null, amount: toNullableNumber(expense.amount), info: expense.info ?? null, state: expense.state ?? null, cycle: expense.cycle ?? null, due_date: expense.due_date ?? expense.pay_date ?? null, pay_date: expense.pay_date ?? expense.due_date ?? null, created_at: expense.created_at ?? null };
+      expenses: expenses.map((e) => {
+        const f = fundingById.get(String(e.group_funding_id));
+        return { group_expense_id: String(e.id), group_funding_id: String(e.group_funding_id), funding_info: f?.info ?? null, amount: toNullableNumber(e.amount), info: e.info ?? null, state: e.state ?? null, cycle: e.cycle ?? null, due_date: e.due_date ?? e.pay_date ?? null, pay_date: e.pay_date ?? e.due_date ?? null, created_at: e.created_at ?? null };
       }),
-      funding_transactions: transactions.map((transaction) => {
-        const expense = expensesById.get(String(transaction.group_expense_id));
-        const funding = expense ? fundingById.get(String(expense.group_funding_id)) : null;
-        return { transaction_id: String(transaction.id), group_expense_id: String(transaction.group_expense_id), group_funding_id: expense ? String(expense.group_funding_id) : null, amount: expense ? toNullableNumber(expense.amount) : null, created_at: transaction.created_at ?? null, expense_info: expense?.info ?? null, funding_info: funding?.info ?? null };
+      funding_transactions: transactions.map((t) => {
+        const e = expensesById.get(String(t.group_expense_id));
+        const f = e ? fundingById.get(String(e.group_funding_id)) : null;
+        return { transaction_id: String(t.id), group_expense_id: String(t.group_expense_id), group_funding_id: e ? String(e.group_funding_id) : null, amount: e ? toNullableNumber(e.amount) : null, created_at: t.created_at ?? null, expense_info: e?.info ?? null, funding_info: f?.info ?? null };
       })
-    });
+    }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleCreateGroupActivity(req, res, groupIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleCreateGroupActivity(request, groupIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
     const info = String(payload.info || "").trim();
-    if (!info) return badRequest(res, "Activity info is required");
+    if (!info) return badRequest("Activity info is required");
     const date = toNullableDate(payload.date);
-    if (payload.date && !date) return badRequest(res, "Activity date is invalid");
+    if (payload.date && !date) return badRequest("Activity date is invalid");
     const createdAt = new Date();
     const insertResult = await pool.query(
       `INSERT INTO group_activities (group_id, info, date, created_at) VALUES ($1, $2, $3, $4) RETURNING id`,
       [/** @type {number} */ (context.groupId), info, date, createdAt]
     );
-    return sendJson(res, 201, { ok: true, activity: { activity_id: String(insertResult.rows[0].id), info, date, created_at: createdAt } });
+    return jsonResponse({ ok: true, activity: { activity_id: String(insertResult.rows[0].id), info, date, created_at: createdAt } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleCreateGroupFunding(req, res, groupIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleCreateGroupFunding(request, groupIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const info = String(payload.info || "").trim() || null;
     let groupActivityId = null;
     const activityIdRaw = String(payload.group_activity_id || "").trim();
     if (activityIdRaw) {
       groupActivityId = parseObjectId(activityIdRaw);
-      if (!groupActivityId) return badRequest(res, "Invalid linked activity id");
+      if (!groupActivityId) return badRequest("Invalid linked activity id");
       const linkedResult = await pool.query(
         `SELECT id FROM group_activities WHERE id = $1 AND group_id = $2`,
         [groupActivityId, /** @type {number} */ (context.groupId)]
       );
-      if (linkedResult.rows.length === 0) return badRequest(res, "Linked activity does not exist in this group");
+      if (linkedResult.rows.length === 0) return badRequest("Linked activity does not exist in this group");
     }
 
     if (!groupActivityId) {
@@ -317,74 +301,68 @@ export function createGroupHandlers(pool) {
     }
 
     const createdAt = new Date();
-    const amount = 0.00;
     const insertResult = await pool.query(
       `INSERT INTO group_funding (group_id, group_activity_id, amount, info, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [/** @type {number} */ (context.groupId), groupActivityId, amount, info, createdAt]
+      [/** @type {number} */ (context.groupId), groupActivityId, 0.00, info, createdAt]
     );
-    return sendJson(res, 201, { ok: true, funding: { funding_id: String(insertResult.rows[0].id), group_activity_id: groupActivityId ? String(groupActivityId) : null, amount: 0, info, created_at: createdAt } });
+    return jsonResponse({ ok: true, funding: { funding_id: String(insertResult.rows[0].id), group_activity_id: groupActivityId ? String(groupActivityId) : null, amount: 0, info, created_at: createdAt } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
    * @param {string} fundingIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleDonateToFunding(req, res, groupIdRaw, fundingIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
-    if (!checkRateLimit(req, res, { maxAttempts: 30, windowMs: 60_000, group: 'groups-write' })) return;
+  async function handleDonateToFunding(request, groupIdRaw, fundingIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    const rl = checkRateLimit(request, { maxAttempts: 30, windowMs: 60_000, group: "groups-write" });
+    if (rl) return rl;
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
 
     const fundingId = parseObjectId(fundingIdRaw);
-    if (!fundingId) return badRequest(res, "Invalid funding id");
+    if (!fundingId) return badRequest("Invalid funding id");
     const fundingResult = await pool.query(
       `SELECT id, amount, info FROM group_funding WHERE id = $1 AND group_id = $2`,
       [fundingId, /** @type {number} */ (context.groupId)]
     );
-    if (fundingResult.rows.length === 0) return notFound(res, "Funding not found for this group");
+    if (fundingResult.rows.length === 0) return notFound("Funding not found for this group");
     const funding = fundingResult.rows[0];
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const normalizedAmount = parsePositiveAmount(payload.amount);
-    if (normalizedAmount == null) return badRequest(res, "Donation amount must be a positive number");
+    if (normalizedAmount == null) return badRequest("Donation amount must be a positive number");
     const amount = toDecimal(normalizedAmount);
 
     const donationBalance = await calculateDashboardStyleDonationBalance(pool, context.user.id);
     const currentBalance = Math.max(0, donationBalance.availableDonationBalance);
-    if (normalizedAmount > currentBalance) return badRequest(res, "Not enough available balance based on your dashboard entries for this donation");
+    if (normalizedAmount > currentBalance) return badRequest("Not enough available balance based on your dashboard entries for this donation");
 
     const bankAccount = donationBalance.userAccounts[0] ?? null;
-    if (!bankAccount?.id) return badRequest(res, "No bank account available for this user");
+    if (!bankAccount?.id) return badRequest("No bank account available for this user");
 
     const existingResult = await pool.query(
       `SELECT id, amount FROM funding_participants WHERE group_funding_id = $1 AND bank_account_id = $2`,
       [fundingId, bankAccount.id]
     );
     const createdAt = new Date();
-
     const currentFundingAmount = toNullableNumber(funding.amount) ?? 0;
     const updatedFundingAmount = Number((currentFundingAmount + normalizedAmount).toFixed(2));
     const donationLabel = funding.info ? `Funding donation: ${funding.info}` : "Funding donation";
 
     const client = await pool.connect();
     try {
-      await client.query('BEGIN');
-
+      await client.query("BEGIN");
       let fundingParticipantId;
       if (existingResult.rows.length > 0) {
-        const existingParticipant = existingResult.rows[0];
-        fundingParticipantId = existingParticipant.id;
-        const currentAmount = toNullableNumber(existingParticipant.amount) ?? 0;
+        const existing = existingResult.rows[0];
+        fundingParticipantId = existing.id;
+        const currentAmount = toNullableNumber(existing.amount) ?? 0;
         const nextAmount = Number((currentAmount + normalizedAmount).toFixed(2));
-        await client.query(
-          `UPDATE funding_participants SET amount = $1 WHERE id = $2`,
-          [toDecimal(nextAmount), existingParticipant.id]
-        );
+        await client.query(`UPDATE funding_participants SET amount = $1 WHERE id = $2`, [toDecimal(nextAmount), existing.id]);
       } else {
         const insertParticipant = await client.query(
           `INSERT INTO funding_participants (group_funding_id, bank_account_id, amount, created_at) VALUES ($1, $2, $3, $4) RETURNING id`,
@@ -393,25 +371,19 @@ export function createGroupHandlers(pool) {
         fundingParticipantId = insertParticipant.rows[0].id;
       }
 
-      await client.query(
-        `UPDATE group_funding SET amount = $1 WHERE id = $2`,
-        [toDecimal(updatedFundingAmount), fundingId]
-      );
+      await client.query(`UPDATE group_funding SET amount = $1 WHERE id = $2`, [toDecimal(updatedFundingAmount), fundingId]);
 
       const donationExpenseResult = await client.query(
         `INSERT INTO private_expenses (bank_account_id, source, category, amount, theo_amount, spent_at, due_date, pay_date, info, note, state, recurrence, cycle, is_active, created_at, updated_at, group_funding_id, funding_participant_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
         [bankAccount.id, donationLabel, "other", amount, amount, createdAt, createdAt, createdAt, donationLabel, donationLabel, "open", null, "once", true, createdAt, createdAt, fundingId, fundingParticipantId]
       );
-      await client.query(
-        `INSERT INTO transactions (private_expense_id, created_at) VALUES ($1, $2)`,
-        [donationExpenseResult.rows[0].id, createdAt]
-      );
+      await client.query(`INSERT INTO transactions (private_expense_id, created_at) VALUES ($1, $2)`, [donationExpenseResult.rows[0].id, createdAt]);
 
-      await client.query('COMMIT');
-      return sendJson(res, 201, { ok: true, donation: { funding_id: String(fundingId), amount: normalizedAmount, funding_total: updatedFundingAmount, bank_balance: Number((currentBalance - normalizedAmount).toFixed(2)) } });
+      await client.query("COMMIT");
+      return jsonResponse({ ok: true, donation: { funding_id: String(fundingId), amount: normalizedAmount, funding_total: updatedFundingAmount, bank_balance: Number((currentBalance - normalizedAmount).toFixed(2)) } }, 201);
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client.query("ROLLBACK").catch(() => {});
       throw err;
     } finally {
       client.release();
@@ -419,37 +391,36 @@ export function createGroupHandlers(pool) {
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleCreateGroupExpense(req, res, groupIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleCreateGroupExpense(request, groupIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    if (context.membership.role !== "admin") return forbidden(res, "Only admins can create group expenses");
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    if (context.membership.role !== "admin") return forbidden("Only admins can create group expenses");
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const fundingId = parseObjectId(payload.group_funding_id);
-    if (!fundingId) return badRequest(res, "A valid funding is required");
+    if (!fundingId) return badRequest("A valid funding is required");
     const fundingResult = await pool.query(
       `SELECT id, amount FROM group_funding WHERE id = $1 AND group_id = $2`,
       [fundingId, /** @type {number} */ (context.groupId)]
     );
-    if (fundingResult.rows.length === 0) return notFound(res, "Funding not found in this group");
+    if (fundingResult.rows.length === 0) return notFound("Funding not found in this group");
     const funding = fundingResult.rows[0];
 
     const normalizedAmount = parsePositiveAmount(payload.amount);
-    if (normalizedAmount == null) return badRequest(res, "Expense amount must be a positive number");
+    if (normalizedAmount == null) return badRequest("Expense amount must be a positive number");
     const payDate = toNullableDate(payload.due_date || payload.pay_date);
-    if ((payload.due_date || payload.pay_date) && !payDate) return badRequest(res, "Expense due date is invalid");
+    if ((payload.due_date || payload.pay_date) && !payDate) return badRequest("Expense due date is invalid");
 
     const info = String(payload.info || "").trim() || null;
     const fundingBalance = toNullableNumber(funding.amount) ?? 0;
-    if (normalizedAmount > fundingBalance) return badRequest(res, "Funding balance is too low for this expense");
+    if (normalizedAmount > fundingBalance) return badRequest("Funding balance is too low for this expense");
 
     const createdAt = new Date();
     const amountDecimal = toDecimal(normalizedAmount);
@@ -457,37 +428,28 @@ export function createGroupHandlers(pool) {
       `INSERT INTO group_expenses (group_funding_id, amount, info, state, cycle, pay_date, due_date, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
       [fundingId, amountDecimal, info, "paid", null, payDate, payDate, createdAt]
     );
-    await pool.query(
-      `INSERT INTO transactions (group_expense_id, created_at) VALUES ($1, $2)`,
-      [expenseResult.rows[0].id, createdAt]
-    );
+    await pool.query(`INSERT INTO transactions (group_expense_id, created_at) VALUES ($1, $2)`, [expenseResult.rows[0].id, createdAt]);
 
     const updatedFundingBalance = Number((fundingBalance - normalizedAmount).toFixed(2));
-    await pool.query(
-      `UPDATE group_funding SET amount = $1 WHERE id = $2`,
-      [toDecimal(updatedFundingBalance), fundingId]
-    );
+    await pool.query(`UPDATE group_funding SET amount = $1 WHERE id = $2`, [toDecimal(updatedFundingBalance), fundingId]);
 
-    return sendJson(res, 201, { ok: true, expense: { group_expense_id: String(expenseResult.rows[0].id), group_funding_id: String(fundingId), amount: normalizedAmount, info, state: "paid", due_date: payDate, pay_date: payDate, created_at: createdAt, funding_balance: updatedFundingBalance } });
+    return jsonResponse({ ok: true, expense: { group_expense_id: String(expenseResult.rows[0].id), group_funding_id: String(fundingId), amount: normalizedAmount, info, state: "paid", due_date: payDate, pay_date: payDate, created_at: createdAt, funding_balance: updatedFundingBalance } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleGroupMessages(req, res, groupIdRaw, session) {
-    if (req.method !== "GET" && req.method !== "POST") {
-      res.setHeader("Allow", "GET, POST");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handleGroupMessages(request, groupIdRaw, session) {
+    if (request.method !== "GET" && request.method !== "POST")
+      return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
 
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
 
-    if (req.method === "GET") {
-      const requestUrl = new URL(req.url || "/", "http://localhost");
+    if (request.method === "GET") {
+      const requestUrl = new URL(request.url);
       const requestedLimit = Number.parseInt(requestUrl.searchParams.get("limit") || "30", 10);
       const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 30;
       const beforeMessageIdRaw = String(requestUrl.searchParams.get("before_message_id") || "").trim();
@@ -495,12 +457,12 @@ export function createGroupHandlers(pool) {
       let rows;
       if (beforeMessageIdRaw) {
         const beforeMessageId = parseObjectId(beforeMessageIdRaw);
-        if (!beforeMessageId) return badRequest(res, "Invalid before_message_id");
+        if (!beforeMessageId) return badRequest("Invalid before_message_id");
         const beforeResult = await pool.query(
           `SELECT id, created_at FROM group_message WHERE id = $1 AND group_id = $2`,
           [beforeMessageId, /** @type {number} */ (context.groupId)]
         );
-        if (beforeResult.rows.length === 0) return notFound(res, "Cursor message not found in this group");
+        if (beforeResult.rows.length === 0) return notFound("Cursor message not found in this group");
         const beforeMessage = beforeResult.rows[0];
         const beforeCreatedAt = beforeMessage.created_at ?? null;
 
@@ -510,17 +472,14 @@ export function createGroupHandlers(pool) {
             `SELECT id, from_user_id, message, status, edited, created_at, deleted_at
              FROM group_message
              WHERE group_id = $1 AND (created_at < $2 OR (created_at = $2 AND id < $3))
-             ORDER BY created_at DESC, id DESC
-             LIMIT $4`,
+             ORDER BY created_at DESC, id DESC LIMIT $4`,
             [/** @type {number} */ (context.groupId), beforeCreatedAt, beforeMessage.id, limit + 1]
           );
         } else {
           result = await pool.query(
             `SELECT id, from_user_id, message, status, edited, created_at, deleted_at
-             FROM group_message
-             WHERE group_id = $1 AND id < $2
-             ORDER BY created_at DESC, id DESC
-             LIMIT $3`,
+             FROM group_message WHERE group_id = $1 AND id < $2
+             ORDER BY created_at DESC, id DESC LIMIT $3`,
             [/** @type {number} */ (context.groupId), beforeMessage.id, limit + 1]
           );
         }
@@ -528,10 +487,7 @@ export function createGroupHandlers(pool) {
       } else {
         const result = await pool.query(
           `SELECT id, from_user_id, message, status, edited, created_at, deleted_at
-           FROM group_message
-           WHERE group_id = $1
-           ORDER BY created_at DESC, id DESC
-           LIMIT $2`,
+           FROM group_message WHERE group_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`,
           [/** @type {number} */ (context.groupId), limit + 1]
         );
         rows = result.rows;
@@ -539,7 +495,7 @@ export function createGroupHandlers(pool) {
 
       const hasOlder = rows.length > limit;
       const orderedRows = (hasOlder ? rows.slice(0, limit) : rows).reverse();
-      const uniqueUserIds = [...new Set(orderedRows.map((entry) => entry.from_user_id))].filter(Boolean);
+      const uniqueUserIds = [...new Set(orderedRows.map((e) => e.from_user_id))].filter(Boolean);
 
       let usersById = new Map();
       if (uniqueUserIds.length) {
@@ -547,7 +503,7 @@ export function createGroupHandlers(pool) {
           `SELECT id, username, first_name, last_name, "profileImage" FROM users WHERE id = ANY($1)`,
           [uniqueUserIds]
         );
-        usersById = new Map(usersResult.rows.map((user) => [String(user.id), user]));
+        usersById = new Map(usersResult.rows.map((u) => [String(u.id), u]));
       }
 
       const messages = orderedRows.map((entry) => {
@@ -555,15 +511,15 @@ export function createGroupHandlers(pool) {
         return { message_id: String(entry.id), group_id: String(/** @type {number} */ (context.groupId)), from_user_id: String(entry.from_user_id), username: author?.username || null, first_name: author?.first_name ?? null, last_name: author?.last_name ?? null, profileImage: author?.profileImage || null, message: entry.message ?? "", status: entry.status ?? null, edited: Boolean(entry.edited), created_at: entry.created_at ?? null, deleted_at: entry.deleted_at instanceof Date ? entry.deleted_at.toISOString() : null };
       });
 
-      return sendJson(res, 200, { ok: true, messages, has_older: hasOlder });
+      return jsonResponse({ ok: true, messages, has_older: hasOlder }, 200);
     }
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const message = parseLongText(payload.message, ANSWER_MESSAGE_MAX_LENGTH);
-    if (!message) return badRequest(res, "Message is required and must be short enough");
-    if (detectBlockedMessageTerm(message)) return badRequest(res, "Die Nachricht enthaelt verbotene Begriffe und kann nicht gesendet werden.");
+    if (!message) return badRequest("Message is required and must be short enough");
+    if (detectBlockedMessageTerm(message)) return badRequest("Die Nachricht enthaelt verbotene Begriffe und kann nicht gesendet werden.");
 
     const createdAt = new Date();
     const insertResult = await pool.query(
@@ -571,32 +527,28 @@ export function createGroupHandlers(pool) {
       [/** @type {number} */ (context.groupId), context.user.id, message, null, false, createdAt]
     );
 
-    return sendJson(res, 201, { ok: true, message: { message_id: String(insertResult.rows[0].id), group_id: String(/** @type {number} */ (context.groupId)), from_user_id: String(context.user.id), username: context.user.username || null, first_name: context.user.first_name ?? null, last_name: context.user.last_name ?? null, message, status: null, edited: false, created_at: createdAt } });
+    return jsonResponse({ ok: true, message: { message_id: String(insertResult.rows[0].id), group_id: String(/** @type {number} */ (context.groupId)), from_user_id: String(context.user.id), username: context.user.username || null, first_name: context.user.first_name ?? null, last_name: context.user.last_name ?? null, message, status: null, edited: false, created_at: createdAt } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleInviteUser(req, res, groupIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleInviteUser(request, groupIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    if (context.membership.role !== "admin") return forbidden(res, "Only admins can invite users");
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    if (context.membership.role !== "admin") return forbidden("Only admins can invite users");
 
-    const payload = await parseBody(req, res);
-    if (!payload) return;
+    const payload = await parseBody(request);
+    if (!payload) return badRequest("Invalid JSON body");
 
     const username = String(payload.username || "").trim().toLowerCase();
-    if (!username) return badRequest(res, "Username is required");
+    if (!username) return badRequest("Username is required");
 
-    const inviteUserResult = await pool.query(
-      `SELECT id, username, first_name, last_name FROM users WHERE username = $1`,
-      [username]
-    );
-    if (inviteUserResult.rows.length === 0) return notFound(res, "User not found");
+    const inviteUserResult = await pool.query(`SELECT id, username, first_name, last_name FROM users WHERE username = $1`, [username]);
+    if (inviteUserResult.rows.length === 0) return notFound("User not found");
     const inviteUser = inviteUserResult.rows[0];
 
     const existingResult = await pool.query(
@@ -607,144 +559,126 @@ export function createGroupHandlers(pool) {
     if (existingResult.rows.length > 0) {
       const existingMembership = existingResult.rows[0];
       if (existingMembership.status === "denied") {
-        await pool.query(
-          `UPDATE group_members SET role = $1, status = $2 WHERE id = $3`,
-          ["member", "invited", existingMembership.id]
-        );
-        return sendJson(res, 200, { ok: true, member: { user_id: String(inviteUser.id), username: inviteUser.username, first_name: inviteUser.first_name ?? null, last_name: inviteUser.last_name ?? null, role: "member", status: "invited" } });
+        await pool.query(`UPDATE group_members SET role = $1, status = $2 WHERE id = $3`, ["member", "invited", existingMembership.id]);
+        return jsonResponse({ ok: true, member: { user_id: String(inviteUser.id), username: inviteUser.username, first_name: inviteUser.first_name ?? null, last_name: inviteUser.last_name ?? null, role: "member", status: "invited" } }, 200);
       }
-      if (existingMembership.status === "invited") return conflict(res, "User already has a pending invitation");
-      return conflict(res, "User is already in this group");
+      if (existingMembership.status === "invited") return conflict("User already has a pending invitation");
+      return conflict("User is already in this group");
     }
 
     await pool.query(
       `INSERT INTO group_members (group_id, user_id, role, status) VALUES ($1, $2, $3, $4)`,
       [/** @type {number} */ (context.groupId), inviteUser.id, "member", "invited"]
     );
-    return sendJson(res, 201, { ok: true, member: { user_id: String(inviteUser.id), username: inviteUser.username, first_name: inviteUser.first_name ?? null, last_name: inviteUser.last_name ?? null, role: "member", status: "invited" } });
+    return jsonResponse({ ok: true, member: { user_id: String(inviteUser.id), username: inviteUser.username, first_name: inviteUser.first_name ?? null, last_name: inviteUser.last_name ?? null, role: "member", status: "invited" } }, 201);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {Request} request
+   * @param {{ user: { id: string } }} session
    */
-  async function handleGetInvitations(req, res, session) {
-    if (req.method !== "GET") { res.setHeader("Allow", "GET"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleGetInvitations(request, session) {
+    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
     const userId = parseObjectId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
     const result = await pool.query(
       `SELECT g.id AS group_id, g.name AS group_name, g.address AS group_address, g.created_at AS group_created_at, gm.role, gm.status
-       FROM group_members gm
-       JOIN groups g ON g.id = gm.group_id
-       WHERE gm.user_id = $1 AND gm.status = 'invited'
-       ORDER BY g.created_at DESC`,
+       FROM group_members gm JOIN groups g ON g.id = gm.group_id
+       WHERE gm.user_id = $1 AND gm.status = 'invited' ORDER BY g.created_at DESC`,
       [userId]
     );
-
-    return sendJson(res, 200, { ok: true, invitations: result.rows.map((entry) => ({ group_id: String(entry.group_id), group_name: entry.group_name, group_address: entry.group_address ?? null, group_created_at: entry.group_created_at ?? null, role: entry.role, status: entry.status })) });
+    return jsonResponse({ ok: true, invitations: result.rows.map((e) => ({ group_id: String(e.group_id), group_name: e.group_name, group_address: e.group_address ?? null, group_created_at: e.group_created_at ?? null, role: e.role, status: e.status })) }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
    * @param {string} decision
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleInvitationDecision(req, res, groupIdRaw, decision, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
-    if (decision !== "accept" && decision !== "deny") return badRequest(res, "Invalid invitation decision");
+  async function handleInvitationDecision(request, groupIdRaw, decision, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
+    if (decision !== "accept" && decision !== "deny") return badRequest("Invalid invitation decision");
 
     const groupId = parseObjectId(groupIdRaw);
-    if (!groupId) return badRequest(res, "Invalid group id");
+    if (!groupId) return badRequest("Invalid group id");
     const userId = parseObjectId(session.user.id);
-    if (!userId) return unauthorized(res, "Session user invalid");
+    if (!userId) return unauthorized("Session user invalid");
 
     const targetStatus = decision === "accept" ? "accepted" : "denied";
     const result = await pool.query(
       `UPDATE group_members SET status = $1 WHERE group_id = $2 AND user_id = $3 AND status = 'invited'`,
       [targetStatus, groupId, userId]
     );
-    if (result.rowCount === 0) return notFound(res, "Invitation not found or already handled");
-
-    return sendJson(res, 200, { ok: true, status: targetStatus });
+    if (result.rowCount === 0) return notFound("Invitation not found or already handled");
+    return jsonResponse({ ok: true, status: targetStatus }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
    * @param {string} userIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleRemoveMember(req, res, groupIdRaw, userIdRaw, session) {
-    if (req.method !== "DELETE") { res.setHeader("Allow", "DELETE"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleRemoveMember(request, groupIdRaw, userIdRaw, session) {
+    if (request.method !== "DELETE") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "DELETE" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    if (context.membership.role !== "admin") return forbidden(res, "Only admins can remove participants");
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    if (context.membership.role !== "admin") return forbidden("Only admins can remove participants");
 
     const targetUserId = parseObjectId(userIdRaw);
-    if (!targetUserId) return badRequest(res, "Invalid user id");
-    if (targetUserId === context.user.id) return badRequest(res, "You can only remove other participants");
+    if (!targetUserId) return badRequest("Invalid user id");
+    if (targetUserId === context.user.id) return badRequest("You can only remove other participants");
 
     const deleteResult = await pool.query(
       `DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
       [/** @type {number} */ (context.groupId), targetUserId]
     );
-    if (deleteResult.rowCount === 0) return notFound(res, "Participant not found in this group");
-    return sendJson(res, 200, { ok: true });
+    if (deleteResult.rowCount === 0) return notFound("Participant not found in this group");
+    return jsonResponse({ ok: true }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
    * @param {string} userIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handlePromoteMemberToAdmin(req, res, groupIdRaw, userIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handlePromoteMemberToAdmin(request, groupIdRaw, userIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    if (context.membership.role !== "admin") return forbidden(res, "Only admins can assign admin role");
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    if (context.membership.role !== "admin") return forbidden("Only admins can assign admin role");
 
     const targetUserId = parseObjectId(userIdRaw);
-    if (!targetUserId) return badRequest(res, "Invalid user id");
-    if (targetUserId === context.user.id) return badRequest(res, "You are already an admin");
+    if (!targetUserId) return badRequest("Invalid user id");
+    if (targetUserId === context.user.id) return badRequest("You are already an admin");
 
     const targetResult = await pool.query(
       `SELECT id, role FROM group_members WHERE group_id = $1 AND user_id = $2 AND ${ACTIVE_MEMBER_FILTER}`,
       [/** @type {number} */ (context.groupId), targetUserId]
     );
-    if (targetResult.rows.length === 0) return notFound(res, "Participant not found in this group");
+    if (targetResult.rows.length === 0) return notFound("Participant not found in this group");
     const targetMembership = targetResult.rows[0];
-    if (targetMembership.role === "admin") return conflict(res, "User is already admin");
+    if (targetMembership.role === "admin") return conflict("User is already admin");
 
-    await pool.query(
-      `UPDATE group_members SET role = $1 WHERE id = $2`,
-      ["admin", targetMembership.id]
-    );
-    return sendJson(res, 200, { ok: true, role: "admin" });
+    await pool.query(`UPDATE group_members SET role = $1 WHERE id = $2`, ["admin", targetMembership.id]);
+    return jsonResponse({ ok: true, role: "admin" }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleLeaveGroup(req, res, groupIdRaw, session) {
-    if (req.method !== "POST") { res.setHeader("Allow", "POST"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleLeaveGroup(request, groupIdRaw, session) {
+    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "POST" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
 
-    const leaveResult = await pool.query(
-      `DELETE FROM group_members WHERE id = $1`,
-      [context.membership.id]
-    );
-    if (leaveResult.rowCount === 0) return notFound(res, "Membership not found");
+    const leaveResult = await pool.query(`DELETE FROM group_members WHERE id = $1`, [context.membership.id]);
+    if (leaveResult.rowCount === 0) return notFound("Membership not found");
 
     if (context.membership.role === "admin") {
       const adminCountResult = await pool.query(
@@ -758,10 +692,7 @@ export function createGroupHandlers(pool) {
           [/** @type {number} */ (context.groupId)]
         );
         if (replacementResult.rows.length > 0) {
-          await pool.query(
-            `UPDATE group_members SET role = $1 WHERE id = $2`,
-            ["admin", replacementResult.rows[0].id]
-          );
+          await pool.query(`UPDATE group_members SET role = $1 WHERE id = $2`, ["admin", replacementResult.rows[0].id]);
         }
       }
     }
@@ -773,69 +704,57 @@ export function createGroupHandlers(pool) {
     const remainingMembers = Number(remainingResult.rows[0].cnt);
     if (remainingMembers === 0) {
       await deleteGroupCascade(/** @type {number} */ (context.groupId));
-      return sendJson(res, 200, { ok: true, left: true, deleted_group: true });
+      return jsonResponse({ ok: true, left: true, deleted_group: true }, 200);
     }
-    return sendJson(res, 200, { ok: true, left: true, deleted_group: false });
+    return jsonResponse({ ok: true, left: true, deleted_group: false }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleDeleteGroup(req, res, groupIdRaw, session) {
-    if (req.method !== "DELETE") { res.setHeader("Allow", "DELETE"); return sendJson(res, 405, { ok: false, message: "Method not allowed" }); }
+  async function handleDeleteGroup(request, groupIdRaw, session) {
+    if (request.method !== "DELETE") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "DELETE" });
     const context = await getGroupContext(groupIdRaw, session.user.id);
-    if (!context.ok) return sendJson(res, /** @type {number} */ (context.status), { ok: false, message: context.message });
-    if (context.membership.role !== "admin") return forbidden(res, "Only admins can delete groups");
+    if (!context.ok) return jsonResponse({ ok: false, message: context.message }, /** @type {number} */ (context.status));
+    if (context.membership.role !== "admin") return forbidden("Only admins can delete groups");
     await deleteGroupCascade(/** @type {number} */ (context.groupId));
-    return sendJson(res, 200, { ok: true });
+    return jsonResponse({ ok: true }, 200);
   }
 
   /**
-   * @param {http.IncomingMessage} req
-   * @param {http.ServerResponse} res
+   * @param {Request} request
    * @param {string} groupIdRaw
    * @param {string} messageIdRaw
-   * @param {{ user: { id: string; username?: string } }} session
+   * @param {{ user: { id: string } }} session
    */
-  async function handleDeleteGroupMessage(req, res, groupIdRaw, messageIdRaw, session) {
-    if (req.method !== "DELETE") {
-      res.setHeader("Allow", "DELETE");
-      return sendJson(res, 405, { ok: false, message: "Method not allowed" });
-    }
+  async function handleDeleteGroupMessage(request, groupIdRaw, messageIdRaw, session) {
+    if (request.method !== "DELETE") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "DELETE" });
 
     const userId = parseObjectId(session.user.id);
-    if (!userId) return unauthorized(res, "Session invalid");
+    if (!userId) return unauthorized("Session invalid");
     const groupId = parseObjectId(groupIdRaw);
     const messageId = parseObjectId(messageIdRaw);
-    if (!groupId || !messageId) return sendJson(res, 400, { ok: false, message: "Ungültige ID" });
+    if (!groupId || !messageId) return jsonResponse({ ok: false, message: "Ungültige ID" }, 400);
 
     const { rows } = await pool.query(
       `SELECT id, from_user_id, deleted_at FROM group_message WHERE id = $1 AND group_id = $2`,
       [messageId, groupId]
     );
-    if (rows.length === 0) return notFound(res, "Nachricht nicht gefunden");
+    if (rows.length === 0) return notFound("Nachricht nicht gefunden");
 
     const existing = rows[0];
-
     const memberCheck = await pool.query(
       `SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2 AND ${ACTIVE_MEMBER_FILTER}`,
       [groupId, userId]
     );
-    if (memberCheck.rows.length === 0) return forbidden(res, 'Not an active group member');
+    if (memberCheck.rows.length === 0) return forbidden("Not an active group member");
+    if (existing.from_user_id !== userId) return forbidden("Nur der Absender darf diese Nachricht löschen");
+    if (existing.deleted_at) return jsonResponse({ ok: false, message: "Nachricht wurde bereits gelöscht" }, 400);
 
-    if (existing.from_user_id !== userId)
-      return forbidden(res, "Nur der Absender darf diese Nachricht löschen");
-    if (existing.deleted_at)
-      return sendJson(res, 400, { ok: false, message: "Nachricht wurde bereits gelöscht" });
-
-    await pool.query(
-      `UPDATE group_message SET message = NULL, deleted_at = NOW() WHERE id = $1`,
-      [messageId]
-    );
-    return sendJson(res, 200, { ok: true, message: "Nachricht gelöscht" });
+    await pool.query(`UPDATE group_message SET message = NULL, deleted_at = NOW() WHERE id = $1`, [messageId]);
+    return jsonResponse({ ok: true, message: "Nachricht gelöscht" }, 200);
   }
 
   return {

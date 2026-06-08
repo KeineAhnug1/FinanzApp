@@ -8,4 +8,5 @@ dist/
 
 # Env
 .env
+.dev.vars
 

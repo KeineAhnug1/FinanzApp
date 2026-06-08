@@ -1,5 +1,5 @@
 // @ts-check
-import { parseCookies, sendJson } from "./http.mjs";
+import { parseCookies } from "./http.mjs";
 
 /** @param {string | undefined} m */
 export function isStateChangingMethod(m) {
@@ -8,19 +8,13 @@ export function isStateChangingMethod(m) {
 }
 
 /**
- * Double-submit CSRF check: compare header x-csrf-token with csrf_token cookie.
- * @param {import('node:http').IncomingMessage} req
- * @param {import('node:http').ServerResponse} res
+ * Double-submit CSRF check: compare x-csrf-token header with csrf_token cookie.
+ * @param {Request} request
  * @returns {boolean}
  */
-export function checkCsrf(req, res) {
-  const cookies = parseCookies(req);
+export function checkCsrf(request) {
+  const cookies = parseCookies(request);
   const cookieToken = cookies["csrf_token"] || "";
-  const headerToken = String(req.headers["x-csrf-token"] || "");
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-    sendJson(res, 403, { ok: false, message: "CSRF token invalid or missing" });
-    return false;
-  }
-  return true;
+  const headerToken = request.headers.get("x-csrf-token") || "";
+  return !!(cookieToken && headerToken && cookieToken === headerToken);
 }
-

@@ -1,0 +1,22 @@
+name = "finanzapp"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "frontend/dist"
+
+kv_namespaces = [
+  { binding = "SESSIONS", id = "<SESSIONS_KV_NAMESPACE_ID>", preview_id = "<SESSIONS_KV_PREVIEW_ID>" }
+]
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "<HYPERDRIVE_ID>"
+
+[vars]
+NODE_ENV = "production"
+SESSION_COOKIE_NAME = "finanzapp_session"
+SESSION_TTL_MINUTES = "180"
+EMAIL_CODE_TTL_MINUTES = "15"
+OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free"
+OPENROUTER_APP_NAME = "FinanzApp"
+STOCK_SEARCH_DEFAULT_EXCHANGE = "NASDAQ"
+TRUST_PROXY = "true"

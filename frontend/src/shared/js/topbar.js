@@ -112,7 +112,7 @@ function currentBrandSub() {
   if (path.startsWith("/pages/stocks/")) return t("nav_stocks", "Aktien");
   if (path.startsWith("/pages/accounts/")) return t("nav_accounts", "Kontenverwaltung");
   if (path.startsWith("/pages/questions/")) return t("nav_questions", "Fragen");
-  return t("topbar.brand", "FinanzApp");
+  return t("topbar.brand", "FBM Finance");
 }
 
 function findTopbar() {
@@ -146,7 +146,7 @@ function ensureTopbarBrandLink(topbar) {
   const brandLink = document.createElement("a");
   brandLink.className = "brand-link";
   brandLink.href = HOMEPAGE_PATH;
-  brandLink.setAttribute("aria-label", t("topbar.brand", "FinanzApp"));
+  brandLink.setAttribute("aria-label", t("topbar.brand", "FBM Finance"));
   if (brandMark) brandLink.appendChild(brandMark);
   if (brandSub) brandLink.appendChild(brandSub);
   topbarLeft.prepend(brandLink);
@@ -453,6 +453,15 @@ function ensureBottomNav() {
   }
 
   const activeKey = currentNavKey();
+  const isSettingsActive = window.location.pathname.startsWith("/pages/settings/");
+  const settingsIconHtml = `<span class="app-bottom-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>`;
+  const settingsLabelHtml = `<span class="app-bottom-nav-label">${t("nav_settings", "Einstellungen")}</span>`;
+  const settingsActiveClass = isSettingsActive ? " is-active" : "";
+  const settingsCurrentAttr = isSettingsActive ? ' aria-current="page"' : "";
+  const settingsItem = isSettingsActive
+    ? `<span class="app-bottom-nav-item${settingsActiveClass}"${settingsCurrentAttr}>${settingsIconHtml}${settingsLabelHtml}</span>`
+    : `<a class="app-bottom-nav-item" href="/pages/settings/">${settingsIconHtml}${settingsLabelHtml}</a>`;
+
   bottomNav.innerHTML = NAV_ITEMS.map((item) => {
     const isActive = item.key === activeKey;
     const activeClass = isActive ? " is-active" : "";
@@ -464,7 +473,7 @@ function ensureBottomNav() {
       return `<span class="app-bottom-nav-item${activeClass}"${currentAttr}>${iconHtml}${labelHtml}</span>`;
     }
     return `<a class="app-bottom-nav-item${activeClass}" href="${item.href}">${iconHtml}${labelHtml}</a>`;
-  }).join("");
+  }).join("") + settingsItem;
 
   document.body.classList.add("has-bottom-nav");
 }
@@ -519,7 +528,7 @@ function ensureSidebar(topbar, controls) {
         <button class="side-nav-collapse-toggle" type="button" aria-expanded="true" aria-label="${t("topbar.menu", "Menue")}">
           <span class="side-nav-collapse-icon" aria-hidden="true">&#9776;</span>
         </button>
-        <a class="side-nav-title side-nav-title-link" href="${HOMEPAGE_PATH}">${t("topbar.brand", "FinanzApp")}</a>
+        <a class="side-nav-title side-nav-title-link" href="${HOMEPAGE_PATH}">${t("topbar.brand", "FBM Finance")}</a>
       </div>
       <nav class="app-nav-links" aria-label="${t("nav_app", "App-Navigation")}"></nav>
       <div class="app-side-nav-bottom"></div>

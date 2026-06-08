@@ -7,14 +7,9 @@ export const SESSION_COOKIE_NAME = "finanzapp_session";
 
 export const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 export const TWELVE_DATA_API_KEY = String(process.env.TWELVE_DATA_API_KEY || process.env.TWELVE_API_KEY || "").trim();
-// Leave empty by default; must be provided via env instead of using a baked-in IP
-export const STOCK_SEARCH_BASE_URL = String(
-  process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || ""
-).trim();
+export const STOCK_SEARCH_BASE_URL = String(process.env.STOCK_SEARCH_BASE_URL || process.env.STOCK_API_BASE_URL || "").trim();
 export const STOCK_API_KEY = String(process.env.STOCK_API_KEY || "").trim();
-export const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ")
-  .trim()
-  .toUpperCase();
+export const STOCK_SEARCH_DEFAULT_EXCHANGE = String(process.env.STOCK_SEARCH_DEFAULT_EXCHANGE || "NASDAQ").trim().toUpperCase();
 export const LOGO_DEV_BASE_URL = String(process.env.LOGO_DEV_BASE_URL || "https://img.logo.dev").trim();
 export const LOGO_DEV_API_KEY = String(process.env.LOGO_DEV_API_KEY || process.env.LOGODEV_API_KEY || "").trim();
 
@@ -28,13 +23,6 @@ export const OPENROUTER_APP_NAME = String(process.env.OPENROUTER_APP_NAME || "Fi
 export const FINZBRO_USERNAME = "finzbro";
 export const FINZBRO_EMAIL = String(process.env.FINZBRO_BOT_EMAIL || "finzbro@finanzapp.local").trim().toLowerCase();
 export const FINZBRO_MENTION_REGEX = /@finzbro\b/i;
-
-export const SMTP_HOST = process.env.SMTP_HOST || "";
-export const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-export const SMTP_SECURE = process.env.SMTP_SECURE === "true";
-export const SMTP_USER = process.env.SMTP_USER || "";
-export const SMTP_PASS = process.env.SMTP_PASS || "";
-export const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 
 export const PRESET_INCOME_CATEGORY_KEYS = new Set(["salary", "freelance", "bonus", "refund", "investment", "other"]);
 export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(["rent", "groceries", "utilities", "transport", "health", "entertainment", "other"]);

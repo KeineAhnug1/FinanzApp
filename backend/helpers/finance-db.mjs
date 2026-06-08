@@ -113,12 +113,11 @@ export async function rememberUserCategory(pool, userId, kind, categoryValue) {
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {URL} requestUrl
  * @param {number[]} accountIds
  * @returns {{ ok: true; accountIds: number[] } | { ok: false; status: number; message: string }}
  */
-export function resolveRequestedBankAccountFilter(req, accountIds) {
-  const requestUrl = new URL(req.url || "/", "http://localhost");
+export function resolveRequestedBankAccountFilter(requestUrl, accountIds) {
   const rawBankAccountId = String(requestUrl.searchParams.get("bank_account_id") || "").trim();
   if (!rawBankAccountId) return { ok: true, accountIds };
 
