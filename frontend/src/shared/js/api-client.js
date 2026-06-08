@@ -7,18 +7,42 @@ function normalizeHeaders(rawHeaders = {}) {
   return headers;
 }
 
+/** Read csrf_token from cookie without a network request. */
+function getCsrfTokenFromCookie() {
+  const match = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('csrf_token='));
+  if (!match) return null;
+  try { return decodeURIComponent(match.slice('csrf_token='.length)); } catch { return null; }
+}
+
+let _csrfCache = null;
+
+async function getOrFetchCsrfToken() {
+  // 1. Try cookie first (no network needed)
+  const fromCookie = getCsrfTokenFromCookie();
+  if (fromCookie) { _csrfCache = fromCookie; return fromCookie; }
+  // 2. Already cached in memory
+  if (_csrfCache) return _csrfCache;
+  // 3. Only fetch once when cookie isn't set yet (first load)
+  try {
+    const resp = await fetch('/api/session', { credentials: 'same-origin' });
+    if (resp.ok) {
+      const json = await resp.json().catch(() => ({}));
+      if (json?.csrf) { _csrfCache = json.csrf; return json.csrf; }
+    }
+  } catch {}
+  return null;
+}
+
+/** Call this after login/logout to clear the in-memory CSRF cache. */
+export function invalidateCsrfCache() { _csrfCache = null; }
+
 export async function requestJson(url, options = {}) {
   const method = options.method || "GET";
   const headers = normalizeHeaders(options.headers);
-  try {
-    if (method !== 'GET' && method !== 'HEAD' && !headers['x-csrf-token']) {
-      const resp = await fetch('/api/session', { credentials: 'same-origin' });
-      if (resp.ok) {
-        const json = await resp.json().catch(() => ({}));
-        if (json && json.csrf) headers['x-csrf-token'] = json.csrf;
-      }
-    }
-  } catch {}
+  if (method !== 'GET' && method !== 'HEAD' && !headers['x-csrf-token']) {
+    const csrf = await getOrFetchCsrfToken();
+    if (csrf) headers['x-csrf-token'] = csrf;
+  }
   const requestInit = {
     credentials: options.credentials || "same-origin",
     ...options,

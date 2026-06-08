@@ -1,4 +1,6 @@
 // @ts-check
+import { invalidateCsrfCache } from './api-client.js';
+
 const sUserStorageKey = "finanzapp.currentUser";
 
 export function initialsFromUser(oUser) {
@@ -39,6 +41,7 @@ export async function fetchSessionUser() {
 }
 
 export async function logoutAndRedirect() {
+  invalidateCsrfCache();
   try {
     await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
   } catch {
