@@ -4,7 +4,7 @@ import { jsonResponse, parseCookies } from "./utils/http.mjs";
 import { createKvSessionStore } from "./utils/session-kv.mjs";
 import { SESSION_COOKIE_NAME, SESSION_TTL_MINUTES } from "./config/runtime.mjs";
 import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
-import { createAuthHandlers, migratePlaintextPasswords } from "./handlers/auth.mjs";
+import { createAuthHandlers } from "./handlers/auth.mjs";
 import { createUserHandlers } from "./handlers/user.mjs";
 import { createFinanceHandlers } from "./handlers/finance.mjs";
 import { createBudgetHandlers } from "./handlers/budgets.mjs";

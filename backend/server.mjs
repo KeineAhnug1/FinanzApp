@@ -1,22 +1,16 @@
 // @ts-check
+// Node.js HTTP server — adapts Web Fetch API responses from the CF-compatible router
 import "dotenv/config";
 import http from "node:http";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { Readable } from "node:stream";
 import pg from "pg";
-import { DATABASE_URL, MIME_BY_EXT, PORT, SESSION_COOKIE_NAME, SESSION_TTL_MINUTES } from "./config/runtime.mjs";
-import { dispatchApiRoute } from "./routes/api-dispatch.mjs";
+import { DATABASE_URL, MIME_BY_EXT, PORT } from "./config/runtime.mjs";
+import { handleApiRequest } from "./router.mjs";
+import { migratePlaintextPasswords } from "./handlers/auth.mjs";
 import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
-import { sendJson } from "./utils/http.mjs";
-import { createSessionStore } from "./utils/session-store.mjs";
-import { initRateLimiter } from "./utils/rate-limit.mjs";
-import { migratePlaintextPasswords, createAuthHandlers } from "./handlers/auth.mjs";
-import { createUserHandlers } from "./handlers/user.mjs";
-import { createFinanceHandlers } from "./handlers/finance.mjs";
-import { createBudgetHandlers } from "./handlers/budgets.mjs";
-import { createGroupHandlers } from "./handlers/groups.mjs";
-import { createForumHandlers } from "./handlers/forum.mjs";
 
 const { Pool } = pg;
 
@@ -29,17 +23,82 @@ if (!PORT || !Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error(`PORT is invalid: "${process.env.PORT}"`);
 }
 
-// Configure DB SSL: allow disabling in dev, enforce in production
-const DB_SSL_MODE = String(process.env.DB_SSL_MODE || "prefer").toLowerCase(); // "disable" | "prefer" | "require"
-const sslConfig = DB_SSL_MODE === "disable"
-  ? false
-  : { rejectUnauthorized: DB_SSL_MODE === "require" };
+const DB_SSL_MODE = String(process.env.DB_SSL_MODE || "prefer").toLowerCase();
+const sslConfig = DB_SSL_MODE === "disable" ? false : { rejectUnauthorized: DB_SSL_MODE === "require" };
 const pool = new Pool({ connectionString: DATABASE_URL, ssl: sslConfig });
 
-const sessionStore = createSessionStore({ cookieName: SESSION_COOKIE_NAME, ttlMinutes: SESSION_TTL_MINUTES });
-const { init, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, gcSessions } = sessionStore;
+/**
+ * Convert a Node.js IncomingMessage into a Web Fetch API Request.
+ * @param {http.IncomingMessage} req
+ * @returns {Promise<Request>}
+ */
+async function nodeReqToWebRequest(req) {
+  const base = `http://localhost:${PORT}`;
+  const url = new URL(req.url || "/", base);
+
+  const headers = new Headers();
+  const rawHeaders = req.headers;
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (Array.isArray(value)) {
+      for (const v of value) headers.append(key, v);
+    } else if (value) {
+      headers.set(key, value);
+    }
+  }
+
+  const method = req.method || "GET";
+  const hasBody = method !== "GET" && method !== "HEAD";
+
+  if (hasBody) {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = Buffer.concat(chunks);
+    return new Request(url.toString(), { method, headers, body });
+  }
+
+  return new Request(url.toString(), { method, headers });
+}
 
 /**
+ * Write a Web Fetch API Response to a Node.js ServerResponse.
+ * @param {Response} webResponse
+ * @param {http.ServerResponse} res
+ */
+async function webResponseToNodeRes(webResponse, res) {
+  const headers = {};
+  for (const [key, value] of webResponse.headers.entries()) {
+    // Node http allows multiple Set-Cookie via array
+    if (key.toLowerCase() === "set-cookie") {
+      const existing = headers["set-cookie"];
+      if (existing) {
+        headers["set-cookie"] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+      } else {
+        headers["set-cookie"] = value;
+      }
+    } else {
+      headers[key] = value;
+    }
+  }
+
+  res.writeHead(webResponse.status, headers);
+
+  if (webResponse.body) {
+    const reader = webResponse.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  res.end();
+}
+
+/**
+ * Serve static files from frontend/dist.
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
  * @param {string} pathname
@@ -61,26 +120,21 @@ async function handleStatic(req, res, pathname) {
   const normalized = path.normalize(requestPath).replace(/^([/\\])+/, "");
   const filePath = resolveStaticPath(PROJECT_ROOT, `/${normalized}`);
   const relativePath = path.relative(PROJECT_ROOT, filePath);
-
   if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
     res.statusCode = 403;
     res.end("Forbidden");
     return;
   }
-
   try {
     const file = await readFile(filePath);
     const ext = path.extname(filePath).toLowerCase();
     const isHashed = filePath.includes(`${path.sep}assets${path.sep}`);
-    const cacheControl = isHashed
-      ? "public, max-age=31536000, immutable"
-      : "no-cache";
     const csp = ext === ".html"
       ? "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
       : "default-src 'none'";
     res.writeHead(200, {
       "Content-Type": /** @type {Record<string,string>} */ (MIME_BY_EXT)[ext] || "application/octet-stream",
-      "Cache-Control": cacheControl,
+      "Cache-Control": isHashed ? "public, max-age=31536000, immutable" : "no-cache",
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "SAMEORIGIN",
       "Content-Security-Policy": csp
@@ -96,100 +150,88 @@ async function handleStatic(req, res, pathname) {
 }
 
 async function start() {
-  initRateLimiter(sendJson);
-
-  // Test database connection
   try {
     await pool.query("SELECT 1");
     console.log("[db] PostgreSQL connection established.");
   } catch (/** @type {unknown} */ err) {
     const error = /** @type {Error & { message: string; code?: string }} */ (err);
-    console.error("[db] Connection error details:", error.message, error.code);
+    console.error("[db] Connection error:", error.message, error.code);
     throw new Error(`PostgreSQL connection failed: ${error.message}`, { cause: err });
   }
 
-  await init(pool);
   await migratePlaintextPasswords(pool);
-  setInterval(() => gcSessions().catch(() => {}), 30 * 60 * 1000);
+  const memKv = new Map();
+  const localKv = {
+    get: async (key) => memKv.get(key) ?? null,
+    put: async (key, value, _opts) => { memKv.set(key, value); },
+    delete: async (key) => { memKv.delete(key); }
+  };
 
-  const authHandlers = createAuthHandlers({ pool, buildSessionCookie, clearSessionCookie, createSession, destroySession, getSessionRecord, SESSION_COOKIE_NAME });
-  const userHandlers = createUserHandlers({ pool, destroySession, clearSessionCookie });
-  const financeHandlers = createFinanceHandlers(pool);
-  const budgetHandlers = createBudgetHandlers(pool);
-  const groupHandlers = createGroupHandlers(pool);
-  const forumHandlers = createForumHandlers(pool);
-
-  const { getSessionUser, requireSessionUser, handleLogin, handleSession, handleLogout, handleRegister, handleRegisterVerify, handlePasswordForgot, handlePasswordReset } = authHandlers;
-
-  const API_HANDLERS = {
-    ...financeHandlers,
-    ...budgetHandlers,
-    ...groupHandlers,
-    ...forumHandlers,
-    ...userHandlers
+  const env = {
+    ...process.env,
+    SESSIONS: localKv,
+    NODE_ENV: process.env.NODE_ENV || "development"
   };
 
   const server = http.createServer(async (req, res) => {
     const logEnabled = process.env.REQUEST_LOG === "true" || process.env.NODE_ENV !== "production";
     const startedAt = Date.now();
-    if (logEnabled) {
-      res.on("finish", () => {
-        try {
-          const url = new URL(req.url || "/", "http://localhost");
-          const ms = Date.now() - startedAt;
-          // Keep log concise: METHOD PATH -> STATUS DURATIONms
-          console.log(`${req.method} ${url.pathname} -> ${res.statusCode} ${ms}ms`);
-        } catch {
-          void 0;
-        }
-      });
-    }
+
     try {
-      const url = new URL(req.url || "/", "http://localhost");
-      const pathname = url.pathname;
+      const urlObj = new URL(req.url || "/", `http://localhost:${PORT}`);
+      const pathname = urlObj.pathname;
 
-      if (pathname === "/api/login") return await handleLogin(req, res);
-      if (pathname === "/api/register") return await handleRegister(req, res);
-      if (pathname === "/api/register/verify") return await handleRegisterVerify(req, res);
-      if (pathname === "/api/session") return await handleSession(req, res);
-      if (pathname === "/api/logout") return await handleLogout(req, res);
-      if (pathname === "/api/password/forgot") return await handlePasswordForgot(req, res);
-      if (pathname === "/api/password/reset") return await handlePasswordReset(req, res);
-
+      // Protected UI paths: check session via a quick KV lookup using a fake web request
       if (isProtectedUiPath(pathname)) {
-        const session = await getSessionUser(req);
-        if (!session) { res.writeHead(302, { Location: "/" }); res.end(); return; }
+        const checkReq = await nodeReqToWebRequest(req);
+        // Build a minimal GET /api/session to verify auth
+        const sessionCheckReq = new Request(`http://localhost:${PORT}/api/session`, { method: "GET", headers: checkReq.headers });
+        const sessionResp = await handleApiRequest(sessionCheckReq, pool, /** @type {any} */ (env));
+        const sessionData = await sessionResp.json().catch(() => ({}));
+        if (!sessionData?.session_user) {
+          res.writeHead(302, { Location: "/" });
+          res.end();
+          return;
+        }
       }
 
       if (redirectUiRoot(pathname, res)) return;
 
       if (pathname.startsWith("/api/")) {
-        const session = await requireSessionUser(req, res);
-        if (!session) return;
-        return await dispatchApiRoute({ req, res, url, pathname, session, sendJson, handlers: API_HANDLERS });
+        const webReq = await nodeReqToWebRequest(req);
+        const webResp = await handleApiRequest(webReq, pool, /** @type {any} */ (env));
+        if (logEnabled) {
+          const ms = Date.now() - startedAt;
+          console.log(`${req.method} ${pathname} -> ${webResp.status} ${ms}ms`);
+        }
+        await webResponseToNodeRes(webResp, res);
+        return;
       }
 
       if (req.method !== "GET" && req.method !== "HEAD") {
-        res.setHeader("Allow", "GET, HEAD, POST, PATCH, DELETE");
-        return sendJson(res, 405, { ok: false, message: "Method not allowed" });
+        res.writeHead(405, { Allow: "GET, HEAD" });
+        res.end(JSON.stringify({ ok: false, message: "Method not allowed" }));
+        return;
       }
 
-      return await handleStatic(req, res, pathname);
+      await handleStatic(req, res, pathname);
     } catch (error) {
       console.error("Request failed:", error);
-      return sendJson(res, 500, { ok: false, message: "Internal server error" });
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, message: "Internal server error" }));
+      }
     }
   });
 
   server.listen(PORT, () => {
-    console.log(`FBM Finance läuft auf http://localhost:${PORT}`);
+    console.log(`FinanzApp läuft auf http://localhost:${PORT}`);
   });
 
-  async function shutdown() {
+  const shutdown = async () => {
     await new Promise((resolve) => server.close(resolve));
     await pool.end();
-  }
-
+  };
   process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
   process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
 }
