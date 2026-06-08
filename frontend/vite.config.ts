@@ -13,6 +13,15 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            // Backend not ready yet — return 503 silently instead of crashing
+            if ('writeHead' in res && typeof res.writeHead === 'function') {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, message: 'Backend wird gestartet…' }));
+            }
+          });
+        },
       }
     }
   },
