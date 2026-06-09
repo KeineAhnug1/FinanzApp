@@ -937,7 +937,7 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   const showBackToTimeline =
     view.level === "year" || view.level === "month" || view.level === "day";
 
-  const height = 280;
+  const height = 360;
   const padLeft = 0;
   const padRight = 28;
   const padTop = 18;

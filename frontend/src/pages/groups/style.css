@@ -14,7 +14,7 @@ body {
 .groups-layout {
   height: 100%;
   min-height: 0;
-  width: min(1320px, calc(100% - 2 * var(--ui-space-3, 16px)));
+  width: min(1680px, calc(100% - 2 * var(--ui-space-3, 16px)));
   margin: 0 auto;
   padding: 12px 0 16px;
   display: grid;

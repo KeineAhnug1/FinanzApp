@@ -2,15 +2,15 @@
 
 .dash-shell {
   min-height: 100vh;
-  width: min(1320px, calc(100% - 32px));
+  width: min(1680px, calc(100% - 32px));
   margin: 0 auto 28px;
   padding: 0;
 }
 
 .dash-main {
   display: grid;
-  gap: 12px;
-  padding-top: 8px;
+  gap: 16px;
+  padding-top: 12px;
 }
 
 html.dashboard-view-preload .dash-main .view-panel {
@@ -145,8 +145,8 @@ html.dashboard-view-preload .dash-main .view-panel {
 .hero-card {
   background: linear-gradient(150deg, var(--bg-surface), var(--bg-soft));
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 24px;
+  border-radius: 22px;
+  padding: 32px;
   box-shadow:
     0 4px 16px rgba(29, 45, 62, 0.1),
     0 1px 4px rgba(29, 45, 62, 0.07);
@@ -162,12 +162,12 @@ html.dashboard-view-preload .dash-main .view-panel {
 .hero-label {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.83rem;
+  font-size: 0.92rem;
 }
 
 .hero-value {
-  margin: 8px 0;
-  font-size: clamp(1.85rem, 4vw, 3rem);
+  margin: 10px 0;
+  font-size: clamp(2.2rem, 4.5vw, 3.6rem);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -175,7 +175,7 @@ html.dashboard-view-preload .dash-main .view-panel {
 .hero-sub {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .budget-alerts {
@@ -226,14 +226,14 @@ html.dashboard-view-preload .dash-main .view-panel {
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .kpi-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
+  border-radius: 18px;
+  padding: 20px;
   box-shadow:
     0 2px 8px rgba(29, 45, 62, 0.08),
     0 1px 2px rgba(29, 45, 62, 0.05);
@@ -263,19 +263,19 @@ html.dashboard-view-preload .dash-main .view-panel {
 
 .kpi-label {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   color: var(--text-muted);
 }
 
 .kpi-value {
-  margin: 8px 0 4px;
-  font-size: 1.1rem;
+  margin: 10px 0 6px;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 
 .kpi-trend {
   margin: 0;
-  font-size: 0.77rem;
+  font-size: 0.85rem;
 }
 
 .kpi-trend.positive {
@@ -289,7 +289,7 @@ html.dashboard-view-preload .dash-main .view-panel {
 .detail-grid {
   display: grid;
   grid-template-columns: 1.65fr 1fr;
-  gap: 12px;
+  gap: 16px;
   min-width: 0;
   align-items: stretch;
 }
@@ -307,8 +307,8 @@ html.dashboard-view-preload .dash-main .view-panel {
 .panel {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 22px;
   min-width: 0;
   box-shadow:
     0 2px 8px rgba(29, 45, 62, 0.07),
@@ -322,14 +322,14 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 .panel-title {
-  margin: 0 0 12px;
-  font-size: 0.96rem;
+  margin: 0 0 14px;
+  font-size: 1.05rem;
 }
 
 .panel-subtitle {
-  margin: -5px 0 12px;
+  margin: -6px 0 14px;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.88rem;
 }
 
 .account-filter-panel {
@@ -347,11 +347,11 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 .cashflow-chart {
-  min-height: 300px;
+  min-height: 400px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: linear-gradient(180deg, var(--bg-soft), transparent 55%);
-  padding: 10px;
+  padding: 14px;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -420,7 +420,7 @@ html.dashboard-view-preload .dash-main .view-panel {
   width: 78px;
   min-width: 78px;
   position: relative;
-  height: 280px;
+  height: 360px;
   flex-shrink: 0;
   pointer-events: none;
 }
@@ -430,7 +430,7 @@ html.dashboard-view-preload .dash-main .view-panel {
   top: 10px;
   right: 1px;
   width: 0;
-  height: 236px;
+  height: 316px;
   border-right: 1.1px solid var(--text-muted);
   opacity: 0.7;
 }
@@ -759,8 +759,8 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 .overview-pie-chart-visual {
-  width: 140px;
-  height: 140px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   background: var(--pie-gradient);
   position: relative;
@@ -789,7 +789,7 @@ html.dashboard-view-preload .dash-main .view-panel {
   grid-template-columns: 12px 1fr auto;
   gap: 8px;
   align-items: center;
-  font-size: 0.76rem;
+  font-size: 0.85rem;
 }
 
 .overview-pie-legend-dot {
@@ -805,7 +805,7 @@ html.dashboard-view-preload .dash-main .view-panel {
 
 .overview-pie-legend-value {
   color: var(--text-strong);
-  font-size: 0.75rem;
+  font-size: 0.84rem;
 }
 
 .income-grid {
@@ -1336,7 +1336,7 @@ html.dashboard-view-preload .dash-main .view-panel {
   }
 
   .overview-pie-wrap {
-    grid-template-columns: 170px 1fr;
+    grid-template-columns: 200px 1fr;
   }
 
   .income-grid {
@@ -1418,12 +1418,12 @@ html.dashboard-view-preload .dash-main .view-panel {
 
   /* Cashflow Chart: niedriger */
   .cashflow-chart {
-    min-height: 220px;
+    min-height: 280px;
   }
 
   /* Pie Chart: gleiche Höhe wie Cashflow Chart auf Mobile */
   .overview-pie-chart {
-    min-height: 220px;
+    min-height: 280px;
   }
 
   /* Entry Tab Navigation: volle Breite */

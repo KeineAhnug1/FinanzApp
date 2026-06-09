@@ -2,7 +2,7 @@
    Gemeinsame Farben/Topbar/Nav/Form/Button kommen aus shared/unified-ui.css. */
 
 .accounts-main {
-  width: min(1080px, calc(100% - 2 * var(--ui-space-3, 16px)));
+  width: min(1680px, calc(100% - 2 * var(--ui-space-3, 16px)));
   margin: var(--ui-space-4, 20px) auto var(--ui-space-5, 24px);
   display: grid;
   gap: var(--ui-space-3, 16px);
