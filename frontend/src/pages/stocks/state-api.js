@@ -1,55 +1,120 @@
-import { cacheKey, cacheRead, cacheWrite, toBase64Utf8 } from './cache-utils.js';
-import { buildUrlWithQuery, loadAccountsByEndpoints, mapApiAccounts } from './account-utils.js';
-import { canvasRoundRect, getLineChartGeometry, intervalToStepMs } from './chart-utils.js';
-import { t as sharedT, getLocale } from '@shared/js/language-utils.js';
-import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
-import { formatAmount } from '@shared/js/currency-utils.js';
-import { requestJsonMerged } from '@shared/js/api-client.js';
-import { fnToMsFromTimestamp, fnEscapeHtml } from './domain.js';
+import { cacheKey, cacheRead, cacheWrite, toBase64Utf8 } from "./cache-utils.js";
+import { buildUrlWithQuery, loadAccountsByEndpoints, mapApiAccounts } from "./account-utils.js";
+import { canvasRoundRect, getLineChartGeometry, intervalToStepMs } from "./chart-utils.js";
+import { t as sharedT, getLocale } from "@shared/js/language-utils.js";
+import { getCurrentUserFromStorage } from "@shared/js/session-utils.js";
+import { formatAmount } from "@shared/js/currency-utils.js";
+import { requestJsonMerged } from "@shared/js/api-client.js";
+import { fnToMsFromTimestamp, fnEscapeHtml } from "./domain.js";
 
 // =====================================================
 // [SHARED] 0) Konfiguration (für Depot + Einzelanalyse)
 // =====================================================
-const aPositionsEndpoints = [
-	window.SHAREVIEW_POSITIONS_ENDPOINT,
-	"/api/positions",
-].filter(Boolean);
+const aPositionsEndpoints = [window.SHAREVIEW_POSITIONS_ENDPOINT, "/api/positions"].filter(Boolean);
 const aShareAccountsEndpoints = [
-	window.SHAREVIEW_SHARE_ACCOUNTS_ENDPOINT,
-	"/api/share-accounts",
-	"/api/bank-accounts",
+  window.SHAREVIEW_SHARE_ACCOUNTS_ENDPOINT,
+  "/api/share-accounts",
+  "/api/bank-accounts",
 ].filter(Boolean);
-const aShareAccountsCrudEndpoints = aShareAccountsEndpoints.filter((sEndpoint) => !String(sEndpoint).includes("/api/bank-accounts"));
+const aShareAccountsCrudEndpoints = aShareAccountsEndpoints.filter(
+  (sEndpoint) => !String(sEndpoint).includes("/api/bank-accounts")
+);
 const aBankAccountsEndpoints = [
-	window.SHAREVIEW_BANK_ACCOUNTS_ENDPOINT,
-	"/api/bank-accounts",
+  window.SHAREVIEW_BANK_ACCOUNTS_ENDPOINT,
+  "/api/bank-accounts",
 ].filter(Boolean);
 const aIncomeEntriesEndpoints = [
-	window.SHAREVIEW_INCOME_ENTRIES_ENDPOINT,
-	"/api/income-entries",
+  window.SHAREVIEW_INCOME_ENTRIES_ENDPOINT,
+  "/api/income-entries",
 ].filter(Boolean);
 const aExpenseEntriesEndpoints = [
-	window.SHAREVIEW_EXPENSE_ENTRIES_ENDPOINT,
-	"/api/expense-entries",
+  window.SHAREVIEW_EXPENSE_ENTRIES_ENDPOINT,
+  "/api/expense-entries",
 ].filter(Boolean);
-const aBackendBaseUrls = [
-	window.SHAREVIEW_BACKEND_BASE_URL,
-	window.location.origin,
-].filter((sValue, iIndex, aValues) => {
-	const sNormalized = String(sValue ?? "").trim();
-	return sNormalized && aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex;
-});
+const aBackendBaseUrls = [window.SHAREVIEW_BACKEND_BASE_URL, window.location.origin].filter(
+  (sValue, iIndex, aValues) => {
+    const sNormalized = String(sValue ?? "").trim();
+    return (
+      sNormalized &&
+      aValues.findIndex((sItem) => String(sItem ?? "").trim() === sNormalized) === iIndex
+    );
+  }
+);
 const sAllStocksDataPath = "/global-information/Allstocks.json";
 export const aCommonTradingExchanges = [
-	"XSTU", "XDUS", "MUNICH", "MTA", "FSX", "OTC", "NASDAQ", "LSE", "VSE", "CBOE",
-	"XETR", "XBER", "BSE", "NYSE", "JPX", "KRX", "NEO", "NSE", "SZSE", "HKEX",
-	"SSE", "EURONEXT", "TWSE", "XHAM", "XHAN", "BMV", "SIX", "TSX", "ASX", "CXA",
-	"TSXV", "BOVESPA", "OMX", "TASE", "BVS", "MYX", "IDX", "GPW", "SET", "OSE",
-	"CSE", "SGX", "BIST", "JSE", "BCBA", "TADAWUL", "PSX", "BVCC", "NZX", "OMXC",
-	"EGX", "BME", "PSE", "OMXH", "BVL", "MOEX", "ASE", "XKUW", "BVB", "ADX",
-	"ISE", "QE", "BVC", "XSAP", "DFM", "OMXR", "ICEX", "OMXV", "OMXT",
+  "XSTU",
+  "XDUS",
+  "MUNICH",
+  "MTA",
+  "FSX",
+  "OTC",
+  "NASDAQ",
+  "LSE",
+  "VSE",
+  "CBOE",
+  "XETR",
+  "XBER",
+  "BSE",
+  "NYSE",
+  "JPX",
+  "KRX",
+  "NEO",
+  "NSE",
+  "SZSE",
+  "HKEX",
+  "SSE",
+  "EURONEXT",
+  "TWSE",
+  "XHAM",
+  "XHAN",
+  "BMV",
+  "SIX",
+  "TSX",
+  "ASX",
+  "CXA",
+  "TSXV",
+  "BOVESPA",
+  "OMX",
+  "TASE",
+  "BVS",
+  "MYX",
+  "IDX",
+  "GPW",
+  "SET",
+  "OSE",
+  "CSE",
+  "SGX",
+  "BIST",
+  "JSE",
+  "BCBA",
+  "TADAWUL",
+  "PSX",
+  "BVCC",
+  "NZX",
+  "OMXC",
+  "EGX",
+  "BME",
+  "PSE",
+  "OMXH",
+  "BVL",
+  "MOEX",
+  "ASE",
+  "XKUW",
+  "BVB",
+  "ADX",
+  "ISE",
+  "QE",
+  "BVC",
+  "XSAP",
+  "DFM",
+  "OMXR",
+  "ICEX",
+  "OMXV",
+  "OMXT",
 ];
-export let sTradingExchange = fnNormalizeTradingExchange(window.SHAREVIEW_DEFAULT_STOCK_EXCHANGE || "NASDAQ");
+export let sTradingExchange = fnNormalizeTradingExchange(
+  window.SHAREVIEW_DEFAULT_STOCK_EXCHANGE || "NASDAQ"
+);
 const sLocalBuyStorageBaseKey = "shareview_positions_buys_v2";
 const sLocalSellStorageBaseKey = "shareview_positions_sells_v2";
 export const iCacheTtlMs = 5 * 60 * 1000;
@@ -66,9 +131,11 @@ export let aShareAccounts = [];
 export let aBankAccounts = [];
 export let sSelectedShareAccountId = "";
 
-const sInitialRequestedView = String(new URLSearchParams(window.location.search).get("view") || "").trim().toLowerCase();
+const sInitialRequestedView = String(new URLSearchParams(window.location.search).get("view") || "")
+  .trim()
+  .toLowerCase();
 if (sInitialRequestedView === "accounts") {
-	window.location.replace("/pages/accounts/");
+  window.location.replace("/pages/accounts/");
 }
 
 /**
@@ -78,16 +145,16 @@ if (sInitialRequestedView === "accounts") {
  * @returns {string}
  */
 export function fnNormalizeAccountId(xValue) {
-	return String(xValue || "").trim();
+  return String(xValue || "").trim();
 }
 
 export function fnGetCurrentSessionUserId() {
-	const oUser = getCurrentUserFromStorage();
-	return String(oUser?.id || "anonymous").trim();
+  const oUser = getCurrentUserFromStorage();
+  return String(oUser?.id || "anonymous").trim();
 }
 
 export function fnGetScopedStorageKey(sBaseKey) {
-	return `${sBaseKey}:${fnGetCurrentSessionUserId()}`;
+  return `${sBaseKey}:${fnGetCurrentSessionUserId()}`;
 }
 
 /**
@@ -96,7 +163,7 @@ export function fnGetScopedStorageKey(sBaseKey) {
  * @returns {boolean}
  */
 export function fnIsAllAccountsSelected() {
-	return !fnNormalizeAccountId(sSelectedShareAccountId);
+  return !fnNormalizeAccountId(sSelectedShareAccountId);
 }
 
 /**
@@ -106,103 +173,116 @@ export function fnIsAllAccountsSelected() {
  * @returns {string}
  */
 export function fnGetShareAccountLabel(sShareAccountId) {
-	const sId = fnNormalizeAccountId(sShareAccountId);
-	const oMatch = aShareAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
-	return String(oMatch?.label || sId || fnT("stocks.unknown_account", "Unbekanntes Konto"));
+  const sId = fnNormalizeAccountId(sShareAccountId);
+  const oMatch = aShareAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
+  return String(oMatch?.label || sId || fnT("stocks.unknown_account", "Unbekanntes Konto"));
 }
 
 export function fnGetBankAccountLabel(sBankAccountId) {
-	const sId = fnNormalizeAccountId(sBankAccountId);
-	const oMatch = aBankAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
-	return String(oMatch?.label || sId || fnT("stocks.unknown_account", "Unbekanntes Konto"));
+  const sId = fnNormalizeAccountId(sBankAccountId);
+  const oMatch = aBankAccounts.find((oAccount) => fnNormalizeAccountId(oAccount?.id) === sId);
+  return String(oMatch?.label || sId || fnT("stocks.unknown_account", "Unbekanntes Konto"));
 }
 
 export function fnFmtTradeAmountRaw(nAmount) {
-	if (!Number.isFinite(nAmount)) return "0";
-	return String(Number(nAmount.toFixed(4)));
+  if (!Number.isFinite(nAmount)) return "0";
+  return String(Number(nAmount.toFixed(4)));
 }
 
 export function fnBuildTradeSource(sSymbol, nAmount, sDirection) {
-	const sCleanSymbol = String(sSymbol || "").trim().toUpperCase();
-	const sSign = sDirection === "in" ? "+" : "-";
-	return `${sCleanSymbol} ${sSign} ${fnFmtTradeAmountRaw(nAmount)}`;
+  const sCleanSymbol = String(sSymbol || "")
+    .trim()
+    .toUpperCase();
+  const sSign = sDirection === "in" ? "+" : "-";
+  return `${sCleanSymbol} ${sSign} ${fnFmtTradeAmountRaw(nAmount)}`;
 }
 
 export function fnBuildEndpointsWithUserId(aEndpoints, sUserId) {
-	const aUnique = [];
-	for (const sEndpoint of aEndpoints || []) {
-		const oUrl = new URL(String(sEndpoint || ""), window.location.origin);
-		oUrl.searchParams.set("user_id", sUserId);
-		const sUrl = oUrl.toString();
-		if (!aUnique.includes(sUrl)) aUnique.push(sUrl);
-	}
-	return aUnique;
+  const aUnique = [];
+  for (const sEndpoint of aEndpoints || []) {
+    const oUrl = new URL(String(sEndpoint || ""), window.location.origin);
+    oUrl.searchParams.set("user_id", sUserId);
+    const sUrl = oUrl.toString();
+    if (!aUnique.includes(sUrl)) aUnique.push(sUrl);
+  }
+  return aUnique;
 }
 
 export async function fnCreateDashboardTradeEntry({
-	sType,
-	sSymbol,
-	nAmount,
-	nTotalValue,
-	sBankAccountId,
+  sType,
+  sSymbol,
+  nAmount,
+  nTotalValue,
+  sBankAccountId,
 }) {
-	const sUserId = fnGetCurrentSessionUserId();
-	if (!/^[a-fA-F0-9]{24}$/.test(sUserId)) {
-		throw new Error(fnT("stocks.invalid_user_relogin", "Kein gueltiger Nutzer gefunden. Bitte neu einloggen."));
-	}
+  const sUserId = fnGetCurrentSessionUserId();
+  if (!/^[a-fA-F0-9]{24}$/.test(sUserId)) {
+    throw new Error(
+      fnT("stocks.invalid_user_relogin", "Kein gueltiger Nutzer gefunden. Bitte neu einloggen.")
+    );
+  }
 
-	const nRoundedAmount = Number(Number(nTotalValue).toFixed(2));
-	if (!Number.isFinite(nRoundedAmount) || nRoundedAmount <= 0) {
-		throw new Error(fnT("stocks.invalid_trade_amount", "Betrag fuer Einnahme/Ausgabe ist ungueltig."));
-	}
+  const nRoundedAmount = Number(Number(nTotalValue).toFixed(2));
+  if (!Number.isFinite(nRoundedAmount) || nRoundedAmount <= 0) {
+    throw new Error(
+      fnT("stocks.invalid_trade_amount", "Betrag fuer Einnahme/Ausgabe ist ungueltig.")
+    );
+  }
 
-	const sSource = fnBuildTradeSource(sSymbol, nAmount, sType === "income" ? "in" : "out");
-	const sBankLabel = fnGetBankAccountLabel(sBankAccountId);
-	const sNowIso = new Date().toISOString();
+  const sSource = fnBuildTradeSource(sSymbol, nAmount, sType === "income" ? "in" : "out");
+  const sBankLabel = fnGetBankAccountLabel(sBankAccountId);
+  const sNowIso = new Date().toISOString();
 
-	const oBasePayload = {
-		user_id: sUserId,
-		source: sSource,
-		amount: nRoundedAmount,
-		category: sType === "income" ? "investment" : "other",
-		note: fnT("stocks.trade_note_bank_account", "Aktientrade ueber Bankkonto: {account}", { account: sBankLabel }),
-		recurrence: "once",
-		is_active: true,
-		bank_account_id: fnNormalizeAccountId(sBankAccountId),
-	};
+  const oBasePayload = {
+    user_id: sUserId,
+    source: sSource,
+    amount: nRoundedAmount,
+    category: sType === "income" ? "investment" : "other",
+    note: fnT("stocks.trade_note_bank_account", "Aktientrade ueber Bankkonto: {account}", {
+      account: sBankLabel,
+    }),
+    recurrence: "once",
+    is_active: true,
+    bank_account_id: fnNormalizeAccountId(sBankAccountId),
+  };
 
-	const bIsIncome = sType === "income";
-	const aTargetEndpoints = fnBuildEndpointsWithUserId(
-		bIsIncome ? aIncomeEntriesEndpoints : aExpenseEntriesEndpoints,
-		sUserId,
-	);
+  const bIsIncome = sType === "income";
+  const aTargetEndpoints = fnBuildEndpointsWithUserId(
+    bIsIncome ? aIncomeEntriesEndpoints : aExpenseEntriesEndpoints,
+    sUserId
+  );
 
-	await fnApiRequestWithEndpoints(aTargetEndpoints, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			...oBasePayload,
-			...(bIsIncome ? { received_at: sNowIso } : { spent_at: sNowIso }),
-		}),
-	});
+  await fnApiRequestWithEndpoints(aTargetEndpoints, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...oBasePayload,
+      ...(bIsIncome ? { received_at: sNowIso } : { spent_at: sNowIso }),
+    }),
+  });
 }
 
 export async function fnPromptBankAccountSelection({
-	sActionLabel,
-	sSymbol,
-	nAmount,
-	nTotalValue,
+  sActionLabel,
+  sSymbol,
+  nAmount,
+  nTotalValue,
 }) {
-	await fnLoadBankAccounts();
-	if (!aBankAccounts.length) {
-		throw new Error(fnT("stocks.no_bank_account_available", "Kein Bankkonto vorhanden. Bitte zuerst in der Kontenverwaltung ein Bankkonto anlegen."));
-	}
+  await fnLoadBankAccounts();
+  if (!aBankAccounts.length) {
+    throw new Error(
+      fnT(
+        "stocks.no_bank_account_available",
+        "Kein Bankkonto vorhanden. Bitte zuerst in der Kontenverwaltung ein Bankkonto anlegen."
+      )
+    );
+  }
 
-	return await new Promise((fnResolve) => {
-		const elBackdrop = document.createElement("div");
-		elBackdrop.className = "trade-account-modal";
-		const sDefaultId = fnNormalizeAccountId(aBankAccounts[0]?.id);
-		elBackdrop.innerHTML = `
+  return await new Promise((fnResolve) => {
+    const elBackdrop = document.createElement("div");
+    elBackdrop.className = "trade-account-modal";
+    const sDefaultId = fnNormalizeAccountId(aBankAccounts[0]?.id);
+    elBackdrop.innerHTML = `
       <div class="trade-account-modal-card" role="dialog" aria-modal="true" aria-label="${fnT("stocks.select_bank_account_aria", "Bankkonto auswaehlen")}">
         <h3>${fnT("stocks.action_bank_account", "{action}: Bankkonto auswaehlen", { action: fnEscapeHtml(sActionLabel) })}</h3>
         <p class="muted">${fnEscapeHtml(fnBuildTradeSource(sSymbol, nAmount, sActionLabel === "Verkauf" ? "in" : "out"))}</p>
@@ -220,36 +300,36 @@ export async function fnPromptBankAccountSelection({
       </div>
     `;
 
-		document.body.appendChild(elBackdrop);
-		const elSelect = elBackdrop.querySelector("#tradeBankAccountSelect");
-		if (elSelect) elSelect.value = sDefaultId;
+    document.body.appendChild(elBackdrop);
+    const elSelect = elBackdrop.querySelector("#tradeBankAccountSelect");
+    if (elSelect) elSelect.value = sDefaultId;
 
-		const fnCleanup = () => {
-			elBackdrop.remove();
-		};
+    const fnCleanup = () => {
+      elBackdrop.remove();
+    };
 
-		elBackdrop.addEventListener("click", (oEvent) => {
-			if (oEvent.target === elBackdrop) {
-				fnCleanup();
-				fnResolve(null);
-			}
-		});
+    elBackdrop.addEventListener("click", (oEvent) => {
+      if (oEvent.target === elBackdrop) {
+        fnCleanup();
+        fnResolve(null);
+      }
+    });
 
-		elBackdrop.querySelector('[data-action="cancel"]')?.addEventListener("click", () => {
-			fnCleanup();
-			fnResolve(null);
-		});
+    elBackdrop.querySelector('[data-action="cancel"]')?.addEventListener("click", () => {
+      fnCleanup();
+      fnResolve(null);
+    });
 
-		elBackdrop.querySelector('[data-action="confirm"]')?.addEventListener("click", () => {
-			const sSelectedId = fnNormalizeAccountId(elSelect?.value || "");
-			if (!sSelectedId) return;
-			fnCleanup();
-			fnResolve({
-				id: sSelectedId,
-				label: fnGetBankAccountLabel(sSelectedId),
-			});
-		});
-	});
+    elBackdrop.querySelector('[data-action="confirm"]')?.addEventListener("click", () => {
+      const sSelectedId = fnNormalizeAccountId(elSelect?.value || "");
+      if (!sSelectedId) return;
+      fnCleanup();
+      fnResolve({
+        id: sSelectedId,
+        label: fnGetBankAccountLabel(sSelectedId),
+      });
+    });
+  });
 }
 
 // =====================================================
@@ -262,14 +342,16 @@ export async function fnPromptBankAccountSelection({
  * @param {string} sMessage
  */
 export function fnShowError(sMessage) {
-	console.error(sMessage);
+  console.error(sMessage);
 }
 
 export function fnT(sKey, sFallback, oParams = {}) {
-	const sTranslated = sharedT(sKey, oParams);
-	if (sTranslated && sTranslated !== sKey) return sTranslated;
-	if (!oParams || !Object.keys(oParams).length) return sFallback;
-	return String(sFallback || "").replaceAll(/\{(\w+)\}/g, (_, sName) => String(oParams[sName] ?? ""));
+  const sTranslated = sharedT(sKey, oParams);
+  if (sTranslated && sTranslated !== sKey) return sTranslated;
+  if (!oParams || !Object.keys(oParams).length) return sFallback;
+  return String(sFallback || "").replaceAll(/\{(\w+)\}/g, (_, sName) =>
+    String(oParams[sName] ?? "")
+  );
 }
 
 /**
@@ -278,70 +360,74 @@ export function fnT(sKey, sFallback, oParams = {}) {
  * @returns {string}
  */
 export function fnGetLocale() {
-	return getLocale(fnGetCurrentSessionUserId()) || sLocale || "de-DE";
+  return getLocale(fnGetCurrentSessionUserId()) || sLocale || "de-DE";
 }
 
 export function fnNormalizeTradingExchange(sExchangeRaw) {
-	const sExchange = fnNormalizeExchangeCode(sExchangeRaw);
-	if (!sExchange) return aCommonTradingExchanges[0];
-	return /^[A-Z0-9._-]{2,15}$/.test(sExchange) ? sExchange : aCommonTradingExchanges[0];
+  const sExchange = fnNormalizeExchangeCode(sExchangeRaw);
+  if (!sExchange) return aCommonTradingExchanges[0];
+  return /^[A-Z0-9._-]{2,15}$/.test(sExchange) ? sExchange : aCommonTradingExchanges[0];
 }
 
 export function fnNormalizeExchangeCode(sExchangeRaw) {
-	return String(sExchangeRaw || "")
-		.trim()
-		.toUpperCase();
+  return String(sExchangeRaw || "")
+    .trim()
+    .toUpperCase();
 }
 
 export function fnIsNoExchangeSelection(sExchangeRaw) {
-	const sExchange = fnNormalizeExchangeCode(sExchangeRaw);
-	return sExchange === "__NONE__" || sExchange === "NONE";
+  const sExchange = fnNormalizeExchangeCode(sExchangeRaw);
+  return sExchange === "__NONE__" || sExchange === "NONE";
 }
 
 export function fnGetCommonTradingExchanges() {
-	return [...aCommonTradingExchanges];
+  return [...aCommonTradingExchanges];
 }
 
 export function fnGetTradingExchange() {
-	return sTradingExchange;
+  return sTradingExchange;
 }
 
 export function fnSetTradingExchange(sExchangeRaw) {
-	sTradingExchange = fnNormalizeTradingExchange(sExchangeRaw);
-	return sTradingExchange;
+  sTradingExchange = fnNormalizeTradingExchange(sExchangeRaw);
+  return sTradingExchange;
 }
 
 export function fnGetLogoTheme() {
-	return document.documentElement?.dataset?.theme === "dark" ? "dark" : "light";
+  return document.documentElement?.dataset?.theme === "dark" ? "dark" : "light";
 }
 
 export function fnBuildStockLogoUrl(sSymbol, oOptions = {}) {
-	const sCleanSymbol = String(sSymbol || "").trim().toUpperCase();
-	if (!sCleanSymbol) return "";
-	const iSizeRaw = Number(oOptions?.size);
-	const iSize = Number.isFinite(iSizeRaw) ? Math.max(16, Math.min(256, Math.round(iSizeRaw))) : 48;
-	const sExchange = fnNormalizeTradingExchange(oOptions?.exchange || sTradingExchange);
-	const oUrl = new URL("/api/stocks/logo", window.location.origin);
-	oUrl.searchParams.set("symbol", sCleanSymbol);
-	oUrl.searchParams.set("exchange", sExchange);
-	oUrl.searchParams.set("theme", fnGetLogoTheme());
-	oUrl.searchParams.set("size", String(iSize));
-	return oUrl.toString();
+  const sCleanSymbol = String(sSymbol || "")
+    .trim()
+    .toUpperCase();
+  if (!sCleanSymbol) return "";
+  const iSizeRaw = Number(oOptions?.size);
+  const iSize = Number.isFinite(iSizeRaw) ? Math.max(16, Math.min(256, Math.round(iSizeRaw))) : 48;
+  const sExchange = fnNormalizeTradingExchange(oOptions?.exchange || sTradingExchange);
+  const oUrl = new URL("/api/stocks/logo", window.location.origin);
+  oUrl.searchParams.set("symbol", sCleanSymbol);
+  oUrl.searchParams.set("exchange", sExchange);
+  oUrl.searchParams.set("theme", fnGetLogoTheme());
+  oUrl.searchParams.set("size", String(iSize));
+  return oUrl.toString();
 }
 
 export function fnRefreshStockLogoTheme(oRoot = document) {
-	const elRoot = oRoot && typeof oRoot.querySelectorAll === "function" ? oRoot : document;
-	const aLogoNodes = elRoot.querySelectorAll(".stock-logo[data-symbol]");
-	for (const elLogo of aLogoNodes) {
-		const sSymbol = String(elLogo.dataset.symbol || "").trim().toUpperCase();
-		if (!sSymbol) continue;
-		const iSizeRaw = Number(elLogo.dataset.logoSize || 48);
-		elLogo.src = fnBuildStockLogoUrl(sSymbol, { size: iSizeRaw });
-	}
+  const elRoot = oRoot && typeof oRoot.querySelectorAll === "function" ? oRoot : document;
+  const aLogoNodes = elRoot.querySelectorAll(".stock-logo[data-symbol]");
+  for (const elLogo of aLogoNodes) {
+    const sSymbol = String(elLogo.dataset.symbol || "")
+      .trim()
+      .toUpperCase();
+    if (!sSymbol) continue;
+    const iSizeRaw = Number(elLogo.dataset.logoSize || 48);
+    elLogo.src = fnBuildStockLogoUrl(sSymbol, { size: iSizeRaw });
+  }
 }
 
 window.addEventListener("finanzapp:theme-changed", () => {
-	fnRefreshStockLogoTheme(document);
+  fnRefreshStockLogoTheme(document);
 });
 
 /**
@@ -352,11 +438,11 @@ window.addEventListener("finanzapp:theme-changed", () => {
  * @returns {string}
  */
 export function fnFmtMoney(nValue) {
-	if (!Number.isFinite(nValue)) return "—";
-	return formatAmount(nValue, {
-		locale: fnGetLocale(),
-		maximumFractionDigits: 2,
-	});
+  if (!Number.isFinite(nValue)) return "—";
+  return formatAmount(nValue, {
+    locale: fnGetLocale(),
+    maximumFractionDigits: 2,
+  });
 }
 
 /**
@@ -368,8 +454,8 @@ export function fnFmtMoney(nValue) {
  * @returns {string}
  */
 export function fnFmtNumber(nValue, iDigits = 4) {
-	if (!Number.isFinite(nValue)) return "—";
-	return new Intl.NumberFormat(fnGetLocale(), { maximumFractionDigits: iDigits }).format(nValue);
+  if (!Number.isFinite(nValue)) return "—";
+  return new Intl.NumberFormat(fnGetLocale(), { maximumFractionDigits: iDigits }).format(nValue);
 }
 
 /**
@@ -379,13 +465,13 @@ export function fnFmtNumber(nValue, iDigits = 4) {
  * @returns {string}
  */
 export function fnFmtDateFromTimestamp(nTimestampRaw) {
-	const iTimestampMs = fnToMsFromTimestamp(nTimestampRaw);
-	if (!Number.isFinite(iTimestampMs)) return "—";
-	const dDate = new Date(iTimestampMs);
-	return new Intl.DateTimeFormat(fnGetLocale(), {
-		dateStyle: "medium",
-		timeStyle: "short",
-	}).format(dDate);
+  const iTimestampMs = fnToMsFromTimestamp(nTimestampRaw);
+  if (!Number.isFinite(iTimestampMs)) return "—";
+  const dDate = new Date(iTimestampMs);
+  return new Intl.DateTimeFormat(fnGetLocale(), {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(dDate);
 }
 
 // =====================================================
@@ -399,7 +485,7 @@ export function fnFmtDateFromTimestamp(nTimestampRaw) {
  * @returns {string}
  */
 export function fnCacheKey(oPayload) {
-	return cacheKey(oPayload);
+  return cacheKey(oPayload);
 }
 
 /**
@@ -409,7 +495,7 @@ export function fnCacheKey(oPayload) {
  * @returns {string}
  */
 export function fnToBase64Utf8(sValue) {
-	return toBase64Utf8(sValue);
+  return toBase64Utf8(sValue);
 }
 
 /**
@@ -419,7 +505,7 @@ export function fnToBase64Utf8(sValue) {
  * @returns {any | null}
  */
 export function fnCacheRead(sKey) {
-	return cacheRead(sKey, iCacheTtlMs);
+  return cacheRead(sKey, iCacheTtlMs);
 }
 
 /**
@@ -429,7 +515,7 @@ export function fnCacheRead(sKey) {
  * @param {any} oData
  */
 export function fnCacheWrite(sKey, oData) {
-	cacheWrite(sKey, oData);
+  cacheWrite(sKey, oData);
 }
 
 // =====================================================
@@ -452,45 +538,45 @@ export function fnCacheWrite(sKey, oData) {
  * @returns {Promise<{data: any, fromCache: boolean}>}
  */
 export async function fnTdFetch(sPath, oParams) {
-	const sKey = fnCacheKey({ path: sPath, params: oParams });
-	const oCachedData = fnCacheRead(sKey);
-	if (oCachedData) return { data: oCachedData, fromCache: true };
+  const sKey = fnCacheKey({ path: sPath, params: oParams });
+  const oCachedData = fnCacheRead(sKey);
+  if (oCachedData) return { data: oCachedData, fromCache: true };
 
-	let sLastError = fnT("stocks.no_backend_endpoint", "Kein Backend-Endpoint verfügbar.");
-	for (const sBaseUrl of aBackendBaseUrls) {
-		const sEndpointPath = `/api/twelvedata${sPath}`;
-		const oUrl = sBaseUrl
-			? new URL(sEndpointPath, sBaseUrl)
-			: new URL(sEndpointPath, window.location.origin);
+  let sLastError = fnT("stocks.no_backend_endpoint", "Kein Backend-Endpoint verfügbar.");
+  for (const sBaseUrl of aBackendBaseUrls) {
+    const sEndpointPath = `/api/twelvedata${sPath}`;
+    const oUrl = sBaseUrl
+      ? new URL(sEndpointPath, sBaseUrl)
+      : new URL(sEndpointPath, window.location.origin);
 
-		Object.entries(oParams || {}).forEach(([sKeyParam, xValue]) => {
-			if (xValue == null) return;
-			const sValue = String(xValue).trim();
-			if (!sValue || sValue === "undefined" || sValue === "null") return;
-			oUrl.searchParams.set(sKeyParam, sValue);
-		});
+    Object.entries(oParams || {}).forEach(([sKeyParam, xValue]) => {
+      if (xValue == null) return;
+      const sValue = String(xValue).trim();
+      if (!sValue || sValue === "undefined" || sValue === "null") return;
+      oUrl.searchParams.set(sKeyParam, sValue);
+    });
 
-		try {
-			const oResponse = await fetch(oUrl.toString());
-			if (!oResponse.ok) {
-				sLastError = `HTTP ${oResponse.status} - ${oResponse.statusText} (${oUrl.toString()})`;
-				continue;
-			}
+    try {
+      const oResponse = await fetch(oUrl.toString());
+      if (!oResponse.ok) {
+        sLastError = `HTTP ${oResponse.status} - ${oResponse.statusText} (${oUrl.toString()})`;
+        continue;
+      }
 
-			const oData = await oResponse.json();
-			if (oData?.status === "error") {
-				sLastError = oData?.message || fnT("stocks.twelve_data_error", "Twelve Data Fehler");
-				continue;
-			}
+      const oData = await oResponse.json();
+      if (oData?.status === "error") {
+        sLastError = oData?.message || fnT("stocks.twelve_data_error", "Twelve Data Fehler");
+        continue;
+      }
 
-			fnCacheWrite(sKey, oData);
-			return { data: oData, fromCache: false };
-		} catch (oError) {
-			sLastError = String(oError?.message || oError);
-		}
-	}
+      fnCacheWrite(sKey, oData);
+      return { data: oData, fromCache: false };
+    } catch (oError) {
+      sLastError = String(oError?.message || oError);
+    }
+  }
 
-	throw new Error(`Twelve-Data-Backend Fehler: ${sLastError}`);
+  throw new Error(`Twelve-Data-Backend Fehler: ${sLastError}`);
 }
 
 // =====================================================
@@ -505,44 +591,61 @@ export async function fnTdFetch(sPath, oParams) {
  * @returns {URL}
  */
 export function fnBuildUrlWithQuery(sEndpoint, oParams = {}) {
-	return buildUrlWithQuery(sEndpoint, oParams);
+  return buildUrlWithQuery(sEndpoint, oParams);
 }
 
 export function fnMapApiAccounts(aRawAccounts, sFallbackPrefix) {
-	return mapApiAccounts(aRawAccounts, sFallbackPrefix);
+  return mapApiAccounts(aRawAccounts, sFallbackPrefix);
 }
 
 export async function fnLoadAccountsByEndpoints(aEndpoints, sFallbackPrefix, oOptions = {}) {
-	return await loadAccountsByEndpoints(aEndpoints, sFallbackPrefix, oOptions);
+  return await loadAccountsByEndpoints(aEndpoints, sFallbackPrefix, oOptions);
 }
 
 export function fnRenderShareAccountOptions(elSelect, bIncludeAllOption = false) {
-	if (!elSelect) return;
-	const sCurrent = String(sSelectedShareAccountId || "").trim();
-	const sOptions = [
-		...(bIncludeAllOption ? [`<option value="">${fnT("stocks.all_accounts", "Alle Konten")}</option>`] : []),
-		...aShareAccounts.map((oAccount) => {
-			const sId = fnEscapeHtml(String(oAccount?.id || ""));
-			const sLabel = fnEscapeHtml(String(oAccount?.label || sId || fnT("stocks.share_account", "Aktienkonto")));
-			return `<option value="${sId}">${sLabel}</option>`;
-		}),
-	].join("");
+  if (!elSelect) return;
+  const sCurrent = String(sSelectedShareAccountId || "").trim();
+  const sOptions = [
+    ...(bIncludeAllOption
+      ? [`<option value="">${fnT("stocks.all_accounts", "Alle Konten")}</option>`]
+      : []),
+    ...aShareAccounts.map((oAccount) => {
+      const sId = fnEscapeHtml(String(oAccount?.id || ""));
+      const sLabel = fnEscapeHtml(
+        String(oAccount?.label || sId || fnT("stocks.share_account", "Aktienkonto"))
+      );
+      return `<option value="${sId}">${sLabel}</option>`;
+    }),
+  ].join("");
 
-	elSelect.innerHTML = sOptions;
-	const bSelectionExists = aShareAccounts.some((oAccount) => String(oAccount?.id || "") === sCurrent);
-	elSelect.value = bSelectionExists ? sCurrent : (bIncludeAllOption ? "" : String(aShareAccounts[0]?.id || ""));
-	sSelectedShareAccountId = String(elSelect.value || "").trim();
+  elSelect.innerHTML = sOptions;
+  const bSelectionExists = aShareAccounts.some(
+    (oAccount) => String(oAccount?.id || "") === sCurrent
+  );
+  elSelect.value = bSelectionExists
+    ? sCurrent
+    : bIncludeAllOption
+      ? ""
+      : String(aShareAccounts[0]?.id || "");
+  sSelectedShareAccountId = String(elSelect.value || "").trim();
 }
 
 export async function fnLoadShareAccounts() {
-	aShareAccounts = await fnLoadAccountsByEndpoints(aShareAccountsEndpoints, fnT("stocks.share_account", "Aktienkonto"), {
-		warnPrefix: fnT("stocks.share_account", "Aktienkonto"),
-		warnHttp: true,
-	});
+  aShareAccounts = await fnLoadAccountsByEndpoints(
+    aShareAccountsEndpoints,
+    fnT("stocks.share_account", "Aktienkonto"),
+    {
+      warnPrefix: fnT("stocks.share_account", "Aktienkonto"),
+      warnHttp: true,
+    }
+  );
 }
 
 export async function fnLoadBankAccounts() {
-	aBankAccounts = await fnLoadAccountsByEndpoints(aBankAccountsEndpoints, fnT("bank_account", "Bankkonto"));
+  aBankAccounts = await fnLoadAccountsByEndpoints(
+    aBankAccountsEndpoints,
+    fnT("bank_account", "Bankkonto")
+  );
 }
 
 /**
@@ -551,36 +654,45 @@ export async function fnLoadBankAccounts() {
  * @returns {Promise<Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>>}
  */
 export async function fnLoadPositions() {
-	const sActiveAccountId = fnNormalizeAccountId(sSelectedShareAccountId);
-	const aLocalBoughtPositionsAll = fnReadLocalBoughtPositions();
-	const aLocalSoldPositionsAll = fnReadLocalSoldPositions();
-	const aLocalBoughtPositions = sActiveAccountId
-		? aLocalBoughtPositionsAll.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sActiveAccountId)
-		: aLocalBoughtPositionsAll;
-	const aLocalSoldPositions = sActiveAccountId
-		? aLocalSoldPositionsAll.filter((oPosition) => fnGetPositionShareAccountId(oPosition) === sActiveAccountId)
-		: aLocalSoldPositionsAll;
+  const sActiveAccountId = fnNormalizeAccountId(sSelectedShareAccountId);
+  const aLocalBoughtPositionsAll = fnReadLocalBoughtPositions();
+  const aLocalSoldPositionsAll = fnReadLocalSoldPositions();
+  const aLocalBoughtPositions = sActiveAccountId
+    ? aLocalBoughtPositionsAll.filter(
+        (oPosition) => fnGetPositionShareAccountId(oPosition) === sActiveAccountId
+      )
+    : aLocalBoughtPositionsAll;
+  const aLocalSoldPositions = sActiveAccountId
+    ? aLocalSoldPositionsAll.filter(
+        (oPosition) => fnGetPositionShareAccountId(oPosition) === sActiveAccountId
+      )
+    : aLocalSoldPositionsAll;
 
-	for (const sPositionsEndpoint of aPositionsEndpoints) {
-		try {
-			const oUrl = fnBuildUrlWithQuery(sPositionsEndpoint, {
-				share_account_id: sSelectedShareAccountId,
-			});
-			const oResponse = await fetch(oUrl.toString());
-			if (oResponse.ok) {
-				const oData = await oResponse.json();
-				if (Array.isArray(oData)) {
-					return fnApplySoldPositions([...oData, ...aLocalBoughtPositions], aLocalSoldPositions);
-				}
-			}
-			console.warn(`Positions Backend Fehler (${oUrl.toString()}): HTTP ${oResponse.status}.`);
-		} catch (oError) {
-			console.warn(`Positions Backend nicht erreichbar (${sPositionsEndpoint}).`, oError);
-		}
-	}
+  for (const sPositionsEndpoint of aPositionsEndpoints) {
+    try {
+      const oUrl = fnBuildUrlWithQuery(sPositionsEndpoint, {
+        share_account_id: sSelectedShareAccountId,
+      });
+      const oResponse = await fetch(oUrl.toString());
+      if (oResponse.ok) {
+        const oData = await oResponse.json();
+        if (Array.isArray(oData)) {
+          return fnApplySoldPositions([...oData, ...aLocalBoughtPositions], aLocalSoldPositions);
+        }
+      }
+      console.warn(`Positions Backend Fehler (${oUrl.toString()}): HTTP ${oResponse.status}.`);
+    } catch (oError) {
+      console.warn(`Positions Backend nicht erreichbar (${sPositionsEndpoint}).`, oError);
+    }
+  }
 
-	console.warn(fnT("stocks.no_positions_endpoint_local_fallback", "Kein Positions-Endpoint erreichbar. Nutze nur lokale Käufe."));
-	return fnApplySoldPositions(aLocalBoughtPositions, aLocalSoldPositions);
+  console.warn(
+    fnT(
+      "stocks.no_positions_endpoint_local_fallback",
+      "Kein Positions-Endpoint erreichbar. Nutze nur lokale Käufe."
+    )
+  );
+  return fnApplySoldPositions(aLocalBoughtPositions, aLocalSoldPositions);
 }
 
 /**
@@ -589,16 +701,16 @@ export async function fnLoadPositions() {
  * @returns {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>}
  */
 export function fnReadLocalBoughtPositions() {
-	const sRaw = localStorage.getItem(fnGetScopedStorageKey(sLocalBuyStorageBaseKey));
-	if (!sRaw) return [];
+  const sRaw = localStorage.getItem(fnGetScopedStorageKey(sLocalBuyStorageBaseKey));
+  if (!sRaw) return [];
 
-	try {
-		const aParsed = JSON.parse(sRaw);
-		if (!Array.isArray(aParsed)) return [];
-		return fnNormalizePositions(aParsed);
-	} catch {
-		return [];
-	}
+  try {
+    const aParsed = JSON.parse(sRaw);
+    if (!Array.isArray(aParsed)) return [];
+    return fnNormalizePositions(aParsed);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -607,7 +719,7 @@ export function fnReadLocalBoughtPositions() {
  * @param {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>} aPositions
  */
 export function fnWriteLocalBoughtPositions(aPositions) {
-	localStorage.setItem(fnGetScopedStorageKey(sLocalBuyStorageBaseKey), JSON.stringify(aPositions));
+  localStorage.setItem(fnGetScopedStorageKey(sLocalBuyStorageBaseKey), JSON.stringify(aPositions));
 }
 
 /**
@@ -616,24 +728,26 @@ export function fnWriteLocalBoughtPositions(aPositions) {
  * @returns {Array<{symbol: string, amount: number, created_at: number}>}
  */
 export function fnReadLocalSoldPositions() {
-	const sRaw = localStorage.getItem(fnGetScopedStorageKey(sLocalSellStorageBaseKey));
-	if (!sRaw) return [];
+  const sRaw = localStorage.getItem(fnGetScopedStorageKey(sLocalSellStorageBaseKey));
+  if (!sRaw) return [];
 
-	try {
-		const aParsed = JSON.parse(sRaw);
-		if (!Array.isArray(aParsed)) return [];
-		return fnNormalizePositions(aParsed)
-			.map((oPosition) => ({
-				symbol: oPosition.symbol,
-				amount: Number(oPosition.amount),
-				created_at: Number(oPosition.created_at),
-				share_account_id: fnNormalizeAccountId(oPosition?.share_account_id || oPosition?.bank_account_id),
-				bank_account_id: fnNormalizeAccountId(oPosition?.bank_account_id),
-			}))
-			.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
-	} catch {
-		return [];
-	}
+  try {
+    const aParsed = JSON.parse(sRaw);
+    if (!Array.isArray(aParsed)) return [];
+    return fnNormalizePositions(aParsed)
+      .map((oPosition) => ({
+        symbol: oPosition.symbol,
+        amount: Number(oPosition.amount),
+        created_at: Number(oPosition.created_at),
+        share_account_id: fnNormalizeAccountId(
+          oPosition?.share_account_id || oPosition?.bank_account_id
+        ),
+        bank_account_id: fnNormalizeAccountId(oPosition?.bank_account_id),
+      }))
+      .filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -642,7 +756,7 @@ export function fnReadLocalSoldPositions() {
  * @param {Array<{symbol: string, amount: number, created_at: number}>} aPositions
  */
 export function fnWriteLocalSoldPositions(aPositions) {
-	localStorage.setItem(fnGetScopedStorageKey(sLocalSellStorageBaseKey), JSON.stringify(aPositions));
+  localStorage.setItem(fnGetScopedStorageKey(sLocalSellStorageBaseKey), JSON.stringify(aPositions));
 }
 
 /**
@@ -651,9 +765,9 @@ export function fnWriteLocalSoldPositions(aPositions) {
  * @param {{symbol: string, amount: number, created_at: number, worthwhenbought: number}} oPosition
  */
 export function fnPersistBoughtPosition(oPosition) {
-	const aLocalPositions = fnReadLocalBoughtPositions();
-	aLocalPositions.push(oPosition);
-	fnWriteLocalBoughtPositions(aLocalPositions);
+  const aLocalPositions = fnReadLocalBoughtPositions();
+  aLocalPositions.push(oPosition);
+  fnWriteLocalBoughtPositions(aLocalPositions);
 }
 
 /**
@@ -662,9 +776,9 @@ export function fnPersistBoughtPosition(oPosition) {
  * @param {{symbol: string, amount: number, created_at: number}} oPosition
  */
 export function fnPersistSoldPosition(oPosition) {
-	const aLocalSellPositions = fnReadLocalSoldPositions();
-	aLocalSellPositions.push(oPosition);
-	fnWriteLocalSoldPositions(aLocalSellPositions);
+  const aLocalSellPositions = fnReadLocalSoldPositions();
+  aLocalSellPositions.push(oPosition);
+  fnWriteLocalSoldPositions(aLocalSellPositions);
 }
 
 /**
@@ -675,53 +789,55 @@ export function fnPersistSoldPosition(oPosition) {
  * @returns {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>}
  */
 export function fnApplySoldPositions(aPositions, aSoldPositions) {
-	const aBasePositions = fnNormalizePositions(aPositions)
-		.map((oPosition) => ({
-			...oPosition,
-			amount: Number(oPosition.amount),
-			created_at: Number(oPosition.created_at),
-			worthwhenbought: Number(oPosition.worthwhenbought),
-			share_account_id: fnGetPositionShareAccountId(oPosition),
-			bank_account_id: fnNormalizeAccountId(oPosition?.bank_account_id),
-		}))
-		.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
+  const aBasePositions = fnNormalizePositions(aPositions)
+    .map((oPosition) => ({
+      ...oPosition,
+      amount: Number(oPosition.amount),
+      created_at: Number(oPosition.created_at),
+      worthwhenbought: Number(oPosition.worthwhenbought),
+      share_account_id: fnGetPositionShareAccountId(oPosition),
+      bank_account_id: fnNormalizeAccountId(oPosition?.bank_account_id),
+    }))
+    .filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0);
 
-	const mPositionsBySymbol = new Map();
-	for (const oPosition of aBasePositions) {
-		if (!mPositionsBySymbol.has(oPosition.symbol)) mPositionsBySymbol.set(oPosition.symbol, []);
-		mPositionsBySymbol.get(oPosition.symbol).push(oPosition);
-	}
+  const mPositionsBySymbol = new Map();
+  for (const oPosition of aBasePositions) {
+    if (!mPositionsBySymbol.has(oPosition.symbol)) mPositionsBySymbol.set(oPosition.symbol, []);
+    mPositionsBySymbol.get(oPosition.symbol).push(oPosition);
+  }
 
-	for (const aSymbolPositions of mPositionsBySymbol.values()) {
-		aSymbolPositions.sort((oA, oB) => Number(oB.created_at) - Number(oA.created_at));
-	}
+  for (const aSymbolPositions of mPositionsBySymbol.values()) {
+    aSymbolPositions.sort((oA, oB) => Number(oB.created_at) - Number(oA.created_at));
+  }
 
-	const aSells = fnNormalizePositions(aSoldPositions)
-		.map((oSell) => ({
-			symbol: oSell.symbol,
-			amount: Number(oSell.amount),
-			created_at: Number(oSell.created_at),
-			share_account_id: fnGetPositionShareAccountId(oSell),
-		}))
-		.filter((oSell) => Number.isFinite(oSell.amount) && oSell.amount > 0)
-		.sort((oA, oB) => Number(oA.created_at) - Number(oB.created_at));
+  const aSells = fnNormalizePositions(aSoldPositions)
+    .map((oSell) => ({
+      symbol: oSell.symbol,
+      amount: Number(oSell.amount),
+      created_at: Number(oSell.created_at),
+      share_account_id: fnGetPositionShareAccountId(oSell),
+    }))
+    .filter((oSell) => Number.isFinite(oSell.amount) && oSell.amount > 0)
+    .sort((oA, oB) => Number(oA.created_at) - Number(oB.created_at));
 
-	for (const oSell of aSells) {
-		let nAmountLeft = oSell.amount;
-		const aSymbolPositions = (mPositionsBySymbol.get(oSell.symbol) || []).filter((oPosition) => {
-			if (!oSell.share_account_id) return true;
-			return fnNormalizeAccountId(oPosition?.share_account_id) === oSell.share_account_id;
-		});
-		for (const oPosition of aSymbolPositions) {
-			if (nAmountLeft <= 0) break;
-			if (!Number.isFinite(oPosition.amount) || oPosition.amount <= 0) continue;
-			const nReduce = Math.min(oPosition.amount, nAmountLeft);
-			oPosition.amount -= nReduce;
-			nAmountLeft -= nReduce;
-		}
-	}
+  for (const oSell of aSells) {
+    let nAmountLeft = oSell.amount;
+    const aSymbolPositions = (mPositionsBySymbol.get(oSell.symbol) || []).filter((oPosition) => {
+      if (!oSell.share_account_id) return true;
+      return fnNormalizeAccountId(oPosition?.share_account_id) === oSell.share_account_id;
+    });
+    for (const oPosition of aSymbolPositions) {
+      if (nAmountLeft <= 0) break;
+      if (!Number.isFinite(oPosition.amount) || oPosition.amount <= 0) continue;
+      const nReduce = Math.min(oPosition.amount, nAmountLeft);
+      oPosition.amount -= nReduce;
+      nAmountLeft -= nReduce;
+    }
+  }
 
-	return aBasePositions.filter((oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0.0000001);
+  return aBasePositions.filter(
+    (oPosition) => Number.isFinite(oPosition.amount) && oPosition.amount > 0.0000001
+  );
 }
 
 /**
@@ -733,17 +849,19 @@ export function fnApplySoldPositions(aPositions, aSoldPositions) {
  * @returns {Array<{symbol: string, amount: number, created_at: number, worthwhenbought: number}>}
  */
 export function fnNormalizePositions(aPositions) {
-	return (aPositions || [])
-		.map((oPosition) => {
-			const sSymbol = String(oPosition?.symbol ?? oPosition?.shares ?? "").trim().toUpperCase();
-			if (!sSymbol) return null;
-			return { ...oPosition, symbol: sSymbol };
-		})
-		.filter(Boolean);
+  return (aPositions || [])
+    .map((oPosition) => {
+      const sSymbol = String(oPosition?.symbol ?? oPosition?.shares ?? "")
+        .trim()
+        .toUpperCase();
+      if (!sSymbol) return null;
+      return { ...oPosition, symbol: sSymbol };
+    })
+    .filter(Boolean);
 }
 
 export function fnGetPositionShareAccountId(oPosition) {
-	return fnNormalizeAccountId(oPosition?.share_account_id || oPosition?.bank_account_id);
+  return fnNormalizeAccountId(oPosition?.share_account_id || oPosition?.bank_account_id);
 }
 
 /**
@@ -755,44 +873,48 @@ let _catalogCache = null;
 let _catalogCacheTs = 0;
 const CATALOG_TTL_MS = 10 * 60 * 1000;
 export async function fnLoadAllStocksCatalog(oOptions = {}) {
-	try {
-		const bExchangeProvided = oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
-		const bNoExchangeSelection = fnIsNoExchangeSelection(oOptions?.sExchange);
-		const sExchange = bExchangeProvided && !bNoExchangeSelection
-			? fnNormalizeTradingExchange(oOptions?.sExchange)
-			: fnNormalizeTradingExchange(fnGetTradingExchange());
+  try {
+    const bExchangeProvided =
+      oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
+    const bNoExchangeSelection = fnIsNoExchangeSelection(oOptions?.sExchange);
+    const sExchange =
+      bExchangeProvided && !bNoExchangeSelection
+        ? fnNormalizeTradingExchange(oOptions?.sExchange)
+        : fnNormalizeTradingExchange(fnGetTradingExchange());
 
-		let oData;
-		if (_catalogCache && Date.now() - _catalogCacheTs < CATALOG_TTL_MS) {
-			oData = _catalogCache;
-		} else {
-			const oResponse = await fetch(sAllStocksDataPath);
-			if (!oResponse.ok) return [];
-			oData = await oResponse.json();
-			_catalogCache = oData;
-			_catalogCacheTs = Date.now();
-		}
+    let oData;
+    if (_catalogCache && Date.now() - _catalogCacheTs < CATALOG_TTL_MS) {
+      oData = _catalogCache;
+    } else {
+      const oResponse = await fetch(sAllStocksDataPath);
+      if (!oResponse.ok) return [];
+      oData = await oResponse.json();
+      _catalogCache = oData;
+      _catalogCacheTs = Date.now();
+    }
 
-		const aRows = Array.isArray(oData?.data)
-			? oData.data
-				.map((oRow) => ({
-					sSymbol: String(oRow?.symbol || "").trim().toUpperCase(),
-					sName: String(oRow?.name || "").trim(),
-					sExchange: String(oRow?.exchange || "").trim(),
-					sCurrency: String(oRow?.currency || "").trim(),
-					sType: String(oRow?.type || "").trim(),
-				}))
-				.filter((oRow) => Boolean(oRow.sSymbol))
-				.filter((oRow) => {
-					if (bExchangeProvided && bNoExchangeSelection) return true;
-					return fnNormalizeExchangeCode(oRow.sExchange) === sExchange;
-				})
-			: [];
+    const aRows = Array.isArray(oData?.data)
+      ? oData.data
+          .map((oRow) => ({
+            sSymbol: String(oRow?.symbol || "")
+              .trim()
+              .toUpperCase(),
+            sName: String(oRow?.name || "").trim(),
+            sExchange: String(oRow?.exchange || "").trim(),
+            sCurrency: String(oRow?.currency || "").trim(),
+            sType: String(oRow?.type || "").trim(),
+          }))
+          .filter((oRow) => Boolean(oRow.sSymbol))
+          .filter((oRow) => {
+            if (bExchangeProvided && bNoExchangeSelection) return true;
+            return fnNormalizeExchangeCode(oRow.sExchange) === sExchange;
+          })
+      : [];
 
-		return aRows;
-	} catch {
-		return [];
-	}
+    return aRows;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -804,12 +926,17 @@ export async function fnLoadAllStocksCatalog(oOptions = {}) {
  * @returns {Array<{sSymbol: string, sName: string, sExchange: string, sCurrency: string}>}
  */
 export function fnSearchStocksCatalog(aCatalog, sNeedle, iLimit = 20) {
-	const sQuery = String(sNeedle || "").trim().toLowerCase();
-	if (!sQuery) return aCatalog.slice(0, iLimit);
+  const sQuery = String(sNeedle || "")
+    .trim()
+    .toLowerCase();
+  if (!sQuery) return aCatalog.slice(0, iLimit);
 
-	return aCatalog
-		.filter((oRow) => oRow.sSymbol.toLowerCase().includes(sQuery) || oRow.sName.toLowerCase().includes(sQuery))
-		.slice(0, iLimit);
+  return aCatalog
+    .filter(
+      (oRow) =>
+        oRow.sSymbol.toLowerCase().includes(sQuery) || oRow.sName.toLowerCase().includes(sQuery)
+    )
+    .slice(0, iLimit);
 }
 
 /**
@@ -820,137 +947,145 @@ export function fnSearchStocksCatalog(aCatalog, sNeedle, iLimit = 20) {
  * @returns {Promise<Array<{sSymbol: string, sName: string, sExchange: string, sCountry: string, sCurrency: string}>>}
  */
 export async function fnSearchStocksViaBackend(sQuery, oOptions = {}) {
-	const sNeedle = String(sQuery || "").trim();
-	if (!sNeedle) return [];
+  const sNeedle = String(sQuery || "").trim();
+  if (!sNeedle) return [];
 
-	const bExchangeProvided = oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
-	const bNoExchangeSelection = fnIsNoExchangeSelection(oOptions?.sExchange);
-	const sExchange = bExchangeProvided && !bNoExchangeSelection
-		? fnNormalizeTradingExchange(oOptions?.sExchange)
-		: fnNormalizeTradingExchange(sTradingExchange);
-	const sRequestedAssetClass = String(oOptions?.sAssetClass || "").trim().toLowerCase();
-	const sAssetClass = sRequestedAssetClass === "stock" || sRequestedAssetClass === "etf"
-		? sRequestedAssetClass
-		: "";
-	const iLimitRaw = Number(oOptions?.iLimit);
-	const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
+  const bExchangeProvided = oOptions && Object.prototype.hasOwnProperty.call(oOptions, "sExchange");
+  const bNoExchangeSelection = fnIsNoExchangeSelection(oOptions?.sExchange);
+  const sExchange =
+    bExchangeProvided && !bNoExchangeSelection
+      ? fnNormalizeTradingExchange(oOptions?.sExchange)
+      : fnNormalizeTradingExchange(sTradingExchange);
+  const sRequestedAssetClass = String(oOptions?.sAssetClass || "")
+    .trim()
+    .toLowerCase();
+  const sAssetClass =
+    sRequestedAssetClass === "stock" || sRequestedAssetClass === "etf" ? sRequestedAssetClass : "";
+  const iLimitRaw = Number(oOptions?.iLimit);
+  const iLimit = Number.isFinite(iLimitRaw) ? Math.max(1, Math.min(50, Math.floor(iLimitRaw))) : 20;
 
-	const oUrl = new URL("/api/stocks/search", window.location.origin);
-	oUrl.searchParams.set("q", sNeedle);
-	if (!(bExchangeProvided && bNoExchangeSelection)) {
-		oUrl.searchParams.set("exchange", sExchange);
-	}
-	if (sAssetClass) {
-		oUrl.searchParams.set("asset_class", sAssetClass);
-	}
-	oUrl.searchParams.set("limit", String(iLimit));
+  const oUrl = new URL("/api/stocks/search", window.location.origin);
+  oUrl.searchParams.set("q", sNeedle);
+  if (!(bExchangeProvided && bNoExchangeSelection)) {
+    oUrl.searchParams.set("exchange", sExchange);
+  }
+  if (sAssetClass) {
+    oUrl.searchParams.set("asset_class", sAssetClass);
+  }
+  oUrl.searchParams.set("limit", String(iLimit));
 
-	const oResponse = await fetch(oUrl.toString());
-	if (!oResponse.ok) {
-		const oError = await oResponse.json().catch(() => null);
-		throw new Error(String(oError?.detail || oError?.message || `HTTP ${oResponse.status}`));
-	}
+  const oResponse = await fetch(oUrl.toString());
+  if (!oResponse.ok) {
+    const oError = await oResponse.json().catch(() => null);
+    throw new Error(String(oError?.detail || oError?.message || `HTTP ${oResponse.status}`));
+  }
 
-	const oPayload = await oResponse.json();
-	const aResults = Array.isArray(oPayload?.results) ? oPayload.results : [];
-	const aNormalizedResults = aResults
-		.map((oRow) => ({
-			sSymbol: String(oRow?.sSymbol || oRow?.symbol || "").trim().toUpperCase(),
-			sName: String(oRow?.sName || oRow?.name || "").trim(),
-			sExchange: String(oRow?.sExchange || oRow?.exchange || "").trim(),
-			sCountry: String(oRow?.sCountry || oRow?.country || "").trim(),
-			sCurrency: String(oRow?.sCurrency || oRow?.currency || "").trim(),
-		}))
-		.filter((oRow) => Boolean(oRow.sSymbol));
+  const oPayload = await oResponse.json();
+  const aResults = Array.isArray(oPayload?.results) ? oPayload.results : [];
+  const aNormalizedResults = aResults
+    .map((oRow) => ({
+      sSymbol: String(oRow?.sSymbol || oRow?.symbol || "")
+        .trim()
+        .toUpperCase(),
+      sName: String(oRow?.sName || oRow?.name || "").trim(),
+      sExchange: String(oRow?.sExchange || oRow?.exchange || "").trim(),
+      sCountry: String(oRow?.sCountry || oRow?.country || "").trim(),
+      sCurrency: String(oRow?.sCurrency || oRow?.currency || "").trim(),
+    }))
+    .filter((oRow) => Boolean(oRow.sSymbol));
 
-	if (!(bExchangeProvided && bNoExchangeSelection)) {
-		const aExchangeFilteredResults = aNormalizedResults
-			.filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
-			.slice(0, iLimit);
-		if (aExchangeFilteredResults.length) {
-			return aExchangeFilteredResults;
-		}
-	}
-	if (aNormalizedResults.length) {
-		return aNormalizedResults.slice(0, iLimit);
-	}
+  if (!(bExchangeProvided && bNoExchangeSelection)) {
+    const aExchangeFilteredResults = aNormalizedResults
+      .filter((oRow) => fnNormalizeExchangeCode(oRow.sExchange) === sExchange)
+      .slice(0, iLimit);
+    if (aExchangeFilteredResults.length) {
+      return aExchangeFilteredResults;
+    }
+  }
+  if (aNormalizedResults.length) {
+    return aNormalizedResults.slice(0, iLimit);
+  }
 
-	const aCatalogFallback = await fnLoadAllStocksCatalog(
-		bExchangeProvided && bNoExchangeSelection ? { sExchange: "__NONE__" } : { sExchange },
-	);
-	return fnSearchStocksCatalog(aCatalogFallback, sNeedle, iLimit);
+  const aCatalogFallback = await fnLoadAllStocksCatalog(
+    bExchangeProvided && bNoExchangeSelection ? { sExchange: "__NONE__" } : { sExchange }
+  );
+  return fnSearchStocksCatalog(aCatalogFallback, sNeedle, iLimit);
 }
 
 export function fnApiRequestWithEndpoints(aEndpoints, oRequestInit = {}) {
-	let sLastError = "Kein Endpoint erreichbar";
+  let sLastError = "Kein Endpoint erreichbar";
 
-	const fnTryEndpoints = async () => {
-		for (const sEndpoint of aEndpoints || []) {
-			try {
-				if (typeof requestJsonMerged === "function") {
-					const oResult = await requestJsonMerged(sEndpoint, oRequestInit);
-					if (oResult?.ok) return oResult;
-					const oError = new Error(String(oResult?.message || `HTTP ${oResult?.status || 0}`));
-					oError.details = oResult || null;
-					throw oError;
-				}
+  const fnTryEndpoints = async () => {
+    for (const sEndpoint of aEndpoints || []) {
+      try {
+        if (typeof requestJsonMerged === "function") {
+          const oResult = await requestJsonMerged(sEndpoint, oRequestInit);
+          if (oResult?.ok) return oResult;
+          const oError = new Error(String(oResult?.message || `HTTP ${oResult?.status || 0}`));
+          oError.details = oResult || null;
+          throw oError;
+        }
 
-				const oResponse = await fetch(sEndpoint, oRequestInit);
-				if (oResponse.ok) return await oResponse.json();
-				let sMessage = `HTTP ${oResponse.status}`;
-				let oDetails = null;
-				try {
-					const oErrorData = await oResponse.json();
-					oDetails = oErrorData;
-					sMessage = String(oErrorData?.message || sMessage);
-				} catch {
-					// noop
-				}
-				const oError = new Error(sMessage);
-				oError.details = oDetails;
-				throw oError;
-			} catch (oError) {
-				if (oError?.details) throw oError;
-				sLastError = String(oError?.message || oError);
-			}
-		}
+        const oResponse = await fetch(sEndpoint, oRequestInit);
+        if (oResponse.ok) return await oResponse.json();
+        let sMessage = `HTTP ${oResponse.status}`;
+        let oDetails = null;
+        try {
+          const oErrorData = await oResponse.json();
+          oDetails = oErrorData;
+          sMessage = String(oErrorData?.message || sMessage);
+        } catch {
+          // noop
+        }
+        const oError = new Error(sMessage);
+        oError.details = oDetails;
+        throw oError;
+      } catch (oError) {
+        if (oError?.details) throw oError;
+        sLastError = String(oError?.message || oError);
+      }
+    }
 
-		throw new Error(sLastError);
-	};
+    throw new Error(sLastError);
+  };
 
-	return fnTryEndpoints();
+  return fnTryEndpoints();
 }
 
 export async function fnApiUpdateAccount(aBaseEndpoints, sAccountId, oPayload, sMethod) {
-	const aEndpoints = (aBaseEndpoints || []).map((sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`);
-	return await fnApiRequestWithEndpoints(aEndpoints, {
-		method: sMethod,
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(oPayload),
-	});
+  const aEndpoints = (aBaseEndpoints || []).map(
+    (sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`
+  );
+  return await fnApiRequestWithEndpoints(aEndpoints, {
+    method: sMethod,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(oPayload),
+  });
 }
 
 export async function fnApiDeleteAccount(aBaseEndpoints, sAccountId, oPayload = null) {
-	const aEndpoints = (aBaseEndpoints || []).map((sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`);
-	const oInit = { method: "DELETE" };
-	if (oPayload && typeof oPayload === "object") {
-		oInit.headers = { "Content-Type": "application/json" };
-		oInit.body = JSON.stringify(oPayload);
-	}
-	return await fnApiRequestWithEndpoints(aEndpoints, oInit);
+  const aEndpoints = (aBaseEndpoints || []).map(
+    (sEndpoint) => `${String(sEndpoint).replace(/\/$/, "")}/${encodeURIComponent(sAccountId)}`
+  );
+  const oInit = { method: "DELETE" };
+  if (oPayload && typeof oPayload === "object") {
+    oInit.headers = { "Content-Type": "application/json" };
+    oInit.body = JSON.stringify(oPayload);
+  }
+  return await fnApiRequestWithEndpoints(aEndpoints, oInit);
 }
 
 // Mutable state setters (used by other modules)
 export function setActiveView(sView) {
-	sActiveView = sView;
+  sActiveView = sView;
 }
 
 export function setSelectedShareAccountId(sId) {
-	sSelectedShareAccountId = sId;
+  sSelectedShareAccountId = sId;
 }
 
 export function setLocale(sNewLocale) {
-	sLocale = sNewLocale;
+  sLocale = sNewLocale;
 }
 
 // Keep window.* bridges for backward compatibility

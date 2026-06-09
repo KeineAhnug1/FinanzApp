@@ -33,7 +33,7 @@ export async function checkDatabaseConnection() {
     return {
       ok: result.rows[0]?.ok === 1,
       database: "supabase",
-      checked_at: new Date().toISOString()
+      checked_at: new Date().toISOString(),
     };
   } catch (/** @type {unknown} */ err) {
     const error = /** @type {Error & { code?: string }} */ (err);
@@ -43,8 +43,8 @@ export async function checkDatabaseConnection() {
       checked_at: new Date().toISOString(),
       error: {
         name: error?.name ?? "Error",
-        message: error?.message ?? "Unknown connection error"
-      }
+        message: error?.message ?? "Unknown connection error",
+      },
     };
   }
 }

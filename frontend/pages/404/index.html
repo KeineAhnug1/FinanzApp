@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <script>(function(){try{var s=localStorage.getItem("finanzapp.themeMode");var m=(s==="light"||s==="dark"||s==="auto")?s:"auto";document.documentElement.dataset.theme=m==="auto"?(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"):m;document.documentElement.dataset.themeMode=m;var c=localStorage.getItem("finanzapp.contrast");if(c==="high")document.documentElement.dataset.contrast="high";}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 – Seite nicht gefunden | FBM Finance</title>
+  <link rel="stylesheet" href="/src/shared/unified-ui.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100dvh;
+      background: var(--ui-bg-c1);
+      color: var(--ui-text);
+      font-family: 'Outfit', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--ui-space-5);
+    }
+
+    .error-page {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--ui-space-4);
+      max-width: 480px;
+      width: 100%;
+      animation: reveal-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .error-code {
+      font-size: clamp(6rem, 20vw, 9rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--ui-primary) 0%, var(--ui-accent-violet) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      user-select: none;
+    }
+
+    .error-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: var(--ui-radius-lg);
+      background: var(--ui-surface);
+      border: 1px solid var(--ui-border);
+      box-shadow: var(--ui-shadow-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+    }
+
+    .error-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--ui-text);
+    }
+
+    .error-body {
+      font-size: 1rem;
+      color: var(--ui-text-muted);
+      line-height: 1.6;
+    }
+
+    .error-actions {
+      display: flex;
+      gap: var(--ui-space-2);
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: var(--ui-space-2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: var(--ui-radius-sm);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 140ms, box-shadow 140ms, transform 140ms;
+      border: 1px solid transparent;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--ui-primary);
+      outline-offset: 2px;
+    }
+
+    .btn--primary {
+      background: var(--ui-primary);
+      color: var(--ui-text-on-primary);
+    }
+
+    .btn--primary:hover {
+      background: var(--ui-primary-dark);
+      box-shadow: var(--ui-shadow-soft);
+      transform: translateY(-1px);
+    }
+
+    .btn--secondary {
+      background: var(--ui-surface);
+      color: var(--ui-text);
+      border-color: var(--ui-border);
+      box-shadow: var(--ui-shadow-soft);
+    }
+
+    .btn--secondary:hover {
+      border-color: var(--ui-border-strong);
+      transform: translateY(-1px);
+    }
+
+    .error-divider {
+      width: 40px;
+      height: 2px;
+      background: var(--ui-border);
+      border-radius: 99px;
+    }
+
+    .back-link {
+      margin-top: var(--ui-space-3);
+      font-size: 0.875rem;
+      color: var(--ui-text-muted);
+    }
+
+    .back-link a {
+      color: var(--ui-primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .back-link a:hover { text-decoration: underline; }
+    .back-link a:focus-visible {
+      outline: 2px solid var(--ui-primary);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
+    @keyframes reveal-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .error-page { animation: none; }
+      .btn { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="error-page" role="main">
+    <div class="error-icon" aria-hidden="true">📭</div>
+
+    <div class="error-code" aria-hidden="true">404</div>
+
+    <h1 class="error-title">Seite nicht gefunden</h1>
+
+    <div class="error-divider" aria-hidden="true"></div>
+
+    <p class="error-body">
+      Die Seite, die du suchst, existiert nicht oder wurde verschoben.<br>
+      Überprüfe die Adresse oder navigiere zurück zur App.
+    </p>
+
+    <nav class="error-actions" aria-label="Fehlerseiten-Navigation">
+      <a class="btn btn--primary" href="/pages/dashboard/">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M2 8h12M2 8l4-4M2 8l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Zum Dashboard
+      </a>
+      <a class="btn btn--secondary" href="/pages/homepage/">
+        Startseite
+      </a>
+    </nav>
+
+    <p class="back-link">
+      Oder <a href="javascript:history.back()">zurück zur letzten Seite</a>
+    </p>
+  </main>
+</body>
+</html>

@@ -5,10 +5,10 @@ import {
   INCOME_CATEGORY_OPTIONS,
   EXPENSE_CATEGORY_OPTIONS,
   PRESET_INCOME_CATEGORY_KEYS,
-  PRESET_EXPENSE_CATEGORY_KEYS
-} from './state.js';
-import { escapeHtml } from './helpers.js';
-import { t } from '@shared/js/language-utils.js';
+  PRESET_EXPENSE_CATEGORY_KEYS,
+} from "./state.js";
+import { escapeHtml } from "./helpers.js";
+import { t } from "@shared/js/language-utils.js";
 
 export function categoryLabel(value) {
   const normalized = String(value || "").trim();
@@ -29,7 +29,9 @@ export function initCategorySelector(selectId, wrapId, customInputId) {
   const customWrap = document.getElementById(wrapId);
   const customInput = document.getElementById(customInputId);
   if (!selectNode || !customWrap || !customInput) return;
-  selectNode.addEventListener("change", () => syncCustomCategoryField(selectNode, customWrap, customInput));
+  selectNode.addEventListener("change", () =>
+    syncCustomCategoryField(selectNode, customWrap, customInput)
+  );
   syncCustomCategoryField(selectNode, customWrap, customInput);
 }
 
@@ -71,7 +73,13 @@ function renderCategoryOptions(selectNode, presetOptions, storedCategories) {
     selectNode.append(option);
   }
   for (const lowered of normalizedStored) {
-    const original = (storedCategories || []).find((value) => String(value || "").trim().toLowerCase() === lowered) || lowered;
+    const original =
+      (storedCategories || []).find(
+        (value) =>
+          String(value || "")
+            .trim()
+            .toLowerCase() === lowered
+      ) || lowered;
     const option = document.createElement("option");
     option.value = String(original).trim();
     option.textContent = String(original).trim();
@@ -124,14 +132,16 @@ function renderCategoryManager(kind, listId) {
     return;
   }
   list.innerHTML = categories
-    .map((category) => `
+    .map(
+      (category) => `
       <li class="category-item">
         <span class="category-name">${escapeHtml(category)}</span>
         <button type="button" class="category-delete" data-category-delete="${escapeHtml(category)}" data-category-kind="${kind}">
           ${escapeHtml(tr("delete", "Löschen"))}
         </button>
       </li>
-    `)
+    `
+    )
     .join("");
 }
 

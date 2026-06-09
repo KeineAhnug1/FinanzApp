@@ -1,7 +1,7 @@
-import '@shared/js/topbar.js';
-import { createT, getLocale } from '@shared/js/language-utils.js';
-import { requestJsonMerged } from '@shared/js/api-client.js';
-import { escapeHtml } from '@shared/js/html-utils.js';
+import "@shared/js/topbar.js";
+import { createT, getLocale } from "@shared/js/language-utils.js";
+import { requestJsonMerged } from "@shared/js/api-client.js";
+import { escapeHtml } from "@shared/js/html-utils.js";
 
 const QUESTION_TOPIC_MAX_LENGTH = 80;
 
@@ -9,7 +9,7 @@ const state = {
   user: null,
   questions: [],
   search: "",
-  editingQuestionId: null
+  editingQuestionId: null,
 };
 
 const t = createT();
@@ -154,23 +154,26 @@ async function handleQuestionSubmit(event) {
   const formData = new FormData(form);
   const payload = {
     thema: String(formData.get("thema") || "").trim(),
-    message: String(formData.get("message") || "").trim()
+    message: String(formData.get("message") || "").trim(),
   };
 
   const result = state.editingQuestionId
     ? await requestJson(`/api/questions/${encodeURIComponent(state.editingQuestionId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    })
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
     : await requestJson("/api/questions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
   if (!result.ok) {
-    setStatus("error", result.message || t("questions.save_failed", "Konnte nicht gespeichert werden."));
+    setStatus(
+      "error",
+      result.message || t("questions.save_failed", "Konnte nicht gespeichert werden.")
+    );
     submitBtn.disabled = false;
     return;
   }
@@ -180,7 +183,12 @@ async function handleQuestionSubmit(event) {
 
   setCreateMode();
   if (shouldRefreshList) await refreshQuestions();
-  setStatus("success", wasEditing ? t("questions.updated", "Frage aktualisiert.") : t("questions.created", "Frage erstellt."));
+  setStatus(
+    "success",
+    wasEditing
+      ? t("questions.updated", "Frage aktualisiert.")
+      : t("questions.created", "Frage erstellt.")
+  );
   submitBtn.disabled = false;
 
   if (!wasEditing && createdQuestionId) {
@@ -205,12 +213,22 @@ async function handleListClick(event) {
   if (action === "delete-question") {
     const questionId = target.dataset.questionId;
     if (!questionId) return;
-    const shouldDelete = window.confirm(t("questions.delete_confirm", "Frage wirklich löschen? Alle Antworten werden ebenfalls gelöscht."));
+    const shouldDelete = window.confirm(
+      t(
+        "questions.delete_confirm",
+        "Frage wirklich löschen? Alle Antworten werden ebenfalls gelöscht."
+      )
+    );
     if (!shouldDelete) return;
 
-    const result = await requestJson(`/api/questions/${encodeURIComponent(questionId)}`, { method: "DELETE" });
+    const result = await requestJson(`/api/questions/${encodeURIComponent(questionId)}`, {
+      method: "DELETE",
+    });
     if (!result.ok) {
-      setStatus("error", result.message || t("questions.delete_failed", "Frage konnte nicht gelöscht werden."));
+      setStatus(
+        "error",
+        result.message || t("questions.delete_failed", "Frage konnte nicht gelöscht werden.")
+      );
       return;
     }
     setStatus("success", t("questions.deleted", "Frage gelöscht."));

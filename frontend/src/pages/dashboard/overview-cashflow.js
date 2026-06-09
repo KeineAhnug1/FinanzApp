@@ -1,9 +1,23 @@
 // Uebersicht: Gruppierung/Rendering der Listen sowie Cashflow- und KPI-Berechnung.
-import { appState, listState, cashflowChartState, overviewDistributionState, CATEGORY_LABELS } from './state.js';
-import { getLocale } from './runtime.js';
-import { formatMoney, formatDate, escapeHtml, normalizeSearch, recurrenceLabel, setText, setTrend } from './helpers.js';
-import { categoryLabel } from './categories-controls.js';
-import { t as sharedT } from '@shared/js/language-utils.js';
+import {
+  appState,
+  listState,
+  cashflowChartState,
+  overviewDistributionState,
+  CATEGORY_LABELS,
+} from "./state.js";
+import { getLocale } from "./runtime.js";
+import {
+  formatMoney,
+  formatDate,
+  escapeHtml,
+  normalizeSearch,
+  recurrenceLabel,
+  setText,
+  setTrend,
+} from "./helpers.js";
+import { categoryLabel } from "./categories-controls.js";
+import { t as sharedT } from "@shared/js/language-utils.js";
 
 function cashflowT(key, fallback, params = {}) {
   const translated = sharedT(key, params);
@@ -19,7 +33,7 @@ function entryMatchesQuery(entry, query, dateField) {
     entry.category,
     entry.note,
     entry[dateField] ? formatDate(entry[dateField]) : "",
-    recurrenceLabel(entry)
+    recurrenceLabel(entry),
   ]
     .join(" ")
     .toLowerCase();
@@ -38,8 +52,12 @@ function buildHierarchicalGroups(entries, dateField) {
   for (const entry of entries) {
     const date = new Date(entry[dateField]);
     const yearKey = Number.isNaN(date.getTime()) ? "unknown" : String(date.getFullYear());
-    const monthKey = Number.isNaN(date.getTime()) ? "unknown" : monthKeyFromDate(new Date(date.getFullYear(), date.getMonth(), 1));
-    const dayKey = Number.isNaN(date.getTime()) ? "unknown" : dayKeyFromValue(entry[dateField]) || "unknown";
+    const monthKey = Number.isNaN(date.getTime())
+      ? "unknown"
+      : monthKeyFromDate(new Date(date.getFullYear(), date.getMonth(), 1));
+    const dayKey = Number.isNaN(date.getTime())
+      ? "unknown"
+      : dayKeyFromValue(entry[dateField]) || "unknown";
 
     if (!yearMap.has(yearKey)) {
       yearMap.set(yearKey, new Map());
@@ -67,18 +85,24 @@ function buildHierarchicalGroups(entries, dateField) {
             .sort((a, b) => compareDescKey(a[0], b[0]))
             .map(([dayKey, dayEntries]) => ({
               key: dayKey,
-              label: dayKey === "unknown" ? cashflowT("without_date", "Ohne Datum") : dayLabelFromKey(dayKey),
+              label:
+                dayKey === "unknown"
+                  ? cashflowT("without_date", "Ohne Datum")
+                  : dayLabelFromKey(dayKey),
               entries: dayEntries,
               count: dayEntries.length,
-              total: dayEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+              total: dayEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
             }));
           const monthEntries = days.flatMap((day) => day.entries);
           return {
             key: monthKey,
-            label: monthKey === "unknown" ? cashflowT("without_month", "Ohne Monat") : monthLongLabelFromKey(monthKey),
+            label:
+              monthKey === "unknown"
+                ? cashflowT("without_month", "Ohne Monat")
+                : monthLongLabelFromKey(monthKey),
             days,
             count: monthEntries.length,
-            total: monthEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+            total: monthEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
           };
         });
       const yearEntries = months.flatMap((month) => month.days.flatMap((day) => day.entries));
@@ -87,13 +111,15 @@ function buildHierarchicalGroups(entries, dateField) {
         label: yearKey === "unknown" ? cashflowT("cashflow.without_year", "Ohne Jahr") : yearKey,
         months,
         count: yearEntries.length,
-        total: yearEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+        total: yearEntries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
       };
     });
 }
 
 function renderIncomeItem(entry) {
-  const bankAccountLabel = appState.bankAccounts.find((account) => String(account.id) === String(entry.bank_account_id))?.label || "";
+  const bankAccountLabel =
+    appState.bankAccounts.find((account) => String(account.id) === String(entry.bank_account_id))
+      ?.label || "";
   return `
     <li class="income-item" data-entry-id="${entry.id}">
       <div class="income-topline">
@@ -105,7 +131,7 @@ function renderIncomeItem(entry) {
             <span class="income-tag">${recurrenceLabel(entry)}</span>
             ${
               entry.cycle !== "once"
-                ? `<span class="income-tag">${entry.state === "completed" ? cashflowT("cashflow.completed", "Abgeschlossen") : (entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert"))}</span>`
+                ? `<span class="income-tag">${entry.state === "completed" ? cashflowT("cashflow.completed", "Abgeschlossen") : entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert")}</span>`
                 : ""
             }
           </div>
@@ -123,7 +149,9 @@ function renderIncomeItem(entry) {
 }
 
 function renderExpenseItem(entry) {
-  const bankAccountLabel = appState.bankAccounts.find((account) => String(account.id) === String(entry.bank_account_id))?.label || "";
+  const bankAccountLabel =
+    appState.bankAccounts.find((account) => String(account.id) === String(entry.bank_account_id))
+      ?.label || "";
   return `
     <li class="income-item" data-entry-id="${entry.id}">
       <div class="income-topline">
@@ -135,7 +163,7 @@ function renderExpenseItem(entry) {
             <span class="income-tag">${recurrenceLabel(entry)}</span>
             ${
               entry.cycle !== "once"
-                ? `<span class="income-tag">${entry.state === "completed" ? cashflowT("cashflow.completed", "Abgeschlossen") : (entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert"))}</span>`
+                ? `<span class="income-tag">${entry.state === "completed" ? cashflowT("cashflow.completed", "Abgeschlossen") : entry.is_active ? cashflowT("cashflow.active", "Aktiv") : cashflowT("cashflow.paused", "Pausiert")}</span>`
                 : ""
             }
           </div>
@@ -220,7 +248,13 @@ export function renderIncomeList(entries) {
   const emptyMessage = query
     ? cashflowT("income.none_for_search", "Keine Einnahmen fuer diese Suche gefunden.")
     : cashflowT("income.none_yet", "Noch keine Einnahmen eingetragen.");
-  renderGroupedEntryList(list, grouped, listState.incomeExpandedGroups, renderIncomeItem, emptyMessage);
+  renderGroupedEntryList(
+    list,
+    grouped,
+    listState.incomeExpandedGroups,
+    renderIncomeItem,
+    emptyMessage
+  );
 }
 
 export function renderExpenseList(entries) {
@@ -232,7 +266,13 @@ export function renderExpenseList(entries) {
   const emptyMessage = query
     ? cashflowT("expense.none_for_search", "Keine Ausgaben fuer diese Suche gefunden.")
     : cashflowT("expense.none_yet", "Noch keine Ausgaben eingetragen.");
-  renderGroupedEntryList(list, grouped, listState.expenseExpandedGroups, renderExpenseItem, emptyMessage);
+  renderGroupedEntryList(
+    list,
+    grouped,
+    listState.expenseExpandedGroups,
+    renderExpenseItem,
+    emptyMessage
+  );
 }
 
 function recurrenceMonthlyContribution(entry) {
@@ -285,7 +325,9 @@ function monthShortYearLabelFromKey(key) {
   const month = Number(monthRaw);
   const date = new Date(year, month - 1, 1);
   if (Number.isNaN(date.getTime())) return key;
-  return new Intl.DateTimeFormat(getLocale(), { month: "short", year: "2-digit" }).format(date).replace(".", "");
+  return new Intl.DateTimeFormat(getLocale(), { month: "short", year: "2-digit" })
+    .format(date)
+    .replace(".", "");
 }
 
 function dayKeyFromValue(value) {
@@ -304,7 +346,11 @@ function dayLabelFromKey(key) {
   const day = Number(dayRaw);
   const date = new Date(year, month - 1, day);
   if (Number.isNaN(date.getTime())) return key;
-  return new Intl.DateTimeFormat(getLocale(), { day: "2-digit", month: "long", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(getLocale(), {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 export function recentMonthKeys(count) {
@@ -370,7 +416,11 @@ function timelineKeysForChart(incomeEntries, expenseEntries) {
       ? minEntryYear
       : currentYear;
   const FUTURE_YEARS_AHEAD = 3;
-  const endYearBase = Math.max(currentYear, Number.isFinite(maxEntryYear) ? maxEntryYear : currentYear, startYear);
+  const endYearBase = Math.max(
+    currentYear,
+    Number.isFinite(maxEntryYear) ? maxEntryYear : currentYear,
+    startYear
+  );
   const endYear = endYearBase + FUTURE_YEARS_AHEAD;
 
   const keys = [];
@@ -386,7 +436,9 @@ function buildYearlyTotals(entries, yearKeys, dateField) {
   const yearlyTotals = Object.fromEntries(yearKeys.map((key) => [key, 0]));
   for (const yearKey of yearKeys) {
     const months = buildMonthKeysForYear(yearKey);
-    yearlyTotals[yearKey] = Number(months.reduce((sum, monthKey) => sum + (monthlyTotals[monthKey] || 0), 0).toFixed(2));
+    yearlyTotals[yearKey] = Number(
+      months.reduce((sum, monthKey) => sum + (monthlyTotals[monthKey] || 0), 0).toFixed(2)
+    );
   }
   return yearlyTotals;
 }
@@ -460,7 +512,8 @@ function dayDateFromKey(key) {
   const day = Number(dayRaw);
   const date = new Date(year, month - 1, day);
   if (Number.isNaN(date.getTime())) return null;
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day)
+    return null;
   return date;
 }
 
@@ -560,7 +613,11 @@ function buildDailyTotals(entries, dayKeys, dateField) {
       const targetDay = Math.min(startDay.getDate(), daysInTargetMonth);
       const occurrence = new Date(year, month, targetDay);
 
-      if (monthKeyFromDate(occurrence) === startMonthKey && occurrence.getTime() < startDay.getTime()) continue;
+      if (
+        monthKeyFromDate(occurrence) === startMonthKey &&
+        occurrence.getTime() < startDay.getTime()
+      )
+        continue;
       const key = dayKeyFromDate(occurrence);
       if (key && Object.prototype.hasOwnProperty.call(totals, key)) totals[key] += amount;
       continue;
@@ -612,15 +669,26 @@ function buildHourlyTotals(entries, hourKeys, dateField, selectedDayKey) {
     let occursToday = false;
     if (recurrence === "weekly") {
       if (selectedDay.getTime() >= startDay.getTime()) {
-        const diffDays = Math.floor((selectedDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor(
+          (selectedDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)
+        );
         occursToday = diffDays % 7 === 0;
       }
     } else if (recurrence === "monthly") {
-      const daysInSelectedMonth = new Date(selectedDay.getFullYear(), selectedDay.getMonth() + 1, 0).getDate();
+      const daysInSelectedMonth = new Date(
+        selectedDay.getFullYear(),
+        selectedDay.getMonth() + 1,
+        0
+      ).getDate();
       const targetDay = Math.min(startDay.getDate(), daysInSelectedMonth);
-      occursToday = selectedDay.getDate() === targetDay && isMonthlyOccurrenceInMonth(startDay, selectedMonthKey);
+      occursToday =
+        selectedDay.getDate() === targetDay &&
+        isMonthlyOccurrenceInMonth(startDay, selectedMonthKey);
     } else if (recurrence === "yearly") {
-      occursToday = selectedDay.getMonth() === startDay.getMonth() && selectedDay.getDate() === startDay.getDate() && selectedDay.getTime() >= startDay.getTime();
+      occursToday =
+        selectedDay.getMonth() === startDay.getMonth() &&
+        selectedDay.getDate() === startDay.getDate() &&
+        selectedDay.getTime() >= startDay.getTime();
     }
 
     if (!occursToday) continue;
@@ -646,13 +714,19 @@ function chartLevelTitle(view) {
 
 function chartLevelHint(view) {
   if (view.level === "year") {
-    return cashflowT("cashflow.hint_click_month", "Klicke auf einen Monat, um genauer reinzuzoomen.");
+    return cashflowT(
+      "cashflow.hint_click_month",
+      "Klicke auf einen Monat, um genauer reinzuzoomen."
+    );
   }
   if (view.level === "month") {
     return cashflowT("cashflow.hint_click_day", "Klicke auf einen Tag fuer die Tagesansicht.");
   }
   if (view.level === "day") {
-    return cashflowT("cashflow.hint_day_hours", "Tagesansicht zeigt stundenweise Werte (00-23 Uhr).");
+    return cashflowT(
+      "cashflow.hint_day_hours",
+      "Tagesansicht zeigt stundenweise Werte (00-23 Uhr)."
+    );
   }
   return cashflowT("cashflow.hint_click_year", "Klicke auf ein Jahr, um die Monate zu sehen.");
 }
@@ -667,14 +741,22 @@ function chartLabelForKey(level, key) {
 function resolveCashflowViewState(incomeEntries, expenseEntries) {
   const timelineKeys = timelineKeysForChart(incomeEntries, expenseEntries);
   const timelineSet = new Set(timelineKeys);
-  const state = cashflowChartState || { level: "timeline", selectedYear: "", selectedMonthKey: "", selectedDayKey: "" };
+  const state = cashflowChartState || {
+    level: "timeline",
+    selectedYear: "",
+    selectedMonthKey: "",
+    selectedDayKey: "",
+  };
   let level = state.level;
   let selectedYear = state.selectedYear;
   let selectedMonthKey = state.selectedMonthKey;
   let selectedDayKey = state.selectedDayKey;
 
   if (!selectedYear && selectedMonthKey) selectedYear = String(selectedMonthKey).split("-")[0];
-  if ((level === "year" || level === "month" || level === "day") && !timelineSet.has(selectedYear)) {
+  if (
+    (level === "year" || level === "month" || level === "day") &&
+    !timelineSet.has(selectedYear)
+  ) {
     level = "timeline";
     selectedYear = "";
     selectedMonthKey = "";
@@ -686,7 +768,14 @@ function resolveCashflowViewState(incomeEntries, expenseEntries) {
     state.selectedYear = "";
     state.selectedMonthKey = "";
     state.selectedDayKey = "";
-    return { level: "timeline", keyType: "year", keys: timelineKeys, selectedYear: "", selectedMonthKey: "", selectedDayKey: "" };
+    return {
+      level: "timeline",
+      keyType: "year",
+      keys: timelineKeys,
+      selectedYear: "",
+      selectedMonthKey: "",
+      selectedDayKey: "",
+    };
   }
 
   const monthKeys = buildMonthKeysForYear(selectedYear);
@@ -695,7 +784,14 @@ function resolveCashflowViewState(incomeEntries, expenseEntries) {
     state.selectedYear = "";
     state.selectedMonthKey = "";
     state.selectedDayKey = "";
-    return { level: "timeline", keyType: "year", keys: timelineKeys, selectedYear: "", selectedMonthKey: "", selectedDayKey: "" };
+    return {
+      level: "timeline",
+      keyType: "year",
+      keys: timelineKeys,
+      selectedYear: "",
+      selectedMonthKey: "",
+      selectedDayKey: "",
+    };
   }
 
   if (level === "year") {
@@ -703,7 +799,14 @@ function resolveCashflowViewState(incomeEntries, expenseEntries) {
     state.selectedYear = selectedYear;
     state.selectedMonthKey = "";
     state.selectedDayKey = "";
-    return { level: "year", keyType: "month", keys: monthKeys, selectedYear, selectedMonthKey: "", selectedDayKey: "" };
+    return {
+      level: "year",
+      keyType: "month",
+      keys: monthKeys,
+      selectedYear,
+      selectedMonthKey: "",
+      selectedDayKey: "",
+    };
   }
 
   if (!monthKeys.includes(selectedMonthKey)) selectedMonthKey = monthKeys[0];
@@ -713,7 +816,14 @@ function resolveCashflowViewState(incomeEntries, expenseEntries) {
     state.selectedYear = selectedYear;
     state.selectedMonthKey = "";
     state.selectedDayKey = "";
-    return { level: "year", keyType: "month", keys: monthKeys, selectedYear, selectedMonthKey: "", selectedDayKey: "" };
+    return {
+      level: "year",
+      keyType: "month",
+      keys: monthKeys,
+      selectedYear,
+      selectedMonthKey: "",
+      selectedDayKey: "",
+    };
   }
 
   if (level === "month") {
@@ -721,7 +831,14 @@ function resolveCashflowViewState(incomeEntries, expenseEntries) {
     state.selectedYear = selectedYear;
     state.selectedMonthKey = selectedMonthKey;
     state.selectedDayKey = "";
-    return { level: "month", keyType: "day", keys: dayKeys, selectedYear, selectedMonthKey, selectedDayKey: "" };
+    return {
+      level: "month",
+      keyType: "day",
+      keys: dayKeys,
+      selectedYear,
+      selectedMonthKey,
+      selectedDayKey: "",
+    };
   }
 
   if (!dayKeys.includes(selectedDayKey)) {
@@ -732,7 +849,14 @@ function resolveCashflowViewState(incomeEntries, expenseEntries) {
   state.selectedYear = selectedYear;
   state.selectedMonthKey = selectedMonthKey;
   state.selectedDayKey = selectedDayKey;
-  return { level: "day", keyType: "hour", keys: buildHourKeysForDay(selectedDayKey), selectedYear, selectedMonthKey, selectedDayKey };
+  return {
+    level: "day",
+    keyType: "hour",
+    keys: buildHourKeysForDay(selectedDayKey),
+    selectedYear,
+    selectedMonthKey,
+    selectedDayKey,
+  };
 }
 
 function buildSeriesForView(view, incomeEntries, expenseEntries) {
@@ -741,7 +865,7 @@ function buildSeriesForView(view, incomeEntries, expenseEntries) {
     const expenseTotals = buildYearlyTotals(expenseEntries, view.keys, "spent_at");
     return {
       incomeValues: view.keys.map((key) => Number((incomeTotals[key] || 0).toFixed(2))),
-      expenseValues: view.keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2)))
+      expenseValues: view.keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2))),
     };
   }
 
@@ -750,16 +874,26 @@ function buildSeriesForView(view, incomeEntries, expenseEntries) {
     const expenseTotals = buildMonthlyTotals(expenseEntries, view.keys, "spent_at");
     return {
       incomeValues: view.keys.map((key) => Number((incomeTotals[key] || 0).toFixed(2))),
-      expenseValues: view.keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2)))
+      expenseValues: view.keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2))),
     };
   }
 
   if (view.keyType === "hour") {
-    const hourlyIncomeTotals = buildHourlyTotals(incomeEntries, view.keys, "received_at", view.selectedDayKey);
-    const hourlyExpenseTotals = buildHourlyTotals(expenseEntries, view.keys, "spent_at", view.selectedDayKey);
+    const hourlyIncomeTotals = buildHourlyTotals(
+      incomeEntries,
+      view.keys,
+      "received_at",
+      view.selectedDayKey
+    );
+    const hourlyExpenseTotals = buildHourlyTotals(
+      expenseEntries,
+      view.keys,
+      "spent_at",
+      view.selectedDayKey
+    );
     return {
       incomeValues: view.keys.map((key) => Number((hourlyIncomeTotals[key] || 0).toFixed(2))),
-      expenseValues: view.keys.map((key) => Number((hourlyExpenseTotals[key] || 0).toFixed(2)))
+      expenseValues: view.keys.map((key) => Number((hourlyExpenseTotals[key] || 0).toFixed(2))),
     };
   }
 
@@ -767,7 +901,7 @@ function buildSeriesForView(view, incomeEntries, expenseEntries) {
   const expenseTotals = buildDailyTotals(expenseEntries, view.keys, "spent_at");
   return {
     incomeValues: view.keys.map((key) => Number((incomeTotals[key] || 0).toFixed(2))),
-    expenseValues: view.keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2)))
+    expenseValues: view.keys.map((key) => Number((expenseTotals[key] || 0).toFixed(2))),
   };
 }
 
@@ -787,7 +921,9 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   const view = resolveCashflowViewState(incomeEntries, expenseEntries);
   const { keys } = view;
   const { incomeValues, expenseValues } = buildSeriesForView(view, incomeEntries, expenseEntries);
-  const savingsValues = keys.map((_, index) => Number((incomeValues[index] - expenseValues[index]).toFixed(2)));
+  const savingsValues = keys.map((_, index) =>
+    Number((incomeValues[index] - expenseValues[index]).toFixed(2))
+  );
   const allValues = incomeValues.concat(expenseValues).concat(savingsValues);
   const maxValue = Math.max(...allValues, 0);
   const minValue = Math.min(...allValues, 0);
@@ -798,15 +934,30 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   const chartHint = chartLevelHint(view);
   const showBackToMonth = view.level === "day";
   const showBackToYear = view.level === "month";
-  const showBackToTimeline = view.level === "year" || view.level === "month" || view.level === "day";
+  const showBackToTimeline =
+    view.level === "year" || view.level === "month" || view.level === "day";
 
   const height = 280;
   const padLeft = 0;
   const padRight = 28;
   const padTop = 18;
   const padBottom = 44;
-  const slotWidth = view.keyType === "year" ? 130 : view.keyType === "month" ? 84 : view.keyType === "hour" ? 36 : 42;
-  const minWidth = view.keyType === "year" ? 640 : view.keyType === "month" ? 900 : view.keyType === "hour" ? 860 : 640;
+  const slotWidth =
+    view.keyType === "year"
+      ? 130
+      : view.keyType === "month"
+        ? 84
+        : view.keyType === "hour"
+          ? 36
+          : 42;
+  const minWidth =
+    view.keyType === "year"
+      ? 640
+      : view.keyType === "month"
+        ? 900
+        : view.keyType === "hour"
+          ? 860
+          : 640;
   const width = Math.max(minWidth, padLeft + padRight + Math.max(keys.length - 1, 1) * slotWidth);
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
@@ -821,7 +972,8 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
 
   const firstPointOffset = 28;
   const effectiveWidth = Math.max(1, plotWidth - firstPointOffset);
-  const xForIndex = (index) => padLeft + firstPointOffset + (index * effectiveWidth) / Math.max(keys.length - 1, 1);
+  const xForIndex = (index) =>
+    padLeft + firstPointOffset + (index * effectiveWidth) / Math.max(keys.length - 1, 1);
   const yForValue = (value) => padTop + ((yMax - value) / yRange) * plotHeight;
   const zeroY = yForValue(0);
 
@@ -868,21 +1020,31 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
     .join("");
 
   const savingsDots = savingsValues
-    .map((value, index) => `<circle class="cashflow-point-savings" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`)
+    .map(
+      (value, index) =>
+        `<circle class="cashflow-point-savings" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`
+    )
     .join("");
 
   const incomeDotsWithIndex = incomeValues
-    .map((value, index) => `<circle class="cashflow-point-income" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`)
+    .map(
+      (value, index) =>
+        `<circle class="cashflow-point-income" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`
+    )
     .join("");
   const expenseDotsWithIndex = expenseValues
-    .map((value, index) => `<circle class="cashflow-point-expense" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`)
+    .map(
+      (value, index) =>
+        `<circle class="cashflow-point-expense" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`
+    )
     .join("");
 
   const hoverZones = keys
     .map((_, index) => {
       const center = xForIndex(index);
       const left = index === 0 ? padLeft : (xForIndex(index - 1) + center) / 2;
-      const right = index === keys.length - 1 ? width - padRight : (center + xForIndex(index + 1)) / 2;
+      const right =
+        index === keys.length - 1 ? width - padRight : (center + xForIndex(index + 1)) / 2;
       const zoneWidth = Math.max(8, right - left);
       const zoneClass = view.level === "day" ? "cashflow-hitzone" : "cashflow-hitzone is-drillable";
       return `<rect class="${zoneClass}" data-hover-index="${index}" x="${left}" y="${padTop}" width="${zoneWidth}" height="${plotHeight}"></rect>`;
@@ -902,7 +1064,7 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
       : "",
     showBackToTimeline
       ? `<button class="cashflow-drilldown-btn" type="button" data-cashflow-action="back-timeline">${cashflowT("cashflow.back_timeline", "Zur Gesamtansicht")}</button>`
-      : ""
+      : "",
   ].join("");
 
   container.innerHTML = `
@@ -987,7 +1149,9 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   container.append(tooltip);
 
   const pointsByIndex = new Map();
-  const allPoints = container.querySelectorAll(".cashflow-point-income, .cashflow-point-expense, .cashflow-point-savings");
+  const allPoints = container.querySelectorAll(
+    ".cashflow-point-income, .cashflow-point-expense, .cashflow-point-savings"
+  );
   for (const point of allPoints) {
     const index = Number(point.dataset.pointIndex || "-1");
     if (index < 0) continue;
@@ -1114,7 +1278,7 @@ function periodContextFromChartState() {
       title: cashflowT("dashboard.period.daily", "Taegliche"),
       dateFieldLabel: dayLabelFromKey(cashflowChartState.selectedDayKey || nowDayKey),
       monthKey: cashflowChartState.selectedMonthKey || nowMonthKey,
-      dayKey: cashflowChartState.selectedDayKey || nowDayKey
+      dayKey: cashflowChartState.selectedDayKey || nowDayKey,
     };
   }
 
@@ -1124,7 +1288,7 @@ function periodContextFromChartState() {
       title: cashflowT("dashboard.period.monthly", "Monatliche"),
       dateFieldLabel: monthLongLabelFromKey(cashflowChartState.selectedMonthKey || nowMonthKey),
       monthKey: cashflowChartState.selectedMonthKey || nowMonthKey,
-      dayKey: ""
+      dayKey: "",
     };
   }
 
@@ -1135,7 +1299,7 @@ function periodContextFromChartState() {
       title: cashflowT("dashboard.period.yearly", "Jaehrliche"),
       dateFieldLabel: selectedYear,
       monthKey: `${selectedYear}-01`,
-      dayKey: `${selectedYear}-01-01`
+      dayKey: `${selectedYear}-01-01`,
     };
   }
 
@@ -1144,7 +1308,7 @@ function periodContextFromChartState() {
     title: cashflowT("dashboard.period.yearly", "Jaehrliche"),
     dateFieldLabel: nowYear,
     monthKey: nowMonthKey,
-    dayKey: nowDayKey
+    dayKey: nowDayKey,
   };
 }
 
@@ -1153,7 +1317,11 @@ function isMonthlyOccurrenceInMonth(startDay, monthKey) {
   if (!targetMonth) return false;
   const startMonthKey = monthKeyFromDate(startDay);
   if (monthKey < startMonthKey) return false;
-  const daysInTargetMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate();
+  const daysInTargetMonth = new Date(
+    targetMonth.getFullYear(),
+    targetMonth.getMonth() + 1,
+    0
+  ).getDate();
   const targetDay = Math.min(startDay.getDate(), daysInTargetMonth);
   const occurrence = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), targetDay);
   if (monthKey === startMonthKey && occurrence.getTime() < startDay.getTime()) return false;
@@ -1199,8 +1367,12 @@ function entryContributionForPeriod(entry, dateField, period) {
     if (period.level === "day") {
       const day = dayDateFromKey(period.dayKey);
       if (!day) return 0;
-      const targetDay = Math.min(startDay.getDate(), new Date(day.getFullYear(), day.getMonth() + 1, 0).getDate());
-      const occurs = day.getDate() === targetDay && isMonthlyOccurrenceInMonth(startDay, monthKeyFromDate(day));
+      const targetDay = Math.min(
+        startDay.getDate(),
+        new Date(day.getFullYear(), day.getMonth() + 1, 0).getDate()
+      );
+      const occurs =
+        day.getDate() === targetDay && isMonthlyOccurrenceInMonth(startDay, monthKeyFromDate(day));
       return occurs ? amount : 0;
     }
     if (period.level === "month") {
@@ -1238,7 +1410,9 @@ function entryContributionForPeriod(entry, dateField, period) {
     if (period.level === "day") {
       const day = dayDateFromKey(period.dayKey);
       if (!day || day.getTime() < startDay.getTime()) return 0;
-      return (day.getMonth() === startDay.getMonth() && day.getDate() === startDay.getDate()) ? amount : 0;
+      return day.getMonth() === startDay.getMonth() && day.getDate() === startDay.getDate()
+        ? amount
+        : 0;
     }
     if (period.level === "month") {
       const monthDate = monthDateFromKey(period.monthKey);
@@ -1253,7 +1427,11 @@ function entryContributionForPeriod(entry, dateField, period) {
 }
 
 function totalForPeriod(entries, dateField, period) {
-  return Number(entries.reduce((sum, entry) => sum + entryContributionForPeriod(entry, dateField, period), 0).toFixed(2));
+  return Number(
+    entries
+      .reduce((sum, entry) => sum + entryContributionForPeriod(entry, dateField, period), 0)
+      .toFixed(2)
+  );
 }
 
 function previousPeriod(period) {
@@ -1264,14 +1442,22 @@ function previousPeriod(period) {
     const monthDate = monthDateFromKey(period.monthKey);
     if (!monthDate) return period;
     const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
-    return { ...period, monthKey: monthKeyFromDate(prev), dateFieldLabel: monthLongLabelFromKey(monthKeyFromDate(prev)) };
+    return {
+      ...period,
+      monthKey: monthKeyFromDate(prev),
+      dateFieldLabel: monthLongLabelFromKey(monthKeyFromDate(prev)),
+    };
   }
   return { ...period, dateFieldLabel: String(Number(period.dateFieldLabel) - 1) };
 }
 
 function categoryLabelForPie(categoryKeyValue) {
   if (typeof categoryLabel === "function") return categoryLabel(categoryKeyValue);
-  return CATEGORY_LABELS[categoryKeyValue] || categoryKeyValue || cashflowT("dashboard.pie.unknown_category", "Unbekannt");
+  return (
+    CATEGORY_LABELS[categoryKeyValue] ||
+    categoryKeyValue ||
+    cashflowT("dashboard.pie.unknown_category", "Unbekannt")
+  );
 }
 
 function buildDistributionByCategory(entries, dateField, period) {
@@ -1283,7 +1469,11 @@ function buildDistributionByCategory(entries, dateField, period) {
     totals.set(key, (totals.get(key) || 0) + value);
   }
   return Array.from(totals.entries())
-    .map(([key, value]) => ({ key, value: Number(value.toFixed(2)), label: categoryLabelForPie(key) }))
+    .map(([key, value]) => ({
+      key,
+      value: Number(value.toFixed(2)),
+      label: categoryLabelForPie(key),
+    }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -1295,7 +1485,8 @@ export function initOverviewPieControls() {
   if (!select || select.dataset.bound === "1") return;
   if (label) label.textContent = cashflowT("dashboard.pie.mode_label", "Diagramm zeigt");
   if (incomeOption) incomeOption.textContent = cashflowT("dashboard.pie.mode_income", "Einnahmen");
-  if (expenseOption) expenseOption.textContent = cashflowT("dashboard.pie.mode_expense", "Ausgaben");
+  if (expenseOption)
+    expenseOption.textContent = cashflowT("dashboard.pie.mode_expense", "Ausgaben");
   select.value = overviewDistributionState.mode;
   select.dataset.bound = "1";
   select.addEventListener("change", () => {
@@ -1320,10 +1511,14 @@ function renderOverviewDistribution(period, incomeEntries, expenseEntries) {
     : buildDistributionByCategory(expenseEntries, "spent_at", period);
 
   if (title) {
-    title.textContent = cashflowT("dashboard.pie.title_with_period", "{mode} nach Kategorien ({period})", {
-      mode: modeLabel,
-      period: period.dateFieldLabel
-    });
+    title.textContent = cashflowT(
+      "dashboard.pie.title_with_period",
+      "{mode} nach Kategorien ({period})",
+      {
+        mode: modeLabel,
+        period: period.dateFieldLabel,
+      }
+    );
   }
 
   if (!dataset.length) {
@@ -1379,23 +1574,26 @@ export function updateFinanceCards(user, incomeEntries, expenseEntries) {
   const savingRate = currentIncome > 0 ? Math.round((netLiquidity / currentIncome) * 100) : 0;
 
   const periodPrefix = period.title;
-  setText("hero-label", `${periodPrefix} ${cashflowT("dashboard.hero.net_cashflow_suffix", "Netto-Cashflow")}`);
+  setText(
+    "hero-label",
+    `${periodPrefix} ${cashflowT("dashboard.hero.net_cashflow_suffix", "Netto-Cashflow")}`
+  );
   setText("kpi-income-label", `${periodPrefix} ${cashflowT("income_short", "Einnahmen")}`);
   setText("kpi-expenses-label", `${periodPrefix} ${cashflowT("expenses_short", "Ausgaben")}`);
-  setText("kpi-saving-rate-label", `${periodPrefix} ${cashflowT("dashboard.kpi.saving_rate", "Sparquote")}`);
+  setText(
+    "kpi-saving-rate-label",
+    `${periodPrefix} ${cashflowT("dashboard.kpi.saving_rate", "Sparquote")}`
+  );
   setText(
     "kpi-liquid-label",
-    cashflowT(
-      "dashboard.kpi.liquidity_with_period",
-      "Liquiditaet ({period})",
-      {
-        period: period.level === "year"
+    cashflowT("dashboard.kpi.liquidity_with_period", "Liquiditaet ({period})", {
+      period:
+        period.level === "year"
           ? cashflowT("dashboard.period.year", "Jahr")
           : period.level === "month"
             ? cashflowT("dashboard.period.month", "Monat")
-            : cashflowT("dashboard.period.day", "Tag")
-      }
-    )
+            : cashflowT("dashboard.period.day", "Tag"),
+    })
   );
 
   setText("kpi-income", formatMoney(currentIncome));
@@ -1443,12 +1641,19 @@ export function updateFinanceCards(user, incomeEntries, expenseEntries) {
   setText(
     "hero-sub",
     totalEntries
-      ? cashflowT("dashboard.hero.entries_period", "{period}: {income} Einnahmen und {expense} Ausgaben erfasst", {
-        period: period.dateFieldLabel,
-        income: incomeEntries.length,
-        expense: expenseEntries.length
-      })
-      : cashflowT("no_bookings_detailed", "Noch keine Buchungen erfasst. Lege Einnahmen oder Ausgaben an.")
+      ? cashflowT(
+          "dashboard.hero.entries_period",
+          "{period}: {income} Einnahmen und {expense} Ausgaben erfasst",
+          {
+            period: period.dateFieldLabel,
+            income: incomeEntries.length,
+            expense: expenseEntries.length,
+          }
+        )
+      : cashflowT(
+          "no_bookings_detailed",
+          "Noch keine Buchungen erfasst. Lege Einnahmen oder Ausgaben an."
+        )
   );
 
   renderOverviewDistribution(period, incomeEntries, expenseEntries);

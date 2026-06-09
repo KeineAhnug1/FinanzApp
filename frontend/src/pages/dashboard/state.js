@@ -8,7 +8,7 @@ export const DEFAULT_DASHBOARD_SETTINGS = {
   locale: "de-DE",
   startView: "overview",
   defaultIncomeRecurrence: "once",
-  defaultExpenseRecurrence: "once"
+  defaultExpenseRecurrence: "once",
 };
 
 export const appState = {
@@ -18,40 +18,40 @@ export const appState = {
   incomeEntries: [],
   expenseEntries: [],
   budgetAlerts: [],
-  settings: { ...DEFAULT_DASHBOARD_SETTINGS }
+  settings: { ...DEFAULT_DASHBOARD_SETTINGS },
 };
 
 export const categoryState = {
   income: [],
-  expense: []
+  expense: [],
 };
 
 export const listState = {
   incomeSearch: "",
   expenseSearch: "",
   incomeExpandedGroups: new Set(),
-  expenseExpandedGroups: new Set()
+  expenseExpandedGroups: new Set(),
 };
 
 export const cashflowChartState = {
   level: "timeline",
   selectedYear: "",
   selectedMonthKey: "",
-  selectedDayKey: ""
+  selectedDayKey: "",
 };
 
 export const overviewDistributionState = {
-  mode: "income"
+  mode: "income",
 };
 
 export const incomeState = {
   editingId: null,
-  askConfirm: null
+  askConfirm: null,
 };
 
 export const expenseState = {
   editingId: null,
-  askConfirm: null
+  askConfirm: null,
 };
 
 export const INCOME_CATEGORY_OPTIONS = [
@@ -60,7 +60,7 @@ export const INCOME_CATEGORY_OPTIONS = [
   { value: "bonus", label: "Bonus" },
   { value: "refund", label: "Rueckzahlung" },
   { value: "investment", label: "Kapitalertraege" },
-  { value: "other", label: "Sonstiges" }
+  { value: "other", label: "Sonstiges" },
 ];
 export const EXPENSE_CATEGORY_OPTIONS = [
   { value: "rent", label: "Miete" },
@@ -69,10 +69,17 @@ export const EXPENSE_CATEGORY_OPTIONS = [
   { value: "transport", label: "Mobilitaet" },
   { value: "health", label: "Gesundheit" },
   { value: "entertainment", label: "Freizeit" },
-  { value: "other", label: "Sonstiges" }
+  { value: "other", label: "Sonstiges" },
 ];
-export const PRESET_INCOME_CATEGORY_KEYS = new Set(INCOME_CATEGORY_OPTIONS.map((item) => item.value.toLowerCase()));
-export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(EXPENSE_CATEGORY_OPTIONS.map((item) => item.value.toLowerCase()));
+export const PRESET_INCOME_CATEGORY_KEYS = new Set(
+  INCOME_CATEGORY_OPTIONS.map((item) => item.value.toLowerCase())
+);
+export const PRESET_EXPENSE_CATEGORY_KEYS = new Set(
+  EXPENSE_CATEGORY_OPTIONS.map((item) => item.value.toLowerCase())
+);
 export const CATEGORY_LABELS = Object.fromEntries(
-  [...INCOME_CATEGORY_OPTIONS, ...EXPENSE_CATEGORY_OPTIONS].map(({ value, label }) => [value, label])
+  [...INCOME_CATEGORY_OPTIONS, ...EXPENSE_CATEGORY_OPTIONS].map(({ value, label }) => [
+    value,
+    label,
+  ])
 );

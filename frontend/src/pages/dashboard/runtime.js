@@ -6,12 +6,12 @@ import {
   SETTINGS_STORAGE_PREFIX,
   SETTINGS_LOCALE_OPTIONS,
   SETTINGS_RECURRENCE_OPTIONS,
-  DEFAULT_DASHBOARD_SETTINGS
-} from './state.js';
-import { renderIncomeList, renderExpenseList, updateFinanceCards } from './overview-cashflow.js';
-import { initThemeSwitcher as sharedInitThemeSwitcher } from '@shared/js/theme-utils.js';
-import { getLocale as sharedGetLocale } from '@shared/js/language-utils.js';
-import { getCurrentUserFromStorage, setCurrentUserInStorage } from '@shared/js/session-utils.js';
+  DEFAULT_DASHBOARD_SETTINGS,
+} from "./state.js";
+import { renderIncomeList, renderExpenseList, updateFinanceCards } from "./overview-cashflow.js";
+import { initThemeSwitcher as sharedInitThemeSwitcher } from "@shared/js/theme-utils.js";
+import { getLocale as sharedGetLocale } from "@shared/js/language-utils.js";
+import { getCurrentUserFromStorage, setCurrentUserInStorage } from "@shared/js/session-utils.js";
 
 export function initThemeSwitcher() {
   sharedInitThemeSwitcher();
@@ -25,8 +25,16 @@ function sanitizeSettingChoice(value, allowedValues, fallback) {
 export function normalizeDashboardSettings(raw) {
   const base = raw && typeof raw === "object" ? raw : {};
   return {
-    locale: sanitizeSettingChoice(base.locale, SETTINGS_LOCALE_OPTIONS, DEFAULT_DASHBOARD_SETTINGS.locale),
-    startView: sanitizeSettingChoice(base.startView, VIEW_OPTIONS, DEFAULT_DASHBOARD_SETTINGS.startView),
+    locale: sanitizeSettingChoice(
+      base.locale,
+      SETTINGS_LOCALE_OPTIONS,
+      DEFAULT_DASHBOARD_SETTINGS.locale
+    ),
+    startView: sanitizeSettingChoice(
+      base.startView,
+      VIEW_OPTIONS,
+      DEFAULT_DASHBOARD_SETTINGS.startView
+    ),
     defaultIncomeRecurrence: sanitizeSettingChoice(
       base.defaultIncomeRecurrence,
       SETTINGS_RECURRENCE_OPTIONS,
@@ -36,7 +44,7 @@ export function normalizeDashboardSettings(raw) {
       base.defaultExpenseRecurrence,
       SETTINGS_RECURRENCE_OPTIONS,
       DEFAULT_DASHBOARD_SETTINGS.defaultExpenseRecurrence
-    )
+    ),
   };
 }
 
@@ -55,11 +63,18 @@ export function loadDashboardSettings(userId) {
 }
 
 export function saveDashboardSettings(userId, settings) {
-  window.localStorage.setItem(settingsStorageKey(userId), JSON.stringify(normalizeDashboardSettings(settings)));
+  window.localStorage.setItem(
+    settingsStorageKey(userId),
+    JSON.stringify(normalizeDashboardSettings(settings))
+  );
 }
 
 export function getLocale() {
-  return sharedGetLocale(appState.user?.id) || appState.settings?.locale || DEFAULT_DASHBOARD_SETTINGS.locale;
+  return (
+    sharedGetLocale(appState.user?.id) ||
+    appState.settings?.locale ||
+    DEFAULT_DASHBOARD_SETTINGS.locale
+  );
 }
 
 export function applyDashboardSettings(nextSettings, options = {}) {
@@ -88,7 +103,9 @@ export function getStoredView(fallbackView = "overview") {
 }
 
 function getViewFromHash() {
-  const raw = String(window.location.hash || "").trim().replace(/^#/, "");
+  const raw = String(window.location.hash || "")
+    .trim()
+    .replace(/^#/, "");
   if (raw && VIEW_OPTIONS.has(raw)) return raw;
   return null;
 }

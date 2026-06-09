@@ -40,7 +40,9 @@ export function isSha256PasswordHash(value) {
 export async function hashPassword(plainPassword) {
   const password = String(plainPassword || "");
   const salt = randomBytes(PASSWORD_SALT_BYTES).toString("hex");
-  const derived = (/** @type {Buffer} */ (await scryptAsync(password, salt, PASSWORD_KEYLEN))).toString("hex");
+  const derived = /** @type {Buffer} */ (
+    await scryptAsync(password, salt, PASSWORD_KEYLEN)
+  ).toString("hex");
   return `${PASSWORD_HASH_PREFIX}${salt}$${derived}`;
 }
 

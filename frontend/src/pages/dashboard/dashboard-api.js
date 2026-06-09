@@ -1,19 +1,15 @@
 // API-Aufrufe und Formularstatus fuer Einnahmen, Ausgaben und Kategorien.
-import { appState, categoryState, incomeState, expenseState } from './state.js';
+import { appState, categoryState, incomeState, expenseState } from "./state.js";
 
-import { formatMoney, escapeHtml } from './helpers.js';
-import { renderIncomeList, renderExpenseList, updateFinanceCards } from './overview-cashflow.js';
-import {
-  applyCategoryOptions,
-  setCategoryValue
-} from './categories-controls.js';
-import { requestJsonMerged } from '@shared/js/api-client.js';
-
+import { formatMoney, escapeHtml } from "./helpers.js";
+import { renderIncomeList, renderExpenseList, updateFinanceCards } from "./overview-cashflow.js";
+import { applyCategoryOptions, setCategoryValue } from "./categories-controls.js";
+import { requestJsonMerged } from "@shared/js/api-client.js";
 
 export async function requestJson(url, options) {
   const result = await requestJsonMerged(url, {
     credentials: "same-origin",
-    ...(options || {})
+    ...(options || {}),
   });
   return result;
 }
@@ -42,18 +38,24 @@ export async function loadExpenseEntries() {
 export async function loadTransactions() {
   const params = new URLSearchParams();
   if (appState.selectedBankAccountId) params.set("bank_account_id", appState.selectedBankAccountId);
-  const endpoint = params.toString() ? `/api/transactions?${params.toString()}` : "/api/transactions";
+  const endpoint = params.toString()
+    ? `/api/transactions?${params.toString()}`
+    : "/api/transactions";
   const result = await requestJson(endpoint);
   if (!result.ok) return { income: [], expense: [] };
   const entries = Array.isArray(result.entries) ? result.entries : [];
-  const income = entries.filter((e) => e?.type === "income").map(({ type: _type, ...rest }) => rest);
-  const expense = entries.filter((e) => e?.type === "expense").map(({ type: _type, ...rest }) => rest);
+  const income = entries
+    .filter((e) => e?.type === "income")
+    .map(({ type: _type, ...rest }) => rest);
+  const expense = entries
+    .filter((e) => e?.type === "expense")
+    .map(({ type: _type, ...rest }) => rest);
   return { income, expense };
 }
 
 export async function loadBankAccounts() {
   const result = await requestJson("/api/bank-accounts");
-  if (!result || (result.ok === false)) return [];
+  if (!result || result.ok === false) return [];
   return Array.isArray(result.accounts) ? result.accounts : [];
 }
 
@@ -63,7 +65,7 @@ export async function loadUserCategories() {
   if (!result.ok) return { income: [], expense: [] };
   return {
     income: Array.isArray(result.income) ? result.income : [],
-    expense: Array.isArray(result.expense) ? result.expense : []
+    expense: Array.isArray(result.expense) ? result.expense : [],
   };
 }
 
@@ -83,16 +85,15 @@ export async function refreshDashboardData() {
     appState.bankAccounts = await loadBankAccounts();
     if (
       appState.selectedBankAccountId &&
-      !appState.bankAccounts.some((account) => String(account.id) === String(appState.selectedBankAccountId))
+      !appState.bankAccounts.some(
+        (account) => String(account.id) === String(appState.selectedBankAccountId)
+      )
     ) {
       appState.selectedBankAccountId = "";
     }
     renderBankAccountSelectors();
 
-    const [tx, budgetAlerts] = await Promise.all([
-      loadTransactions(),
-      loadBudgetStatus()
-    ]);
+    const [tx, budgetAlerts] = await Promise.all([loadTransactions(), loadBudgetStatus()]);
     appState.incomeEntries = tx.income;
     appState.expenseEntries = tx.expense;
     renderIncomeList(appState.incomeEntries);
@@ -101,7 +102,7 @@ export async function refreshDashboardData() {
     appState.budgetAlerts = budgetAlerts;
     renderBudgetAlerts();
   } catch (err) {
-    console.error('refreshDashboardData failed', err);
+    console.error("refreshDashboardData failed", err);
   }
 }
 
@@ -120,7 +121,9 @@ export function buildAccountOptionsMarkup({ includeAll = false } = {}) {
     const id = String(account?.id || "").trim();
     if (!id) continue;
     const selected = String(appState.selectedBankAccountId) === id ? " selected" : "";
-    parts.push(`<option value="${escapeHtml(id)}"${selected}>${escapeHtml(formatBankAccountLabel(account))}</option>`);
+    parts.push(
+      `<option value="${escapeHtml(id)}"${selected}>${escapeHtml(formatBankAccountLabel(account))}</option>`
+    );
   }
   return parts.join("");
 }
@@ -218,13 +221,29 @@ export function getIncomeFormElements() {
   const categoryCustom = document.getElementById("income-category-custom");
   const note = document.getElementById("income-note");
   const bankAccount = document.getElementById("income-bank-account");
-  return { form, submitBtn, cancelBtn, source, amount, date, cycle, recurrence, recurrenceRow, category, categoryCustomWrap, categoryCustom, note, bankAccount };
+  return {
+    form,
+    submitBtn,
+    cancelBtn,
+    source,
+    amount,
+    date,
+    cycle,
+    recurrence,
+    recurrenceRow,
+    category,
+    categoryCustomWrap,
+    categoryCustom,
+    note,
+    bankAccount,
+  };
 }
 
 // Setzt das Income-Formular auf "neu anlegen".
 export function setIncomeFormModeCreate() {
   incomeState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount } = getIncomeFormElements();
+  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount } =
+    getIncomeFormElements();
   if (!form) return;
   form.reset();
   setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", "", "salary");
@@ -242,11 +261,29 @@ export function setIncomeFormModeCreate() {
 // Fuellt das Income-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 export function setIncomeFormModeEdit(entry) {
   incomeState.editingId = entry.id;
-  const { source, amount, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getIncomeFormElements();
+  const {
+    source,
+    amount,
+    date,
+    cycle,
+    recurrence,
+    recurrenceRow,
+    note,
+    submitBtn,
+    cancelBtn,
+    bankAccount,
+  } = getIncomeFormElements();
   if (source) source.value = entry.source || "";
-  setCategoryValue("income-category", "income-custom-wrap", "income-category-custom", entry.category, "salary");
+  setCategoryValue(
+    "income-category",
+    "income-custom-wrap",
+    "income-category-custom",
+    entry.category,
+    "salary"
+  );
   if (amount) amount.value = Math.round((Number(entry.amount) || 0) * 100) / 100;
-  if (date) date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
+  if (date)
+    date.value = formatDateTimeLocalInputValue(entry.received_at || entry.created_at || new Date());
   if (cycle) cycle.value = entry.cycle || "once";
   const isOnce = !cycle || cycle.value === "once";
   if (recurrenceRow) recurrenceRow.style.display = isOnce ? "none" : "";
@@ -255,7 +292,9 @@ export function setIncomeFormModeEdit(entry) {
   if (submitBtn) submitBtn.textContent = "Aenderung speichern";
   if (cancelBtn) cancelBtn.hidden = false;
   if (bankAccount) {
-    bankAccount.value = String(entry.bank_account_id || appState.selectedBankAccountId || appState.bankAccounts[0]?.id || "");
+    bankAccount.value = String(
+      entry.bank_account_id || appState.selectedBankAccountId || appState.bankAccounts[0]?.id || ""
+    );
   }
 }
 
@@ -275,16 +314,38 @@ export function getExpenseFormElements() {
   const recurrenceRow = document.querySelector(".expense-recurrence-row");
   const note = document.getElementById("expense-note");
   const bankAccount = document.getElementById("expense-bank-account");
-  return { form, submitBtn, cancelBtn, source, category, categoryCustomWrap, categoryCustom, amount, date, cycle, recurrence, recurrenceRow, note, bankAccount };
+  return {
+    form,
+    submitBtn,
+    cancelBtn,
+    source,
+    category,
+    categoryCustomWrap,
+    categoryCustom,
+    amount,
+    date,
+    cycle,
+    recurrence,
+    recurrenceRow,
+    note,
+    bankAccount,
+  };
 }
 
 // Setzt das Expense-Formular auf "neu anlegen".
 export function setExpenseFormModeCreate() {
   expenseState.editingId = null;
-  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount } = getExpenseFormElements();
+  const { form, submitBtn, cancelBtn, date, cycle, recurrence, recurrenceRow, bankAccount } =
+    getExpenseFormElements();
   if (!form) return;
   form.reset();
-  setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", "", "rent");
+  setCategoryValue(
+    "expense-category",
+    "expense-custom-wrap",
+    "expense-category-custom",
+    "",
+    "rent"
+  );
   if (date) date.value = formatDateTimeLocalInputValue(new Date());
   if (cycle) cycle.value = appState.settings?.defaultExpenseRecurrence || "once";
   if (recurrence) recurrence.value = "0";
@@ -299,11 +360,29 @@ export function setExpenseFormModeCreate() {
 // Fuellt das Expense-Formular fuer die Bearbeitung eines vorhandenen Eintrags.
 export function setExpenseFormModeEdit(entry) {
   expenseState.editingId = entry.id;
-  const { source, amount, date, cycle, recurrence, recurrenceRow, note, submitBtn, cancelBtn, bankAccount } = getExpenseFormElements();
+  const {
+    source,
+    amount,
+    date,
+    cycle,
+    recurrence,
+    recurrenceRow,
+    note,
+    submitBtn,
+    cancelBtn,
+    bankAccount,
+  } = getExpenseFormElements();
   if (source) source.value = entry.source || "";
-  setCategoryValue("expense-category", "expense-custom-wrap", "expense-category-custom", entry.category, "rent");
+  setCategoryValue(
+    "expense-category",
+    "expense-custom-wrap",
+    "expense-category-custom",
+    entry.category,
+    "rent"
+  );
   if (amount) amount.value = Math.round((Number(entry.amount) || 0) * 100) / 100;
-  if (date) date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());
+  if (date)
+    date.value = formatDateTimeLocalInputValue(entry.spent_at || entry.created_at || new Date());
   if (cycle) cycle.value = entry.cycle || "once";
   const isOnce = !cycle || cycle.value === "once";
   if (recurrenceRow) recurrenceRow.style.display = isOnce ? "none" : "";
@@ -312,7 +391,9 @@ export function setExpenseFormModeEdit(entry) {
   if (submitBtn) submitBtn.textContent = "Aenderung speichern";
   if (cancelBtn) cancelBtn.hidden = false;
   if (bankAccount) {
-    bankAccount.value = String(entry.bank_account_id || appState.selectedBankAccountId || appState.bankAccounts[0]?.id || "");
+    bankAccount.value = String(
+      entry.bank_account_id || appState.selectedBankAccountId || appState.bankAccounts[0]?.id || ""
+    );
   }
 }
 
@@ -320,7 +401,7 @@ export async function handleCreateIncome(payload) {
   return await requestJson("/api/income-entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 }
 
@@ -328,13 +409,13 @@ export async function handleUpdateIncome(entryId, payload) {
   return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 }
 
 export async function handleDeleteIncome(entryId) {
   return await requestJson(`/api/income-entries/${encodeURIComponent(entryId)}`, {
-    method: "DELETE"
+    method: "DELETE",
   });
 }
 
@@ -342,7 +423,7 @@ export async function handleCreateExpense(payload) {
   return await requestJson("/api/expense-entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 }
 
@@ -350,13 +431,13 @@ export async function handleUpdateExpense(entryId, payload) {
   return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 }
 
 export async function handleDeleteExpense(entryId) {
   return await requestJson(`/api/expense-entries/${encodeURIComponent(entryId)}`, {
-    method: "DELETE"
+    method: "DELETE",
   });
 }
 
@@ -367,8 +448,8 @@ export async function handleDeleteCategory(kind, category) {
     body: JSON.stringify({
       kind,
       category,
-      replace_with: "other"
-    })
+      replace_with: "other",
+    }),
   });
 }
 
@@ -390,12 +471,14 @@ export function renderBudgetAlerts() {
   }
 
   section.hidden = false;
-  list.innerHTML = exceeded.map((alert) => {
-    const tone = alert.exceeded ? "danger" : "warning";
-    const icon = alert.exceeded ? "⚠️" : "⚡";
-    const label = alert.exceeded
-      ? `${escapeHtml(alert.category)}: Budget ueberschritten (${formatMoney(alert.spent)} / ${formatMoney(alert.target)})`
-      : `${escapeHtml(alert.category)}: ${alert.percentage}% des Budgets erreicht (${formatMoney(alert.spent)} / ${formatMoney(alert.target)})`;
-    return `<li class="budget-alert-item is-${tone}">${icon} ${label}</li>`;
-  }).join("");
+  list.innerHTML = exceeded
+    .map((alert) => {
+      const tone = alert.exceeded ? "danger" : "warning";
+      const icon = alert.exceeded ? "⚠️" : "⚡";
+      const label = alert.exceeded
+        ? `${escapeHtml(alert.category)}: Budget ueberschritten (${formatMoney(alert.spent)} / ${formatMoney(alert.target)})`
+        : `${escapeHtml(alert.category)}: ${alert.percentage}% des Budgets erreicht (${formatMoney(alert.spent)} / ${formatMoney(alert.target)})`;
+      return `<li class="budget-alert-item is-${tone}">${icon} ${label}</li>`;
+    })
+    .join("");
 }

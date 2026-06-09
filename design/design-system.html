@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FBM Finance — Design System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design Tokens — Light Mode ────────────────────── */
+    :root {
+      --ds-space-1: 6px;
+      --ds-space-2: 10px;
+      --ds-space-3: 16px;
+      --ds-space-4: 22px;
+      --ds-space-5: 28px;
+      --ds-space-6: 40px;
+
+      --ds-radius-sm: 8px;
+      --ds-radius-md: 12px;
+      --ds-radius-lg: 16px;
+
+      --ds-bg-c1:   #faf9f7;
+      --ds-bg-c2:   #f5f3ef;
+      --ds-bg-c3:   #eeebe5;
+      --ds-surface: #ffffff;
+      --ds-surface-soft: #f8f7f5;
+
+      --ds-text:       #18181b;
+      --ds-text-muted: #6b7280;
+
+      --ds-border:        #e4e2de;
+      --ds-border-strong: #cac7c0;
+
+      --ds-primary:          #2563eb;
+      --ds-primary-dark:     #1d4ed8;
+      --ds-text-on-primary:  #ffffff;
+
+      --ds-accent-blue:   #3b82f6;
+      --ds-accent-orange: #f97316;
+      --ds-accent-violet: #8b5cf6;
+      --ds-accent-emerald:#22c55e;
+
+      --ds-success:        #16a34a;
+      --ds-success-soft:   #f0fdf4;
+      --ds-success-border: #86efac;
+      --ds-warning:        #d97706;
+      --ds-warning-soft:   #fffbeb;
+      --ds-warning-border: #fcd34d;
+      --ds-danger:         #dc2626;
+      --ds-danger-soft:    #fef2f2;
+      --ds-danger-border:  #fca5a5;
+
+      --ds-shadow-soft:   0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.05);
+      --ds-shadow-strong: 0 4px 6px rgba(0,0,0,.05), 0 10px 30px rgba(0,0,0,.10);
+      --ds-focus-ring:    rgba(37,99,235,.18);
+
+      --ds-mode-label: "Light Mode";
+    }
+
+    /* ── Dark Mode ─────────────────────────────────────── */
+    [data-theme="dark"] {
+      --ds-bg-c1:   #0c0c0e;
+      --ds-bg-c2:   #111114;
+      --ds-bg-c3:   #161618;
+      --ds-surface: #18181b;
+      --ds-surface-soft: #1f1f23;
+
+      --ds-text:       #fafafa;
+      --ds-text-muted: #a1a1aa;
+
+      --ds-border:        rgba(255,255,255,.08);
+      --ds-border-strong: rgba(255,255,255,.14);
+
+      --ds-primary:      #3b82f6;
+      --ds-primary-dark: #2563eb;
+
+      --ds-accent-blue:   #60a5fa;
+      --ds-accent-orange: #fb923c;
+      --ds-accent-violet: #a78bfa;
+      --ds-accent-emerald:#4ade80;
+
+      --ds-success:        #4ade80;
+      --ds-success-soft:   #052e16;
+      --ds-success-border: #166534;
+      --ds-warning:        #fbbf24;
+      --ds-warning-soft:   #1c1400;
+      --ds-warning-border: #854d0e;
+      --ds-danger:         #f87171;
+      --ds-danger-soft:    #1f0606;
+      --ds-danger-border:  #7f1d1d;
+
+      --ds-focus-ring: rgba(59,130,246,.3);
+      --ds-shadow-soft:   0 1px 3px rgba(0,0,0,.25), 0 4px 12px rgba(0,0,0,.2);
+      --ds-shadow-strong: 0 4px 6px rgba(0,0,0,.3),  0 10px 30px rgba(0,0,0,.4);
+
+      --ds-mode-label: "Dark Mode";
+    }
+
+    /* ── Base ───────────────────────────────────────────── */
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: var(--ds-bg-c1);
+      color: var(--ds-text);
+      line-height: 1.6;
+      font-size: 16px;
+      transition: background 200ms, color 200ms;
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .ds-shell {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    .ds-sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--ds-surface);
+      border-right: 1px solid var(--ds-border);
+      padding: var(--ds-space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--ds-space-2);
+    }
+
+    .ds-sidebar-logo {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--ds-primary);
+      padding-bottom: var(--ds-space-3);
+      border-bottom: 1px solid var(--ds-border);
+      margin-bottom: var(--ds-space-2);
+    }
+
+    .ds-sidebar-section {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ds-text-muted);
+      margin-top: var(--ds-space-2);
+      padding: var(--ds-space-1) 0;
+    }
+
+    .ds-nav-link {
+      display: block;
+      padding: 6px var(--ds-space-2);
+      border-radius: var(--ds-radius-sm);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--ds-text-muted);
+      text-decoration: none;
+      transition: background 120ms, color 120ms;
+    }
+    .ds-nav-link:hover, .ds-nav-link.is-active {
+      background: var(--ds-bg-c2);
+      color: var(--ds-text);
+    }
+
+    .ds-content {
+      padding: var(--ds-space-6);
+      max-width: 900px;
+    }
+
+    /* ── Section titles ─────────────────────────────────── */
+    .ds-section {
+      margin-bottom: var(--ds-space-6);
+      scroll-margin-top: var(--ds-space-4);
+    }
+
+    .ds-section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--ds-text);
+      margin-bottom: var(--ds-space-2);
+      padding-bottom: var(--ds-space-2);
+      border-bottom: 2px solid var(--ds-border);
+    }
+
+    .ds-section-desc {
+      font-size: 0.9375rem;
+      color: var(--ds-text-muted);
+      margin-bottom: var(--ds-space-4);
+    }
+
+    .ds-subsection-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--ds-text-muted);
+      margin: var(--ds-space-4) 0 var(--ds-space-2);
+    }
+
+    /* ── Theme toggle ───────────────────────────────────── */
+    .ds-theme-toggle {
+      margin-top: auto;
+      padding-top: var(--ds-space-3);
+      border-top: 1px solid var(--ds-border);
+    }
+
+    .ds-theme-btn {
+      width: 100%;
+      padding: 8px var(--ds-space-2);
+      border-radius: var(--ds-radius-sm);
+      border: 1px solid var(--ds-border);
+      background: var(--ds-bg-c2);
+      color: var(--ds-text);
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 120ms;
+    }
+    .ds-theme-btn:hover { background: var(--ds-bg-c3); }
+
+    /* ── Color swatches ─────────────────────────────────── */
+    .ds-swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: var(--ds-space-2);
+    }
+
+    .ds-swatch {
+      border-radius: var(--ds-radius-md);
+      overflow: hidden;
+      border: 1px solid var(--ds-border);
+      box-shadow: var(--ds-shadow-soft);
+    }
+
+    .ds-swatch__color {
+      height: 64px;
+    }
+
+    .ds-swatch__meta {
+      padding: 8px 10px;
+      background: var(--ds-surface);
+    }
+
+    .ds-swatch__name {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--ds-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ds-swatch__hex {
+      font-size: 0.6875rem;
+      color: var(--ds-text-muted);
+      font-family: monospace;
+    }
+
+    /* ── Typography scale ───────────────────────────────── */
+    .ds-type-row {
+      display: flex;
+      align-items: baseline;
+      gap: var(--ds-space-3);
+      padding: var(--ds-space-2) 0;
+      border-bottom: 1px solid var(--ds-border);
+    }
+
+    .ds-type-label {
+      width: 80px;
+      flex-shrink: 0;
+      font-size: 0.75rem;
+      color: var(--ds-text-muted);
+      font-family: monospace;
+    }
+
+    /* ── Spacing scale ──────────────────────────────────── */
+    .ds-space-row {
+      display: flex;
+      align-items: center;
+      gap: var(--ds-space-3);
+      padding: var(--ds-space-1) 0;
+    }
+
+    .ds-space-bar {
+      height: 20px;
+      background: var(--ds-primary);
+      opacity: 0.7;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .ds-space-meta {
+      font-size: 0.8125rem;
+      color: var(--ds-text-muted);
+      font-family: monospace;
+    }
+
+    /* ── Radius scale ───────────────────────────────────── */
+    .ds-radius-row {
+      display: flex;
+      align-items: center;
+      gap: var(--ds-space-4);
+      flex-wrap: wrap;
+    }
+
+    .ds-radius-box {
+      width: 64px;
+      height: 64px;
+      background: var(--ds-primary);
+      opacity: 0.2;
+      border: 2px solid var(--ds-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ds-radius-label {
+      font-size: 0.6875rem;
+      color: var(--ds-primary);
+      font-weight: 600;
+    }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .ds-btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--ds-space-2);
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: var(--ds-radius-sm);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: background 140ms, box-shadow 140ms, transform 140ms, border-color 140ms;
+      line-height: 1.4;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--ds-primary);
+      outline-offset: 2px;
+    }
+
+    .btn--primary {
+      background: var(--ds-primary);
+      color: var(--ds-text-on-primary);
+    }
+    .btn--primary:hover {
+      background: var(--ds-primary-dark);
+      box-shadow: var(--ds-shadow-soft);
+      transform: translateY(-1px);
+    }
+
+    .btn--secondary {
+      background: var(--ds-surface);
+      color: var(--ds-text);
+      border-color: var(--ds-border);
+      box-shadow: var(--ds-shadow-soft);
+    }
+    .btn--secondary:hover {
+      border-color: var(--ds-border-strong);
+      transform: translateY(-1px);
+    }
+
+    .btn--ghost {
+      background: transparent;
+      color: var(--ds-primary);
+      border-color: transparent;
+    }
+    .btn--ghost:hover {
+      background: var(--ds-bg-c2);
+    }
+
+    .btn--danger {
+      background: var(--ds-danger);
+      color: #fff;
+    }
+    .btn--danger:hover {
+      background: #b91c1c;
+      transform: translateY(-1px);
+    }
+
+    .btn--sm { padding: 6px 12px; font-size: 0.875rem; }
+    .btn--lg { padding: 12px 24px; font-size: 1.0625rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    /* ── Cards ──────────────────────────────────────────── */
+    .ds-card-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--ds-space-3);
+    }
+
+    .card {
+      background: var(--ds-surface);
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-lg);
+      padding: var(--ds-space-4);
+      box-shadow: var(--ds-shadow-soft);
+    }
+
+    .card--elevated {
+      box-shadow: var(--ds-shadow-strong);
+    }
+
+    .card__label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--ds-text-muted);
+      margin-bottom: 4px;
+    }
+
+    .card__value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--ds-text);
+    }
+
+    .card__delta {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .card__delta--pos { color: var(--ds-success); }
+    .card__delta--neg { color: var(--ds-danger); }
+
+    /* ── Badges ─────────────────────────────────────────── */
+    .ds-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--ds-space-2);
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge--success { background: var(--ds-success-soft); color: var(--ds-success); border: 1px solid var(--ds-success-border); }
+    .badge--warning { background: var(--ds-warning-soft); color: var(--ds-warning); border: 1px solid var(--ds-warning-border); }
+    .badge--danger  { background: var(--ds-danger-soft);  color: var(--ds-danger);  border: 1px solid var(--ds-danger-border);  }
+    .badge--neutral { background: var(--ds-bg-c2); color: var(--ds-text-muted); border: 1px solid var(--ds-border); }
+    .badge--primary { background: rgba(37,99,235,.1); color: var(--ds-primary); border: 1px solid rgba(37,99,235,.2); }
+
+    /* ── Form elements ──────────────────────────────────── */
+    .ds-form-row { display: flex; flex-direction: column; gap: var(--ds-space-1); margin-bottom: var(--ds-space-3); }
+    .ds-label { font-size: 0.875rem; font-weight: 600; color: var(--ds-text); }
+    .ds-hint  { font-size: 0.8125rem; color: var(--ds-text-muted); }
+
+    .input {
+      width: 100%;
+      max-width: 360px;
+      padding: 9px 12px;
+      border-radius: var(--ds-radius-sm);
+      border: 1px solid var(--ds-border);
+      background: var(--ds-surface);
+      color: var(--ds-text);
+      font-family: inherit;
+      font-size: 0.9375rem;
+      transition: border-color 140ms, box-shadow 140ms;
+      outline: none;
+    }
+
+    .input::placeholder { color: var(--ds-text-muted); }
+
+    .input:focus {
+      border-color: var(--ds-primary);
+      box-shadow: 0 0 0 3px var(--ds-focus-ring);
+    }
+
+    .input--error {
+      border-color: var(--ds-danger);
+    }
+    .input--error:focus {
+      box-shadow: 0 0 0 3px rgba(220,38,38,.15);
+    }
+
+    .field-error {
+      font-size: 0.8125rem;
+      color: var(--ds-danger);
+      font-weight: 500;
+    }
+
+    /* ── Shadow scale ───────────────────────────────────── */
+    .ds-shadow-row {
+      display: flex;
+      gap: var(--ds-space-4);
+      flex-wrap: wrap;
+    }
+
+    .ds-shadow-box {
+      width: 120px;
+      height: 80px;
+      background: var(--ds-surface);
+      border-radius: var(--ds-radius-md);
+      border: 1px solid var(--ds-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: var(--ds-text-muted);
+      font-weight: 600;
+    }
+
+    /* ── Animations preview ─────────────────────────────── */
+    @keyframes reveal-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(100%) scale(.95); }
+      to   { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    @keyframes pulse-scale {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.05); }
+    }
+
+    .anim-demo {
+      display: flex;
+      gap: var(--ds-space-3);
+      flex-wrap: wrap;
+    }
+
+    .anim-box {
+      width: 80px;
+      height: 80px;
+      background: var(--ds-primary);
+      border-radius: var(--ds-radius-md);
+      opacity: 0.8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      text-align: center;
+      padding: 8px;
+    }
+
+    .anim-box:hover { animation: pulse-scale 600ms cubic-bezier(0.22,1,0.36,1) both; }
+
+    .anim-box--reveal { animation: reveal-up 600ms cubic-bezier(0.22,1,0.36,1) both; }
+    .anim-box--toast  { animation: toast-in 400ms cubic-bezier(0.22,1,0.36,1) both; }
+
+    /* ── Icon grid ──────────────────────────────────────── */
+    .ds-icon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: var(--ds-space-2);
+    }
+
+    .ds-icon-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: var(--ds-space-2);
+      border-radius: var(--ds-radius-sm);
+      background: var(--ds-bg-c2);
+      font-size: 0.6875rem;
+      color: var(--ds-text-muted);
+      font-weight: 500;
+    }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 700px) {
+      .ds-shell { grid-template-columns: 1fr; }
+      .ds-sidebar { position: static; height: auto; }
+      .ds-content { padding: var(--ds-space-4); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="ds-shell">
+
+  <!-- Sidebar Navigation -->
+  <aside class="ds-sidebar" aria-label="Design-System-Navigation">
+    <div class="ds-sidebar-logo">FBM Finance<br><span style="font-size:.7rem;font-weight:400;opacity:.6">Design System v1.0</span></div>
+
+    <span class="ds-sidebar-section">Grundlagen</span>
+    <a class="ds-nav-link" href="#colors">Farben</a>
+    <a class="ds-nav-link" href="#typography">Typografie</a>
+    <a class="ds-nav-link" href="#spacing">Abstände</a>
+    <a class="ds-nav-link" href="#radius">Radien</a>
+    <a class="ds-nav-link" href="#shadows">Schatten</a>
+
+    <span class="ds-sidebar-section">Komponenten</span>
+    <a class="ds-nav-link" href="#buttons">Buttons</a>
+    <a class="ds-nav-link" href="#cards">Cards / KPIs</a>
+    <a class="ds-nav-link" href="#badges">Badges</a>
+    <a class="ds-nav-link" href="#forms">Formulare</a>
+    <a class="ds-nav-link" href="#icons">Icons</a>
+
+    <span class="ds-sidebar-section">Motion</span>
+    <a class="ds-nav-link" href="#animations">Animationen</a>
+
+    <div class="ds-theme-toggle">
+      <button class="ds-theme-btn" onclick="toggleTheme()" type="button">
+        🌗 Theme wechseln
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="ds-content">
+    <h1 style="font-size:2rem;font-weight:800;margin-bottom:.25rem">Design System</h1>
+    <p style="color:var(--ds-text-muted);margin-bottom:var(--ds-space-6);font-size:.9375rem">
+      FBM Finance · Alle visuellen Bausteine auf einen Blick
+    </p>
+
+    <!-- ── Colors ── -->
+    <section class="ds-section" id="colors">
+      <h2 class="ds-section-title">Farben</h2>
+      <p class="ds-section-desc">Das Farbsystem basiert auf CSS Custom Properties und unterstützt Light- und Dark Mode. Alle Werte wechseln automatisch per <code>data-theme</code>-Attribut.</p>
+
+      <p class="ds-subsection-title">Primär & Akzente</p>
+      <div class="ds-swatch-grid">
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#2563eb"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-primary</div><div class="ds-swatch__hex">#2563eb</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#1d4ed8"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-primary-dark</div><div class="ds-swatch__hex">#1d4ed8</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#3b82f6"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-accent-blue</div><div class="ds-swatch__hex">#3b82f6</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#f97316"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-accent-orange</div><div class="ds-swatch__hex">#f97316</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#8b5cf6"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-accent-violet</div><div class="ds-swatch__hex">#8b5cf6</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#22c55e"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-accent-emerald</div><div class="ds-swatch__hex">#22c55e</div></div></div>
+      </div>
+
+      <p class="ds-subsection-title">Hintergrund (Light)</p>
+      <div class="ds-swatch-grid">
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#faf9f7;border-bottom:1px solid #e4e2de"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-bg-c1</div><div class="ds-swatch__hex">#faf9f7</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#f5f3ef;border-bottom:1px solid #e4e2de"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-bg-c2</div><div class="ds-swatch__hex">#f5f3ef</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#ffffff;border-bottom:1px solid #e4e2de"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-surface</div><div class="ds-swatch__hex">#ffffff</div></div></div>
+      </div>
+
+      <p class="ds-subsection-title">Hintergrund (Dark)</p>
+      <div class="ds-swatch-grid">
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#0c0c0e"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-bg-c1 (dark)</div><div class="ds-swatch__hex">#0c0c0e</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#111114"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-bg-c2 (dark)</div><div class="ds-swatch__hex">#111114</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#18181b"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-surface (dark)</div><div class="ds-swatch__hex">#18181b</div></div></div>
+      </div>
+
+      <p class="ds-subsection-title">Status</p>
+      <div class="ds-swatch-grid">
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#16a34a"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-success</div><div class="ds-swatch__hex">#16a34a</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#d97706"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-warning</div><div class="ds-swatch__hex">#d97706</div></div></div>
+        <div class="ds-swatch"><div class="ds-swatch__color" style="background:#dc2626"></div><div class="ds-swatch__meta"><div class="ds-swatch__name">--ds-danger</div><div class="ds-swatch__hex">#dc2626</div></div></div>
+      </div>
+    </section>
+
+    <!-- ── Typography ── -->
+    <section class="ds-section" id="typography">
+      <h2 class="ds-section-title">Typografie</h2>
+      <p class="ds-section-desc">Schriftart: <strong>Outfit</strong> (Google Fonts). Gewichte: 300 · 400 · 500 · 600 · 700 · 800. Flüssige Größen via <code>clamp()</code>.</p>
+
+      <div>
+        <div class="ds-type-row"><span class="ds-type-label">800 / 3rem</span><span style="font-size:3rem;font-weight:800;line-height:1">Display</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">700 / 2rem</span><span style="font-size:2rem;font-weight:700;line-height:1.2">Heading 1</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">700 / 1.5rem</span><span style="font-size:1.5rem;font-weight:700">Heading 2</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">600 / 1.25rem</span><span style="font-size:1.25rem;font-weight:600">Heading 3</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">600 / 1.0625rem</span><span style="font-size:1.0625rem;font-weight:600">Heading 4</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">400 / 1rem</span><span style="font-size:1rem">Body — Fließtext in normaler Größe</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">400 / 0.9375rem</span><span style="font-size:.9375rem">Small — Buttons, Labels</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">400 / 0.875rem</span><span style="font-size:.875rem;color:var(--ds-text-muted)">Caption — Hinweise, Metadaten</span></div>
+        <div class="ds-type-row"><span class="ds-type-label">600 / 0.75rem</span><span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-muted)">OVERLINE — Sektionslabel</span></div>
+      </div>
+    </section>
+
+    <!-- ── Spacing ── -->
+    <section class="ds-section" id="spacing">
+      <h2 class="ds-section-title">Abstände</h2>
+      <p class="ds-section-desc">Einheitliche Abstands-Tokens für Padding, Margin und Gap.</p>
+      <div>
+        <div class="ds-space-row"><div class="ds-space-bar" style="width:6px"></div><span class="ds-space-meta">--ds-space-1 · 6px</span></div>
+        <div class="ds-space-row"><div class="ds-space-bar" style="width:10px"></div><span class="ds-space-meta">--ds-space-2 · 10px</span></div>
+        <div class="ds-space-row"><div class="ds-space-bar" style="width:16px"></div><span class="ds-space-meta">--ds-space-3 · 16px</span></div>
+        <div class="ds-space-row"><div class="ds-space-bar" style="width:22px"></div><span class="ds-space-meta">--ds-space-4 · 22px</span></div>
+        <div class="ds-space-row"><div class="ds-space-bar" style="width:28px"></div><span class="ds-space-meta">--ds-space-5 · 28px</span></div>
+        <div class="ds-space-row"><div class="ds-space-bar" style="width:40px"></div><span class="ds-space-meta">--ds-space-6 · 40px</span></div>
+      </div>
+    </section>
+
+    <!-- ── Radius ── -->
+    <section class="ds-section" id="radius">
+      <h2 class="ds-section-title">Radien</h2>
+      <div class="ds-radius-row">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div class="ds-radius-box" style="border-radius:8px"><span class="ds-radius-label">sm</span></div>
+          <span style="font-size:.75rem;color:var(--ds-text-muted)">--ds-radius-sm<br>8px</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div class="ds-radius-box" style="border-radius:12px"><span class="ds-radius-label">md</span></div>
+          <span style="font-size:.75rem;color:var(--ds-text-muted)">--ds-radius-md<br>12px</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div class="ds-radius-box" style="border-radius:16px"><span class="ds-radius-label">lg</span></div>
+          <span style="font-size:.75rem;color:var(--ds-text-muted)">--ds-radius-lg<br>16px</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div class="ds-radius-box" style="border-radius:99px;width:80px"><span class="ds-radius-label">pill</span></div>
+          <span style="font-size:.75rem;color:var(--ds-text-muted)">99px<br>Badges, Tags</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Shadows ── -->
+    <section class="ds-section" id="shadows">
+      <h2 class="ds-section-title">Schatten</h2>
+      <div class="ds-shadow-row">
+        <div>
+          <div class="ds-shadow-box" style="box-shadow:var(--ds-shadow-soft)">Soft</div>
+          <p style="font-size:.75rem;color:var(--ds-text-muted);margin-top:6px;text-align:center">--ds-shadow-soft</p>
+        </div>
+        <div>
+          <div class="ds-shadow-box" style="box-shadow:var(--ds-shadow-strong)">Strong</div>
+          <p style="font-size:.75rem;color:var(--ds-text-muted);margin-top:6px;text-align:center">--ds-shadow-strong</p>
+        </div>
+        <div>
+          <div class="ds-shadow-box" style="box-shadow:none;border:2px dashed var(--ds-border)">None</div>
+          <p style="font-size:.75rem;color:var(--ds-text-muted);margin-top:6px;text-align:center">Flat</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Buttons ── -->
+    <section class="ds-section" id="buttons">
+      <h2 class="ds-section-title">Buttons</h2>
+      <p class="ds-section-desc">Vier Varianten × drei Größen. Hover-State zeigt <code>transform: translateY(-1px)</code> mit Box-Shadow-Lift.</p>
+
+      <p class="ds-subsection-title">Varianten</p>
+      <div class="ds-btn-row">
+        <button class="btn btn--primary">Primary</button>
+        <button class="btn btn--secondary">Secondary</button>
+        <button class="btn btn--ghost">Ghost</button>
+        <button class="btn btn--danger">Danger</button>
+      </div>
+
+      <p class="ds-subsection-title">Größen</p>
+      <div class="ds-btn-row">
+        <button class="btn btn--primary btn--sm">Small</button>
+        <button class="btn btn--primary">Default</button>
+        <button class="btn btn--primary btn--lg">Large</button>
+      </div>
+
+      <p class="ds-subsection-title">Zustände</p>
+      <div class="ds-btn-row">
+        <button class="btn btn--primary" disabled>Disabled</button>
+        <button class="btn btn--secondary" disabled>Disabled</button>
+      </div>
+    </section>
+
+    <!-- ── Cards ── -->
+    <section class="ds-section" id="cards">
+      <h2 class="ds-section-title">Cards / KPI-Karten</h2>
+      <p class="ds-section-desc">Verwendung im Dashboard als KPI-Karten für Einnahmen, Ausgaben und Cashflow.</p>
+      <div class="ds-card-row">
+        <div class="card">
+          <p class="card__label">Einnahmen</p>
+          <p class="card__value">€ 3.240</p>
+          <p class="card__delta card__delta--pos">↑ +12% vs. Vormonat</p>
+        </div>
+        <div class="card">
+          <p class="card__label">Ausgaben</p>
+          <p class="card__value">€ 1.890</p>
+          <p class="card__delta card__delta--neg">↓ +5% vs. Vormonat</p>
+        </div>
+        <div class="card card--elevated">
+          <p class="card__label">Cashflow</p>
+          <p class="card__value" style="color:var(--ds-success)">€ 1.350</p>
+          <p class="card__delta card__delta--pos">Elevated Card</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Badges ── -->
+    <section class="ds-section" id="badges">
+      <h2 class="ds-section-title">Badges</h2>
+      <p class="ds-section-desc">Status-Badges mit Pill-Radius für Kategorien, Transaktionsstatus und Labels.</p>
+      <div class="ds-badge-row">
+        <span class="badge badge--success">✓ Aktiv</span>
+        <span class="badge badge--warning">⚠ Warnung</span>
+        <span class="badge badge--danger">✕ Fehler</span>
+        <span class="badge badge--neutral">Neutral</span>
+        <span class="badge badge--primary">Einnahmen</span>
+      </div>
+    </section>
+
+    <!-- ── Forms ── -->
+    <section class="ds-section" id="forms">
+      <h2 class="ds-section-title">Formulare</h2>
+      <p class="ds-section-desc">Inputs mit Label, Hint und Fehlerzustand. Focus-Ring via <code>--ds-focus-ring</code>.</p>
+
+      <div class="ds-form-row">
+        <label class="ds-label" for="ex-default">Betrag</label>
+        <input class="input" id="ex-default" type="text" placeholder="0,00 €" />
+        <span class="ds-hint">Monatliche Einnahme in Euro</span>
+      </div>
+
+      <div class="ds-form-row">
+        <label class="ds-label" for="ex-error">E-Mail</label>
+        <input class="input input--error" id="ex-error" type="email" value="kein@format" aria-describedby="ex-error-msg" />
+        <span class="field-error" id="ex-error-msg" role="alert">Bitte gib eine gültige E-Mail-Adresse ein.</span>
+      </div>
+
+      <div class="ds-form-row">
+        <label class="ds-label" for="ex-disabled">Gesperrt</label>
+        <input class="input" id="ex-disabled" type="text" placeholder="Nicht editierbar" disabled />
+      </div>
+    </section>
+
+    <!-- ── Icons ── -->
+    <section class="ds-section" id="icons">
+      <h2 class="ds-section-title">Icons</h2>
+      <p class="ds-section-desc">Inline-SVG-Icons für die Navigation. Alle Icons sind <code>aria-hidden="true"</code> und werden durch Labels ergänzt.</p>
+      <div class="ds-icon-grid">
+        <div class="ds-icon-cell">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><rect x="2" y="2" width="7" height="7" rx="2" fill="currentColor" opacity=".8"/><rect x="13" y="2" width="7" height="7" rx="2" fill="currentColor" opacity=".4"/><rect x="2" y="13" width="7" height="7" rx="2" fill="currentColor" opacity=".4"/><rect x="13" y="13" width="7" height="7" rx="2" fill="currentColor" opacity=".8"/></svg>
+          Dashboard
+        </div>
+        <div class="ds-icon-cell">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><circle cx="11" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M3 19c0-4.418 3.582-7 8-7s8 2.582 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Profil
+        </div>
+        <div class="ds-icon-cell">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M3 11h16M11 3l8 8-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Weiter
+        </div>
+        <div class="ds-icon-cell">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M4 6h14M4 11h14M4 16h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Menü
+        </div>
+        <div class="ds-icon-cell">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="1.8"/><path d="M15 15l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Suche
+        </div>
+        <div class="ds-icon-cell">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M4 7h14M6 11h10M8 15h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Filter
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Animations ── -->
+    <section class="ds-section" id="animations">
+      <h2 class="ds-section-title">Animationen</h2>
+      <p class="ds-section-desc">Alle Transitionen verwenden <code>cubic-bezier(0.22, 1, 0.36, 1)</code> (ease-spring). Hover über die Boxen zum Testen. <code>@media (prefers-reduced-motion)</code> deaktiviert alle Animationen.</p>
+
+      <div class="anim-demo">
+        <div class="anim-box anim-box--reveal">reveal-up<br><small>600ms</small></div>
+        <div class="anim-box anim-box--toast" style="background:var(--ds-accent-violet)">toast-in<br><small>400ms</small></div>
+        <div class="anim-box" style="background:var(--ds-accent-orange)">hover me<br><small>pulse-scale</small></div>
+      </div>
+
+      <p class="ds-subsection-title">Transition-Dauern</p>
+      <table style="border-collapse:collapse;font-size:.875rem;width:100%;max-width:400px">
+        <thead><tr><th style="text-align:left;padding:6px 12px;border-bottom:2px solid var(--ds-border);color:var(--ds-text-muted)">Token</th><th style="text-align:left;padding:6px 12px;border-bottom:2px solid var(--ds-border);color:var(--ds-text-muted)">Wert</th><th style="text-align:left;padding:6px 12px;border-bottom:2px solid var(--ds-border);color:var(--ds-text-muted)">Verwendung</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:6px 12px;border-bottom:1px solid var(--ds-border)">fast</td><td style="padding:6px 12px;border-bottom:1px solid var(--ds-border);font-family:monospace">120–140ms</td><td style="padding:6px 12px;border-bottom:1px solid var(--ds-border)">Hover, Focus-Ring</td></tr>
+          <tr><td style="padding:6px 12px;border-bottom:1px solid var(--ds-border)">medium</td><td style="padding:6px 12px;border-bottom:1px solid var(--ds-border);font-family:monospace">300–400ms</td><td style="padding:6px 12px;border-bottom:1px solid var(--ds-border)">Toast, Modal-Open</td></tr>
+          <tr><td style="padding:6px 12px">slow</td><td style="padding:6px 12px;font-family:monospace">500–700ms</td><td style="padding:6px 12px">Page-Reveal, Sheet-In</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.dataset.theme || 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+  }
+</script>
+</body>
+</html>

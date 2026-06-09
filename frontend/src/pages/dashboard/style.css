@@ -237,7 +237,10 @@ users-login {
   font-size: 0.875rem;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 130ms ease, box-shadow 130ms ease, background 130ms ease;
+  transition:
+    border-color 130ms ease,
+    box-shadow 130ms ease,
+    background 130ms ease;
 }
 
 .login-input:focus {
@@ -270,7 +273,9 @@ users-login {
   font-weight: 600;
   cursor: pointer;
   letter-spacing: -0.01em;
-  transition: opacity 130ms ease, transform 130ms ease;
+  transition:
+    opacity 130ms ease,
+    transform 130ms ease;
 }
 
 .login-button:hover:not(:disabled) {
@@ -297,8 +302,12 @@ users-login {
   line-height: 1.5;
 }
 
-.login-status.is-success { color: var(--ui-success); }
-.login-status.is-error   { color: var(--ui-error); }
+.login-status.is-success {
+  color: var(--ui-success);
+}
+.login-status.is-error {
+  color: var(--ui-error);
+}
 
 .code-expiry {
   margin: 8px 0 0;
@@ -306,8 +315,12 @@ users-login {
   font-weight: 500;
   min-height: 1.2em;
 }
-.code-expiry.is-warning { color: var(--ui-warning, #e6a817); }
-.code-expiry.is-expired { color: var(--ui-error); }
+.code-expiry.is-warning {
+  color: var(--ui-warning, #e6a817);
+}
+.code-expiry.is-expired {
+  color: var(--ui-error);
+}
 
 .auth-divider {
   height: 1px;
@@ -375,8 +388,14 @@ users-login {
 
 /* ── Animationen ──────────────────────────────────── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Responsive ───────────────────────────────────── */

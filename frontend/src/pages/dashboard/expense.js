@@ -1,7 +1,7 @@
 // Ausgaben-Logik: Listenaktionen und Speichern/Bearbeiten im Formular.
-import { appState, expenseState, listState } from './state.js';
-import { setActiveView } from './runtime.js';
-import { setStatus, setButtonLoading, initInlineValidation } from './helpers.js';
+import { appState, expenseState, listState } from "./state.js";
+import { setActiveView } from "./runtime.js";
+import { setStatus, setButtonLoading, initInlineValidation } from "./helpers.js";
 import {
   handleDeleteExpense,
   handleUpdateExpense,
@@ -11,11 +11,10 @@ import {
   setExpenseFormModeCreate,
   setExpenseFormModeEdit,
   getExpenseFormElements,
-  initRecurrenceToggle
-} from './dashboard-api.js';
-import { initCategorySelector, resolveCategoryFromForm } from './categories-controls.js';
-import { t as sharedT } from '@shared/js/language-utils.js';
-
+  initRecurrenceToggle,
+} from "./dashboard-api.js";
+import { initCategorySelector, resolveCategoryFromForm } from "./categories-controls.js";
+import { t as sharedT } from "@shared/js/language-utils.js";
 
 function expenseT(key, fallback, params = {}) {
   const translated = sharedT(key, params);
@@ -28,17 +27,21 @@ export function initExpenseListActions() {
   const list = document.getElementById("expense-list");
   if (!list) return;
 
-  list.addEventListener("toggle", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLDetailsElement)) return;
-    const key = target.dataset.groupKey;
-    if (!key) return;
-    if (target.open) {
-      listState.expenseExpandedGroups.add(key);
-    } else {
-      listState.expenseExpandedGroups.delete(key);
-    }
-  }, true);
+  list.addEventListener(
+    "toggle",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLDetailsElement)) return;
+      const key = target.dataset.groupKey;
+      if (!key) return;
+      if (target.open) {
+        listState.expenseExpandedGroups.add(key);
+      } else {
+        listState.expenseExpandedGroups.delete(key);
+      }
+    },
+    true
+  );
 
   list.addEventListener("click", async (event) => {
     const target = event.target;
@@ -52,7 +55,11 @@ export function initExpenseListActions() {
 
     if (action === "edit") {
       setExpenseFormModeEdit(entry);
-      setStatus("expense-form-status", "", expenseT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere."));
+      setStatus(
+        "expense-form-status",
+        "",
+        expenseT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere.")
+      );
       setActiveView("expense");
       return;
     }
@@ -61,17 +68,26 @@ export function initExpenseListActions() {
       const confirmDelete = await expenseState.askConfirm({
         title: expenseT("expense_delete_confirm", "Ausgabe loeschen?"),
         message: `Der Eintrag "${entry.source || entry.category || "Ausgabe"}" wird dauerhaft entfernt.`,
-        confirmText: expenseT("confirm_delete_yes", "Ja, loeschen")
+        confirmText: expenseT("confirm_delete_yes", "Ja, loeschen"),
       });
       if (!confirmDelete) return;
 
       const result = await handleDeleteExpense(entryId);
       if (!result.ok) {
-        setStatus("expense-form-status", "error", result.message || expenseT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden."));
+        setStatus(
+          "expense-form-status",
+          "error",
+          result.message ||
+            expenseT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden.")
+        );
         return;
       }
 
-      setStatus("expense-form-status", "success", expenseT("expense_deleted", "Ausgabe geloescht."));
+      setStatus(
+        "expense-form-status",
+        "success",
+        expenseT("expense_deleted", "Ausgabe geloescht.")
+      );
       if (expenseState.editingId === entryId) setExpenseFormModeCreate();
       await refreshDashboardData();
     }
@@ -91,7 +107,11 @@ export function initExpenseForm() {
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
       setExpenseFormModeCreate();
-      setStatus("expense-form-status", "", expenseT("editing_cancelled", "Bearbeitung abgebrochen."));
+      setStatus(
+        "expense-form-status",
+        "",
+        expenseT("editing_cancelled", "Bearbeitung abgebrochen.")
+      );
     });
   }
 
@@ -102,7 +122,6 @@ export function initExpenseForm() {
 
     const formData = new FormData(form);
     const rawAmount = Number(formData.get("amount"));
-    
 
     const recurrenceRaw = Number(formData.get("recurrence") || 0);
 
@@ -115,22 +134,38 @@ export function initExpenseForm() {
       note: String(formData.get("note") || "").trim(),
       cycle: String(formData.get("cycle") || "once").trim(),
       recurrence: recurrenceRaw > 0 ? recurrenceRaw : null,
-      is_active: true
+      is_active: true,
     };
 
-    setStatus("expense-form-status", "", expenseState.editingId ? expenseT("updating_expense", "Aktualisiere Ausgabe...") : expenseT("saving_expense", "Speichere Ausgabe..."));
+    setStatus(
+      "expense-form-status",
+      "",
+      expenseState.editingId
+        ? expenseT("updating_expense", "Aktualisiere Ausgabe...")
+        : expenseT("saving_expense", "Speichere Ausgabe...")
+    );
 
     const result = expenseState.editingId
       ? await handleUpdateExpense(expenseState.editingId, payload)
       : await handleCreateExpense(payload);
 
     if (!result.ok) {
-      setStatus("expense-form-status", "error", result.message || expenseT("save_failed", "Speichern fehlgeschlagen."));
+      setStatus(
+        "expense-form-status",
+        "error",
+        result.message || expenseT("save_failed", "Speichern fehlgeschlagen.")
+      );
       setButtonLoading(submitBtn, false);
       return;
     }
 
-    setStatus("expense-form-status", "success", expenseState.editingId ? expenseT("expense_updated", "Ausgabe aktualisiert.") : expenseT("expense_saved", "Ausgabe gespeichert."));
+    setStatus(
+      "expense-form-status",
+      "success",
+      expenseState.editingId
+        ? expenseT("expense_updated", "Ausgabe aktualisiert.")
+        : expenseT("expense_saved", "Ausgabe gespeichert.")
+    );
     await refreshCategoryData();
     setExpenseFormModeCreate();
     await refreshDashboardData();

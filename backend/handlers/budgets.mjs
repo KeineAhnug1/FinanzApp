@@ -6,7 +6,6 @@ import { listUserBankAccounts } from "../helpers/finance-db.mjs";
 
 /** @param {Pool} pool */
 export function createBudgetHandlers(pool) {
-
   /**
    * @param {Request} request
    * @param {{ user: { id: string } }} session
@@ -20,20 +19,26 @@ export function createBudgetHandlers(pool) {
         `SELECT id, category, target_amount, current_amount, reset_date, created_at FROM budgets WHERE user_id = $1 ORDER BY created_at DESC`,
         [userId]
       );
-      return jsonResponse({
-        ok: true,
-        budgets: rows.map((b) => ({
-          id: String(b.id),
-          category: b.category || "",
-          target_amount: Number(Number(b.target_amount).toFixed(2)),
-          current_amount: Number(Number(b.current_amount).toFixed(2)),
-          reset_date: b.reset_date instanceof Date ? b.reset_date.toISOString() : null,
-          created_at: b.created_at instanceof Date ? b.created_at.toISOString() : null
-        }))
-      }, 200);
+      return jsonResponse(
+        {
+          ok: true,
+          budgets: rows.map((b) => ({
+            id: String(b.id),
+            category: b.category || "",
+            target_amount: Number(Number(b.target_amount).toFixed(2)),
+            current_amount: Number(Number(b.current_amount).toFixed(2)),
+            reset_date: b.reset_date instanceof Date ? b.reset_date.toISOString() : null,
+            created_at: b.created_at instanceof Date ? b.created_at.toISOString() : null,
+          })),
+        },
+        200
+      );
     }
 
-    if (request.method !== "POST") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET, POST" });
+    if (request.method !== "POST")
+      return jsonResponse({ ok: false, message: "Method not allowed" }, 405, {
+        Allow: "GET, POST",
+      });
 
     const payload = await parseBody(request);
     if (!payload) return badRequest("Invalid JSON body");
@@ -47,7 +52,11 @@ export function createBudgetHandlers(pool) {
       `SELECT id FROM budgets WHERE user_id = $1 AND LOWER(category) = LOWER($2)`,
       [userId, category]
     );
-    if (existing.length > 0) return jsonResponse({ ok: false, message: "Budget fuer diese Kategorie existiert bereits" }, 409);
+    if (existing.length > 0)
+      return jsonResponse(
+        { ok: false, message: "Budget fuer diese Kategorie existiert bereits" },
+        409
+      );
 
     const { rows } = await pool.query(
       `INSERT INTO budgets (user_id, category, target_amount, current_amount, created_at)
@@ -56,17 +65,20 @@ export function createBudgetHandlers(pool) {
     );
 
     const b = rows[0];
-    return jsonResponse({
-      ok: true,
-      budget: {
-        id: String(b.id),
-        category: b.category || "",
-        target_amount: Number(Number(b.target_amount).toFixed(2)),
-        current_amount: 0,
-        reset_date: null,
-        created_at: b.created_at instanceof Date ? b.created_at.toISOString() : null
-      }
-    }, 201);
+    return jsonResponse(
+      {
+        ok: true,
+        budget: {
+          id: String(b.id),
+          category: b.category || "",
+          target_amount: Number(Number(b.target_amount).toFixed(2)),
+          current_amount: 0,
+          reset_date: null,
+          created_at: b.created_at instanceof Date ? b.created_at.toISOString() : null,
+        },
+      },
+      201
+    );
   }
 
   /**
@@ -85,18 +97,30 @@ export function createBudgetHandlers(pool) {
       const payload = await parseBody(request);
       if (!payload) return badRequest("Invalid JSON body");
 
-      const category = payload.category !== undefined ? normalizeCategoryValue(payload.category) : null;
-      const targetAmount = payload.target_amount !== undefined ? parsePositiveAmount(payload.target_amount) : null;
+      const category =
+        payload.category !== undefined ? normalizeCategoryValue(payload.category) : null;
+      const targetAmount =
+        payload.target_amount !== undefined ? parsePositiveAmount(payload.target_amount) : null;
 
-      if (payload.category !== undefined && !category) return badRequest("Kategorie darf nicht leer sein");
-      if (payload.target_amount !== undefined && targetAmount == null) return badRequest("Zielbetrag muss groesser 0 sein");
+      if (payload.category !== undefined && !category)
+        return badRequest("Kategorie darf nicht leer sein");
+      if (payload.target_amount !== undefined && targetAmount == null)
+        return badRequest("Zielbetrag muss groesser 0 sein");
 
       const sets = [];
       const params = [];
       let paramIndex = 1;
 
-      if (category) { sets.push(`category = $${paramIndex}`); params.push(category); paramIndex++; }
-      if (targetAmount != null) { sets.push(`target_amount = $${paramIndex}`); params.push(targetAmount); paramIndex++; }
+      if (category) {
+        sets.push(`category = $${paramIndex}`);
+        params.push(category);
+        paramIndex++;
+      }
+      if (targetAmount != null) {
+        sets.push(`target_amount = $${paramIndex}`);
+        params.push(targetAmount);
+        paramIndex++;
+      }
       if (sets.length === 0) return badRequest("Keine Aenderung angegeben");
 
       params.push(budgetId, userId);
@@ -107,26 +131,34 @@ export function createBudgetHandlers(pool) {
       if (rows.length === 0) return notFound("Budget nicht gefunden");
 
       const b = rows[0];
-      return jsonResponse({
-        ok: true,
-        budget: {
-          id: String(b.id),
-          category: b.category || "",
-          target_amount: Number(Number(b.target_amount).toFixed(2)),
-          current_amount: Number(Number(b.current_amount).toFixed(2)),
-          reset_date: b.reset_date instanceof Date ? b.reset_date.toISOString() : null,
-          created_at: b.created_at instanceof Date ? b.created_at.toISOString() : null
-        }
-      }, 200);
+      return jsonResponse(
+        {
+          ok: true,
+          budget: {
+            id: String(b.id),
+            category: b.category || "",
+            target_amount: Number(Number(b.target_amount).toFixed(2)),
+            current_amount: Number(Number(b.current_amount).toFixed(2)),
+            reset_date: b.reset_date instanceof Date ? b.reset_date.toISOString() : null,
+            created_at: b.created_at instanceof Date ? b.created_at.toISOString() : null,
+          },
+        },
+        200
+      );
     }
 
     if (request.method === "DELETE") {
-      const { rowCount } = await pool.query(`DELETE FROM budgets WHERE id = $1 AND user_id = $2`, [budgetId, userId]);
+      const { rowCount } = await pool.query(`DELETE FROM budgets WHERE id = $1 AND user_id = $2`, [
+        budgetId,
+        userId,
+      ]);
       if (rowCount === 0) return notFound("Budget nicht gefunden");
       return jsonResponse({ ok: true, message: "Budget geloescht" }, 200);
     }
 
-    return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "PATCH, DELETE" });
+    return jsonResponse({ ok: false, message: "Method not allowed" }, 405, {
+      Allow: "PATCH, DELETE",
+    });
   }
 
   /**
@@ -134,7 +166,8 @@ export function createBudgetHandlers(pool) {
    * @param {{ user: { id: string } }} session
    */
   async function handleBudgetStatus(request, session) {
-    if (request.method !== "GET") return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
+    if (request.method !== "GET")
+      return jsonResponse({ ok: false, message: "Method not allowed" }, 405, { Allow: "GET" });
 
     const userId = parseId(session.user.id);
     if (!userId) return unauthorized("Session user invalid");
@@ -168,7 +201,14 @@ export function createBudgetHandlers(pool) {
       const target = Number(Number(b.target_amount).toFixed(2));
       const spent = expensesByCategory.get((b.category || "").toLowerCase()) || 0;
       const percentage = target > 0 ? Math.round((spent / target) * 100) : 0;
-      return { budget_id: String(b.id), category: b.category || "", target, spent, percentage, exceeded: spent > target };
+      return {
+        budget_id: String(b.id),
+        category: b.category || "",
+        target,
+        spent,
+        percentage,
+        exceeded: spent > target,
+      };
     });
 
     return jsonResponse({ ok: true, alerts }, 200);

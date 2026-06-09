@@ -39,10 +39,9 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
   async function getSessionRecord(token) {
     if (!token) return null;
     if (!pool) throw new Error("Session store not initialized");
-    const { rows } = await pool.query(
-      `SELECT user_id, expires_at FROM sessions WHERE token = $1`,
-      [token]
-    );
+    const { rows } = await pool.query(`SELECT user_id, expires_at FROM sessions WHERE token = $1`, [
+      token,
+    ]);
     if (rows.length === 0) return null;
     const rec = rows[0];
 
@@ -53,10 +52,10 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
 
     const halfTtlMs = ttlMinutes * 30 * 1000;
     if (new Date(rec.expires_at).getTime() - Date.now() < halfTtlMs) {
-      await pool.query(
-        `UPDATE sessions SET expires_at = $1 WHERE token = $2`,
-        [sessionExpiresAt(), token]
-      );
+      await pool.query(`UPDATE sessions SET expires_at = $1 WHERE token = $2`, [
+        sessionExpiresAt(),
+        token,
+      ]);
     }
 
     return { userId: String(rec.user_id) };
@@ -65,7 +64,8 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
   function cookieAttrs(base, maxAge) {
     const attrs = [base, "HttpOnly", "Path=/", "SameSite=Lax"];
     if (typeof maxAge === "number") attrs.push(`Max-Age=${maxAge}`);
-    if (process.env.SESSION_SECURE_COOKIE === "true" || process.env.NODE_ENV === "production") attrs.push("Secure");
+    if (process.env.SESSION_SECURE_COOKIE === "true" || process.env.NODE_ENV === "production")
+      attrs.push("Secure");
     return attrs.join("; ");
   }
 
@@ -90,6 +90,6 @@ export function createSessionStore({ cookieName, ttlMinutes }) {
     createSession,
     destroySession,
     gcSessions,
-    getSessionRecord
+    getSessionRecord,
   };
 }

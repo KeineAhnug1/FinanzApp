@@ -1,14 +1,14 @@
 // Aktionen fuer Kategorie-Loeschen und Event-Bindings fuer die Listen-Suche.
-import { appState, incomeState, listState } from './state.js';
-import { setStatus } from './helpers.js';
-import { renderIncomeList, renderExpenseList } from './overview-cashflow.js';
+import { appState, incomeState, listState } from "./state.js";
+import { setStatus } from "./helpers.js";
+import { renderIncomeList, renderExpenseList } from "./overview-cashflow.js";
 import {
   handleDeleteCategory,
   refreshCategoryData,
   refreshDashboardData,
   setIncomeFormModeCreate,
-  setExpenseFormModeCreate
-} from './dashboard-api.js';
+  setExpenseFormModeCreate,
+} from "./dashboard-api.js";
 
 export function initCategoryManagerActions() {
   const incomeList = document.getElementById("income-category-list");
@@ -26,7 +26,7 @@ export function initCategoryManagerActions() {
       const confirmDelete = await incomeState.askConfirm({
         title: "Kategorie loeschen?",
         message: `Die Kategorie "${category}" wird aus der Auswahl entfernt. Zugehoerige Eintraege werden auf "Sonstiges" gesetzt.`,
-        confirmText: "Kategorie loeschen"
+        confirmText: "Kategorie loeschen",
       });
       if (!confirmDelete) return;
 
@@ -36,7 +36,11 @@ export function initCategoryManagerActions() {
         return;
       }
 
-      setStatus(statusId, "success", `Kategorie geloescht. ${result.updated_entries || 0} Eintraege aktualisiert.`);
+      setStatus(
+        statusId,
+        "success",
+        `Kategorie geloescht. ${result.updated_entries || 0} Eintraege aktualisiert.`
+      );
       await refreshCategoryData();
       if (kind === "income") {
         setIncomeFormModeCreate();

@@ -1,8 +1,20 @@
-import '@shared/js/topbar.js';
-import { getLocale, setLocale } from '@shared/js/language-utils.js';
-import { fetchSessionUser, setCurrentUserInStorage, clearCurrentUserFromStorage, initialsFromUser, logoutAndRedirect } from '@shared/js/session-utils.js';
-import { toastSuccess } from '@shared/js/api-client.js';
-import { initThemeSwitcher, initDesign, initContrast, getStoredDesign, saveAndApplyDesign } from '@shared/js/theme-utils.js';
+import "@shared/js/topbar.js";
+import { getLocale, setLocale } from "@shared/js/language-utils.js";
+import {
+  fetchSessionUser,
+  setCurrentUserInStorage,
+  clearCurrentUserFromStorage,
+  initialsFromUser,
+  logoutAndRedirect,
+} from "@shared/js/session-utils.js";
+import { toastSuccess } from "@shared/js/api-client.js";
+import {
+  initThemeSwitcher,
+  initDesign,
+  initContrast,
+  getStoredDesign,
+  saveAndApplyDesign,
+} from "@shared/js/theme-utils.js";
 
 const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
 
@@ -26,9 +38,16 @@ function saveSettings(userId, patch) {
 
 /* ── Profil befüllen ── */
 function fillProfile(user) {
-  const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
+  const fullName =
+    `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
   const initials = initialsFromUser(user) || "U";
-  const since = user.created_at ? new Date(user.created_at).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" }) : "-";
+  const since = user.created_at
+    ? new Date(user.created_at).toLocaleDateString("de-DE", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "-";
 
   const avatar = document.getElementById("profil-avatar-large");
   if (avatar) {
@@ -90,7 +109,7 @@ function initProfileImageUpload() {
         method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileImage: base64 })
+        body: JSON.stringify({ profileImage: base64 }),
       });
       const data = await response.json();
 
@@ -110,7 +129,9 @@ function initProfileImageUpload() {
             parsed.profileImage = base64;
             window.sessionStorage.setItem("finanzapp.currentUser", JSON.stringify(parsed));
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         statusEl.textContent = "Profilbild gespeichert.";
         statusEl.className = "form-status is-success";
@@ -240,7 +261,7 @@ function initPasswordChange() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
       });
       const data = await response.json();
 
@@ -323,7 +344,7 @@ function initDeleteAccount() {
     try {
       const response = await fetch("/api/user/account", {
         method: "DELETE",
-        credentials: "same-origin"
+        credentials: "same-origin",
       });
       const data = await response.json();
 
@@ -351,14 +372,17 @@ function initSectionHighlight() {
 
   if (!sections.length || !navLinks.length) return;
 
-  const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      for (const link of navLinks) {
-        link.classList.toggle("is-active", link.getAttribute("href") === `#${entry.target.id}`);
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        for (const link of navLinks) {
+          link.classList.toggle("is-active", link.getAttribute("href") === `#${entry.target.id}`);
+        }
       }
-    }
-  }, { rootMargin: "-30% 0px -60% 0px" });
+    },
+    { rootMargin: "-30% 0px -60% 0px" }
+  );
 
   for (const section of sections) observer.observe(section);
 }

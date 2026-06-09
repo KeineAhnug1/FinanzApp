@@ -31,11 +31,14 @@ export async function handleApiRequest(request, pool, env) {
   const clearSessionCookie = () => kvStore.clearSessionCookie(isSecure);
 
   const authHandlers = createAuthHandlers({
-    pool, kv, buildSessionCookie, clearSessionCookie,
+    pool,
+    kv,
+    buildSessionCookie,
+    clearSessionCookie,
     createSession: kvStore.createSession,
     destroySession: kvStore.destroySession,
     getSessionRecord: kvStore.getSessionRecord,
-    env
+    env,
   });
 
   // Auth routes (no session required)
@@ -56,14 +59,19 @@ export async function handleApiRequest(request, pool, env) {
   const budgetHandlers = createBudgetHandlers(pool);
   const groupHandlers = createGroupHandlers(pool);
   const forumHandlers = createForumHandlers(pool);
-  const userHandlers = createUserHandlers({ pool, kv, destroySession: kvStore.destroySession, clearSessionCookie });
+  const userHandlers = createUserHandlers({
+    pool,
+    kv,
+    destroySession: kvStore.destroySession,
+    clearSessionCookie,
+  });
 
   const API_HANDLERS = {
     ...financeHandlers,
     ...budgetHandlers,
     ...groupHandlers,
     ...forumHandlers,
-    ...userHandlers
+    ...userHandlers,
   };
 
   return await dispatchApiRoute({
@@ -71,6 +79,6 @@ export async function handleApiRequest(request, pool, env) {
     url,
     pathname,
     session: /** @type {any} */ (session),
-    handlers: API_HANDLERS
+    handlers: API_HANDLERS,
   });
 }

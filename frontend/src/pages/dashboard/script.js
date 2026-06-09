@@ -1,8 +1,8 @@
 // Login/Registrierung: Formular-Modi und API-Kommunikation.
-import { t as sharedT } from '@shared/js/language-utils.js';
-import { setCurrentUserInStorage } from '@shared/js/session-utils.js';
-import { requestJson, requestJsonMerged } from '@shared/js/api-client.js';
-import { initThemeSwitcher } from '@shared/js/theme-utils.js';
+import { t as sharedT } from "@shared/js/language-utils.js";
+import { setCurrentUserInStorage } from "@shared/js/session-utils.js";
+import { requestJson, requestJsonMerged } from "@shared/js/api-client.js";
+import { initThemeSwitcher } from "@shared/js/theme-utils.js";
 
 function tr(key, fallback, params = {}) {
   const translated = sharedT(key, params);
@@ -84,7 +84,13 @@ class UsersLogin extends HTMLElement {
     for (const button of modeButtons) {
       button.addEventListener("click", () => {
         const targetMode = button.dataset.authMode;
-        if (targetMode === "login" || targetMode === "register" || targetMode === "verify" || targetMode === "forgot" || targetMode === "reset") {
+        if (
+          targetMode === "login" ||
+          targetMode === "register" ||
+          targetMode === "verify" ||
+          targetMode === "forgot" ||
+          targetMode === "reset"
+        ) {
           this.mode = targetMode;
           this.flash = null;
           this.render();
@@ -144,7 +150,9 @@ class UsersLogin extends HTMLElement {
 
   async submitLogin(form, status) {
     const formData = new FormData(form);
-    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const email = String(formData.get("email") || "")
+      .trim()
+      .toLowerCase();
     const password = String(formData.get("password") || "");
 
     const result = await postJson("/api/login", { email, password });
@@ -155,14 +163,22 @@ class UsersLogin extends HTMLElement {
     }
 
     if (!result.ok) {
-      setStatus(status, "error", result.message || tr("auth.login_failed", "E-Mail oder Passwort ist falsch."));
+      setStatus(
+        status,
+        "error",
+        result.message || tr("auth.login_failed", "E-Mail oder Passwort ist falsch.")
+      );
       return;
     }
 
-    setStatus(status, "success", tr("auth.login_success", "Login erfolgreich: {email}", { email: result.user.email }));
+    setStatus(
+      status,
+      "success",
+      tr("auth.login_success", "Login erfolgreich: {email}", { email: result.user.email })
+    );
     setCurrentUserInStorage({
       ...result.user,
-      logged_in_at: new Date().toISOString()
+      logged_in_at: new Date().toISOString(),
     });
     window.setTimeout(() => {
       window.location.assign("/pages/dashboard/dashboard.html");
@@ -173,13 +189,21 @@ class UsersLogin extends HTMLElement {
     const formData = new FormData(form);
     const firstName = String(formData.get("first_name") || "").trim();
     const lastName = String(formData.get("last_name") || "").trim();
-    const username = String(formData.get("username") || "").trim().toLowerCase();
-    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const username = String(formData.get("username") || "")
+      .trim()
+      .toLowerCase();
+    const email = String(formData.get("email") || "")
+      .trim()
+      .toLowerCase();
     const password = String(formData.get("password") || "");
     const confirmPassword = String(formData.get("confirm_password") || "");
 
     if (password !== confirmPassword) {
-      setStatus(status, "error", tr("auth.password_mismatch", "Passwort und Passwort-Wiederholung stimmen nicht überein."));
+      setStatus(
+        status,
+        "error",
+        tr("auth.password_mismatch", "Passwort und Passwort-Wiederholung stimmen nicht überein.")
+      );
       return;
     }
 
@@ -188,7 +212,7 @@ class UsersLogin extends HTMLElement {
       last_name: lastName,
       username,
       email,
-      password
+      password,
     });
 
     if (result.status === 429) {
@@ -197,7 +221,11 @@ class UsersLogin extends HTMLElement {
     }
 
     if (!result.ok) {
-      setStatus(status, "error", result.message || tr("auth.register_failed", "Konto konnte nicht erstellt werden."));
+      setStatus(
+        status,
+        "error",
+        result.message || tr("auth.register_failed", "Konto konnte nicht erstellt werden.")
+      );
       return;
     }
 
@@ -205,7 +233,7 @@ class UsersLogin extends HTMLElement {
     this.mode = "verify";
     this.flash = {
       type: "success",
-      text: result.message || tr("auth.verify_sent", "Verifizierungscode wurde versendet.")
+      text: result.message || tr("auth.verify_sent", "Verifizierungscode wurde versendet."),
     };
 
     this.render();
@@ -217,12 +245,18 @@ class UsersLogin extends HTMLElement {
 
   async submitVerify(form, status) {
     const formData = new FormData(form);
-    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const email = String(formData.get("email") || "")
+      .trim()
+      .toLowerCase();
     const code = String(formData.get("code") || "").trim();
 
     const result = await postJson("/api/register/verify", { email, code });
     if (!result.ok) {
-      setStatus(status, "error", result.message || tr("auth.verify_failed", "Code konnte nicht verifiziert werden."));
+      setStatus(
+        status,
+        "error",
+        result.message || tr("auth.verify_failed", "Code konnte nicht verifiziert werden.")
+      );
       return;
     }
 
@@ -230,7 +264,7 @@ class UsersLogin extends HTMLElement {
     this.mode = "login";
     this.flash = {
       type: "success",
-      text: tr("auth.account_verified", "Konto erstellt und verifiziert. Bitte jetzt einloggen.")
+      text: tr("auth.account_verified", "Konto erstellt und verifiziert. Bitte jetzt einloggen."),
     };
     this.render();
     this.bindEvents();
@@ -238,7 +272,9 @@ class UsersLogin extends HTMLElement {
 
   async submitForgot(form, status) {
     const formData = new FormData(form);
-    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const email = String(formData.get("email") || "")
+      .trim()
+      .toLowerCase();
 
     const result = await postJson("/api/password/forgot", { email });
 
@@ -251,7 +287,7 @@ class UsersLogin extends HTMLElement {
     this.mode = "reset";
     this.flash = {
       type: "success",
-      text: result.message || "Falls ein Konto existiert, wurde ein Code versendet."
+      text: result.message || "Falls ein Konto existiert, wurde ein Code versendet.",
     };
     this.render();
     this.bindEvents();
@@ -262,7 +298,9 @@ class UsersLogin extends HTMLElement {
 
   async submitReset(form, status) {
     const formData = new FormData(form);
-    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const email = String(formData.get("email") || "")
+      .trim()
+      .toLowerCase();
     const code = String(formData.get("code") || "").trim();
     const newPassword = String(formData.get("new_password") || "");
     const confirmPassword = String(formData.get("confirm_password") || "");
@@ -276,7 +314,11 @@ class UsersLogin extends HTMLElement {
       return;
     }
 
-    const result = await postJson("/api/password/reset", { email, code, new_password: newPassword });
+    const result = await postJson("/api/password/reset", {
+      email,
+      code,
+      new_password: newPassword,
+    });
 
     if (result.status === 429) {
       startRateLimitCountdown(this, status, result.retryAfter ?? 60);
@@ -292,7 +334,7 @@ class UsersLogin extends HTMLElement {
     this.mode = "login";
     this.flash = {
       type: "success",
-      text: "Passwort erfolgreich zurückgesetzt. Bitte jetzt einloggen."
+      text: "Passwort erfolgreich zurückgesetzt. Bitte jetzt einloggen.",
     };
     this.render();
     this.bindEvents();
@@ -312,7 +354,10 @@ class UsersLogin extends HTMLElement {
       submitLabel = tr("auth.submit_login", "Einloggen");
     } else if (isRegister) {
       title = tr("auth.title_register", "Konto erstellen");
-      subtitle = tr("auth.subtitle_register", "Füll das Formular aus. Du erhältst danach einen Code per E-Mail.");
+      subtitle = tr(
+        "auth.subtitle_register",
+        "Füll das Formular aus. Du erhältst danach einen Code per E-Mail."
+      );
       fields = this.renderRegisterFields();
       submitLabel = tr("auth.submit_register", "Konto erstellen");
     } else if (isForgot) {
@@ -327,7 +372,10 @@ class UsersLogin extends HTMLElement {
       submitLabel = "Passwort zurücksetzen";
     } else {
       title = tr("auth.title_verify", "E-Mail bestätigen");
-      subtitle = tr("auth.subtitle_verify", "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben.");
+      subtitle = tr(
+        "auth.subtitle_verify",
+        "Wir haben dir einen 6-stelligen Code gesendet. Bitte hier eingeben."
+      );
       fields = this.renderVerifyFields();
       submitLabel = tr("auth.submit_verify", "Code bestätigen");
     }
@@ -475,13 +523,17 @@ async function postJson(url, payload) {
     const result = await requestJson(url, {
       method: "POST",
       credentials: "same-origin",
-      body: payload
+      body: payload,
     });
     const retryAfter = Number(result.retryAfter) || null;
     const message = result.data?.message || result.message;
     return { ...result.data, ok: result.ok, status: result.status, retryAfter, message };
   } catch {
-    return { ok: false, status: 0, message: tr("auth.server_unreachable", "Server nicht erreichbar.") };
+    return {
+      ok: false,
+      status: 0,
+      message: tr("auth.server_unreachable", "Server nicht erreichbar."),
+    };
   }
 }
 
@@ -490,11 +542,11 @@ function startRateLimitCountdown(component, statusEl, seconds) {
   let remaining = Math.max(1, Math.ceil(seconds));
 
   const update = () => {
-    setStatus(statusEl, "error", tr(
-      "auth.rate_limited",
-      "Zu viele Versuche. Bitte warte {s} Sekunde(n).",
-      { s: remaining }
-    ));
+    setStatus(
+      statusEl,
+      "error",
+      tr("auth.rate_limited", "Zu viele Versuche. Bitte warte {s} Sekunde(n).", { s: remaining })
+    );
     if (submitButton) {
       submitButton.disabled = true;
       submitButton.textContent = tr("auth.rate_limited_btn", "Warte {s}s…", { s: remaining });
@@ -509,9 +561,10 @@ function startRateLimitCountdown(component, statusEl, seconds) {
       setStatus(statusEl, "idle", "");
       if (submitButton) {
         submitButton.disabled = false;
-        submitButton.textContent = component.mode === "login"
-          ? tr("auth.submit_login", "Einloggen")
-          : tr("auth.submit_register", "Konto erstellen");
+        submitButton.textContent =
+          component.mode === "login"
+            ? tr("auth.submit_login", "Einloggen")
+            : tr("auth.submit_register", "Konto erstellen");
       }
     } else {
       update();
@@ -545,7 +598,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
-
 
 customElements.define("users-login", UsersLogin);
 initThemeSwitcher();

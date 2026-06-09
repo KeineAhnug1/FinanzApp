@@ -8,7 +8,6 @@ const SESSION_COOKIE_NAME_DEFAULT = "finanzapp_session";
  * @param {{ ttlMinutes: number; cookieName?: string }} options
  */
 export function createKvSessionStore({ ttlMinutes, cookieName = SESSION_COOKIE_NAME_DEFAULT }) {
-
   /**
    * @param {string | number} userId
    * @param {KVNamespace} kv
@@ -53,7 +52,7 @@ export function createKvSessionStore({ ttlMinutes, cookieName = SESSION_COOKIE_N
       "HttpOnly",
       "Path=/",
       "SameSite=Lax",
-      `Max-Age=${ttlMinutes * 60}`
+      `Max-Age=${ttlMinutes * 60}`,
     ];
     if (secure) attrs.push("Secure");
     return attrs.join("; ");
@@ -61,16 +60,16 @@ export function createKvSessionStore({ ttlMinutes, cookieName = SESSION_COOKIE_N
 
   /** @param {boolean} [secure] */
   function clearSessionCookie(secure = false) {
-    const attrs = [
-      `${cookieName}=`,
-      "HttpOnly",
-      "Path=/",
-      "SameSite=Lax",
-      "Max-Age=0"
-    ];
+    const attrs = [`${cookieName}=`, "HttpOnly", "Path=/", "SameSite=Lax", "Max-Age=0"];
     if (secure) attrs.push("Secure");
     return attrs.join("; ");
   }
 
-  return { createSession, getSessionRecord, destroySession, buildSessionCookie, clearSessionCookie };
+  return {
+    createSession,
+    getSessionRecord,
+    destroySession,
+    buildSessionCookie,
+    clearSessionCookie,
+  };
 }

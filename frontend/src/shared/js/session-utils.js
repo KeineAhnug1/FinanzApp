@@ -1,11 +1,15 @@
 // @ts-check
-import { invalidateCsrfCache } from './api-client.js';
+import { invalidateCsrfCache } from "./api-client.js";
 
 const sUserStorageKey = "finanzapp.currentUser";
 
 export function initialsFromUser(oUser) {
-  const sFirstInitial = String(oUser?.first_name || oUser?.username || "U").charAt(0).toUpperCase();
-  const sLastInitial = String(oUser?.last_name || "").charAt(0).toUpperCase();
+  const sFirstInitial = String(oUser?.first_name || oUser?.username || "U")
+    .charAt(0)
+    .toUpperCase();
+  const sLastInitial = String(oUser?.last_name || "")
+    .charAt(0)
+    .toUpperCase();
   return `${sFirstInitial}${sLastInitial}`.trim() || "U";
 }
 

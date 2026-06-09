@@ -1,7 +1,7 @@
 // @ts-check
-import { t as _t } from './language-utils.js';
-import { initialsFromUser, fetchSessionUser, setCurrentUserInStorage } from './session-utils.js';
-import { initThemeSwitcher } from './theme-utils.js';
+import { t as _t } from "./language-utils.js";
+import { initialsFromUser, fetchSessionUser, setCurrentUserInStorage } from "./session-utils.js";
+import { initThemeSwitcher } from "./theme-utils.js";
 const SIDENAV_COLLAPSED_STORAGE_KEY = "finanzapp.sideNav.collapsed";
 const SUB_NAV_CLOSE_DURATION_MS = 180;
 const EMBEDDED_QUERY_PARAM = "embedded";
@@ -13,45 +13,44 @@ const NAV_ITEMS = [
     labelKey: "nav_dashboard",
     fallback: "Dashboard",
     key: "dashboard",
-    iconPath: "/shared/images/nav-dashboard.svg"
+    iconPath: "/shared/images/nav-dashboard.svg",
   },
   {
     href: "/pages/accounts/",
     labelKey: "nav_accounts",
     fallback: "Kontenverwaltung",
     key: "accounts",
-    iconPath: "/shared/images/nav-accounts.svg"
+    iconPath: "/shared/images/nav-accounts.svg",
   },
   {
     href: "/pages/groups/",
     labelKey: "nav_groups",
     fallback: "Gruppen",
     key: "groups",
-    iconPath: "/shared/images/nav-groups.svg"
+    iconPath: "/shared/images/nav-groups.svg",
   },
   {
     href: "/pages/stocks/",
     labelKey: "nav_stocks",
     fallback: "Aktien",
     key: "stocks",
-    iconPath: "/shared/images/nav-stocks.svg"
+    iconPath: "/shared/images/nav-stocks.svg",
   },
   {
     href: "/pages/questions/",
     labelKey: "nav_questions",
     fallback: "Fragen",
     key: "questions",
-    iconPath: "/shared/images/nav-messages.svg"
-  }
+    iconPath: "/shared/images/nav-messages.svg",
+  },
 ];
-const SUB_NAV_ITEMS = {
-};
+const SUB_NAV_ITEMS = {};
 const NAV_PATHS = new Set([
   "/pages/dashboard/dashboard.html",
   "/pages/accounts/",
   "/pages/groups/",
   "/pages/stocks/",
-  "/pages/questions/"
+  "/pages/questions/",
 ]);
 let contentFrame = null;
 let contentFrameHost = null;
@@ -158,13 +157,15 @@ function subNavMarkup(parentKey, activeSubKey = "", isOpen = false) {
   const openClass = isOpen ? " is-open" : "";
   return `
     <div class="app-sub-nav${openClass}" aria-label="${t("sections", "Bereiche")}" data-parent-key="${parentKey}">
-      ${subItems.map((subItem) => {
-        const sSubKey = String(subItem.key || "").toLowerCase();
-        const isSubActive = String(activeSubKey || "").toLowerCase() === sSubKey;
-        const activeClass = isSubActive ? " is-active" : "";
-        const currentAttr = isSubActive ? ' aria-current="page"' : "";
-        return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}</a>`;
-      }).join("")}
+      ${subItems
+        .map((subItem) => {
+          const sSubKey = String(subItem.key || "").toLowerCase();
+          const isSubActive = String(activeSubKey || "").toLowerCase() === sSubKey;
+          const activeClass = isSubActive ? " is-active" : "";
+          const currentAttr = isSubActive ? ' aria-current="page"' : "";
+          return `<a class="app-sub-nav-link${activeClass}" href="${subItem.href}"${currentAttr}>${t(subItem.labelKey, subItem.fallback)}</a>`;
+        })
+        .join("")}
     </div>
   `;
 }
@@ -173,13 +174,15 @@ function activeSubKeys(activeKey, activeHash) {
   let activeDashboardSubKey = activeHash;
   if (activeKey === "dashboard" && !activeDashboardSubKey) {
     try {
-      const stored = String(window.localStorage.getItem("finanzapp.dashboardView") || "").trim().toLowerCase();
+      const stored = String(window.localStorage.getItem("finanzapp.dashboardView") || "")
+        .trim()
+        .toLowerCase();
       activeDashboardSubKey = stored || "overview";
     } catch {
       activeDashboardSubKey = "overview";
     }
   }
-  const activeStocksSubKey = activeKey === "stocks" ? (activeHash || "depot") : activeHash;
+  const activeStocksSubKey = activeKey === "stocks" ? activeHash || "depot" : activeHash;
   const activeAccountsSubKey = activeKey === "accounts" ? "accounts" : "";
   const activeGroupsSubKey = activeKey === "groups" ? "groups" : "";
   return { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey };
@@ -187,17 +190,25 @@ function activeSubKeys(activeKey, activeHash) {
 
 function navMarkup() {
   const activeKey = currentNavKey();
-  const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
-  const { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey } = activeSubKeys(activeKey, activeHash);
+  const activeHash = String(window.location.hash || "")
+    .trim()
+    .replace(/^#/, "")
+    .toLowerCase();
+  const { activeDashboardSubKey, activeStocksSubKey, activeAccountsSubKey, activeGroupsSubKey } =
+    activeSubKeys(activeKey, activeHash);
   return NAV_ITEMS.map((item) => {
     const isActive = item.key === activeKey;
     const activeClass = isActive ? " is-active" : "";
     const sActiveSubKey =
-      item.key === "dashboard" ? activeDashboardSubKey
-      : item.key === "stocks" ? activeStocksSubKey
-      : item.key === "accounts" ? activeAccountsSubKey
-      : item.key === "groups" ? activeGroupsSubKey
-      : activeHash;
+      item.key === "dashboard"
+        ? activeDashboardSubKey
+        : item.key === "stocks"
+          ? activeStocksSubKey
+          : item.key === "accounts"
+            ? activeAccountsSubKey
+            : item.key === "groups"
+              ? activeGroupsSubKey
+              : activeHash;
     const isSubNavParent = Boolean(SUB_NAV_ITEMS[item.key]?.length);
     const subMarkup = isSubNavParent ? subNavMarkup(item.key, sActiveSubKey, isActive) : "";
 
@@ -262,7 +273,9 @@ function bindSubNavToggle() {
     const btn = target.closest("button.app-nav-link[data-subnav-toggle]");
     if (!btn) return;
     const parentKey = btn.dataset.subnavToggle;
-    const subNav = btn.closest(".app-nav-item")?.querySelector(`.app-sub-nav[data-parent-key="${parentKey}"]`);
+    const subNav = btn
+      .closest(".app-nav-item")
+      ?.querySelector(`.app-sub-nav[data-parent-key="${parentKey}"]`);
     if (!(subNav instanceof HTMLElement)) return;
     const isOpen = subNav.classList.contains("is-open");
     if (isOpen) {
@@ -281,13 +294,17 @@ function bindSubNavToggle() {
 function refreshSidebarNav() {
   const nav = document.querySelector(".app-side-nav .app-nav-links");
   if (!nav) return;
-  const activeHash = String(window.location.hash || "").trim().replace(/^#/, "").toLowerCase();
+  const activeHash = String(window.location.hash || "")
+    .trim()
+    .replace(/^#/, "")
+    .toLowerCase();
   const signature = `${normalizePath(window.location.pathname)}|${activeHash || "-"}`;
   if (nav.dataset.signature === signature) return;
 
   const openKeys = new Set(
-    Array.from(nav.querySelectorAll(".app-sub-nav.is-open[data-parent-key]"))
-      .map((el) => el.dataset.parentKey)
+    Array.from(nav.querySelectorAll(".app-sub-nav.is-open[data-parent-key]")).map(
+      (el) => el.dataset.parentKey
+    )
   );
 
   nav.innerHTML = navMarkup();
@@ -357,12 +374,17 @@ function navigateInContentFrame(targetUrl, options = {}) {
   ensureContentFrameShell();
   if (!contentFrame) return;
   const currentUrl = new URL(window.location.href);
-  const isSameDocumentTarget = normalizePath(targetUrl.pathname) === normalizePath(currentUrl.pathname)
-    && targetUrl.search === currentUrl.search;
+  const isSameDocumentTarget =
+    normalizePath(targetUrl.pathname) === normalizePath(currentUrl.pathname) &&
+    targetUrl.search === currentUrl.search;
 
   if (isSameDocumentTarget && contentFrame.contentWindow) {
     if (pushState) {
-      window.history.pushState({ appSoftNav: true }, "", targetUrl.pathname + targetUrl.search + targetUrl.hash);
+      window.history.pushState(
+        { appSoftNav: true },
+        "",
+        targetUrl.pathname + targetUrl.search + targetUrl.hash
+      );
     }
     syncSidebarAfterSoftNavigation();
     const embeddedTarget = toEmbeddedUrl(targetUrl);
@@ -377,7 +399,11 @@ function navigateInContentFrame(targetUrl, options = {}) {
   document.body.classList.add("app-shell-frame-loading");
 
   if (pushState) {
-    window.history.pushState({ appSoftNav: true }, "", targetUrl.pathname + targetUrl.search + targetUrl.hash);
+    window.history.pushState(
+      { appSoftNav: true },
+      "",
+      targetUrl.pathname + targetUrl.search + targetUrl.hash
+    );
   }
   syncSidebarAfterSoftNavigation();
 
@@ -407,7 +433,8 @@ function bindSidebarSoftNavigation() {
     const link = target.closest(".app-side-nav a[href]");
     if (!(link instanceof HTMLAnchorElement)) return;
     if (event.defaultPrevented) return;
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
 
     let nextUrl;
     try {
@@ -418,8 +445,9 @@ function bindSidebarSoftNavigation() {
     if (!canSoftNavigateTo(nextUrl)) return;
 
     const currentUrl = new URL(window.location.href);
-    const samePathAndQuery = normalizePath(nextUrl.pathname) === normalizePath(currentUrl.pathname)
-      && nextUrl.search === currentUrl.search;
+    const samePathAndQuery =
+      normalizePath(nextUrl.pathname) === normalizePath(currentUrl.pathname) &&
+      nextUrl.search === currentUrl.search;
     const sameTarget = samePathAndQuery && nextUrl.hash === currentUrl.hash;
     if (sameTarget) {
       event.preventDefault();
@@ -462,18 +490,19 @@ function ensureBottomNav() {
     ? `<span class="app-bottom-nav-item${settingsActiveClass}"${settingsCurrentAttr}>${settingsIconHtml}${settingsLabelHtml}</span>`
     : `<a class="app-bottom-nav-item" href="/pages/settings/">${settingsIconHtml}${settingsLabelHtml}</a>`;
 
-  bottomNav.innerHTML = NAV_ITEMS.map((item) => {
-    const isActive = item.key === activeKey;
-    const activeClass = isActive ? " is-active" : "";
-    const currentAttr = isActive ? ' aria-current="page"' : "";
-    const iconHtml = `<span class="app-bottom-nav-icon"><img src="${item.iconPath}" alt="" aria-hidden="true"></span>`;
-    const labelHtml = `<span class="app-bottom-nav-label">${t(item.labelKey, item.fallback)}</span>`;
+  bottomNav.innerHTML =
+    NAV_ITEMS.map((item) => {
+      const isActive = item.key === activeKey;
+      const activeClass = isActive ? " is-active" : "";
+      const currentAttr = isActive ? ' aria-current="page"' : "";
+      const iconHtml = `<span class="app-bottom-nav-icon"><img src="${item.iconPath}" alt="" aria-hidden="true"></span>`;
+      const labelHtml = `<span class="app-bottom-nav-label">${t(item.labelKey, item.fallback)}</span>`;
 
-    if (isActive) {
-      return `<span class="app-bottom-nav-item${activeClass}"${currentAttr}>${iconHtml}${labelHtml}</span>`;
-    }
-    return `<a class="app-bottom-nav-item${activeClass}" href="${item.href}">${iconHtml}${labelHtml}</a>`;
-  }).join("") + settingsItem;
+      if (isActive) {
+        return `<span class="app-bottom-nav-item${activeClass}"${currentAttr}>${iconHtml}${labelHtml}</span>`;
+      }
+      return `<a class="app-bottom-nav-item${activeClass}" href="${item.href}">${iconHtml}${labelHtml}</a>`;
+    }).join("") + settingsItem;
 
   document.body.classList.add("has-bottom-nav");
 }
@@ -488,7 +517,8 @@ function bindBottomNavSoftNavigation() {
     const link = target.closest(".app-bottom-nav a[href]");
     if (!(link instanceof HTMLAnchorElement)) return;
     if (event.defaultPrevented) return;
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
 
     let nextUrl;
     try {
@@ -642,7 +672,10 @@ function initGlobalSettings(topbar) {
 }
 
 function fillProfileElements(sessionUser) {
-  const profileName = `${sessionUser.first_name || ""} ${sessionUser.last_name || ""}`.trim() || sessionUser.username || t("topbar.user_fallback", "Nutzer");
+  const profileName =
+    `${sessionUser.first_name || ""} ${sessionUser.last_name || ""}`.trim() ||
+    sessionUser.username ||
+    t("topbar.user_fallback", "Nutzer");
   const avatarInitials = initialsFromUser(sessionUser);
 
   const profileNameElements = document.querySelectorAll("[data-profile-name], #profile-name");

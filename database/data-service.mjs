@@ -35,7 +35,7 @@ export async function getPreparedData(pool, options = {}) {
     return {
       dataset: "v4",
       generated_at: new Date().toISOString(),
-      users: []
+      users: [],
     };
   }
 
@@ -45,7 +45,7 @@ export async function getPreparedData(pool, options = {}) {
     pool.query(`SELECT * FROM bank_accounts WHERE user_id = ANY($1)`, [userIds]),
     pool.query(`SELECT * FROM share_accounts WHERE user_id = ANY($1)`, [userIds]),
     pool.query(`SELECT * FROM group_members WHERE user_id = ANY($1)`, [userIds]),
-    pool.query(`SELECT * FROM budgets WHERE user_id = ANY($1)`, [userIds])
+    pool.query(`SELECT * FROM budgets WHERE user_id = ANY($1)`, [userIds]),
   ]);
 
   const bankAccounts = bankAccountsRes.rows;
@@ -57,15 +57,49 @@ export async function getPreparedData(pool, options = {}) {
   const depotIds = depots.map((d) => d.id);
   const groupIds = [...new Set(groupMembers.map((m) => m.group_id))];
 
-  const [incomesRes, privateExpensesRes, requestsRes, groupsRes, groupActivitiesRes, groupFundingRes, sharesRes, fundingParticipantsRes] = await Promise.all([
-    bankAccountIds.length ? pool.query(`SELECT * FROM income WHERE bank_account_id = ANY($1)`, [bankAccountIds]) : { rows: [] },
-    bankAccountIds.length ? pool.query(`SELECT * FROM private_expenses WHERE bank_account_id = ANY($1)`, [bankAccountIds]) : { rows: [] },
-    bankAccountIds.length ? pool.query(`SELECT * FROM requests WHERE from_bank_account_id = ANY($1) OR to_bank_account_id = ANY($1)`, [bankAccountIds]) : { rows: [] },
-    groupIds.length ? pool.query(`SELECT * FROM groups WHERE id = ANY($1)`, [groupIds]) : { rows: [] },
-    groupIds.length ? pool.query(`SELECT * FROM group_activities WHERE group_id = ANY($1)`, [groupIds]) : { rows: [] },
-    groupIds.length ? pool.query(`SELECT * FROM group_funding WHERE group_id = ANY($1)`, [groupIds]) : { rows: [] },
-    depotIds.length ? pool.query(`SELECT * FROM shares WHERE share_account_id = ANY($1) OR depot_id = ANY($1)`, [depotIds]) : { rows: [] },
-    bankAccountIds.length ? pool.query(`SELECT * FROM funding_participants WHERE bank_account_id = ANY($1)`, [bankAccountIds]) : { rows: [] }
+  const [
+    incomesRes,
+    privateExpensesRes,
+    requestsRes,
+    groupsRes,
+    groupActivitiesRes,
+    groupFundingRes,
+    sharesRes,
+    fundingParticipantsRes,
+  ] = await Promise.all([
+    bankAccountIds.length
+      ? pool.query(`SELECT * FROM income WHERE bank_account_id = ANY($1)`, [bankAccountIds])
+      : { rows: [] },
+    bankAccountIds.length
+      ? pool.query(`SELECT * FROM private_expenses WHERE bank_account_id = ANY($1)`, [
+          bankAccountIds,
+        ])
+      : { rows: [] },
+    bankAccountIds.length
+      ? pool.query(
+          `SELECT * FROM requests WHERE from_bank_account_id = ANY($1) OR to_bank_account_id = ANY($1)`,
+          [bankAccountIds]
+        )
+      : { rows: [] },
+    groupIds.length
+      ? pool.query(`SELECT * FROM groups WHERE id = ANY($1)`, [groupIds])
+      : { rows: [] },
+    groupIds.length
+      ? pool.query(`SELECT * FROM group_activities WHERE group_id = ANY($1)`, [groupIds])
+      : { rows: [] },
+    groupIds.length
+      ? pool.query(`SELECT * FROM group_funding WHERE group_id = ANY($1)`, [groupIds])
+      : { rows: [] },
+    depotIds.length
+      ? pool.query(`SELECT * FROM shares WHERE share_account_id = ANY($1) OR depot_id = ANY($1)`, [
+          depotIds,
+        ])
+      : { rows: [] },
+    bankAccountIds.length
+      ? pool.query(`SELECT * FROM funding_participants WHERE bank_account_id = ANY($1)`, [
+          bankAccountIds,
+        ])
+      : { rows: [] },
   ]);
 
   const incomes = incomesRes.rows;
@@ -79,7 +113,11 @@ export async function getPreparedData(pool, options = {}) {
 
   const fundingIds = groupFunding.map((f) => f.id);
   const groupExpenses = fundingIds.length
-    ? (await pool.query(`SELECT * FROM group_expenses WHERE group_funding_id = ANY($1)`, [fundingIds])).rows
+    ? (
+        await pool.query(`SELECT * FROM group_expenses WHERE group_funding_id = ANY($1)`, [
+          fundingIds,
+        ])
+      ).rows
     : [];
 
   const transactionIds = {
@@ -87,7 +125,7 @@ export async function getPreparedData(pool, options = {}) {
     privateExpenseIds: privateExpenses.map((e) => e.id),
     groupExpenseIds: groupExpenses.map((e) => e.id),
     fundingParticipantIds: fundingParticipants.map((f) => f.id),
-    incomeIds: incomes.map((i) => i.id)
+    incomeIds: incomes.map((i) => i.id),
   };
 
   const allTxIds = [
@@ -95,14 +133,22 @@ export async function getPreparedData(pool, options = {}) {
     ...transactionIds.privateExpenseIds,
     ...transactionIds.groupExpenseIds,
     ...transactionIds.fundingParticipantIds,
-    ...transactionIds.incomeIds
+    ...transactionIds.incomeIds,
   ];
 
   const transactions = allTxIds.length
-    ? (await pool.query(
-      `SELECT * FROM transactions WHERE request_id = ANY($1) OR private_expense_id = ANY($2) OR group_expense_id = ANY($3) OR funding_participant_id = ANY($4) OR income_id = ANY($5)`,
-      [transactionIds.requestIds, transactionIds.privateExpenseIds, transactionIds.groupExpenseIds, transactionIds.fundingParticipantIds, transactionIds.incomeIds]
-    )).rows
+    ? (
+        await pool.query(
+          `SELECT * FROM transactions WHERE request_id = ANY($1) OR private_expense_id = ANY($2) OR group_expense_id = ANY($3) OR funding_participant_id = ANY($4) OR income_id = ANY($5)`,
+          [
+            transactionIds.requestIds,
+            transactionIds.privateExpenseIds,
+            transactionIds.groupExpenseIds,
+            transactionIds.fundingParticipantIds,
+            transactionIds.incomeIds,
+          ]
+        )
+      ).rows
     : [];
 
   const groupsById = new Map(groups.map((g) => [g.id, g]));
@@ -159,7 +205,7 @@ export async function getPreparedData(pool, options = {}) {
       group_id: member.group_id,
       group_name: groupsById.get(member.group_id)?.name ?? null,
       role: member.role,
-      status: member.status
+      status: member.status,
     });
   }
 
@@ -181,7 +227,7 @@ export async function getPreparedData(pool, options = {}) {
         category: request.category,
         info: request.info,
         private_expense_id: request.private_expense_id ?? null,
-        created_at: request.created_at
+        created_at: request.created_at,
       });
     }
 
@@ -198,7 +244,7 @@ export async function getPreparedData(pool, options = {}) {
         category: request.category,
         info: request.info,
         private_expense_id: request.private_expense_id ?? null,
-        created_at: request.created_at
+        created_at: request.created_at,
       });
     }
   }
@@ -208,14 +254,15 @@ export async function getPreparedData(pool, options = {}) {
     private_expense: new Map(),
     group_expense: new Map(),
     funding_participant: new Map(),
-    income: new Map()
+    income: new Map(),
   };
 
   for (const tx of transactions) {
     if (tx.request_id) pushMapArray(txBySource.request, tx.request_id, tx);
     if (tx.private_expense_id) pushMapArray(txBySource.private_expense, tx.private_expense_id, tx);
     if (tx.group_expense_id) pushMapArray(txBySource.group_expense, tx.group_expense_id, tx);
-    if (tx.funding_participant_id) pushMapArray(txBySource.funding_participant, tx.funding_participant_id, tx);
+    if (tx.funding_participant_id)
+      pushMapArray(txBySource.funding_participant, tx.funding_participant_id, tx);
     if (tx.income_id) pushMapArray(txBySource.income, tx.income_id, tx);
   }
 
@@ -240,7 +287,7 @@ export async function getPreparedData(pool, options = {}) {
   for (const participant of fundingParticipants) {
     pushMapArray(participantsByFunding, participant.group_funding_id, {
       ...participant,
-      transactions: txBySource.funding_participant.get(participant.id) ?? []
+      transactions: txBySource.funding_participant.get(participant.id) ?? [],
     });
   }
 
@@ -257,7 +304,7 @@ export async function getPreparedData(pool, options = {}) {
       pay_date: income.pay_date,
       info: income.info,
       created_at: income.created_at,
-      transactions: txBySource.income.get(income.id) ?? []
+      transactions: txBySource.income.get(income.id) ?? [],
     }));
 
     const privateExpensesForUser = (privateExpensesByUser.get(userKey) ?? []).map((expense) => ({
@@ -270,7 +317,7 @@ export async function getPreparedData(pool, options = {}) {
       pay_date: expense.pay_date,
       info: expense.info,
       created_at: expense.created_at,
-      transactions: txBySource.private_expense.get(expense.id) ?? []
+      transactions: txBySource.private_expense.get(expense.id) ?? [],
     }));
 
     const memberships = membershipsByUser.get(userKey) ?? [];
@@ -291,14 +338,14 @@ export async function getPreparedData(pool, options = {}) {
           pay_date: expense.pay_date,
           info: expense.info,
           created_at: expense.created_at,
-          transactions: txBySource.group_expense.get(expense.id) ?? []
-        }))
+          transactions: txBySource.group_expense.get(expense.id) ?? [],
+        })),
       }));
 
       return {
         ...membership,
         activities: activitiesByGroup.get(groupId) ?? [],
-        funding: fundingItems
+        funding: fundingItems,
       };
     });
 
@@ -309,11 +356,14 @@ export async function getPreparedData(pool, options = {}) {
         symbol: holding.symbol,
         units: toNumber(holding.units),
         bought_for: toNumber(holding.bought_for),
-        bought_at: holding.bought_at
+        bought_at: holding.bought_at,
       }))
     );
 
-    const totalBalance = accounts.reduce((sum, account) => sum + (toNumber(account.balance) ?? 0), 0);
+    const totalBalance = accounts.reduce(
+      (sum, account) => sum + (toNumber(account.balance) ?? 0),
+      0
+    );
     const totalIncome = incomesForUser.reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
 
     return {
@@ -324,7 +374,7 @@ export async function getPreparedData(pool, options = {}) {
         first_name: user.first_name,
         last_name: user.last_name,
         age: user.age ?? null,
-        created_at: user.created_at
+        created_at: user.created_at,
       },
       finance_overview: {
         total_bank_balance: Number(totalBalance.toFixed(2)),
@@ -332,8 +382,8 @@ export async function getPreparedData(pool, options = {}) {
         bank_accounts: accounts.map((account) => ({
           bank_account_id: account.id,
           balance: toNumber(account.balance),
-          created_at: account.created_at
-        }))
+          created_at: account.created_at,
+        })),
       },
       depots: depotRows,
       holdings,
@@ -344,17 +394,17 @@ export async function getPreparedData(pool, options = {}) {
         target_amount: toNumber(budget.target_amount),
         current_amount: toNumber(budget.current_amount),
         reset_date: budget.reset_date,
-        created_at: budget.created_at
+        created_at: budget.created_at,
       })),
       private_expenses: privateExpensesForUser,
       requests: requestsByUser.get(userKey) ?? [],
-      groups: groupContext
+      groups: groupContext,
     };
   });
 
   return {
     dataset: "v4",
     generated_at: new Date().toISOString(),
-    users: preparedUsers
+    users: preparedUsers,
   };
 }

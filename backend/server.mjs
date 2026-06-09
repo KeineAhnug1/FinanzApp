@@ -10,7 +10,12 @@ import pg from "pg";
 import { DATABASE_URL, MIME_BY_EXT, PORT } from "./config/runtime.mjs";
 import { handleApiRequest } from "./router.mjs";
 import { migratePlaintextPasswords } from "./handlers/auth.mjs";
-import { isProtectedUiPath, redirectUiRoot, resolveStaticPath } from "./routes/ui-routes.mjs";
+import {
+  isProtectedUiPath,
+  redirectUiRoot,
+  resolveStaticPath,
+  resolve404Path,
+} from "./routes/ui-routes.mjs";
 
 const { Pool } = pg;
 
@@ -24,7 +29,8 @@ if (!PORT || !Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
 }
 
 const DB_SSL_MODE = String(process.env.DB_SSL_MODE || "prefer").toLowerCase();
-const sslConfig = DB_SSL_MODE === "disable" ? false : { rejectUnauthorized: DB_SSL_MODE === "require" };
+const sslConfig =
+  DB_SSL_MODE === "disable" ? false : { rejectUnauthorized: DB_SSL_MODE === "require" };
 const pool = new Pool({ connectionString: DATABASE_URL, ssl: sslConfig });
 
 /**
@@ -129,21 +135,43 @@ async function handleStatic(req, res, pathname) {
     const file = await readFile(filePath);
     const ext = path.extname(filePath).toLowerCase();
     const isHashed = filePath.includes(`${path.sep}assets${path.sep}`);
-    const csp = ext === ".html"
-      ? "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
-      : "default-src 'none'";
+    const csp =
+      ext === ".html"
+        ? "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
+        : "default-src 'none'";
     res.writeHead(200, {
-      "Content-Type": /** @type {Record<string,string>} */ (MIME_BY_EXT)[ext] || "application/octet-stream",
+      "Content-Type":
+        /** @type {Record<string,string>} */ (MIME_BY_EXT)[ext] || "application/octet-stream",
       "Cache-Control": isHashed ? "public, max-age=31536000, immutable" : "no-cache",
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "SAMEORIGIN",
-      "Content-Security-Policy": csp
+      "Content-Security-Policy": csp,
     });
-    if (req.method === "HEAD") { res.end(); return; }
+    if (req.method === "HEAD") {
+      res.end();
+      return;
+    }
     res.end(file);
   } catch (/** @type {unknown} */ err) {
     const error = /** @type {NodeJS.ErrnoException} */ (err);
-    if (error.code === "ENOENT") { res.statusCode = 404; res.end("Not found"); return; }
+    if (error.code === "ENOENT") {
+      try {
+        const notFoundHtml = await readFile(resolve404Path(PROJECT_ROOT));
+        res.writeHead(404, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "SAMEORIGIN",
+          "Content-Security-Policy":
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors 'none';",
+        });
+        res.end(notFoundHtml);
+      } catch {
+        res.statusCode = 404;
+        res.end("Not found");
+      }
+      return;
+    }
     res.statusCode = 500;
     res.end("Internal server error");
   }
@@ -163,14 +191,18 @@ async function start() {
   const memKv = new Map();
   const localKv = {
     get: async (key) => memKv.get(key) ?? null,
-    put: async (key, value, _opts) => { memKv.set(key, value); },
-    delete: async (key) => { memKv.delete(key); }
+    put: async (key, value, _opts) => {
+      memKv.set(key, value);
+    },
+    delete: async (key) => {
+      memKv.delete(key);
+    },
   };
 
   const env = {
     ...process.env,
     SESSIONS: localKv,
-    NODE_ENV: process.env.NODE_ENV || "development"
+    NODE_ENV: process.env.NODE_ENV || "development",
   };
 
   const server = http.createServer(async (req, res) => {
@@ -185,7 +217,10 @@ async function start() {
       if (isProtectedUiPath(pathname)) {
         const checkReq = await nodeReqToWebRequest(req);
         // Build a minimal GET /api/session to verify auth
-        const sessionCheckReq = new Request(`http://localhost:${PORT}/api/session`, { method: "GET", headers: checkReq.headers });
+        const sessionCheckReq = new Request(`http://localhost:${PORT}/api/session`, {
+          method: "GET",
+          headers: checkReq.headers,
+        });
         const sessionResp = await handleApiRequest(sessionCheckReq, pool, /** @type {any} */ (env));
         const sessionData = await sessionResp.json().catch(() => ({}));
         if (!sessionData?.session_user) {
@@ -232,8 +267,14 @@ async function start() {
     await new Promise((resolve) => server.close(resolve));
     await pool.end();
   };
-  process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
-  process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
+  process.on("SIGINT", async () => {
+    await shutdown();
+    process.exit(0);
+  });
+  process.on("SIGTERM", async () => {
+    await shutdown();
+    process.exit(0);
+  });
 }
 
 start().catch(async (error) => {

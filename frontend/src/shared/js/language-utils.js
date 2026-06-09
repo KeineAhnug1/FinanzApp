@@ -113,9 +113,8 @@ function localeFileUrl(locale) {
 }
 
 function setDictionary(locale, payload) {
-  const translations = payload?.translations && typeof payload.translations === "object"
-    ? payload.translations
-    : {};
+  const translations =
+    payload?.translations && typeof payload.translations === "object" ? payload.translations : {};
   dictionaryCache.set(locale, translations);
   if (locale === sourceLocale) {
     sourceDictionary = translations;
@@ -265,7 +264,10 @@ async function runInit() {
   try {
     await loadLocale(sourceLocale);
   } catch (error) {
-    console.warn(`FBMFinanceLanguage: Source-Locale ${sourceLocale} konnte nicht geladen werden.`, error);
+    console.warn(
+      `FBMFinanceLanguage: Source-Locale ${sourceLocale} konnte nicht geladen werden.`,
+      error
+    );
     sourceDictionary = {};
     rebuildTokenLookup();
   }
@@ -281,7 +283,7 @@ async function runInit() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["placeholder", "aria-label", "title"]
+      attributeFilter: ["placeholder", "aria-label", "title"],
     });
   }
 
@@ -289,7 +291,9 @@ async function runInit() {
     if (event.key !== STORAGE_KEY) return;
     setActiveLocale(getLocale()).then(() => {
       safeApply(document.body);
-      window.dispatchEvent(new CustomEvent("finanzapp:locale-changed", { detail: { locale: activeLocale } }));
+      window.dispatchEvent(
+        new CustomEvent("finanzapp:locale-changed", { detail: { locale: activeLocale } })
+      );
     });
   });
 

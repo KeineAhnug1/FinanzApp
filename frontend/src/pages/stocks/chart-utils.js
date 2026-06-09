@@ -20,12 +20,14 @@ export function getLineChartGeometry(width, height) {
     innerWidth,
     innerHeight,
     iInnerWidth: innerWidth,
-    iInnerHeight: innerHeight
+    iInnerHeight: innerHeight,
   };
 }
 
 export function intervalToStepMs(interval) {
-  const value = String(interval || "").trim().toLowerCase();
+  const value = String(interval || "")
+    .trim()
+    .toLowerCase();
   const match = value.match(/^(\d+)\s*(min|day|week|month)$/);
   if (!match) return 24 * 60 * 60 * 1000;
   const count = Number(match[1]);
@@ -55,4 +57,3 @@ export function canvasRoundRect(ctx, x, y, width, height, radius) {
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
 }
-

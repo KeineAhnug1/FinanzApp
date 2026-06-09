@@ -1,12 +1,12 @@
-import '@shared/js/topbar.js';
-import { t as _t, getLocale } from '@shared/js/language-utils.js';
-import { requestJsonMerged } from '@shared/js/api-client.js';
-import { escapeHtml } from '@shared/js/html-utils.js';
+import "@shared/js/topbar.js";
+import { t as _t, getLocale } from "@shared/js/language-utils.js";
+import { requestJsonMerged } from "@shared/js/api-client.js";
+import { escapeHtml } from "@shared/js/html-utils.js";
 
 const detailState = {
   user: null,
   questionId: "",
-  question: null
+  question: null,
 };
 
 function t(key, fallback, params = {}) {
@@ -82,9 +82,11 @@ function renderQuestionDetail(question) {
       <div class="answers-wrap">
         <p class="answers-title">${t("questions.answers_title", "Antworten ({count})", { count: question.answers?.length || 0 })}</p>
         <ul class="answer-list">
-          ${Array.isArray(question.answers) && question.answers.length
-            ? question.answers.map((answer) => renderAnswer(answer)).join("")
-            : `<li><p class="empty">${t("questions.no_answers", "Noch keine Antworten.")}</p></li>`}
+          ${
+            Array.isArray(question.answers) && question.answers.length
+              ? question.answers.map((answer) => renderAnswer(answer)).join("")
+              : `<li><p class="empty">${t("questions.no_answers", "Noch keine Antworten.")}</p></li>`
+          }
         </ul>
 
         <form class="answer-form" id="answer-form">
@@ -136,13 +138,20 @@ async function handleAnswerSubmit(event) {
   const message = String(formData.get("message") || "").trim();
   if (!message) return;
 
-  const result = await requestJson(`/api/questions/${encodeURIComponent(detailState.questionId)}/answers`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message })
-  });
+  const result = await requestJson(
+    `/api/questions/${encodeURIComponent(detailState.questionId)}/answers`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    }
+  );
   if (!result.ok) {
-    setStatus("error", result.message || t("questions.answer_save_failed", "Antwort konnte nicht gespeichert werden."));
+    setStatus(
+      "error",
+      result.message ||
+        t("questions.answer_save_failed", "Antwort konnte nicht gespeichert werden.")
+    );
     return;
   }
 
@@ -159,9 +168,15 @@ async function handleDetailClick(event) {
   if (!action) return;
 
   if (action === "like-question") {
-    const result = await requestJson(`/api/questions/${encodeURIComponent(detailState.questionId)}/like`, { method: "POST" });
+    const result = await requestJson(
+      `/api/questions/${encodeURIComponent(detailState.questionId)}/like`,
+      { method: "POST" }
+    );
     if (!result.ok) {
-      setStatus("error", result.message || t("questions.like_failed", "Like konnte nicht gespeichert werden."));
+      setStatus(
+        "error",
+        result.message || t("questions.like_failed", "Like konnte nicht gespeichert werden.")
+      );
       return;
     }
     await refreshQuestion();
@@ -169,12 +184,23 @@ async function handleDetailClick(event) {
   }
 
   if (action === "delete-question") {
-    const shouldDelete = window.confirm(t("questions.delete_confirm", "Frage wirklich löschen? Alle Antworten werden ebenfalls gelöscht."));
+    const shouldDelete = window.confirm(
+      t(
+        "questions.delete_confirm",
+        "Frage wirklich löschen? Alle Antworten werden ebenfalls gelöscht."
+      )
+    );
     if (!shouldDelete) return;
 
-    const result = await requestJson(`/api/questions/${encodeURIComponent(detailState.questionId)}`, { method: "DELETE" });
+    const result = await requestJson(
+      `/api/questions/${encodeURIComponent(detailState.questionId)}`,
+      { method: "DELETE" }
+    );
     if (!result.ok) {
-      setStatus("error", result.message || t("questions.delete_failed", "Frage konnte nicht gelöscht werden."));
+      setStatus(
+        "error",
+        result.message || t("questions.delete_failed", "Frage konnte nicht gelöscht werden.")
+      );
       return;
     }
     window.location.assign("/pages/questions/");
@@ -184,9 +210,14 @@ async function handleDetailClick(event) {
   if (action === "like-answer") {
     const answerId = String(target.dataset.answerId || "");
     if (!answerId) return;
-    const result = await requestJson(`/api/answers/${encodeURIComponent(answerId)}/like`, { method: "POST" });
+    const result = await requestJson(`/api/answers/${encodeURIComponent(answerId)}/like`, {
+      method: "POST",
+    });
     if (!result.ok) {
-      setStatus("error", result.message || t("questions.like_failed", "Like konnte nicht gespeichert werden."));
+      setStatus(
+        "error",
+        result.message || t("questions.like_failed", "Like konnte nicht gespeichert werden.")
+      );
       return;
     }
     await refreshQuestion();
@@ -199,7 +230,10 @@ async function handleDetailClick(event) {
     const answer = detailState.question.answers.find((item) => String(item.id) === answerId);
     if (!answer) return;
 
-    const nextMessage = window.prompt(t("questions.answer_edit_prompt", "Antwort bearbeiten:"), answer.message || "");
+    const nextMessage = window.prompt(
+      t("questions.answer_edit_prompt", "Antwort bearbeiten:"),
+      answer.message || ""
+    );
     if (nextMessage == null) return;
     const message = String(nextMessage).trim();
     if (!message) return;
@@ -207,10 +241,14 @@ async function handleDetailClick(event) {
     const result = await requestJson(`/api/answers/${encodeURIComponent(answerId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message }),
     });
     if (!result.ok) {
-      setStatus("error", result.message || t("questions.answer_update_failed", "Antwort konnte nicht bearbeitet werden."));
+      setStatus(
+        "error",
+        result.message ||
+          t("questions.answer_update_failed", "Antwort konnte nicht bearbeitet werden.")
+      );
       return;
     }
     setStatus("success", t("questions.answer_updated", "Antwort aktualisiert."));
@@ -221,12 +259,20 @@ async function handleDetailClick(event) {
   if (action === "delete-answer") {
     const answerId = String(target.dataset.answerId || "");
     if (!answerId) return;
-    const shouldDelete = window.confirm(t("questions.answer_delete_confirm", "Antwort wirklich löschen?"));
+    const shouldDelete = window.confirm(
+      t("questions.answer_delete_confirm", "Antwort wirklich löschen?")
+    );
     if (!shouldDelete) return;
 
-    const result = await requestJson(`/api/answers/${encodeURIComponent(answerId)}`, { method: "DELETE" });
+    const result = await requestJson(`/api/answers/${encodeURIComponent(answerId)}`, {
+      method: "DELETE",
+    });
     if (!result.ok) {
-      setStatus("error", result.message || t("questions.answer_delete_failed", "Antwort konnte nicht gelöscht werden."));
+      setStatus(
+        "error",
+        result.message ||
+          t("questions.answer_delete_failed", "Antwort konnte nicht gelöscht werden.")
+      );
       return;
     }
     setStatus("success", t("questions.answer_deleted", "Antwort gelöscht."));

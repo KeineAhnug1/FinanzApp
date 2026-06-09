@@ -1,7 +1,7 @@
 // Einnahmen-Logik: Listenaktionen und Formularablauf.
-import { appState, incomeState, listState } from './state.js';
-import { setActiveView } from './runtime.js';
-import { setStatus, setButtonLoading, initInlineValidation } from './helpers.js';
+import { appState, incomeState, listState } from "./state.js";
+import { setActiveView } from "./runtime.js";
+import { setStatus, setButtonLoading, initInlineValidation } from "./helpers.js";
 import {
   handleDeleteIncome,
   handleUpdateIncome,
@@ -11,11 +11,10 @@ import {
   setIncomeFormModeCreate,
   setIncomeFormModeEdit,
   getIncomeFormElements,
-  initRecurrenceToggle
-} from './dashboard-api.js';
-import { initCategorySelector, resolveCategoryFromForm } from './categories-controls.js';
-import { t as sharedT } from '@shared/js/language-utils.js';
-
+  initRecurrenceToggle,
+} from "./dashboard-api.js";
+import { initCategorySelector, resolveCategoryFromForm } from "./categories-controls.js";
+import { t as sharedT } from "@shared/js/language-utils.js";
 
 function incomeT(key, fallback, params = {}) {
   const translated = sharedT(key, params);
@@ -28,17 +27,21 @@ export function initIncomeListActions() {
   const list = document.getElementById("income-list");
   if (!list) return;
 
-  list.addEventListener("toggle", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLDetailsElement)) return;
-    const key = target.dataset.groupKey;
-    if (!key) return;
-    if (target.open) {
-      listState.incomeExpandedGroups.add(key);
-    } else {
-      listState.incomeExpandedGroups.delete(key);
-    }
-  }, true);
+  list.addEventListener(
+    "toggle",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLDetailsElement)) return;
+      const key = target.dataset.groupKey;
+      if (!key) return;
+      if (target.open) {
+        listState.incomeExpandedGroups.add(key);
+      } else {
+        listState.incomeExpandedGroups.delete(key);
+      }
+    },
+    true
+  );
 
   list.addEventListener("click", async (event) => {
     const target = event.target;
@@ -52,7 +55,11 @@ export function initIncomeListActions() {
 
     if (action === "edit") {
       setIncomeFormModeEdit(entry);
-      setStatus("income-form-status", "", incomeT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere."));
+      setStatus(
+        "income-form-status",
+        "",
+        incomeT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere.")
+      );
       setActiveView("income");
       return;
     }
@@ -61,13 +68,18 @@ export function initIncomeListActions() {
       const confirmDelete = await incomeState.askConfirm({
         title: incomeT("income_delete_confirm", "Einnahme loeschen?"),
         message: `Der Eintrag "${entry.source}" wird dauerhaft entfernt.`,
-        confirmText: incomeT("confirm_delete_yes", "Ja, loeschen")
+        confirmText: incomeT("confirm_delete_yes", "Ja, loeschen"),
       });
       if (!confirmDelete) return;
 
       const result = await handleDeleteIncome(entryId);
       if (!result.ok) {
-        setStatus("income-form-status", "error", result.message || incomeT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden."));
+        setStatus(
+          "income-form-status",
+          "error",
+          result.message ||
+            incomeT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden.")
+        );
         return;
       }
 
@@ -102,7 +114,6 @@ export function initIncomeForm() {
 
     const formData = new FormData(form);
     const rawAmount = Number(formData.get("amount"));
-    
 
     const recurrenceRaw = Number(formData.get("recurrence") || 0);
 
@@ -115,22 +126,38 @@ export function initIncomeForm() {
       note: String(formData.get("note") || "").trim(),
       cycle: String(formData.get("cycle") || "once").trim(),
       recurrence: recurrenceRaw > 0 ? recurrenceRaw : null,
-      is_active: true
+      is_active: true,
     };
 
-    setStatus("income-form-status", "", incomeState.editingId ? incomeT("updating_income", "Aktualisiere Einnahme...") : incomeT("saving_income", "Speichere Einnahme..."));
+    setStatus(
+      "income-form-status",
+      "",
+      incomeState.editingId
+        ? incomeT("updating_income", "Aktualisiere Einnahme...")
+        : incomeT("saving_income", "Speichere Einnahme...")
+    );
 
     const result = incomeState.editingId
       ? await handleUpdateIncome(incomeState.editingId, payload)
       : await handleCreateIncome(payload);
 
     if (!result.ok) {
-      setStatus("income-form-status", "error", result.message || incomeT("save_failed", "Speichern fehlgeschlagen."));
+      setStatus(
+        "income-form-status",
+        "error",
+        result.message || incomeT("save_failed", "Speichern fehlgeschlagen.")
+      );
       setButtonLoading(submitBtn, false);
       return;
     }
 
-    setStatus("income-form-status", "success", incomeState.editingId ? incomeT("income_updated", "Einnahme aktualisiert.") : incomeT("income_saved", "Einnahme gespeichert."));
+    setStatus(
+      "income-form-status",
+      "success",
+      incomeState.editingId
+        ? incomeT("income_updated", "Einnahme aktualisiert.")
+        : incomeT("income_saved", "Einnahme gespeichert.")
+    );
     await refreshCategoryData();
     setIncomeFormModeCreate();
     await refreshDashboardData();

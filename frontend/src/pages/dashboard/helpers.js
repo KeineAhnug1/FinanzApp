@@ -1,18 +1,22 @@
 // UI-Helfer: Formatierung und kleine DOM-Werkzeuge fuer wiederverwendbare Aufgaben.
-import { getLocale } from './runtime.js';
-import { formatFromEur } from '@shared/js/currency-utils.js';
-import { toastSuccess, toastError } from '@shared/js/api-client.js';
+import { getLocale } from "./runtime.js";
+import { formatFromEur } from "@shared/js/currency-utils.js";
+import { toastSuccess, toastError } from "@shared/js/api-client.js";
 
 export function formatMoney(value, options = {}) {
   const amount = Number(value) || 0;
   const locale = options.locale || getLocale();
-  const maxFractionDigits = Number.isFinite(options.maximumFractionDigits) ? options.maximumFractionDigits : 2;
-  const minFractionDigits = Number.isFinite(options.minimumFractionDigits) ? options.minimumFractionDigits : undefined;
+  const maxFractionDigits = Number.isFinite(options.maximumFractionDigits)
+    ? options.maximumFractionDigits
+    : 2;
+  const minFractionDigits = Number.isFinite(options.minimumFractionDigits)
+    ? options.minimumFractionDigits
+    : undefined;
 
   return formatFromEur(amount, {
     locale,
     maximumFractionDigits: maxFractionDigits,
-    minimumFractionDigits: minFractionDigits
+    minimumFractionDigits: minFractionDigits,
   });
 }
 
@@ -73,7 +77,9 @@ export function escapeHtml(value) {
 }
 
 export function normalizeSearch(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 export function setButtonLoading(buttonEl, isLoading) {

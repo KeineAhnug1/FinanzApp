@@ -37,7 +37,9 @@ html.dashboard-view-preload .dash-main .view-panel {
   font-size: 0.82rem;
   font-weight: 650;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .section-tab.is-active {
@@ -59,8 +61,14 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 @keyframes view-panel-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .page-tab-nav {
@@ -88,7 +96,9 @@ html.dashboard-view-preload .dash-main .view-panel {
   font-size: 0.85rem;
   font-weight: 650;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .entry-tab-btn.is-active {
@@ -105,12 +115,16 @@ html.dashboard-view-preload .dash-main .view-panel {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 4px 16px rgba(29, 45, 62, 0.1), 0 1px 4px rgba(29, 45, 62, 0.07);
+  box-shadow:
+    0 4px 16px rgba(29, 45, 62, 0.1),
+    0 1px 4px rgba(29, 45, 62, 0.07);
   transition: box-shadow 200ms ease;
 }
 
 :root[data-theme="dark"] .hero-card {
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .hero-label {
@@ -188,21 +202,31 @@ html.dashboard-view-preload .dash-main .view-panel {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px;
-  box-shadow: 0 2px 8px rgba(29, 45, 62, 0.08), 0 1px 2px rgba(29, 45, 62, 0.05);
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  box-shadow:
+    0 2px 8px rgba(29, 45, 62, 0.08),
+    0 1px 2px rgba(29, 45, 62, 0.05);
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease;
 }
 
 .kpi-card:hover {
-  box-shadow: 0 6px 18px rgba(29, 45, 62, 0.12), 0 2px 6px rgba(29, 45, 62, 0.07);
+  box-shadow:
+    0 6px 18px rgba(29, 45, 62, 0.12),
+    0 2px 6px rgba(29, 45, 62, 0.07);
   transform: translateY(-1px);
 }
 
 :root[data-theme="dark"] .kpi-card {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 :root[data-theme="dark"] .kpi-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.56), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.56),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .kpi-label {
@@ -248,11 +272,15 @@ html.dashboard-view-preload .dash-main .view-panel {
   border-radius: 14px;
   padding: 16px;
   min-width: 0;
-  box-shadow: 0 2px 8px rgba(29, 45, 62, 0.07), 0 1px 2px rgba(29, 45, 62, 0.04);
+  box-shadow:
+    0 2px 8px rgba(29, 45, 62, 0.07),
+    0 1px 2px rgba(29, 45, 62, 0.04);
 }
 
 :root[data-theme="dark"] .panel {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .panel-title {
@@ -455,7 +483,9 @@ html.dashboard-view-preload .dash-main .view-panel {
 .cashflow-point-income,
 .cashflow-point-expense,
 .cashflow-point-savings {
-  transition: transform 0.14s ease, stroke-width 0.14s ease;
+  transition:
+    transform 0.14s ease,
+    stroke-width 0.14s ease;
   transform-origin: center;
   transform-box: fill-box;
 }
@@ -581,8 +611,14 @@ html.dashboard-view-preload .dash-main .view-panel {
 
 :root[data-theme="dark"] .cashflow-tooltip {
   border-color: color-mix(in srgb, var(--border-strong) 70%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 90%, #2b2d34 10%), var(--bg-surface));
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-surface) 90%, #2b2d34 10%),
+    var(--bg-surface)
+  );
+  box-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .bars-empty {
@@ -874,8 +910,14 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 @keyframes form-status-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .form-status.is-success {
@@ -1166,8 +1208,12 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 @keyframes modal-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-card {
@@ -1175,18 +1221,28 @@ html.dashboard-view-preload .dash-main .view-panel {
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--bg-surface);
-  box-shadow: 0 20px 60px rgba(29, 45, 62, 0.18), 0 6px 20px rgba(29, 45, 62, 0.1);
+  box-shadow:
+    0 20px 60px rgba(29, 45, 62, 0.18),
+    0 6px 20px rgba(29, 45, 62, 0.1);
   padding: 18px;
   animation: modal-card-in 180ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 @keyframes modal-card-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 :root[data-theme="dark"] .modal-card {
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 
 .modal-title {

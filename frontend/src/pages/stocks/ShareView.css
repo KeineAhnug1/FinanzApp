@@ -229,7 +229,6 @@ main {
   box-shadow: 0 0 0 2px var(--clr-primary-soft);
 }
 
-
 /* ======================================================
    6) UI Komponenten
    Beschreibung:
@@ -269,7 +268,9 @@ select {
   color: var(--clr-text);
   font-size: 0.875rem;
   outline: none;
-  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  transition:
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .check-row {
@@ -295,7 +296,9 @@ select {
   background: var(--clr-switch-track);
   cursor: pointer;
   position: relative;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .ui-check::before {
@@ -966,7 +969,9 @@ select:focus {
   font-size: 0.84rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 130ms ease, color 130ms ease;
+  transition:
+    background-color 130ms ease,
+    color 130ms ease;
 }
 .entry-tab-btn.is-active {
   background: var(--primary);

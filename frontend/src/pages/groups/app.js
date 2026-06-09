@@ -1,9 +1,9 @@
-import '@shared/js/topbar.js';
-import { createT, getLocale } from '@shared/js/language-utils.js';
-import { getCurrentUserFromStorage } from '@shared/js/session-utils.js';
-import { requestJson, requestJsonMerged, toastSuccess, toastError } from '@shared/js/api-client.js';
-import { formatFromEur } from '@shared/js/currency-utils.js';
-import { escapeHtml } from '@shared/js/html-utils.js';
+import "@shared/js/topbar.js";
+import { createT, getLocale } from "@shared/js/language-utils.js";
+import { getCurrentUserFromStorage } from "@shared/js/session-utils.js";
+import { requestJson, requestJsonMerged, toastSuccess, toastError } from "@shared/js/api-client.js";
+import { formatFromEur } from "@shared/js/currency-utils.js";
+import { escapeHtml } from "@shared/js/html-utils.js";
 
 const sessionUserBadge = document.getElementById("sessionUserBadge");
 const groupsList = document.getElementById("groupsList");
@@ -86,7 +86,7 @@ const SETTINGS_LOCALE_OPTIONS = new Set(["de-DE", "en-US"]);
 const DEFAULT_GROUPS_VIEW_STATE = {
   isDetailOpen: false,
   selectedGroupId: "",
-  activeDetailTab: "members"
+  activeDetailTab: "members",
 };
 const initialGroupsViewState = loadGroupsViewState(getCurrentUserFromStorage()?.id);
 
@@ -105,13 +105,12 @@ let groupChatState = {
   loadingOlder: false,
   readyForOlderLoad: false,
   hasLoadedOlderHistory: false,
-  refreshing: false
+  refreshing: false,
 };
 const GROUP_CHAT_REFRESH_INTERVAL_MS = 3000;
 let groupChatRefreshTimer = null;
 const DEFAULT_GROUP_LOCALE_SETTINGS = {
   locale: "de-DE",
-
 };
 let groupLocaleSettings = { ...DEFAULT_GROUP_LOCALE_SETTINGS };
 
@@ -127,7 +126,7 @@ function normalizeGroupsViewState(raw) {
   return {
     isDetailOpen: Boolean(base.isDetailOpen),
     selectedGroupId: String(base.selectedGroupId || "").trim(),
-    activeDetailTab: DETAIL_TAB_OPTIONS.has(tab) ? tab : "members"
+    activeDetailTab: DETAIL_TAB_OPTIONS.has(tab) ? tab : "members",
   };
 }
 
@@ -151,7 +150,7 @@ function persistGroupsViewState(override = {}) {
   const current = {
     isDetailOpen: !detailView.hidden,
     selectedGroupId: selectedGroupId ? String(selectedGroupId) : "",
-    activeDetailTab
+    activeDetailTab,
   };
   saveGroupsViewState(userId, { ...current, ...override });
 }
@@ -164,8 +163,11 @@ function sanitizeSettingChoice(value, allowedValues, fallback) {
 function normalizeGroupLocaleSettings(raw) {
   const base = raw && typeof raw === "object" ? raw : {};
   return {
-    locale: sanitizeSettingChoice(base.locale, SETTINGS_LOCALE_OPTIONS, DEFAULT_GROUP_LOCALE_SETTINGS.locale),
-
+    locale: sanitizeSettingChoice(
+      base.locale,
+      SETTINGS_LOCALE_OPTIONS,
+      DEFAULT_GROUP_LOCALE_SETTINGS.locale
+    ),
   };
 }
 
@@ -217,7 +219,7 @@ function formatDate(value) {
   if (Number.isNaN(date.getTime())) return t("groups.na");
   return new Intl.DateTimeFormat(groupLocaleSettings.locale, {
     dateStyle: "medium",
-    timeStyle: "short"
+    timeStyle: "short",
   }).format(date);
 }
 
@@ -234,7 +236,7 @@ function setDetailStatus(message, type = "") {
     detailStatus.classList.add(type);
   }
   detailStatus.textContent = message || "";
-  if (type === "ok" && message)    toastSuccess(message);
+  if (type === "ok" && message) toastSuccess(message);
   if (type === "error" && message) toastError(message);
 }
 
@@ -244,7 +246,7 @@ function setInboxStatus(message, type = "") {
     inboxStatus.classList.add(type);
   }
   inboxStatus.textContent = message || "";
-  if (type === "ok" && message)    toastSuccess(message);
+  if (type === "ok" && message) toastSuccess(message);
   if (type === "error" && message) toastError(message);
 }
 
@@ -254,7 +256,7 @@ function setGroupChatStatus(message, type = "") {
     groupChatStatus.classList.add(type);
   }
   groupChatStatus.textContent = message || "";
-  if (type === "ok" && message)    toastSuccess(message);
+  if (type === "ok" && message) toastSuccess(message);
   if (type === "error" && message) toastError(message);
 }
 
@@ -267,7 +269,7 @@ function resetGroupChatState(groupId = "") {
     loadingOlder: false,
     readyForOlderLoad: false,
     hasLoadedOlderHistory: false,
-    refreshing: false
+    refreshing: false,
   };
 }
 
@@ -280,7 +282,8 @@ function stopGroupChatLiveUpdates() {
 
 function isGroupChatNearBottom() {
   const threshold = 64;
-  const distanceToBottom = groupChatViewport.scrollHeight - groupChatViewport.scrollTop - groupChatViewport.clientHeight;
+  const distanceToBottom =
+    groupChatViewport.scrollHeight - groupChatViewport.scrollTop - groupChatViewport.clientHeight;
   return distanceToBottom <= threshold;
 }
 
@@ -320,7 +323,9 @@ async function refreshGroupChatLiveMessages(options = {}) {
 
     if (!groupChatState.hasLoadedOlderHistory) {
       groupChatState.hasOlder = Boolean(payload.has_older);
-      groupChatState.oldestMessageId = groupChatState.messages.length ? String(groupChatState.messages[0].message_id || "") : null;
+      groupChatState.oldestMessageId = groupChatState.messages.length
+        ? String(groupChatState.messages[0].message_id || "")
+        : null;
     }
 
     renderGroupChatMessages();
@@ -358,7 +363,10 @@ function renderGroupChatMessages() {
     emptyBubble.className = "chat-bubble";
     const emptyMessage = document.createElement("p");
     emptyMessage.className = "chat-message";
-    emptyMessage.textContent = t("groups.no_chat_messages", "Noch keine Nachrichten im Gruppenchat.");
+    emptyMessage.textContent = t(
+      "groups.no_chat_messages",
+      "Noch keine Nachrichten im Gruppenchat."
+    );
     emptyBubble.appendChild(emptyMessage);
     emptyItem.appendChild(emptyBubble);
     groupChatMessages.appendChild(emptyItem);
@@ -374,10 +382,12 @@ function renderGroupChatMessages() {
     }
 
     const nameParts = [entry.first_name, entry.last_name].filter(Boolean);
-    const displayName = nameParts.length ? `${entry.username} (${nameParts.join(" ")})` : (entry.username || t("groups.unknown_user", "unbekannt"));
+    const displayName = nameParts.length
+      ? `${entry.username} (${nameParts.join(" ")})`
+      : entry.username || t("groups.unknown_user", "unbekannt");
     const editedSuffix = entry.edited ? ` • ${t("groups.edited", "bearbeitet")}` : "";
 
-    const chatInitial = ((entry.username || "?")[0]).toUpperCase();
+    const chatInitial = (entry.username || "?")[0].toUpperCase();
     const chatAvatarHtml = entry.profileImage
       ? `<div class="chat-avatar"><img src="${escapeHtml(entry.profileImage)}" alt="" /></div>`
       : `<div class="chat-avatar">${escapeHtml(chatInitial)}</div>`;
@@ -423,7 +433,9 @@ function renderGroupChatMessages() {
       bubble.addEventListener("click", (e) => {
         e.stopPropagation();
         const isOpen = !menu.hidden;
-        groupChatMessages.querySelectorAll(".msg-context-menu").forEach((m) => { m.hidden = true; });
+        groupChatMessages.querySelectorAll(".msg-context-menu").forEach((m) => {
+          m.hidden = true;
+        });
         menu.hidden = isOpen;
       });
     }
@@ -451,7 +463,12 @@ function updateInboxIndicator(invitations = []) {
   const hasInvitations = count > 0;
 
   openInboxButton.classList.toggle("has-pending", hasInvitations);
-  openInboxButton.setAttribute("aria-label", hasInvitations ? t("groups.inbox.aria", "Posteingang mit {count} offenen Einladungen", { count }) : t("groups.inbox.default", "Posteingang"));
+  openInboxButton.setAttribute(
+    "aria-label",
+    hasInvitations
+      ? t("groups.inbox.aria", "Posteingang mit {count} offenen Einladungen", { count })
+      : t("groups.inbox.default", "Posteingang")
+  );
 
   if (!inboxIndicator) return;
   inboxIndicator.hidden = !hasInvitations;
@@ -575,7 +592,13 @@ function renderActivities(activities = []) {
   if (!activities.length) {
     const emptyLi = document.createElement("li");
     emptyLi.className = "member-item";
-    emptyLi.appendChild(createEmptyBlock("📅", t("no_activities_yet", "Keine Aktivitaeten"), "Erstelle eine Aktivitaet fuer diese Gruppe."));
+    emptyLi.appendChild(
+      createEmptyBlock(
+        "📅",
+        t("no_activities_yet", "Keine Aktivitaeten"),
+        "Erstelle eine Aktivitaet fuer diese Gruppe."
+      )
+    );
     groupActivitiesList.appendChild(emptyLi);
     return;
   }
@@ -603,7 +626,13 @@ function renderFundings(fundings = []) {
   if (!fundings.length) {
     const emptyLi = document.createElement("li");
     emptyLi.className = "member-item";
-    emptyLi.appendChild(createEmptyBlock("💰", t("no_fundings_yet", "Keine Finanzierungen"), "Erstelle eine Finanzierung für diese Gruppe."));
+    emptyLi.appendChild(
+      createEmptyBlock(
+        "💰",
+        t("no_fundings_yet", "Keine Finanzierungen"),
+        "Erstelle eine Finanzierung für diese Gruppe."
+      )
+    );
     groupFundingsList.appendChild(emptyLi);
     return;
   }
@@ -635,7 +664,8 @@ function renderFundings(fundings = []) {
 
 function renderFundingDetail(detail) {
   const fundings = detail?.fundings || [];
-  const selectedFunding = fundings.find((funding) => funding.funding_id === selectedFundingId) || null;
+  const selectedFunding =
+    fundings.find((funding) => funding.funding_id === selectedFundingId) || null;
 
   if (!selectedFunding) {
     fundingDetailEmpty.hidden = false;
@@ -654,13 +684,16 @@ function renderFundingDetail(detail) {
 
   fundingDetailEmpty.hidden = true;
   fundingDetailContent.hidden = false;
-  fundingDetailTitle.textContent = selectedFunding.info || t("funding_entry", "Finanzierungseintrag");
+  fundingDetailTitle.textContent =
+    selectedFunding.info || t("funding_entry", "Finanzierungseintrag");
   fundingDetailMeta.textContent = `${t("groups.balance", "Kontostand")}: ${formatAmount(selectedFunding.amount)} | ${t("groups.linked_activity", "Verknuepfte Aktivitaet")}: ${linkedActivity} | ${t("groups.donors", "Spender")}: ${contributions || t("groups.no_donations_yet", "Noch keine Spenden")}`;
 
-  const selectedExpenses = (detail.expenses || [])
-    .filter((expense) => expense.group_funding_id === selectedFunding.funding_id);
-  const selectedTransactions = (detail.funding_transactions || [])
-    .filter((transaction) => transaction.group_funding_id === selectedFunding.funding_id);
+  const selectedExpenses = (detail.expenses || []).filter(
+    (expense) => expense.group_funding_id === selectedFunding.funding_id
+  );
+  const selectedTransactions = (detail.funding_transactions || []).filter(
+    (transaction) => transaction.group_funding_id === selectedFunding.funding_id
+  );
 
   renderExpenses(selectedExpenses);
   renderFundingTransactions(selectedTransactions);
@@ -672,7 +705,13 @@ function renderExpenses(expenses = []) {
   if (!expenses.length) {
     const emptyLi = document.createElement("li");
     emptyLi.className = "member-item";
-    emptyLi.appendChild(createEmptyBlock("🧾", t("no_paid_expenses_yet", "Keine Ausgaben"), "Ausgaben erscheinen hier sobald Zahlungen vorhanden sind."));
+    emptyLi.appendChild(
+      createEmptyBlock(
+        "🧾",
+        t("no_paid_expenses_yet", "Keine Ausgaben"),
+        "Ausgaben erscheinen hier sobald Zahlungen vorhanden sind."
+      )
+    );
     groupExpensesList.appendChild(emptyLi);
     return;
   }
@@ -712,7 +751,9 @@ function renderFundingTransactions(transactions = []) {
   }
 
   for (const transaction of transactions) {
-    const expenseInfo = escapeHtml(transaction.expense_info || t("funding_payment", "Finanzierungszahlung"));
+    const expenseInfo = escapeHtml(
+      transaction.expense_info || t("funding_payment", "Finanzierungszahlung")
+    );
     const fundingInfo = escapeHtml(transaction.funding_info || t("groups.na", "k. A."));
     const amount = escapeHtml(formatAmount(transaction.amount));
     const createdAt = escapeHtml(formatDate(transaction.created_at));
@@ -734,7 +775,13 @@ function renderGroups(groups) {
   groupsList.innerHTML = "";
 
   if (!groups.length) {
-    groupsList.appendChild(createEmptyBlock("🏘", t("no_memberships_for_user", "Noch keine Gruppen"), "Erstelle eine Gruppe oder warte auf eine Einladung."));
+    groupsList.appendChild(
+      createEmptyBlock(
+        "🏘",
+        t("no_memberships_for_user", "Noch keine Gruppen"),
+        "Erstelle eine Gruppe oder warte auf eine Einladung."
+      )
+    );
     return;
   }
 
@@ -766,7 +813,9 @@ function renderInvitations(invitations) {
   if (!invitations.length) {
     const emptyLi = document.createElement("li");
     emptyLi.className = "member-item";
-    emptyLi.appendChild(createEmptyBlock("✉", t("no_open_invitations", "Keine offenen Einladungen")));
+    emptyLi.appendChild(
+      createEmptyBlock("✉", t("no_open_invitations", "Keine offenen Einladungen"))
+    );
     inboxInvitations.appendChild(emptyLi);
     return;
   }
@@ -819,8 +868,12 @@ function renderGroupDetail(detail) {
   groupDetailEmpty.hidden = true;
   groupDetailContent.hidden = false;
   groupDetailName.textContent = detail.group.name;
-  groupDetailAddress.textContent = t("groups.address", "Adresse: {value}", { value: detail.group.address || t("groups.na", "k. A.") });
-  groupDetailCreated.textContent = t("groups.created", "Erstellt: {value}", { value: formatDate(detail.group.created_at) });
+  groupDetailAddress.textContent = t("groups.address", "Adresse: {value}", {
+    value: detail.group.address || t("groups.na", "k. A."),
+  });
+  groupDetailCreated.textContent = t("groups.created", "Erstellt: {value}", {
+    value: formatDate(detail.group.created_at),
+  });
   leaveGroupButton.hidden = false;
 
   adminPanel.hidden = !detail.is_admin;
@@ -830,7 +883,10 @@ function renderGroupDetail(detail) {
   renderFundingActivityOptions(detail.activities || []);
   renderFundingSelects(detail.fundings || []);
   renderActivities(detail.activities || []);
-  if (selectedFundingId && !(detail.fundings || []).some((funding) => funding.funding_id === selectedFundingId)) {
+  if (
+    selectedFundingId &&
+    !(detail.fundings || []).some((funding) => funding.funding_id === selectedFundingId)
+  ) {
     selectedFundingId = null;
   }
   renderFundings(detail.fundings || []);
@@ -844,7 +900,9 @@ function renderGroupDetail(detail) {
     const isSessionUser = member.user_id === detail.session_user_id;
     const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
     const identity = fullName ? `${member.username} (${fullName})` : member.username;
-    const safeIdentity = escapeHtml(`${identity}${isSessionUser ? ` ${t("groups.you", "(du)")}` : ""}`);
+    const safeIdentity = escapeHtml(
+      `${identity}${isSessionUser ? ` ${t("groups.you", "(du)")}` : ""}`
+    );
     const safeRole = escapeHtml(member.role);
     const safeStatus = escapeHtml(formatMemberStatus(member.status));
     const userId = String(member.user_id || "");
@@ -891,7 +949,7 @@ async function requestApi(path, options = {}) {
   const payload = await requestJsonMerged(path, {
     method: options.method || "GET",
     headers: options.headers || {},
-    body: options.body
+    body: options.body,
   });
   if (payload?.ok) {
     return payload;
@@ -900,12 +958,18 @@ async function requestApi(path, options = {}) {
   if (payload?.status === 0) {
     throw new Error(t("groups.server_unreachable", "Server nicht erreichbar"));
   }
-  throw new Error(String(payload?.message || options.defaultMessage || t("groups.request_failed", "Anfrage fehlgeschlagen")));
+  throw new Error(
+    String(
+      payload?.message ||
+        options.defaultMessage ||
+        t("groups.request_failed", "Anfrage fehlgeschlagen")
+    )
+  );
 }
 
 async function loadSession() {
   const payload = await requestApi("/api/session", {
-    defaultMessage: t("groups.session_load_failed", "Sitzung konnte nicht geladen werden")
+    defaultMessage: t("groups.session_load_failed", "Sitzung konnte nicht geladen werden"),
   });
   sessionUser = payload.session_user || null;
   applyGroupLocaleSettings(sessionUser?.id);
@@ -918,7 +982,7 @@ async function loadSession() {
 
 async function fetchGroupDetail(groupId) {
   return await requestApi(`/api/groups/${groupId}`, {
-    defaultMessage: t("groups.detail_load_failed", "Gruppendetails konnten nicht geladen werden")
+    defaultMessage: t("groups.detail_load_failed", "Gruppendetails konnten nicht geladen werden"),
   });
 }
 
@@ -929,7 +993,7 @@ async function fetchGroupMessages(groupId, options = {}) {
   const query = params.toString();
   const suffix = query ? `?${query}` : "";
   return await requestApi(`/api/groups/${groupId}/messages${suffix}`, {
-    defaultMessage: t("groups.chat_load_failed", "Gruppenchat konnte nicht geladen werden")
+    defaultMessage: t("groups.chat_load_failed", "Gruppenchat konnte nicht geladen werden"),
   });
 }
 
@@ -937,7 +1001,7 @@ async function createGroupMessage(groupId, message) {
   return await requestApi(`/api/groups/${groupId}/messages`, {
     method: "POST",
     body: { message },
-    defaultMessage: t("groups.chat_send_failed", "Nachricht konnte nicht gesendet werden")
+    defaultMessage: t("groups.chat_send_failed", "Nachricht konnte nicht gesendet werden"),
   });
 }
 
@@ -989,7 +1053,8 @@ async function loadInitialGroupMessages(groupId) {
 async function loadOlderGroupMessages() {
   if (!selectedGroupId || !groupChatState.groupId) return;
   if (groupChatState.groupId !== String(selectedGroupId)) return;
-  if (!groupChatState.hasOlder || groupChatState.loadingOlder || !groupChatState.oldestMessageId) return;
+  if (!groupChatState.hasOlder || groupChatState.loadingOlder || !groupChatState.oldestMessageId)
+    return;
 
   groupChatState.loadingOlder = true;
   const previousHeight = groupChatViewport.scrollHeight;
@@ -998,7 +1063,7 @@ async function loadOlderGroupMessages() {
   try {
     const payload = await fetchGroupMessages(selectedGroupId, {
       beforeMessageId: groupChatState.oldestMessageId,
-      limit: 40
+      limit: 40,
     });
     if (String(selectedGroupId || "") !== groupChatState.groupId) {
       return;
@@ -1007,7 +1072,9 @@ async function loadOlderGroupMessages() {
     const olderMessages = Array.isArray(payload.messages) ? payload.messages : [];
     if (olderMessages.length) {
       const existingIds = new Set(groupChatState.messages.map((entry) => String(entry.message_id)));
-      const dedupedOlder = olderMessages.filter((entry) => !existingIds.has(String(entry.message_id)));
+      const dedupedOlder = olderMessages.filter(
+        (entry) => !existingIds.has(String(entry.message_id))
+      );
       groupChatState.messages = [...dedupedOlder, ...groupChatState.messages];
       if (dedupedOlder.length) {
         groupChatState.hasLoadedOlderHistory = true;
@@ -1015,7 +1082,9 @@ async function loadOlderGroupMessages() {
     }
 
     groupChatState.hasOlder = Boolean(payload.has_older);
-    groupChatState.oldestMessageId = groupChatState.messages.length ? String(groupChatState.messages[0].message_id || "") : null;
+    groupChatState.oldestMessageId = groupChatState.messages.length
+      ? String(groupChatState.messages[0].message_id || "")
+      : null;
     renderGroupChatMessages();
 
     const nextHeight = groupChatViewport.scrollHeight;
@@ -1029,7 +1098,7 @@ async function loadOlderGroupMessages() {
 
 async function loadGroups(preferredGroupId = selectedGroupId) {
   const payload = await requestApi("/api/groups", {
-    defaultMessage: t("groups.list_load_failed", "Gruppen konnten nicht geladen werden")
+    defaultMessage: t("groups.list_load_failed", "Gruppen konnten nicht geladen werden"),
   });
 
   groupsState = payload.groups || [];
@@ -1042,9 +1111,14 @@ async function loadGroups(preferredGroupId = selectedGroupId) {
     return;
   }
 
-  if (preferredGroupId && groupsState.some((group) => String(group.group_id) === String(preferredGroupId))) {
+  if (
+    preferredGroupId &&
+    groupsState.some((group) => String(group.group_id) === String(preferredGroupId))
+  ) {
     selectedGroupId = String(preferredGroupId);
-  } else if (!groupsState.some((group) => String(group.group_id) === String(selectedGroupId || ""))) {
+  } else if (
+    !groupsState.some((group) => String(group.group_id) === String(selectedGroupId || ""))
+  ) {
     selectedGroupId = null;
   }
 
@@ -1054,7 +1128,7 @@ async function loadGroups(preferredGroupId = selectedGroupId) {
 
 async function loadInvitations() {
   const payload = await requestApi("/api/inbox/invitations", {
-    defaultMessage: t("groups.invitations_load_failed", "Einladungen konnten nicht geladen werden")
+    defaultMessage: t("groups.invitations_load_failed", "Einladungen konnten nicht geladen werden"),
   });
 
   invitationsState = payload.invitations || [];
@@ -1066,7 +1140,7 @@ async function createGroup(name, address) {
   const payload = await requestApi("/api/groups", {
     method: "POST",
     body: { name, address },
-    defaultMessage: t("groups.create_failed", "Gruppe konnte nicht erstellt werden")
+    defaultMessage: t("groups.create_failed", "Gruppe konnte nicht erstellt werden"),
   });
   return payload.group;
 }
@@ -1075,14 +1149,14 @@ async function inviteUserToGroup(groupId, username) {
   await requestApi(`/api/groups/${groupId}/invite`, {
     method: "POST",
     body: { username },
-    defaultMessage: t("groups.invite_failed", "Nutzer konnte nicht eingeladen werden")
+    defaultMessage: t("groups.invite_failed", "Nutzer konnte nicht eingeladen werden"),
   });
 }
 
 async function removeMember(groupId, userId) {
   await requestApi(`/api/groups/${groupId}/members/${userId}`, {
     method: "DELETE",
-    defaultMessage: t("groups.remove_member_failed", "Teilnehmende konnten nicht entfernt werden")
+    defaultMessage: t("groups.remove_member_failed", "Teilnehmende konnten nicht entfernt werden"),
   });
 }
 
@@ -1090,7 +1164,7 @@ async function createGroupActivity(groupId, info, date) {
   await requestApi(`/api/groups/${groupId}/activities`, {
     method: "POST",
     body: { info, date: date || null },
-    defaultMessage: t("groups.activity_create_failed", "Aktivitaet konnte nicht erstellt werden")
+    defaultMessage: t("groups.activity_create_failed", "Aktivitaet konnte nicht erstellt werden"),
   });
 }
 
@@ -1099,16 +1173,19 @@ async function createGroupFunding(groupId, info, groupActivityId) {
     method: "POST",
     body: {
       info: info || null,
-      group_activity_id: groupActivityId || null
+      group_activity_id: groupActivityId || null,
     },
-    defaultMessage: t("groups.funding_create_failed", "Finanzierung konnte nicht erstellt werden")
+    defaultMessage: t("groups.funding_create_failed", "Finanzierung konnte nicht erstellt werden"),
   });
 }
 
 async function promoteMemberToAdmin(groupId, userId) {
   await requestApi(`/api/groups/${groupId}/members/${userId}/promote-admin`, {
     method: "POST",
-    defaultMessage: t("groups.promote_failed", "Teilnehmende konnten nicht zum Admin gemacht werden")
+    defaultMessage: t(
+      "groups.promote_failed",
+      "Teilnehmende konnten nicht zum Admin gemacht werden"
+    ),
   });
 }
 
@@ -1116,7 +1193,7 @@ async function donateToFunding(groupId, fundingId, amount) {
   await requestApi(`/api/groups/${groupId}/funding/${fundingId}/donate`, {
     method: "POST",
     body: { amount },
-    defaultMessage: t("groups.donation_failed", "Spende konnte nicht verarbeitet werden")
+    defaultMessage: t("groups.donation_failed", "Spende konnte nicht verarbeitet werden"),
   });
 }
 
@@ -1127,37 +1204,43 @@ async function createGroupExpense(groupId, groupFundingId, amount, info, dueDate
       group_funding_id: groupFundingId,
       amount,
       info: info || null,
-      due_date: dueDate || null
+      due_date: dueDate || null,
     },
-    defaultMessage: t("groups.paid_expense_create_failed", "Bezahlte Ausgabe konnte nicht erstellt werden")
+    defaultMessage: t(
+      "groups.paid_expense_create_failed",
+      "Bezahlte Ausgabe konnte nicht erstellt werden"
+    ),
   });
 }
 
 async function acceptInvitation(groupId) {
   await requestApi(`/api/inbox/invitations/${groupId}/accept`, {
     method: "POST",
-    defaultMessage: t("groups.invitation_accept_failed", "Einladung konnte nicht angenommen werden")
+    defaultMessage: t(
+      "groups.invitation_accept_failed",
+      "Einladung konnte nicht angenommen werden"
+    ),
   });
 }
 
 async function denyInvitation(groupId) {
   await requestApi(`/api/inbox/invitations/${groupId}/deny`, {
     method: "POST",
-    defaultMessage: t("groups.invitation_deny_failed", "Einladung konnte nicht abgelehnt werden")
+    defaultMessage: t("groups.invitation_deny_failed", "Einladung konnte nicht abgelehnt werden"),
   });
 }
 
 async function deleteGroup(groupId) {
   await requestApi(`/api/groups/${groupId}`, {
     method: "DELETE",
-    defaultMessage: t("groups.delete_failed", "Gruppe konnte nicht geloescht werden")
+    defaultMessage: t("groups.delete_failed", "Gruppe konnte nicht geloescht werden"),
   });
 }
 
 async function leaveGroup(groupId) {
   await requestApi(`/api/groups/${groupId}/leave`, {
     method: "POST",
-    defaultMessage: t("groups.leave_failed", "Gruppe konnte nicht verlassen werden")
+    defaultMessage: t("groups.leave_failed", "Gruppe konnte nicht verlassen werden"),
   });
 }
 
@@ -1194,7 +1277,9 @@ groupChatViewport.addEventListener("scroll", () => {
 
 document.addEventListener("click", () => {
   if (groupChatMessages) {
-    groupChatMessages.querySelectorAll(".msg-context-menu").forEach((m) => { m.hidden = true; });
+    groupChatMessages.querySelectorAll(".msg-context-menu").forEach((m) => {
+      m.hidden = true;
+    });
   }
 });
 
@@ -1215,7 +1300,9 @@ groupChatForm.addEventListener("submit", async (event) => {
 
     const createdMessage = payload.message || null;
     if (createdMessage) {
-      const exists = groupChatState.messages.some((entry) => String(entry.message_id) === String(createdMessage.message_id));
+      const exists = groupChatState.messages.some(
+        (entry) => String(entry.message_id) === String(createdMessage.message_id)
+      );
       if (!exists) {
         groupChatState.messages = [...groupChatState.messages, createdMessage];
       }
@@ -1312,7 +1399,11 @@ inboxInvitations.addEventListener("click", async (event) => {
   if (!groupId) return;
 
   const isAccept = button.classList.contains("accept-invite-button");
-  setInboxStatus(isAccept ? t("groups.invitation_accepting", "Einladung wird angenommen...") : t("groups.invitation_denying", "Einladung wird abgelehnt..."));
+  setInboxStatus(
+    isAccept
+      ? t("groups.invitation_accepting", "Einladung wird angenommen...")
+      : t("groups.invitation_denying", "Einladung wird abgelehnt...")
+  );
 
   try {
     if (isAccept) {
@@ -1338,7 +1429,11 @@ membersList.addEventListener("click", async (event) => {
   if (!userId) return;
 
   const isPromote = button.classList.contains("promote-admin-button");
-  setDetailStatus(isPromote ? t("groups.promoting", "Teilnehmende werden zum Admin gemacht...") : t("groups.removing_members", "Teilnehmende werden entfernt..."));
+  setDetailStatus(
+    isPromote
+      ? t("groups.promoting", "Teilnehmende werden zum Admin gemacht...")
+      : t("groups.removing_members", "Teilnehmende werden entfernt...")
+  );
   try {
     if (isPromote) {
       await promoteMemberToAdmin(selectedGroupId, userId);
@@ -1346,7 +1441,12 @@ membersList.addEventListener("click", async (event) => {
       await removeMember(selectedGroupId, userId);
     }
     await loadGroupDetail(selectedGroupId);
-    setDetailStatus(isPromote ? t("groups.promoted", "Teilnehmende sind jetzt Admin.") : t("groups.removed", "Teilnehmende wurden aus der Gruppe entfernt."), "ok");
+    setDetailStatus(
+      isPromote
+        ? t("groups.promoted", "Teilnehmende sind jetzt Admin.")
+        : t("groups.removed", "Teilnehmende wurden aus der Gruppe entfernt."),
+      "ok"
+    );
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
@@ -1374,7 +1474,11 @@ activityForm.addEventListener("submit", async (event) => {
 
   setDetailStatus(t("groups.activity_creating", "Aktivitaet wird erstellt..."));
   try {
-    await createGroupActivity(selectedGroupId, activityInfoInput.value.trim(), activityDateInput.value || null);
+    await createGroupActivity(
+      selectedGroupId,
+      activityInfoInput.value.trim(),
+      activityDateInput.value || null
+    );
     activityForm.reset();
     await loadGroupDetail(selectedGroupId);
     setDetailStatus(t("groups.activity_created", "Gruppenaktivitaet erstellt."), "ok");
@@ -1408,10 +1512,17 @@ donationForm.addEventListener("submit", async (event) => {
 
   setDetailStatus(t("groups.donation_saving", "Spende wird gespeichert..."));
   try {
-    await donateToFunding(selectedGroupId, donationFundingSelect.value, donationAmountInput.value.trim());
+    await donateToFunding(
+      selectedGroupId,
+      donationFundingSelect.value,
+      donationAmountInput.value.trim()
+    );
     donationForm.reset();
     await loadGroupDetail(selectedGroupId);
-    setDetailStatus(t("groups.donation_saved", "Spende wurde der Finanzierung hinzugefuegt."), "ok");
+    setDetailStatus(
+      t("groups.donation_saved", "Spende wurde der Finanzierung hinzugefuegt."),
+      "ok"
+    );
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
@@ -1421,7 +1532,10 @@ expenseForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedGroupId) return;
   if (!selectedGroupDetail?.is_admin) {
-    setDetailStatus(t("groups.admin_only_expenses", "Nur Admins koennen Gruppenausgaben erstellen."), "error");
+    setDetailStatus(
+      t("groups.admin_only_expenses", "Nur Admins koennen Gruppenausgaben erstellen."),
+      "error"
+    );
     return;
   }
 
@@ -1436,7 +1550,13 @@ expenseForm.addEventListener("submit", async (event) => {
     );
     expenseForm.reset();
     await loadGroupDetail(selectedGroupId);
-    setDetailStatus(t("groups.group_expense_created", "Gruppenausgabe erstellt und als Finanzierungszahlung verbucht."), "ok");
+    setDetailStatus(
+      t(
+        "groups.group_expense_created",
+        "Gruppenausgabe erstellt und als Finanzierungszahlung verbucht."
+      ),
+      "ok"
+    );
   } catch (error) {
     setDetailStatus(error.message, "error");
   }
@@ -1449,7 +1569,9 @@ deleteGroupButton.addEventListener("click", async () => {
     return;
   }
 
-  const confirmed = window.confirm(t("groups.confirm_delete_group", "Diese Gruppe und alle verknuepften Gruppendaten loeschen?"));
+  const confirmed = window.confirm(
+    t("groups.confirm_delete_group", "Diese Gruppe und alle verknuepften Gruppendaten loeschen?")
+  );
   if (!confirmed) return;
 
   setDetailStatus(t("groups.deleting", "Gruppe wird geloescht..."));
@@ -1494,7 +1616,10 @@ groupForm.addEventListener("submit", async (event) => {
     await loadGroups(created.group_id);
     await openGroupDetail(created.group_id);
     formStatus.classList.add("ok");
-    formStatus.textContent = t("group_created_with_admin", "Gruppe erstellt und du wurdest als Admin hinzugefuegt.");
+    formStatus.textContent = t(
+      "group_created_with_admin",
+      "Gruppe erstellt und du wurdest als Admin hinzugefuegt."
+    );
   } catch (error) {
     formStatus.classList.add("error");
     formStatus.textContent = error.message;
@@ -1513,8 +1638,10 @@ window.addEventListener("finanzapp:locale-changed", () => {
 async function bootstrap() {
   await Promise.all([loadSession(), loadGroups(), loadInvitations()]);
   const canRestoreSelection = Boolean(
-    initialGroupsViewState.selectedGroupId
-      && groupsState.some((group) => String(group.group_id) === String(initialGroupsViewState.selectedGroupId))
+    initialGroupsViewState.selectedGroupId &&
+    groupsState.some(
+      (group) => String(group.group_id) === String(initialGroupsViewState.selectedGroupId)
+    )
   );
 
   if (canRestoreSelection) {
@@ -1534,7 +1661,7 @@ async function bootstrap() {
     persistGroupsViewState({
       selectedGroupId: selectedGroupId ? String(selectedGroupId) : "",
       isDetailOpen: false,
-      activeDetailTab: "members"
+      activeDetailTab: "members",
     });
   }
   document.documentElement.classList.remove("groups-view-preload");

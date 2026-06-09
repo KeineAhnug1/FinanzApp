@@ -4,4 +4,3 @@
  * Intentionally does not perform any destructive action.
  */
 console.log("[noop] clear-database: no action performed.");
-

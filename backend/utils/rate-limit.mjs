@@ -45,12 +45,18 @@ export function rateLimitBucket(key, maxAttempts, windowMs) {
  * @param {{ maxAttempts?: number; windowMs?: number; group?: string }} [options]
  * @returns {Response | null}
  */
-export function checkRateLimit(request, { maxAttempts = 10, windowMs = 60_000, group = "general" } = {}) {
+export function checkRateLimit(
+  request,
+  { maxAttempts = 10, windowMs = 60_000, group = "general" } = {}
+) {
   const ip = getClientIp(request);
   const allowed = rateLimitBucket(`${group}:${ip}`, maxAttempts, windowMs);
   if (!allowed) {
     return new Response(
-      JSON.stringify({ ok: false, message: "Zu viele Anfragen. Bitte warte kurz und versuche es erneut." }),
+      JSON.stringify({
+        ok: false,
+        message: "Zu viele Anfragen. Bitte warte kurz und versuche es erneut.",
+      }),
       { status: 429, headers: { "Content-Type": "application/json; charset=utf-8" } }
     );
   }

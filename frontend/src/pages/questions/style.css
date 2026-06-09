@@ -87,7 +87,9 @@
   border: 0;
   color: var(--text-on-primary);
   background: var(--primary);
-  transition: opacity 0.13s, transform 0.13s;
+  transition:
+    opacity 0.13s,
+    transform 0.13s;
 }
 
 .submit-btn:hover {

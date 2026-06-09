@@ -456,7 +456,7 @@ html.groups-view-preload #detailView {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--ui-radius-sm, 8px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   z-index: 10;
   min-width: 110px;
   overflow: hidden;
@@ -501,7 +501,9 @@ select {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 input:focus,
@@ -522,7 +524,9 @@ button {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.13s, transform 0.13s;
+  transition:
+    opacity 0.13s,
+    transform 0.13s;
 }
 
 button:hover:not(:disabled) {

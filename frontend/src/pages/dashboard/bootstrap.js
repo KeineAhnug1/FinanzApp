@@ -1,26 +1,26 @@
 // Startpunkt des Dashboards: Session laden, UI initialisieren und Daten abrufen.
-import { appState, incomeState, expenseState } from './state.js';
+import { appState, incomeState, expenseState } from "./state.js";
 import {
   initThemeSwitcher,
   initSectionTabs,
   initEntryTabs,
   loadDashboardSettings,
-  setCurrentUser
-} from './runtime.js';
+  setCurrentUser,
+} from "./runtime.js";
 import {
   refreshCategoryData,
   refreshDashboardData,
-  initDashboardAccountFilter
-} from './dashboard-api.js';
-import { initConfirmModal } from './modal.js';
-import { initSettingsMenu } from './settings-menu.js';
-import { initIncomeForm, initIncomeListActions } from './income.js';
-import { initExpenseForm, initExpenseListActions } from './expense.js';
-import { initOverviewPieControls } from './overview-cashflow.js';
-import { initCategoryManagerActions, initListSearch } from './categories-search.js';
-import { requestJsonMerged } from '@shared/js/api-client.js';
-import { clearCurrentUserFromStorage } from '@shared/js/session-utils.js';
-import { getLocale } from '@shared/js/language-utils.js';
+  initDashboardAccountFilter,
+} from "./dashboard-api.js";
+import { initConfirmModal } from "./modal.js";
+import { initSettingsMenu } from "./settings-menu.js";
+import { initIncomeForm, initIncomeListActions } from "./income.js";
+import { initExpenseForm, initExpenseListActions } from "./expense.js";
+import { initOverviewPieControls } from "./overview-cashflow.js";
+import { initCategoryManagerActions, initListSearch } from "./categories-search.js";
+import { requestJsonMerged } from "@shared/js/api-client.js";
+import { clearCurrentUserFromStorage } from "@shared/js/session-utils.js";
+import { getLocale } from "@shared/js/language-utils.js";
 
 export async function bootstrap() {
   let sessionUser = null;

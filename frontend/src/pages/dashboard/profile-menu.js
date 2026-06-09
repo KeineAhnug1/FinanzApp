@@ -1,14 +1,19 @@
 // Profil-Menue: Anzeige des Nutzers und Abmelden aus der Session.
-import { setText } from './helpers.js';
+import { setText } from "./helpers.js";
 
 function initialsFromUser(user) {
-  const first = String(user.first_name || user.username || "U").charAt(0).toUpperCase();
-  const last = String(user.last_name || "").charAt(0).toUpperCase();
+  const first = String(user.first_name || user.username || "U")
+    .charAt(0)
+    .toUpperCase();
+  const last = String(user.last_name || "")
+    .charAt(0)
+    .toUpperCase();
   return `${first}${last}`.trim();
 }
 
 export function hydrateProfile(user) {
-  const profileName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
+  const profileName =
+    `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Nutzer";
   setText("profile-name", profileName);
   setText("menu-name", profileName);
   setText("menu-mail", user.email || "-");
@@ -43,7 +48,8 @@ export function initDashboardMobileNav() {
     toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "nav-toggle";
-    toggle.innerHTML = '<span class="nav-toggle-icon" aria-hidden="true">&#9776;</span><span class="nav-toggle-label">Menue</span>';
+    toggle.innerHTML =
+      '<span class="nav-toggle-icon" aria-hidden="true">&#9776;</span><span class="nav-toggle-label">Menue</span>';
     controls.insertBefore(toggle, nav);
   }
   toggle.setAttribute("aria-controls", nav.id);

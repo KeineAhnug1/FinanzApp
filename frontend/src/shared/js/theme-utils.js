@@ -32,7 +32,11 @@ export function applyThemeMode(sThemeMode) {
   document.documentElement.dataset.theme = sResolvedThemeMode;
   document.documentElement.dataset.themeMode = sThemeMode;
   updateThemeButtons(sThemeMode);
-  window.dispatchEvent(new CustomEvent("finanzapp:theme-changed", { detail: { theme: sResolvedThemeMode, themeMode: sThemeMode } }));
+  window.dispatchEvent(
+    new CustomEvent("finanzapp:theme-changed", {
+      detail: { theme: sResolvedThemeMode, themeMode: sThemeMode },
+    })
+  );
   return sResolvedThemeMode;
 }
 
@@ -84,7 +88,9 @@ export function applyDesign(sDesign) {
     oCard.classList.toggle("is-active", oCard.dataset.design === sResolved);
     oCard.setAttribute("aria-pressed", String(oCard.dataset.design === sResolved));
   }
-  window.dispatchEvent(new CustomEvent("finanzapp:design-changed", { detail: { design: sResolved } }));
+  window.dispatchEvent(
+    new CustomEvent("finanzapp:design-changed", { detail: { design: sResolved } })
+  );
   return sResolved;
 }
 
@@ -117,7 +123,9 @@ export function applyContrast(sContrast) {
     oBtn.classList.toggle("is-active", bIsActive);
     oBtn.setAttribute("aria-pressed", String(bIsActive));
   }
-  window.dispatchEvent(new CustomEvent("finanzapp:contrast-changed", { detail: { contrast: sResolved } }));
+  window.dispatchEvent(
+    new CustomEvent("finanzapp:contrast-changed", { detail: { contrast: sResolved } })
+  );
   return sResolved;
 }
 
@@ -139,4 +147,3 @@ export function initContrast() {
     });
   }
 }
-

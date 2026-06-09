@@ -1,10 +1,10 @@
 // Einstellungsmenue fuer Waehrung, Locale und Default-Werte.
-import { appState, DEFAULT_DASHBOARD_SETTINGS } from './state.js';
-import { normalizeDashboardSettings, applyDashboardSettings } from './runtime.js';
-import { setStatus } from './helpers.js';
-import { setIncomeFormModeCreate, setExpenseFormModeCreate } from './dashboard-api.js';
-import { getStoredThemeMode, saveAndApplyThemeMode } from '@shared/js/theme-utils.js';
-import { getLocale, setLocale, t } from '@shared/js/language-utils.js';
+import { appState, DEFAULT_DASHBOARD_SETTINGS } from "./state.js";
+import { normalizeDashboardSettings, applyDashboardSettings } from "./runtime.js";
+import { setStatus } from "./helpers.js";
+import { setIncomeFormModeCreate, setExpenseFormModeCreate } from "./dashboard-api.js";
+import { getStoredThemeMode, saveAndApplyThemeMode } from "@shared/js/theme-utils.js";
+import { getLocale, setLocale, t } from "@shared/js/language-utils.js";
 
 function populateSettingsForm() {
   const currency = document.getElementById("settings-currency");
@@ -18,8 +18,10 @@ function populateSettingsForm() {
   if (locale) locale.value = appState.settings.locale;
   if (themeMode) themeMode.value = getStoredThemeMode() || "auto";
   if (startView) startView.value = appState.settings.startView;
-  if (defaultIncomeRecurrence) defaultIncomeRecurrence.value = appState.settings.defaultIncomeRecurrence;
-  if (defaultExpenseRecurrence) defaultExpenseRecurrence.value = appState.settings.defaultExpenseRecurrence;
+  if (defaultIncomeRecurrence)
+    defaultIncomeRecurrence.value = appState.settings.defaultIncomeRecurrence;
+  if (defaultExpenseRecurrence)
+    defaultExpenseRecurrence.value = appState.settings.defaultExpenseRecurrence;
 }
 
 export function initSettingsMenu() {
@@ -53,13 +55,21 @@ export function initSettingsMenu() {
     const formData = new FormData(settingsForm);
     const pick = (name, fallback) => formData.get(name) ?? fallback;
     const themeMode = String(pick("theme_mode", "auto"));
-    const currentLocale = String(getLocale(appState.user?.id) || appState.settings.locale || DEFAULT_DASHBOARD_SETTINGS.locale);
+    const currentLocale = String(
+      getLocale(appState.user?.id) || appState.settings.locale || DEFAULT_DASHBOARD_SETTINGS.locale
+    );
     const nextSettings = normalizeDashboardSettings({
       currency: pick("currency", appState.settings.currency),
       locale: pick("locale", appState.settings.locale),
       startView: pick("start_view", appState.settings.startView),
-      defaultIncomeRecurrence: pick("default_income_recurrence", appState.settings.defaultIncomeRecurrence),
-      defaultExpenseRecurrence: pick("default_expense_recurrence", appState.settings.defaultExpenseRecurrence)
+      defaultIncomeRecurrence: pick(
+        "default_income_recurrence",
+        appState.settings.defaultIncomeRecurrence
+      ),
+      defaultExpenseRecurrence: pick(
+        "default_expense_recurrence",
+        appState.settings.defaultExpenseRecurrence
+      ),
     });
 
     applyDashboardSettings(nextSettings, { persist: true, rerender: true });
@@ -100,7 +110,10 @@ export function initSettingsMenu() {
   window.addEventListener("finanzapp:locale-changed", (event) => {
     const nextLocale = event?.detail?.locale;
     if (!nextLocale || appState.settings.locale === nextLocale) return;
-    applyDashboardSettings({ ...appState.settings, locale: nextLocale }, { persist: true, rerender: true });
+    applyDashboardSettings(
+      { ...appState.settings, locale: nextLocale },
+      { persist: true, rerender: true }
+    );
     populateSettingsForm();
   });
 

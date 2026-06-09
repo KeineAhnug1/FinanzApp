@@ -1,6 +1,11 @@
-import { elViewHost, fnT } from './state-api.js';
-import { fnEscapeHtml } from './domain.js';
-import { fnInitDepotView, fnInitAnalysisView, fnInitCategoryView, fnGetCategoryMeta } from './features.js';
+import { elViewHost, fnT } from "./state-api.js";
+import { fnEscapeHtml } from "./domain.js";
+import {
+  fnInitDepotView,
+  fnInitAnalysisView,
+  fnInitCategoryView,
+  fnGetCategoryMeta,
+} from "./features.js";
 
 // [SHARED] 6) View-Rendering (enthält [DEPOT]- und [ANALYSE]-Template)
 // =====================================================
@@ -11,11 +16,11 @@ import { fnInitDepotView, fnInitAnalysisView, fnInitCategoryView, fnGetCategoryM
  * @param {string} sViewName
  */
 export function fnRenderView(sViewName) {
-	elViewHost.innerHTML = "";
+  elViewHost.innerHTML = "";
 
-	// [DEPOT] Template + Startlogik
-	if (sViewName === "depot") {
-		elViewHost.innerHTML = `
+  // [DEPOT] Template + Startlogik
+  if (sViewName === "depot") {
+    elViewHost.innerHTML = `
       <section class="depot-page">
 
         <div class="card">
@@ -100,13 +105,13 @@ export function fnRenderView(sViewName) {
       </section>
     `;
 
-		fnInitDepotView();
-		return;
-	}
+    fnInitDepotView();
+    return;
+  }
 
-	// [ANALYSE] Template + Startlogik
-	if (sViewName === "analysis") {
-		elViewHost.innerHTML = `
+  // [ANALYSE] Template + Startlogik
+  if (sViewName === "analysis") {
+    elViewHost.innerHTML = `
       <section class="analysis-page">
 
         <div class="card">
@@ -203,28 +208,28 @@ export function fnRenderView(sViewName) {
       </section>
     `;
 
-		fnInitAnalysisView();
-		return;
-	}
+    fnInitAnalysisView();
+    return;
+  }
 
-	if (sViewName === "accounts") {
-		window.location.assign("/pages/accounts/");
-		return;
-	}
+  if (sViewName === "accounts") {
+    window.location.assign("/pages/accounts/");
+    return;
+  }
 
-	// [KATEGORIEN] Template + Startlogik
-	if (
-		sViewName === "category_common_stock" ||
-		sViewName === "category_preferred_stock" ||
-		sViewName === "category_etf" ||
-		sViewName === "category_real_estate" ||
-		sViewName === "category_depositary_receipts" ||
-		sViewName === "category_partnerships" ||
-		sViewName === "category_closed_end_funds" ||
-		sViewName === "category_etn"
-	) {
-		const oCategoryMeta = fnGetCategoryMeta(sViewName);
-		elViewHost.innerHTML = `
+  // [KATEGORIEN] Template + Startlogik
+  if (
+    sViewName === "category_common_stock" ||
+    sViewName === "category_preferred_stock" ||
+    sViewName === "category_etf" ||
+    sViewName === "category_real_estate" ||
+    sViewName === "category_depositary_receipts" ||
+    sViewName === "category_partnerships" ||
+    sViewName === "category_closed_end_funds" ||
+    sViewName === "category_etn"
+  ) {
+    const oCategoryMeta = fnGetCategoryMeta(sViewName);
+    elViewHost.innerHTML = `
       <section class="category-page">
         <h2 class="view-title">${fnEscapeHtml(oCategoryMeta.sTitle)}</h2>
 
@@ -255,11 +260,11 @@ export function fnRenderView(sViewName) {
       </section>
     `;
 
-		fnInitCategoryView(sViewName);
-		return;
-	}
+    fnInitCategoryView(sViewName);
+    return;
+  }
 
-elViewHost.innerHTML = `
+  elViewHost.innerHTML = `
     <div class="card">
       <h2 class="view-title">${fnEscapeHtml(sViewName)}</h2>
       <p class="muted">${fnT("stocks.not_implemented_yet", "Dieser Bereich ist noch nicht implementiert.")}</p>

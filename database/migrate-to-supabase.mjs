@@ -16,4 +16,3 @@ console.log("2) SQL Editor → New Query");
 console.log("3) Datei öffnen:", schemaPath);
 console.log("4) Query ausführen\n");
 console.log("Hinweis: Dieses Skript ist ein No-Op und verändert nichts direkt.");
-

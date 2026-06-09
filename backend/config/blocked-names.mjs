@@ -176,12 +176,12 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "vernichtungslager",
 
   // --- Weitere rechtsextreme Codes
-  "28",          // Blood & Honour Code
+  "28", // Blood & Honour Code
   "444",
   "764",
-  "rahowa",      // racial holy war
-  "zog",         // zionist occupied government
-  "hffh",        // honour & fatherland codes
+  "rahowa", // racial holy war
+  "zog", // zionist occupied government
+  "hffh", // honour & fatherland codes
   "14/88",
   "8814",
   "14881488",
@@ -205,7 +205,7 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "nationalaction",
   "generationidentity",
   "generation identity",
-  "o9a",             // Order of Nine Angles
+  "o9a", // Order of Nine Angles
   "orderofnineangles",
 
   // --- Islamistischer Extremismus (Erweiterung)
@@ -295,7 +295,7 @@ const BLOCKED_NAME_TERMS = Object.freeze([
   "null",
   "undefined",
   "anonymous",
-  "anon"
+  "anon",
 ]);
 
 /** @param {unknown} value */
@@ -308,15 +308,13 @@ function normalizeNameValue(value) {
 }
 
 const NORMALIZED_BLOCKED_NAME_TERMS = Object.freeze(
-  BLOCKED_NAME_TERMS
-    .map((entry) => normalizeNameValue(entry))
-    .filter(Boolean)
+  BLOCKED_NAME_TERMS.map((entry) => normalizeNameValue(entry)).filter(Boolean)
 );
 
 const NORMALIZED_BLOCKED_MESSAGE_TERMS = Object.freeze(
-  BLOCKED_NAME_TERMS
-    .map((entry) => normalizeNameValue(entry))
-    .filter((entry) => /[a-z]/.test(entry))
+  BLOCKED_NAME_TERMS.map((entry) => normalizeNameValue(entry)).filter((entry) =>
+    /[a-z]/.test(entry)
+  )
 );
 
 /**
@@ -324,11 +322,7 @@ const NORMALIZED_BLOCKED_MESSAGE_TERMS = Object.freeze(
  * @returns {string | null}
  */
 export function detectBlockedRegistrationName({ username, firstName, lastName }) {
-  const combinedCandidate = [
-    username,
-    firstName,
-    lastName
-  ].join(" ");
+  const combinedCandidate = [username, firstName, lastName].join(" ");
   const normalizedCandidate = normalizeNameValue(combinedCandidate);
   if (!normalizedCandidate) return null;
 

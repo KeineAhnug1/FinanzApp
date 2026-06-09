@@ -32,4 +32,3 @@ export function cacheRead(storageKey, ttlMs) {
 export function cacheWrite(storageKey, data) {
   window.localStorage.setItem(storageKey, JSON.stringify({ ts: Date.now(), data }));
 }
-

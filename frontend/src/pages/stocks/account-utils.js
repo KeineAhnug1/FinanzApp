@@ -16,7 +16,7 @@ export function mapApiAccounts(rawAccounts, fallbackPrefix) {
       const labelRaw = String(account?.label || account?.name || "").trim();
       return {
         id,
-        label: labelRaw || `${fallbackPrefix} ${index + 1}`
+        label: labelRaw || `${fallbackPrefix} ${index + 1}`,
       };
     })
     .filter(Boolean);
@@ -47,4 +47,3 @@ export async function loadAccountsByEndpoints(endpoints, fallbackPrefix, options
 
   return [];
 }
-

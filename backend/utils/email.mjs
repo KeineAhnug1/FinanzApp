@@ -17,10 +17,18 @@ export async function sendVerificationEmail(to, firstName, code, env) {
   }
 
   const greetingName = firstName || "Nutzer";
-  const safe = greetingName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const codeDigits = String(code).split("").map(d =>
-    `<span style="display:inline-block;width:44px;height:56px;line-height:56px;text-align:center;background:#f5f3ef;border:1.5px solid #e4e2de;border-radius:10px;font-size:28px;font-weight:700;color:#18181b;margin:0 4px;">${d}</span>`
-  ).join("");
+  const safe = greetingName
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const codeDigits = String(code)
+    .split("")
+    .map(
+      (d) =>
+        `<span style="display:inline-block;width:44px;height:56px;line-height:56px;text-align:center;background:#f5f3ef;border:1.5px solid #e4e2de;border-radius:10px;font-size:28px;font-weight:700;color:#18181b;margin:0 4px;">${d}</span>`
+    )
+    .join("");
 
   const html = `<!DOCTYPE html>
 <html lang="de">
@@ -57,14 +65,14 @@ export async function sendVerificationEmail(to, firstName, code, env) {
 
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from,
       to,
       subject: "FBM Finance – Dein Verifizierungscode",
       text: `Hallo ${greetingName},\n\ndein Verifizierungscode lautet: ${code}\n\nDer Code ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.\n\n– Das FBM Finance Team`,
-      html
-    })
+      html,
+    }),
   });
   if (!resp.ok) {
     console.error("[email] Resend error:", await resp.text());
@@ -88,18 +96,22 @@ export async function sendPasswordResetEmail(to, firstName, code, env) {
   }
 
   const greetingName = firstName || "Nutzer";
-  const safe = greetingName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const safe = greetingName
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from,
       to,
       subject: "FBM Finance – Passwort zurücksetzen",
       text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.`,
-      html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.</p>`
-    })
+      html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.</p>`,
+    }),
   });
   if (!resp.ok) {
     console.error("[email] Resend error:", await resp.text());

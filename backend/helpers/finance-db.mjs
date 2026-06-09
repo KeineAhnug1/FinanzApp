@@ -5,7 +5,7 @@ import {
   normalizeCategoryValue,
   normalizeCycle,
   parseId,
-  toNumber
+  toNumber,
 } from "../utils/data.mjs";
 
 /**
@@ -65,10 +65,10 @@ export async function ensureUserFinanceRoots(pool, userId) {
 export async function incrementBankAccountBalance(pool, accountId, deltaAmount) {
   const normalizedDelta = Number(Number(deltaAmount || 0).toFixed(2));
   if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
-  await pool.query(
-    `UPDATE bank_accounts SET balance = balance + $1 WHERE id = $2`,
-    [normalizedDelta, accountId]
-  );
+  await pool.query(`UPDATE bank_accounts SET balance = balance + $1 WHERE id = $2`, [
+    normalizedDelta,
+    accountId,
+  ]);
 }
 
 /**
@@ -78,16 +78,25 @@ export async function incrementBankAccountBalance(pool, accountId, deltaAmount) 
 export async function deleteBankAccountAssociations(pool, accountId) {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
     await client.query(`DELETE FROM income WHERE bank_account_id = $1`, [accountId]);
     await client.query(`DELETE FROM private_expenses WHERE bank_account_id = $1`, [accountId]);
     await client.query(`DELETE FROM funding_participants WHERE bank_account_id = $1`, [accountId]);
-    await client.query(`DELETE FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`, [accountId]);
-    await client.query(`DELETE FROM transactions WHERE from_bank_account_id = $1 OR to_bank_account_id = $1 OR bank_account_id = $1`, [accountId]);
-    await client.query(`DELETE FROM requests WHERE from_bank_account_id = $1 OR to_bank_account_id = $1`, [accountId]);
-    await client.query('COMMIT');
+    await client.query(
+      `DELETE FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`,
+      [accountId]
+    );
+    await client.query(
+      `DELETE FROM transactions WHERE from_bank_account_id = $1 OR to_bank_account_id = $1 OR bank_account_id = $1`,
+      [accountId]
+    );
+    await client.query(
+      `DELETE FROM requests WHERE from_bank_account_id = $1 OR to_bank_account_id = $1`,
+      [accountId]
+    );
+    await client.query("COMMIT");
   } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
+    await client.query("ROLLBACK").catch(() => {});
     throw e;
   } finally {
     client.release();
@@ -146,7 +155,8 @@ function recurrenceMonthlyContribution(entry) {
   if (amount <= 0) return 0;
 
   const cycle = normalizeCycle(entry?.cycle ?? "once") ?? "once";
-  const isActive = typeof entry?.is_active === "boolean" ? entry.is_active : entry?.state !== "paused";
+  const isActive =
+    typeof entry?.is_active === "boolean" ? entry.is_active : entry?.state !== "paused";
   if (entry?.state === "completed") return 0;
 
   if (cycle === "monthly") return isActive ? amount : 0;
@@ -160,8 +170,10 @@ function recurrenceMonthlyContribution(entry) {
  * @param {string} dateField
  */
 function resolveEntryDateForFilter(entry, dateField) {
-  if (dateField === "received_at") return entry?.received_at ?? entry?.pay_date ?? entry?.created_at ?? null;
-  if (dateField === "spent_at") return entry?.spent_at ?? entry?.pay_date ?? entry?.due_date ?? entry?.created_at ?? null;
+  if (dateField === "received_at")
+    return entry?.received_at ?? entry?.pay_date ?? entry?.created_at ?? null;
+  if (dateField === "spent_at")
+    return entry?.spent_at ?? entry?.pay_date ?? entry?.due_date ?? entry?.created_at ?? null;
   return entry?.[dateField] ?? null;
 }
 
@@ -180,7 +192,10 @@ function isDateInCurrentMonth(value) {
  */
 export function calculateCurrentMonthTotal(entries, dateField) {
   const oneTime = entries
-    .filter((entry) => (normalizeCycle(/** @type {string} */ (entry?.cycle ?? "once")) ?? "once") === "once")
+    .filter(
+      (entry) =>
+        (normalizeCycle(/** @type {string} */ (entry?.cycle ?? "once")) ?? "once") === "once"
+    )
     .filter((entry) => isDateInCurrentMonth(resolveEntryDateForFilter(entry, dateField)))
     .reduce((sum, entry) => sum + (toNullableNumber(entry?.amount) ?? 0), 0);
 
@@ -197,7 +212,13 @@ export async function calculateDashboardStyleDonationBalance(pool, userId) {
   const accountIds = userAccounts.map((account) => account.id);
 
   if (accountIds.length === 0) {
-    return { availableDonationBalance: 0, dashboardNetLiquidity: 0, monthlyIncome: 0, monthlyExpense: 0, userAccounts };
+    return {
+      availableDonationBalance: 0,
+      dashboardNetLiquidity: 0,
+      monthlyIncome: 0,
+      monthlyExpense: 0,
+      userAccounts,
+    };
   }
 
   const [incomeResult, expenseResult] = await Promise.all([
@@ -208,7 +229,7 @@ export async function calculateDashboardStyleDonationBalance(pool, userId) {
     pool.query(
       `SELECT amount, cycle, recurrence, is_active, state, spent_at, pay_date, due_date, created_at FROM private_expenses WHERE bank_account_id = ANY($1)`,
       [accountIds]
-    )
+    ),
   ]);
 
   const incomeEntries = incomeResult.rows;
@@ -223,13 +244,20 @@ export async function calculateDashboardStyleDonationBalance(pool, userId) {
     dashboardNetLiquidity,
     monthlyIncome,
     monthlyExpense,
-    userAccounts
+    userAccounts,
   };
 }
 
 export function resolveEntryState(cycle, recurrence, isActive) {
   const effectiveRecurrence = cycle === "once" ? null : recurrence;
-  const effectiveIsActive = cycle === "once" ? true : (effectiveRecurrence === 0 ? false : isActive);
-  const effectiveState = cycle === "once" ? "open" : (effectiveRecurrence === 0 ? "completed" : (effectiveIsActive ? "open" : "paused"));
+  const effectiveIsActive = cycle === "once" ? true : effectiveRecurrence === 0 ? false : isActive;
+  const effectiveState =
+    cycle === "once"
+      ? "open"
+      : effectiveRecurrence === 0
+        ? "completed"
+        : effectiveIsActive
+          ? "open"
+          : "paused";
   return { effectiveRecurrence, effectiveIsActive, effectiveState };
 }

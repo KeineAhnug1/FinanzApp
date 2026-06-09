@@ -30,7 +30,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        index:    resolve(__dirname, 'index.html'),
+        index:     resolve(__dirname, 'index.html'),
         dashboard: resolve(__dirname, 'pages/dashboard/dashboard.html'),
         questions: resolve(__dirname, 'pages/questions/index.html'),
         question:  resolve(__dirname, 'pages/questions/question.html'),
@@ -39,6 +39,7 @@ export default defineConfig({
         stocks:    resolve(__dirname, 'pages/stocks/index.html'),
         settings:  resolve(__dirname, 'pages/settings/index.html'),
         homepage:  resolve(__dirname, 'pages/homepage/index.html'),
+        notFound:  resolve(__dirname, 'pages/404/index.html'),
       }
     }
   },

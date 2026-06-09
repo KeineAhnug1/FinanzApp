@@ -5,7 +5,9 @@
  * @returns {string}
  */
 export function normalizeEmail(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 /**
@@ -67,8 +69,16 @@ export function toDecimal(value) {
  * @returns {string | null}
  */
 export function normalizeCycle(value) {
-  const normalized = String(value || "once").trim().toLowerCase();
-  if (normalized === "weekly" || normalized === "monthly" || normalized === "yearly" || normalized === "once") return normalized;
+  const normalized = String(value || "once")
+    .trim()
+    .toLowerCase();
+  if (
+    normalized === "weekly" ||
+    normalized === "monthly" ||
+    normalized === "yearly" ||
+    normalized === "once"
+  )
+    return normalized;
   return null;
 }
 
@@ -102,7 +112,9 @@ export function parseBoolean(value, fallback = false) {
  * @returns {string}
  */
 export function normalizeCategoryValue(value) {
-  return String(value || "").trim().replace(/\s+/g, " ");
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 /**

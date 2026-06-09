@@ -18,7 +18,7 @@ export function initConfirmModal() {
       return;
     }
     if (event.key !== "Tab") return;
-    const focusable = [...backdrop.querySelectorAll('button:not([disabled])')];
+    const focusable = [...backdrop.querySelectorAll("button:not([disabled])")];
     if (!focusable.length) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
