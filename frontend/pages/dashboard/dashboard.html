@@ -35,21 +35,18 @@
 
     <main class="dash-main">
 
-      <div role="tablist" aria-label="Dashboard-Bereiche" class="entry-tab-nav page-tab-nav">
-        <button type="button" role="tab" id="tab-overview" class="entry-tab-btn is-active" data-view-tab="overview" aria-selected="true" aria-controls="panel-overview">Übersicht</button>
-        <button type="button" role="tab" id="tab-income" class="entry-tab-btn" data-view-tab="income" aria-selected="false" aria-controls="panel-income">Einnahmen</button>
-        <button type="button" role="tab" id="tab-expense" class="entry-tab-btn" data-view-tab="expense" aria-selected="false" aria-controls="panel-expense">Ausgaben</button>
+      <div class="dash-nav-row">
+        <div role="tablist" aria-label="Dashboard-Bereiche" class="entry-tab-nav">
+          <button type="button" role="tab" id="tab-overview" class="entry-tab-btn is-active" data-view-tab="overview" aria-selected="true" aria-controls="panel-overview">Übersicht</button>
+          <button type="button" role="tab" id="tab-income" class="entry-tab-btn" data-view-tab="income" aria-selected="false" aria-controls="panel-income">Einnahmen</button>
+          <button type="button" role="tab" id="tab-expense" class="entry-tab-btn" data-view-tab="expense" aria-selected="false" aria-controls="panel-expense">Ausgaben</button>
+        </div>
+        <div id="dashboard-account-filter-wrap" hidden class="nav-account-filter">
+          <select class="nav-account-select" id="dashboard-bank-account-filter" name="dashboard_bank_account_filter"></select>
+        </div>
       </div>
 
       <section role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" class="view-panel" data-view-panel="overview" tabindex="0">
-        <section class="panel account-filter-panel" id="dashboard-account-filter-wrap" hidden>
-          <h2 class="panel-title">Kontofilter</h2>
-          <div>
-            <label class="field-label" for="dashboard-bank-account-filter">Konto fuer Dashboard</label>
-            <select class="field-input" id="dashboard-bank-account-filter" name="dashboard_bank_account_filter"></select>
-          </div>
-        </section>
-
         <section class="hero-card">
           <p id="hero-label" class="hero-label">Monatlicher Netto-Cashflow</p>
           <h1 id="total-assets" class="hero-value">0 EUR</h1>

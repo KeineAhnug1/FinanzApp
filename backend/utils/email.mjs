@@ -1,21 +1,34 @@
 // @ts-check
-// E-Mail via Resend REST API (ersetzt nodemailer)
+import nodemailer from "nodemailer";
 import { VERIFICATION_TTL_MINUTES } from "../config/runtime.mjs";
+
+/**
+ * @param {{ SMTP_HOST?: string; SMTP_PORT?: string; SMTP_SECURE?: string; SMTP_USER?: string; SMTP_PASS?: string; SMTP_FROM?: string }} env
+ */
+function createTransport(env) {
+  const host = env.SMTP_HOST || "smtp.gmail.com";
+  const port = Number(env.SMTP_PORT || 465);
+  const secure = env.SMTP_SECURE !== "false";
+  const user = env.SMTP_USER || "";
+  const pass = env.SMTP_PASS || "";
+  if (!user || !pass) return null;
+  return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+}
 
 /**
  * @param {string} to
  * @param {string | null | undefined} firstName
  * @param {string} code
- * @param {{ RESEND_API_KEY?: string; SMTP_FROM?: string }} env
+ * @param {{ SMTP_HOST?: string; SMTP_PORT?: string; SMTP_SECURE?: string; SMTP_USER?: string; SMTP_PASS?: string; SMTP_FROM?: string }} env
  */
 export async function sendVerificationEmail(to, firstName, code, env) {
-  const apiKey = env.RESEND_API_KEY || "";
-  const from = env.SMTP_FROM || "FinanzApp <noreply@finanzapp.dev>";
-  if (!apiKey) {
-    console.warn(`[verification] RESEND_API_KEY not set. Code for ${to} not sent.`);
+  const transport = createTransport(env);
+  if (!transport) {
+    console.warn(`[verification] SMTP not configured. Code for ${to} not sent.`);
     return false;
   }
 
+  const from = env.SMTP_FROM || env.SMTP_USER || "FinanzApp";
   const greetingName = firstName || "Nutzer";
   const safe = greetingName
     .replace(/&/g, "&amp;")
@@ -63,21 +76,13 @@ export async function sendVerificationEmail(to, firstName, code, env) {
 </body>
 </html>`;
 
-  const resp = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to,
-      subject: "FBM Finance – Dein Verifizierungscode",
-      text: `Hallo ${greetingName},\n\ndein Verifizierungscode lautet: ${code}\n\nDer Code ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.\n\n– Das FBM Finance Team`,
-      html,
-    }),
+  await transport.sendMail({
+    from,
+    to,
+    subject: "FBM Finance – Dein Verifizierungscode",
+    text: `Hallo ${greetingName},\n\ndein Verifizierungscode lautet: ${code}\n\nDer Code ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.\n\n– Das FBM Finance Team`,
+    html,
   });
-  if (!resp.ok) {
-    console.error("[email] Resend error:", await resp.text());
-    return false;
-  }
   return true;
 }
 
@@ -85,16 +90,16 @@ export async function sendVerificationEmail(to, firstName, code, env) {
  * @param {string} to
  * @param {string | null | undefined} firstName
  * @param {string} code
- * @param {{ RESEND_API_KEY?: string; SMTP_FROM?: string }} env
+ * @param {{ SMTP_HOST?: string; SMTP_PORT?: string; SMTP_SECURE?: string; SMTP_USER?: string; SMTP_PASS?: string; SMTP_FROM?: string }} env
  */
 export async function sendPasswordResetEmail(to, firstName, code, env) {
-  const apiKey = env.RESEND_API_KEY || "";
-  const from = env.SMTP_FROM || "FinanzApp <noreply@finanzapp.dev>";
-  if (!apiKey) {
-    console.warn(`[password-reset] RESEND_API_KEY not set. Code for ${to} not sent.`);
+  const transport = createTransport(env);
+  if (!transport) {
+    console.warn(`[password-reset] SMTP not configured. Code for ${to} not sent.`);
     return false;
   }
 
+  const from = env.SMTP_FROM || env.SMTP_USER || "FinanzApp";
   const greetingName = firstName || "Nutzer";
   const safe = greetingName
     .replace(/&/g, "&amp;")
@@ -102,20 +107,12 @@ export async function sendPasswordResetEmail(to, firstName, code, env) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-  const resp = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to,
-      subject: "FBM Finance – Passwort zurücksetzen",
-      text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.`,
-      html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.</p>`,
-    }),
+  await transport.sendMail({
+    from,
+    to,
+    subject: "FBM Finance – Passwort zurücksetzen",
+    text: `Hallo ${greetingName}, dein Code zum Zurücksetzen des Passworts lautet: ${code}. Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.`,
+    html: `<p>Hallo ${safe},</p><p>dein Code zum Zurücksetzen des Passworts lautet:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${code}</p><p>Er ist ${VERIFICATION_TTL_MINUTES} Minuten gültig.</p>`,
   });
-  if (!resp.ok) {
-    console.error("[email] Resend error:", await resp.text());
-    return false;
-  }
   return true;
 }

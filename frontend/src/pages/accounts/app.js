@@ -3,6 +3,7 @@ import { createT, getLocale } from "@shared/js/language-utils.js";
 import { getCurrentUserFromStorage } from "@shared/js/session-utils.js";
 import { formatFromEur } from "@shared/js/currency-utils.js";
 import { escapeHtml } from "@shared/js/html-utils.js";
+import { requestJsonMerged } from "@shared/js/api-client.js";
 
 const aShareAccountsEndpoints = ["/api/share-accounts"];
 const aBankAccountsEndpoints = ["/api/bank-accounts"];
@@ -47,22 +48,14 @@ async function fnApiRequest(aEndpoints, oInit = {}) {
   let sLastError = t("accounts.endpoint_unreachable", "Kein Endpoint erreichbar");
   for (const sEndpoint of aEndpoints) {
     try {
-      const oResponse = await fetch(sEndpoint, oInit);
-      if (!oResponse.ok) {
-        let sMessage = `HTTP ${oResponse.status}`;
-        let oDetails = null;
-        try {
-          const oData = await oResponse.json();
-          oDetails = oData;
-          sMessage = String(oData?.message || sMessage);
-        } catch {
-          // noop
-        }
+      const result = await requestJsonMerged(sEndpoint, oInit);
+      if (!result.responseOk) {
+        const sMessage = String(result.message || `HTTP ${result.status}`);
         const oError = new Error(sMessage);
-        oError.details = oDetails;
+        oError.details = result;
         throw oError;
       }
-      return await oResponse.json();
+      return result;
     } catch (oError) {
       if (oError?.details) throw oError;
       sLastError = String(oError?.message || oError);

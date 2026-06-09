@@ -102,4 +102,7 @@ export function initInlineValidation(formEl) {
   formEl.addEventListener("submit", () => {
     for (const input of inputs) input.classList.add("touched");
   });
+  formEl.addEventListener("reset", () => {
+    for (const input of inputs) input.classList.remove("touched");
+  });
 }

@@ -7,7 +7,7 @@ import {
   initialsFromUser,
   logoutAndRedirect,
 } from "@shared/js/session-utils.js";
-import { toastSuccess } from "@shared/js/api-client.js";
+import { toastSuccess, requestJson } from "@shared/js/api-client.js";
 import {
   initThemeSwitcher,
   initDesign,
@@ -105,15 +105,13 @@ function initProfileImageUpload() {
     try {
       const base64 = await compressImage(file, 200, 200);
 
-      const response = await fetch("/api/user/profile-image", {
+      const { responseOk, data } = await requestJson("/api/user/profile-image", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profileImage: base64 }),
       });
-      const data = await response.json();
-
-      if (response.ok && data.ok) {
+      if (responseOk && data.ok) {
         const avatar = document.getElementById("profil-avatar-large");
         if (avatar) avatar.innerHTML = `<img src="${base64}" alt="Profilbild" />`;
 
@@ -257,15 +255,14 @@ function initPasswordChange() {
     btn.textContent = "Wird gespeichert…";
 
     try {
-      const response = await fetch("/api/password/change", {
+      const { responseOk, data } = await requestJson("/api/password/change", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
       });
-      const data = await response.json();
 
-      if (response.ok && data.ok) {
+      if (responseOk && data.ok) {
         form.reset();
         status.textContent = "Passwort erfolgreich geändert.";
         status.className = "form-status is-success";
@@ -342,13 +339,12 @@ function initDeleteAccount() {
     if (errorEl) errorEl.hidden = true;
 
     try {
-      const response = await fetch("/api/user/account", {
+      const { responseOk, data } = await requestJson("/api/user/account", {
         method: "DELETE",
         credentials: "same-origin",
       });
-      const data = await response.json();
 
-      if (response.ok && data.ok) {
+      if (responseOk && data.ok) {
         clearCurrentUserFromStorage();
         window.location.assign("/");
       } else {

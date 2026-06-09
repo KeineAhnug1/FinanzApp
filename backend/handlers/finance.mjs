@@ -985,15 +985,63 @@ export function createFinanceHandlers(pool) {
           [transferTargetId, userId]
         );
         if (targetRows.length === 0) return badRequest("Zielkonto wurde nicht gefunden");
-        if (sourceBalance !== 0)
-          await incrementBankAccountBalance(pool, transferTargetId, sourceBalance);
       }
-      await deleteBankAccountAssociations(pool, accountId);
-      const { rowCount } = await pool.query(
-        `DELETE FROM bank_accounts WHERE id = $1 AND user_id = $2`,
-        [accountId, userId]
-      );
-      if (rowCount === 0) return notFound("Bankkonto nicht gefunden");
+
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        if (transferTargetId && sourceBalance !== 0) {
+          await client.query(
+            `UPDATE bank_accounts SET balance = balance + $1 WHERE id = $2`,
+            [sourceBalance, transferTargetId]
+          );
+          await client.query(
+            `INSERT INTO income (bank_account_id, source, category, amount, received_at, pay_date, note, info, recurrence, cycle, is_active, state, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $5, NULL, 'once', true, 'open', NOW(), NOW())`,
+            [
+              transferTargetId,
+              "Kontoübertrag",
+              "Sonstiges",
+              sourceBalance,
+              `Übertrag von gelöschtem Konto "${sourceAccount.label}"`,
+            ]
+          );
+        }
+
+        await client.query(`DELETE FROM income WHERE bank_account_id = $1`, [accountId]);
+        await client.query(`DELETE FROM private_expenses WHERE bank_account_id = $1`, [accountId]);
+        await client.query(`DELETE FROM funding_participants WHERE bank_account_id = $1`, [accountId]);
+        await client.query(
+          `DELETE FROM shares WHERE share_account_id = $1 OR depot_id = $1 OR bank_account_id = $1`,
+          [accountId]
+        );
+        await client.query(
+          `DELETE FROM transactions WHERE from_bank_account_id = $1 OR to_bank_account_id = $1 OR bank_account_id = $1`,
+          [accountId]
+        );
+        await client.query(
+          `DELETE FROM requests WHERE from_bank_account_id = $1 OR to_bank_account_id = $1`,
+          [accountId]
+        );
+        const { rowCount } = await client.query(
+          `DELETE FROM bank_accounts WHERE id = $1 AND user_id = $2`,
+          [accountId, userId]
+        );
+
+        if (rowCount === 0) {
+          await client.query("ROLLBACK");
+          return notFound("Bankkonto nicht gefunden");
+        }
+
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+
       return jsonResponse({ ok: true, message: "Bankkonto geloescht" }, 200);
     }
 
