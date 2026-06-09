@@ -1,4 +1,4 @@
-// Globaler Dashboard-Zustand: Konstanten, Optionen und veraenderbare Laufzeitdaten.
+// Globaler Dashboard-Zustand: Konstanten, Optionen und veränderbare Laufzeitdaten.
 export const VIEW_STORAGE_KEY = "finanzapp.dashboardView";
 export const VIEW_OPTIONS = new Set(["overview", "income", "expense"]);
 export const SETTINGS_STORAGE_PREFIX = "finanzapp.dashboardSettings";
@@ -58,15 +58,15 @@ export const INCOME_CATEGORY_OPTIONS = [
   { value: "salary", label: "Gehalt" },
   { value: "freelance", label: "Freelance" },
   { value: "bonus", label: "Bonus" },
-  { value: "refund", label: "Rueckzahlung" },
-  { value: "investment", label: "Kapitalertraege" },
+  { value: "refund", label: "Rückzahlung" },
+  { value: "investment", label: "Kapitalerträge" },
   { value: "other", label: "Sonstiges" },
 ];
 export const EXPENSE_CATEGORY_OPTIONS = [
   { value: "rent", label: "Miete" },
   { value: "groceries", label: "Lebensmittel" },
   { value: "utilities", label: "Nebenkosten" },
-  { value: "transport", label: "Mobilitaet" },
+  { value: "transport", label: "Mobilität" },
   { value: "health", label: "Gesundheit" },
   { value: "entertainment", label: "Freizeit" },
   { value: "other", label: "Sonstiges" },

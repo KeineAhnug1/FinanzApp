@@ -1,4 +1,4 @@
-// Aktionen fuer Kategorie-Loeschen und Event-Bindings fuer die Listen-Suche.
+// Aktionen für Kategorie-Löschen und Event-Bindings für die Listen-Suche.
 import { appState, incomeState, listState } from "./state.js";
 import { setStatus } from "./helpers.js";
 import { renderIncomeList, renderExpenseList } from "./overview-cashflow.js";
@@ -24,22 +24,22 @@ export function initCategoryManagerActions() {
       if (!category || !deleteKind || deleteKind !== kind) return;
 
       const confirmDelete = await incomeState.askConfirm({
-        title: "Kategorie loeschen?",
-        message: `Die Kategorie "${category}" wird aus der Auswahl entfernt. Zugehoerige Eintraege werden auf "Sonstiges" gesetzt.`,
-        confirmText: "Kategorie loeschen",
+        title: "Kategorie löschen?",
+        message: `Die Kategorie "${category}" wird aus der Auswahl entfernt. Zugehörige Einträge werden auf "Sonstiges" gesetzt.`,
+        confirmText: "Kategorie löschen",
       });
       if (!confirmDelete) return;
 
       const result = await handleDeleteCategory(kind, category);
       if (!result.ok) {
-        setStatus(statusId, "error", result.message || "Kategorie konnte nicht geloescht werden.");
+        setStatus(statusId, "error", result.message || "Kategorie konnte nicht gelöscht werden.");
         return;
       }
 
       setStatus(
         statusId,
         "success",
-        `Kategorie geloescht. ${result.updated_entries || 0} Eintraege aktualisiert.`
+        `Kategorie gelöscht. ${result.updated_entries || 0} Einträge aktualisiert.`
       );
       await refreshCategoryData();
       if (kind === "income") {

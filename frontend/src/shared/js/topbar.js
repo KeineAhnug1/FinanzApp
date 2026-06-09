@@ -87,6 +87,7 @@ function removeTopbarForEmbeddedContext() {
 function normalizePath(pathname) {
   const raw = String(pathname || "/").trim();
   if (!raw) return "/";
+  if (raw === "/dashboard") return "/pages/dashboard/dashboard.html";
   if (raw === "/groups") return "/pages/groups/";
   if (raw === "/stocks") return "/pages/stocks/";
   if (raw === "/accounts") return "/pages/accounts/";

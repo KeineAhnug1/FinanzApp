@@ -43,6 +43,10 @@ export async function bootstrap() {
   appState.settings = loadDashboardSettings(sessionUser.id);
   appState.settings.locale = getLocale(sessionUser.id);
 
+  if (window.innerWidth <= 960) {
+    applyMobileLayout();
+  }
+
   initThemeSwitcher();
   initSectionTabs();
   initEntryTabs();
@@ -63,4 +67,42 @@ export async function bootstrap() {
   initOverviewPieControls();
 
   await refreshDashboardData();
+}
+
+// Sortiert die DOM-Elemente auf Mobile physisch um:
+// Cashflow-Panel → Hero → Budget-Alerts → KPI-Grid → Pie-Panel
+function applyMobileLayout() {
+  const panel = document.getElementById("panel-overview");
+  if (!panel) return;
+
+  const detailGrid = panel.querySelector(".detail-grid");
+  const heroCard = panel.querySelector(".hero-card");
+  const budgetAlerts = panel.querySelector(".budget-alerts");
+  const kpiGrid = panel.querySelector(".kpi-grid");
+  if (!detailGrid || !heroCard || !kpiGrid) return;
+
+  const cashflowPanel = detailGrid.querySelector("article:first-child");
+  const piePanel = detailGrid.querySelector("article:last-child");
+  if (!cashflowPanel || !piePanel) return;
+
+  // Cashflow-Panel aus detail-grid herauslösen und ganz oben einfügen
+  panel.insertBefore(cashflowPanel, panel.firstChild);
+
+  // Hero direkt nach Cashflow
+  panel.insertBefore(heroCard, cashflowPanel.nextSibling);
+
+  // Budget-Alerts nach Hero (falls vorhanden)
+  if (budgetAlerts) {
+    panel.insertBefore(budgetAlerts, heroCard.nextSibling);
+  }
+
+  // KPI-Grid danach
+  const afterHero = budgetAlerts ? budgetAlerts.nextSibling : heroCard.nextSibling;
+  panel.insertBefore(kpiGrid, afterHero);
+
+  // Pie-Panel aus detail-grid herauslösen und ans Ende
+  panel.appendChild(piePanel);
+
+  // Leeres detail-grid entfernen
+  if (!detailGrid.children.length) detailGrid.remove();
 }

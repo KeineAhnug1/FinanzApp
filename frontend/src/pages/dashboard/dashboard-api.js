@@ -5,6 +5,9 @@ import { formatMoney, escapeHtml } from "./helpers.js";
 import { renderIncomeList, renderExpenseList, updateFinanceCards } from "./overview-cashflow.js";
 import { applyCategoryOptions, setCategoryValue } from "./categories-controls.js";
 import { requestJsonMerged } from "@shared/js/api-client.js";
+import { initCustomSelect } from "@shared/js/custom-select.js";
+
+let _accountFilterCustomSelect = null;
 
 export async function requestJson(url, options) {
   const result = await requestJsonMerged(url, {
@@ -155,11 +158,21 @@ export function renderBankAccountSelectors() {
   }
   if (dashboardFilterSelect) {
     if (!hasMultipleAccounts) {
-      dashboardFilterSelect.innerHTML = "";
-      dashboardFilterSelect.value = "";
+      if (_accountFilterCustomSelect) {
+        _accountFilterCustomSelect.setOptions([]);
+      }
     } else {
-      dashboardFilterSelect.innerHTML = buildAccountOptionsMarkup({ includeAll: true });
-      dashboardFilterSelect.value = appState.selectedBankAccountId || "";
+      const opts = [
+        { value: "", label: "Alle Konten" },
+        ...appState.bankAccounts.map((a) => ({
+          value: String(a.id),
+          label: a.label ? `${a.label} (${formatMoney(a.balance ?? 0)})` : String(a.id),
+        })),
+      ];
+      if (_accountFilterCustomSelect) {
+        _accountFilterCustomSelect.setOptions(opts);
+        _accountFilterCustomSelect.setValue(appState.selectedBankAccountId || "");
+      }
     }
   }
 }
@@ -168,13 +181,15 @@ export function initDashboardAccountFilter() {
   const dashboardFilterSelect = document.getElementById("dashboard-bank-account-filter");
   if (!dashboardFilterSelect) return;
 
-  dashboardFilterSelect.addEventListener("change", async () => {
-    appState.selectedBankAccountId = String(dashboardFilterSelect.value || "").trim();
-    dashboardFilterSelect.disabled = true;
+  _accountFilterCustomSelect = initCustomSelect(dashboardFilterSelect);
+  if (!_accountFilterCustomSelect) return;
+
+  _accountFilterCustomSelect.onChange(async (value) => {
+    appState.selectedBankAccountId = String(value || "").trim();
     try {
       await refreshDashboardData();
     } finally {
-      dashboardFilterSelect.disabled = false;
+      // nothing
     }
   });
 }

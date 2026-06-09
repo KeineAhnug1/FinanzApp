@@ -58,7 +58,7 @@ export function initIncomeListActions() {
       setStatus(
         "income-form-status",
         "",
-        incomeT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere.")
+        incomeT("edit_active_message", "Bearbeitung aktiv. Ändere Werte und speichere.")
       );
       setActiveView("income");
       return;
@@ -66,9 +66,9 @@ export function initIncomeListActions() {
 
     if (action === "delete") {
       const confirmDelete = await incomeState.askConfirm({
-        title: incomeT("income_delete_confirm", "Einnahme loeschen?"),
+        title: incomeT("income_delete_confirm", "Einnahme löschen?"),
         message: `Der Eintrag "${entry.source}" wird dauerhaft entfernt.`,
-        confirmText: incomeT("confirm_delete_yes", "Ja, loeschen"),
+        confirmText: incomeT("confirm_delete_yes", "Ja, löschen"),
       });
       if (!confirmDelete) return;
 
@@ -78,12 +78,12 @@ export function initIncomeListActions() {
           "income-form-status",
           "error",
           result.message ||
-            incomeT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden.")
+            incomeT("entry_could_not_be_deleted", "Eintrag konnte nicht gelöscht werden.")
         );
         return;
       }
 
-      setStatus("income-form-status", "success", incomeT("income_deleted", "Einnahme geloescht."));
+      setStatus("income-form-status", "success", incomeT("income_deleted", "Einnahme gelöscht."));
       if (incomeState.editingId === entryId) setIncomeFormModeCreate();
       await refreshDashboardData();
     }

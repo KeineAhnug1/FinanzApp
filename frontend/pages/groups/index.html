@@ -38,7 +38,7 @@
         <div class="main-headline">
           <div>
             <h1 class="panel-title">Deine Gruppen</h1>
-            <p class="panel-copy">Waehle eine Gruppe aus, um die Detailansicht zu oeffnen.</p>
+            <p class="panel-copy">Wähle eine Gruppe aus, um die Detailansicht zu öffnen.</p>
           </div>
           <div class="main-actions">
             <button id="openInboxButton" type="button" class="ghost-button inbox-button">
@@ -64,7 +64,7 @@
               <p id="groupDetailCreated" class="meta"></p>
             </div>
             <div class="detail-actions">
-              <button id="backToGroupsButton" type="button" class="ghost-button">Zurueck</button>
+              <button id="backToGroupsButton" type="button" class="ghost-button">Zurück</button>
               <button id="leaveGroupButton" type="button" class="small-danger-button">Gruppe verlassen</button>
               <button id="openInviteWindowButton" type="button" hidden>Nutzer einladen</button>
             </div>
@@ -83,7 +83,7 @@
 
             <div id="adminPanel" class="admin-panel" hidden>
               <h3 class="sub-title">Admin-Aktionen</h3>
-              <button id="deleteGroupButton" type="button" class="danger-button">Diese Gruppe loeschen</button>
+              <button id="deleteGroupButton" type="button" class="danger-button">Diese Gruppe löschen</button>
             </div>
           </section>
 
@@ -94,17 +94,17 @@
             <ul id="groupActivitiesList" class="members-list"></ul>
 
             <div class="member-panel">
-              <h3 class="sub-title">Aktivitaet erstellen</h3>
+              <h3 class="sub-title">Aktivität erstellen</h3>
               <form id="activityForm" class="group-form">
                 <label class="field">
-                  <span>Aktivitaetsinfo (optional)</span>
+                  <span>Aktivitätsinfo (optional)</span>
                   <input id="activityInfoInput" type="text" maxlength="180" placeholder="z. B. Gemeinsames Abendessen" />
                 </label>
                 <label class="field">
                   <span>Datum (optional)</span>
                   <input id="activityDateInput" type="datetime-local" />
                 </label>
-                <button type="submit">Aktivitaet erstellen</button>
+                <button type="submit">Aktivität erstellen</button>
               </form>
             </div>
           </section>
@@ -117,7 +117,7 @@
               </div>
               <div class="funding-detail-panel">
                 <div id="fundingDetailEmpty" class="empty-state">
-                  Waehle eine Finanzierung aus, um die Detailansicht zu oeffnen.
+                  Wähle eine Finanzierung aus, um die Detailansicht zu öffnen.
                 </div>
                 <div id="fundingDetailContent" hidden>
                   <p id="fundingDetailTitle" class="detail-name"></p>
@@ -140,9 +140,9 @@
                   <input id="fundingInfoInput" type="text" maxlength="180" placeholder="z. B. Gemeinsames Lebensmittelbudget" />
                 </label>
                 <label class="field">
-                  <span>Verknuepfte Aktivitaet (optional)</span>
+                  <span>Verknüpfte Aktivität (optional)</span>
                   <select id="fundingActivitySelect">
-                    <option value="">Keine Aktivitaet</option>
+                    <option value="">Keine Aktivität</option>
                   </select>
                 </label>
                 <button type="submit">Finanzierung erstellen</button>
@@ -170,7 +170,7 @@
               <h3 class="sub-title">Bezahlte Ausgabe erstellen (Admin)</h3>
               <form id="expenseForm" class="group-form">
                 <label class="field">
-                  <span>Finanzierung fuer Ausgabe</span>
+                  <span>Finanzierung für Ausgabe</span>
                   <select id="expenseFundingSelect" required>
                     <option value="">Finanzierung waehlen</option>
                   </select>
@@ -218,9 +218,9 @@
       <div class="modal-content panel">
         <div class="modal-headline">
           <h2 class="panel-title">Posteingang</h2>
-          <button id="closeInboxButton" type="button" class="ghost-button">Schliessen</button>
+          <button id="closeInboxButton" type="button" class="ghost-button">Schließen</button>
         </div>
-        <p class="panel-copy">Offene Gruppeneinladungen fuer deinen Nutzer.</p>
+        <p class="panel-copy">Offene Gruppeneinladungen für deinen Nutzer.</p>
         <ul id="inboxInvitations" class="members-list"></ul>
         <p id="inboxStatus" class="form-status" aria-live="polite"></p>
       </div>
@@ -230,7 +230,7 @@
       <div class="modal-content panel">
         <div class="modal-headline">
           <h2 class="panel-title">Neue Gruppe erstellen</h2>
-          <button id="closeCreateGroupButton" type="button" class="ghost-button">Schliessen</button>
+          <button id="closeCreateGroupButton" type="button" class="ghost-button">Schließen</button>
         </div>
         <form id="groupForm" class="group-form">
           <label class="field">
@@ -251,7 +251,7 @@
       <div class="modal-content panel">
         <div class="modal-headline">
           <h2 class="panel-title">Nutzer einladen</h2>
-          <button id="closeInviteButton" type="button" class="ghost-button">Schliessen</button>
+          <button id="closeInviteButton" type="button" class="ghost-button">Schließen</button>
         </div>
         <form id="inviteForm" class="invite-form">
           <label class="field">

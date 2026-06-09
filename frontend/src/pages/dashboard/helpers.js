@@ -55,9 +55,9 @@ export function setStatus(statusId, type, text) {
 }
 
 export function cycleLabel(cycle) {
-  if (cycle === "weekly") return "Woechentlich";
+  if (cycle === "weekly") return "Wöchentlich";
   if (cycle === "monthly") return "Monatlich";
-  if (cycle === "yearly") return "Jaehrlich";
+  if (cycle === "yearly") return "Jährlich";
   return "Einmalig";
 }
 

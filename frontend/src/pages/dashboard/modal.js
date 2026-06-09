@@ -1,4 +1,4 @@
-// Gemeinsamer Bestaetigungsdialog fuer kritische Aktionen (z. B. Loeschen).
+// Gemeinsamer Bestätigungsdialog für kritische Aktionen (z. B. Löschen).
 export function initConfirmModal() {
   const backdrop = document.getElementById("confirm-modal");
   const titleNode = document.getElementById("confirm-title");
@@ -63,7 +63,7 @@ export function initConfirmModal() {
       resolver = resolve;
       titleNode.textContent = title;
       messageNode.textContent = message;
-      okBtn.textContent = confirmText || "Loeschen";
+      okBtn.textContent = confirmText || "Löschen";
       backdrop.hidden = false;
       document.addEventListener("keydown", handleKeydown);
       okBtn.focus();

@@ -58,7 +58,7 @@ export function initExpenseListActions() {
       setStatus(
         "expense-form-status",
         "",
-        expenseT("edit_active_message", "Bearbeitung aktiv. Aendere Werte und speichere.")
+        expenseT("edit_active_message", "Bearbeitung aktiv. Ändere Werte und speichere.")
       );
       setActiveView("expense");
       return;
@@ -66,9 +66,9 @@ export function initExpenseListActions() {
 
     if (action === "delete") {
       const confirmDelete = await expenseState.askConfirm({
-        title: expenseT("expense_delete_confirm", "Ausgabe loeschen?"),
+        title: expenseT("expense_delete_confirm", "Ausgabe löschen?"),
         message: `Der Eintrag "${entry.source || entry.category || "Ausgabe"}" wird dauerhaft entfernt.`,
-        confirmText: expenseT("confirm_delete_yes", "Ja, loeschen"),
+        confirmText: expenseT("confirm_delete_yes", "Ja, löschen"),
       });
       if (!confirmDelete) return;
 
@@ -78,7 +78,7 @@ export function initExpenseListActions() {
           "expense-form-status",
           "error",
           result.message ||
-            expenseT("entry_could_not_be_deleted", "Eintrag konnte nicht geloescht werden.")
+            expenseT("entry_could_not_be_deleted", "Eintrag konnte nicht gelöscht werden.")
         );
         return;
       }
@@ -86,7 +86,7 @@ export function initExpenseListActions() {
       setStatus(
         "expense-form-status",
         "success",
-        expenseT("expense_deleted", "Ausgabe geloescht.")
+        expenseT("expense_deleted", "Ausgabe gelöscht.")
       );
       if (expenseState.editingId === entryId) setExpenseFormModeCreate();
       await refreshDashboardData();

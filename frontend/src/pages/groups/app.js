@@ -516,7 +516,7 @@ function closeModal(modal) {
 
 function formatActivityOption(activity) {
   if (!activity) return "";
-  const info = activity.info || t("groups.activity_unnamed", "Unbenannte Aktivitaet");
+  const info = activity.info || t("groups.activity_unnamed", "Unbenannte Aktivität");
   if (!activity.date) return info;
   return `${info} (${formatDate(activity.date)})`;
 }
@@ -526,7 +526,7 @@ function renderFundingActivityOptions(activities = []) {
   fundingActivitySelect.innerHTML = "";
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
-  emptyOption.textContent = t("select_activity", "Keine Aktivitaet");
+  emptyOption.textContent = t("select_activity", "Keine Aktivität");
   fundingActivitySelect.appendChild(emptyOption);
   for (const activity of activities) {
     const option = document.createElement("option");
@@ -595,8 +595,8 @@ function renderActivities(activities = []) {
     emptyLi.appendChild(
       createEmptyBlock(
         "📅",
-        t("no_activities_yet", "Keine Aktivitaeten"),
-        "Erstelle eine Aktivitaet fuer diese Gruppe."
+        t("no_activities_yet", "Keine Aktivitäten"),
+        "Erstelle eine Aktivität für diese Gruppe."
       )
     );
     groupActivitiesList.appendChild(emptyLi);
@@ -604,7 +604,7 @@ function renderActivities(activities = []) {
   }
 
   for (const activity of activities) {
-    const info = escapeHtml(activity.info || t("groups.activity_unnamed", "Unbenannte Aktivitaet"));
+    const info = escapeHtml(activity.info || t("groups.activity_unnamed", "Unbenannte Aktivität"));
     const date = escapeHtml(formatDate(activity.date));
     const createdAt = escapeHtml(formatDate(activity.created_at));
     const item = document.createElement("li");
@@ -656,7 +656,7 @@ function renderFundings(fundings = []) {
         <p class="meta">${escapeHtml(t("groups.total_donated", "Insgesamt gespendet"))}: ${donatedAmount}</p>
         <p class="meta">${escapeHtml(t("groups.created", "Erstellt: {value}", { value: createdAt }))}</p>
       </div>
-      <button type="button" class="select-funding-button" data-funding-id="${safeFundingId}">${escapeHtml(t("groups.open_details", "Details oeffnen"))}</button>
+      <button type="button" class="select-funding-button" data-funding-id="${safeFundingId}">${escapeHtml(t("groups.open_details", "Details öffnen"))}</button>
     `;
     groupFundingsList.appendChild(item);
   }
@@ -677,7 +677,7 @@ function renderFundingDetail(detail) {
 
   const linkedActivity = selectedFunding.linked_activity
     ? formatActivityOption(selectedFunding.linked_activity)
-    : t("linked_activity_none", "Keine verknuepfte Aktivitaet");
+    : t("linked_activity_none", "Keine verknüpfte Aktivität");
   const contributions = (selectedFunding.contributions || [])
     .map((entry) => `${entry.username}: ${formatAmount(entry.amount)}`)
     .join(", ");
@@ -686,7 +686,7 @@ function renderFundingDetail(detail) {
   fundingDetailContent.hidden = false;
   fundingDetailTitle.textContent =
     selectedFunding.info || t("funding_entry", "Finanzierungseintrag");
-  fundingDetailMeta.textContent = `${t("groups.balance", "Kontostand")}: ${formatAmount(selectedFunding.amount)} | ${t("groups.linked_activity", "Verknuepfte Aktivitaet")}: ${linkedActivity} | ${t("groups.donors", "Spender")}: ${contributions || t("groups.no_donations_yet", "Noch keine Spenden")}`;
+  fundingDetailMeta.textContent = `${t("groups.balance", "Kontostand")}: ${formatAmount(selectedFunding.amount)} | ${t("groups.linked_activity", "Verknüpfte Aktivität")}: ${linkedActivity} | ${t("groups.donors", "Spender")}: ${contributions || t("groups.no_donations_yet", "Noch keine Spenden")}`;
 
   const selectedExpenses = (detail.expenses || []).filter(
     (expense) => expense.group_funding_id === selectedFunding.funding_id
@@ -801,7 +801,7 @@ function renderGroups(groups) {
       <p class="meta"><strong>${escapeHtml(t("groups.role", "Rolle"))}:</strong> ${role}</p>
       <p class="meta"><strong>${escapeHtml(t("status", "Status"))}:</strong> ${memberStatus}</p>
       <p class="meta"><strong>${escapeHtml(t("groups.address_label", "Adresse"))}:</strong> ${address}</p>
-      <button type="button" class="select-group-button" data-group-id="${safeGroupId}">${escapeHtml(t("groups.open_details", "Details oeffnen"))}</button>
+      <button type="button" class="select-group-button" data-group-id="${safeGroupId}">${escapeHtml(t("groups.open_details", "Details öffnen"))}</button>
     `;
     groupsList.appendChild(card);
   }
@@ -1164,7 +1164,7 @@ async function createGroupActivity(groupId, info, date) {
   await requestApi(`/api/groups/${groupId}/activities`, {
     method: "POST",
     body: { info, date: date || null },
-    defaultMessage: t("groups.activity_create_failed", "Aktivitaet konnte nicht erstellt werden"),
+    defaultMessage: t("groups.activity_create_failed", "Aktivität konnte nicht erstellt werden"),
   });
 }
 
@@ -1472,7 +1472,7 @@ activityForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedGroupId) return;
 
-  setDetailStatus(t("groups.activity_creating", "Aktivitaet wird erstellt..."));
+  setDetailStatus(t("groups.activity_creating", "Aktivität wird erstellt..."));
   try {
     await createGroupActivity(
       selectedGroupId,

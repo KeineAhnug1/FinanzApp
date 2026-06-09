@@ -225,7 +225,7 @@ export async function fnCreateDashboardTradeEntry({
   const nRoundedAmount = Number(Number(nTotalValue).toFixed(2));
   if (!Number.isFinite(nRoundedAmount) || nRoundedAmount <= 0) {
     throw new Error(
-      fnT("stocks.invalid_trade_amount", "Betrag fuer Einnahme/Ausgabe ist ungueltig.")
+      fnT("stocks.invalid_trade_amount", "Betrag für Einnahme/Ausgabe ist ungültig.")
     );
   }
 
@@ -238,7 +238,7 @@ export async function fnCreateDashboardTradeEntry({
     source: sSource,
     amount: nRoundedAmount,
     category: sType === "income" ? "investment" : "other",
-    note: fnT("stocks.trade_note_bank_account", "Aktientrade ueber Bankkonto: {account}", {
+    note: fnT("stocks.trade_note_bank_account", "Aktientrade über Bankkonto: {account}", {
       account: sBankLabel,
     }),
     recurrence: "once",

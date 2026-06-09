@@ -97,24 +97,15 @@ html.dashboard-view-preload .dash-main .view-panel {
   flex-shrink: 0;
 }
 
-.nav-account-select {
+.nav-account-filter .csel-btn {
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   background: var(--bg-surface);
   color: var(--text-strong);
-  font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  outline: none;
-  cursor: pointer;
   height: 40px;
-  box-sizing: border-box;
-}
-
-.nav-account-select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-ring);
 }
 
 .entry-tab-btn {
@@ -736,8 +727,10 @@ html.dashboard-view-preload .dash-main .view-panel {
   font-size: 0.86rem;
 }
 
-.pie-controls {
-  margin-bottom: 12px;
+.pie-controls .csel-btn {
+  border-radius: 10px;
+  font-size: 0.9rem;
+  height: 44px;
 }
 
 .overview-pie-chart {
@@ -1344,42 +1337,171 @@ html.dashboard-view-preload .dash-main .view-panel {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 960px) {
+  /* ── Shell: kein min-height mehr, volle Breite ── */
   .dash-shell {
-    margin-bottom: 18px;
-    width: calc(100% - 16px);
+    width: calc(100% - 12px);
+    margin-bottom: 12px;
+    min-height: 0;
   }
 
-  .settings-panel {
-    right: auto;
-    left: 0;
+  /* ── Kompaktere Basis-Abstände ── */
+  .dash-main {
+    gap: 6px;
+    padding-top: 4px;
   }
 
-  .dash-nav-row {
-    flex-wrap: wrap;
-    gap: 8px;
+  /* ── Overview-Panel: flex column für kompakten Abstand ── */
+  #panel-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  /* KPI Cards: 2 nebeneinander, Sparquote darunter voll */
+  /* Alle direkten Kinder dürfen nicht breiter als der Container werden */
+  #panel-overview > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* detail-grid auf Mobile: einfaches block-layout (DOM bereits umsortiert) */
+  .detail-grid {
+    display: block;
+  }
+
+  /* KPI-Grid: alle 3 nebeneinander */
   .kpi-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
   }
 
   .kpi-grid > :last-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
-  .section-switch {
+  /* ── Hero-Werte ── */
+  .hero-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .hero-value {
+    font-size: clamp(1.5rem, 7vw, 2.2rem);
+    margin: 3px 0;
+  }
+
+  .hero-label {
+    font-size: 0.8rem;
+  }
+
+  .hero-sub {
+    font-size: 0.84rem;
+  }
+
+  /* ── KPI-Karten: kompakt ── */
+  .kpi-card {
+    padding: 8px 7px;
+    border-radius: 10px;
+  }
+
+  .kpi-label {
+    font-size: 0.7rem;
+  }
+
+  .kpi-value {
+    margin: 4px 0 2px;
+    font-size: 0.95rem;
+  }
+
+  .kpi-trend {
+    font-size: 0.68rem;
+  }
+
+  /* KPI: kein "letztes Kind voll-breit" Override mehr */
+  .kpi-grid > :last-child {
+    grid-column: auto;
+  }
+
+  /* ── Panel: kompakteres Padding ── */
+  .panel {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .panel-title {
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+
+  .panel-subtitle {
+    font-size: 0.78rem;
+    margin-bottom: 6px;
+  }
+
+  /* ── Cashflow-Chart: kein Min-Height, Y-Achse ausblenden ── */
+  .cashflow-chart {
+    min-height: 0;
+    padding: 6px 4px;
+    overflow: hidden;
+  }
+
+  .cashflow-y-axis-panel {
+    display: none;
+  }
+
+  .cashflow-plot-shell {
     width: 100%;
-    justify-content: space-between;
+    overflow: hidden;
   }
 
-  .section-tab {
+  .cashflow-scroll {
+    overflow-x: hidden;
+  }
+
+  /* ── Mobile Min/Max Labels im SVG ── */
+  .cashflow-mobile-min-label,
+  .cashflow-mobile-max-label {
+    fill: var(--text-muted);
+    font-size: 10px;
+  }
+
+  /* ── Pie-Chart: kompakter ── */
+  .overview-pie-chart {
+    min-height: 0;
+    padding: 8px;
+  }
+
+  .overview-pie-wrap {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .overview-pie-chart-visual {
+    width: 110px;
+    height: 110px;
+  }
+
+  .pie-controls {
+    margin-bottom: 6px;
+  }
+
+  /* ── Tab-Nav: volle Breite ── */
+  .dash-nav-row {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .entry-tab-nav {
+    width: 100%;
+  }
+
+  .entry-tab-btn {
     flex: 1;
     text-align: center;
-    min-height: 44px;
+    padding: 7px 10px;
   }
 
+  /* ── Forms: eine Spalte ── */
   .form-two-cols {
     grid-template-columns: 1fr;
   }
@@ -1391,75 +1513,43 @@ html.dashboard-view-preload .dash-main .view-panel {
   .income-actions > button,
   .modal-actions > button {
     width: 100%;
-    min-height: 48px;
+    min-height: 46px;
   }
 
-  /* Hero Card: kompakter auf Mobile */
-  .hero-card {
-    padding: 16px;
-    border-radius: 14px;
-  }
-
-  .hero-value {
-    font-size: clamp(1.6rem, 8vw, 2.4rem);
-    margin: 6px 0;
-  }
-
-  /* Panel: weniger Innenabstand */
-  .panel {
-    padding: 12px;
-    border-radius: 12px;
-  }
-
-  /* Einnahmen-Grid: eine Spalte */
+  /* ── Einnahmen-Grid: eine Spalte ── */
   .income-grid {
     grid-template-columns: 1fr;
-  }
-
-  /* Cashflow Chart: niedriger */
-  .cashflow-chart {
-    min-height: 280px;
-  }
-
-  /* Pie Chart: gleiche Höhe wie Cashflow Chart auf Mobile */
-  .overview-pie-chart {
-    min-height: 280px;
-  }
-
-  /* Entry Tab Navigation: volle Breite */
-  .entry-tab-nav {
-    width: 100%;
-  }
-
-  .entry-tab-btn {
-    flex: 1;
-    text-align: center;
-    padding: 8px 12px;
-  }
-
-  /* Pie Chart: horizontal gestapelt bei kleinen Screens */
-  .overview-pie-wrap {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .overview-pie-chart-visual {
-    width: 120px;
-    height: 120px;
   }
 }
 
 @media (max-width: 480px) {
-  /* KPIs auf kleinen Phones: alle einzeln */
-  .kpi-grid {
-    grid-template-columns: 1fr;
+  #panel-overview {
+    gap: 6px;
   }
 
-  .kpi-grid > :last-child {
-    grid-column: auto;
+  .dash-main {
+    gap: 6px;
   }
 
-  /* Monatliche Entry Items: kompakter */
+  /* KPI: noch enger auf sehr kleinen Phones */
+  .kpi-card {
+    padding: 8px 6px;
+    border-radius: 10px;
+  }
+
+  .kpi-value {
+    font-size: 0.88rem;
+  }
+
+  .kpi-label {
+    font-size: 0.65rem;
+  }
+
+  .kpi-trend {
+    font-size: 0.62rem;
+  }
+
+  /* Monatliche Entry Items */
   .income-item {
     padding: 8px;
     border-radius: 8px;
@@ -1471,27 +1561,6 @@ html.dashboard-view-preload .dash-main .view-panel {
 
   .income-amount {
     font-size: 0.82rem;
-  }
-
-  /* Cashflow Chart noch kleiner */
-  .cashflow-chart {
-    min-height: 180px;
-  }
-
-  /* KPI Karten: weniger Padding */
-  .kpi-card {
-    padding: 10px;
-    border-radius: 10px;
-  }
-
-  .kpi-value {
-    font-size: 1rem;
-  }
-
-  /* Panel Title: etwas kleiner */
-  .panel-title {
-    font-size: 0.88rem;
-    margin-bottom: 8px;
   }
 }
 

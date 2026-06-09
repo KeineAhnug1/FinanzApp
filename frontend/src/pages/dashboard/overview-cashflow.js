@@ -1,4 +1,4 @@
-// Uebersicht: Gruppierung/Rendering der Listen sowie Cashflow- und KPI-Berechnung.
+// Übersicht: Gruppierung/Rendering der Listen sowie Cashflow- und KPI-Berechnung.
 import {
   appState,
   listState,
@@ -18,6 +18,9 @@ import {
 } from "./helpers.js";
 import { categoryLabel } from "./categories-controls.js";
 import { t as sharedT } from "@shared/js/language-utils.js";
+import { initCustomSelect } from "@shared/js/custom-select.js";
+
+let _pieModeCustomSelect = null;
 
 function cashflowT(key, fallback, params = {}) {
   const translated = sharedT(key, params);
@@ -195,7 +198,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
           <details class="year-group" data-group-key="year:${yearGroup.key}" ${yearOpen ? "open" : ""}>
             <summary class="month-summary">
               <span class="month-title">${escapeHtml(yearGroup.label)}</span>
-              <span class="month-meta">${yearGroup.count} ${cashflowT("entries", "Eintraege")} • ${escapeHtml(formatMoney(yearGroup.total))}</span>
+              <span class="month-meta">${yearGroup.count} ${cashflowT("entries", "Einträge")} • ${escapeHtml(formatMoney(yearGroup.total))}</span>
             </summary>
             <div class="year-content">
               ${yearGroup.months
@@ -205,7 +208,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
                     <details class="month-group" data-group-key="month:${monthGroup.key}" ${monthOpen ? "open" : ""}>
                       <summary class="month-summary">
                         <span class="month-title">${escapeHtml(monthGroup.label)}</span>
-                        <span class="month-meta">${monthGroup.count} ${cashflowT("entries", "Eintraege")} • ${escapeHtml(formatMoney(monthGroup.total))}</span>
+                        <span class="month-meta">${monthGroup.count} ${cashflowT("entries", "Einträge")} • ${escapeHtml(formatMoney(monthGroup.total))}</span>
                       </summary>
                       <ul class="month-entry-list">
                         ${monthGroup.days
@@ -216,7 +219,7 @@ function renderGroupedEntryList(list, grouped, expandedSet, renderer, emptyMessa
                                 <details class="day-group" data-group-key="day:${dayGroup.key}" ${dayOpen ? "open" : ""}>
                                   <summary class="day-summary">
                                     <span class="day-title">${escapeHtml(dayGroup.label)}</span>
-                                    <span class="month-meta">${dayGroup.count} ${cashflowT("entries", "Eintraege")} • ${escapeHtml(formatMoney(dayGroup.total))}</span>
+                                    <span class="month-meta">${dayGroup.count} ${cashflowT("entries", "Einträge")} • ${escapeHtml(formatMoney(dayGroup.total))}</span>
                                   </summary>
                                   <ul class="month-entry-list">
                                     ${dayGroup.entries.map((entry) => renderer(entry)).join("")}
@@ -246,7 +249,7 @@ export function renderIncomeList(entries) {
   const filtered = entries.filter((entry) => entryMatchesQuery(entry, query, "received_at"));
   const grouped = buildHierarchicalGroups(filtered, "received_at");
   const emptyMessage = query
-    ? cashflowT("income.none_for_search", "Keine Einnahmen fuer diese Suche gefunden.")
+    ? cashflowT("income.none_for_search", "Keine Einnahmen für diese Suche gefunden.")
     : cashflowT("income.none_yet", "Noch keine Einnahmen eingetragen.");
   renderGroupedEntryList(
     list,
@@ -264,7 +267,7 @@ export function renderExpenseList(entries) {
   const filtered = entries.filter((entry) => entryMatchesQuery(entry, query, "spent_at"));
   const grouped = buildHierarchicalGroups(filtered, "spent_at");
   const emptyMessage = query
-    ? cashflowT("expense.none_for_search", "Keine Ausgaben fuer diese Suche gefunden.")
+    ? cashflowT("expense.none_for_search", "Keine Ausgaben für diese Suche gefunden.")
     : cashflowT("expense.none_yet", "Noch keine Ausgaben eingetragen.");
   renderGroupedEntryList(
     list,
@@ -720,7 +723,7 @@ function chartLevelHint(view) {
     );
   }
   if (view.level === "month") {
-    return cashflowT("cashflow.hint_click_day", "Klicke auf einen Tag fuer die Tagesansicht.");
+    return cashflowT("cashflow.hint_click_day", "Klicke auf einen Tag für die Tagesansicht.");
   }
   if (view.level === "day") {
     return cashflowT(
@@ -937,27 +940,28 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   const showBackToTimeline =
     view.level === "year" || view.level === "month" || view.level === "day";
 
-  const height = 360;
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 960;
+  const height = isMobile ? 200 : 360;
   const padLeft = 0;
-  const padRight = 28;
-  const padTop = 18;
-  const padBottom = 44;
+  const padRight = isMobile ? 10 : 28;
+  const padTop = isMobile ? 22 : 18;
+  const padBottom = isMobile ? 32 : 44;
   const slotWidth =
     view.keyType === "year"
-      ? 130
+      ? (isMobile ? 60 : 130)
       : view.keyType === "month"
-        ? 84
+        ? (isMobile ? 44 : 84)
         : view.keyType === "hour"
-          ? 36
-          : 42;
+          ? (isMobile ? 24 : 36)
+          : (isMobile ? 28 : 42);
   const minWidth =
     view.keyType === "year"
-      ? 640
+      ? (isMobile ? 280 : 640)
       : view.keyType === "month"
-        ? 900
+        ? (isMobile ? 320 : 900)
         : view.keyType === "hour"
-          ? 860
-          : 640;
+          ? (isMobile ? 320 : 860)
+          : (isMobile ? 280 : 640);
   const width = Math.max(minWidth, padLeft + padRight + Math.max(keys.length - 1, 1) * slotWidth);
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
@@ -996,6 +1000,11 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
       return `<span class="cashflow-y-axis-label" style="top:${y}px">${escapeHtml(formatAxisMoney(tick))}</span>`;
     })
     .join("");
+
+  const mobileMinMaxLabels = isMobile
+    ? `<text class="cashflow-mobile-min-label" x="4" y="${yForValue(yMin) - 4}" text-anchor="start">${escapeHtml(formatAxisMoney(yMin))}</text>` +
+      `<text class="cashflow-mobile-max-label" x="4" y="${yForValue(yMax) + 12}" text-anchor="start">${escapeHtml(formatAxisMoney(yMax))}</text>`
+    : "";
 
   const incomePolyline = polylinePoints(incomeValues, xForIndex, yForValue, { startX: padLeft });
   const expensePolyline = polylinePoints(expenseValues, xForIndex, yForValue, { startX: padLeft });
@@ -1083,7 +1092,7 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
         ${yAxisLabels}
       </div>
       <div class="cashflow-scroll">
-        <svg class="cashflow-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${cashflowT("cashflow.chart_aria", "Linienverlauf fuer Einnahmen, Ausgaben und Erspartes")}">
+        <svg class="cashflow-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${cashflowT("cashflow.chart_aria", "Linienverlauf für Einnahmen, Ausgaben und Erspartes")}">
           ${yGridLines}
           <line class="cashflow-axis" x1="${padLeft}" y1="${zeroY}" x2="${width - padRight}" y2="${zeroY}"></line>
           <line class="cashflow-hover-line" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}"></line>
@@ -1095,6 +1104,7 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
           ${savingsDots}
           ${hoverZones}
           ${labels}
+          ${mobileMinMaxLabels}
         </svg>
       </div>
     </div>
@@ -1103,7 +1113,7 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
       <span class="cashflow-legend-item"><span class="cashflow-legend-dot expense"></span>${cashflowT("expenses_short", "Ausgaben")}</span>
       <span class="cashflow-legend-item"><span class="cashflow-legend-dot savings"></span>${cashflowT("cashflow.saved", "Erspartes")}</span>
     </div>
-    ${isEmptySeries ? `<p class="bars-empty">${cashflowT("cashflow.no_data_selection", "Keine Daten fuer diese Auswahl vorhanden.")}</p>` : ""}
+    ${isEmptySeries ? `<p class="bars-empty">${cashflowT("cashflow.no_data_selection", "Keine Daten für diese Auswahl vorhanden.")}</p>` : ""}
   `;
 
   const backMonthButton = container.querySelector('[data-cashflow-action="back-month"]');
@@ -1296,7 +1306,7 @@ function periodContextFromChartState() {
     const selectedYear = String(cashflowChartState.selectedYear || nowYear);
     return {
       level: "year",
-      title: cashflowT("dashboard.period.yearly", "Jaehrliche"),
+      title: cashflowT("dashboard.period.yearly", "Jährliche"),
       dateFieldLabel: selectedYear,
       monthKey: `${selectedYear}-01`,
       dayKey: `${selectedYear}-01-01`,
@@ -1305,7 +1315,7 @@ function periodContextFromChartState() {
 
   return {
     level: "year",
-    title: cashflowT("dashboard.period.yearly", "Jaehrliche"),
+    title: cashflowT("dashboard.period.yearly", "Jährliche"),
     dateFieldLabel: nowYear,
     monthKey: nowMonthKey,
     dayKey: nowDayKey,
@@ -1479,29 +1489,35 @@ function buildDistributionByCategory(entries, dateField, period) {
 
 export function initOverviewPieControls() {
   const select = document.getElementById("overview-pie-mode");
-  const label = document.getElementById("overview-pie-mode-label");
-  const incomeOption = document.getElementById("overview-pie-mode-income");
-  const expenseOption = document.getElementById("overview-pie-mode-expense");
   if (!select || select.dataset.bound === "1") return;
-  if (label) label.textContent = cashflowT("dashboard.pie.mode_label", "Diagramm zeigt");
-  if (incomeOption) incomeOption.textContent = cashflowT("dashboard.pie.mode_income", "Einnahmen");
-  if (expenseOption)
-    expenseOption.textContent = cashflowT("dashboard.pie.mode_expense", "Ausgaben");
-  select.value = overviewDistributionState.mode;
   select.dataset.bound = "1";
-  select.addEventListener("change", () => {
-    overviewDistributionState.mode = select.value === "expense" ? "expense" : "income";
-    updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
-  });
+
+  const incomeLabel = cashflowT("dashboard.pie.mode_income", "Einnahmen");
+  const expenseLabel = cashflowT("dashboard.pie.mode_expense", "Ausgaben");
+
+  const labelEl = document.getElementById("overview-pie-mode-label");
+  if (labelEl) labelEl.textContent = cashflowT("dashboard.pie.mode_label", "Diagramm zeigt");
+
+  _pieModeCustomSelect = initCustomSelect(select);
+  if (_pieModeCustomSelect) {
+    _pieModeCustomSelect.setOptions([
+      { value: "income", label: incomeLabel },
+      { value: "expense", label: expenseLabel },
+    ]);
+    _pieModeCustomSelect.setValue(overviewDistributionState.mode);
+    _pieModeCustomSelect.onChange((value) => {
+      overviewDistributionState.mode = value === "expense" ? "expense" : "income";
+      updateFinanceCards(appState.user, appState.incomeEntries, appState.expenseEntries);
+    });
+  }
 }
 
 function renderOverviewDistribution(period, incomeEntries, expenseEntries) {
   const container = document.getElementById("overview-pie-chart");
   const title = document.getElementById("distribution-title");
-  const select = document.getElementById("overview-pie-mode");
   if (!container) return;
 
-  if (select) select.value = overviewDistributionState.mode;
+  if (_pieModeCustomSelect) _pieModeCustomSelect.setValue(overviewDistributionState.mode);
   const isIncome = overviewDistributionState.mode !== "expense";
   const modeLabel = isIncome
     ? cashflowT("dashboard.pie.mode_income", "Einnahmen")
@@ -1522,7 +1538,7 @@ function renderOverviewDistribution(period, incomeEntries, expenseEntries) {
   }
 
   if (!dataset.length) {
-    container.innerHTML = `<p class="bars-empty">${escapeHtml(cashflowT("dashboard.pie.no_data_current", "Keine Daten fuer die aktuelle Auswahl vorhanden."))}</p>`;
+    container.innerHTML = `<p class="bars-empty">${escapeHtml(cashflowT("dashboard.pie.no_data_current", "Keine Daten für die aktuelle Auswahl vorhanden."))}</p>`;
     return;
   }
 
@@ -1586,7 +1602,7 @@ export function updateFinanceCards(user, incomeEntries, expenseEntries) {
   );
   setText(
     "kpi-liquid-label",
-    cashflowT("dashboard.kpi.liquidity_with_period", "Liquiditaet ({period})", {
+    cashflowT("dashboard.kpi.liquidity_with_period", "Liquidität ({period})", {
       period:
         period.level === "year"
           ? cashflowT("dashboard.period.year", "Jahr")
@@ -1600,7 +1616,7 @@ export function updateFinanceCards(user, incomeEntries, expenseEntries) {
   setTrend(
     "kpi-income-trend",
     currentIncome > previousIncome
-      ? cashflowT("dashboard.kpi.over_period_above", "ueber Vorperiode")
+      ? cashflowT("dashboard.kpi.over_period_above", "über Vorperiode")
       : currentIncome < previousIncome
         ? cashflowT("dashboard.kpi.over_period_below", "unter Vorperiode")
         : cashflowT("dashboard.kpi.over_period_same", "wie Vorperiode"),
@@ -1611,7 +1627,7 @@ export function updateFinanceCards(user, incomeEntries, expenseEntries) {
   setTrend(
     "kpi-expenses-trend",
     currentExpense > previousExpense
-      ? cashflowT("dashboard.kpi.over_period_above", "ueber Vorperiode")
+      ? cashflowT("dashboard.kpi.over_period_above", "über Vorperiode")
       : currentExpense < previousExpense
         ? cashflowT("dashboard.kpi.over_period_below", "unter Vorperiode")
         : cashflowT("dashboard.kpi.over_period_same", "wie Vorperiode"),
