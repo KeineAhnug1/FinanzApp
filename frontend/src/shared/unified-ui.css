@@ -595,6 +595,19 @@ html.is-embedded-preload .layout-toolbar {
   color: var(--ui-text-muted);
 }
 
+.side-nav-brand-text {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.15s ease, max-width 0.15s ease;
+  max-width: 120px;
+}
+
 .side-nav-collapse-toggle {
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
@@ -602,16 +615,23 @@ html.is-embedded-preload .layout-toolbar {
   border-radius: var(--ui-radius-sm);
   width: 40px;
   height: 40px;
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   box-shadow: var(--ui-shadow-soft);
+  flex-shrink: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
-.side-nav-collapse-icon {
-  font-size: 1rem;
-  line-height: 1;
+.side-nav-head-logo {
+  height: 28px;
+  width: 28px;
+  object-fit: contain;
+  display: block;
 }
+
 
 .app-side-nav .app-nav-links {
   display: flex;
@@ -793,6 +813,7 @@ body.has-shared-sidebar.side-nav-collapsed .app-side-nav {
 }
 
 body.has-shared-sidebar.side-nav-collapsed .side-nav-title,
+body.has-shared-sidebar.side-nav-collapsed .side-nav-brand-text,
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-label,
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .settings-btn-label,
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .profile-name {
@@ -1235,6 +1256,7 @@ button:focus-visible,
   }
 
   body.has-shared-sidebar.side-nav-collapsed .side-nav-title,
+  body.has-shared-sidebar.side-nav-collapsed .side-nav-brand-text,
   body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-label,
   body.has-shared-sidebar.side-nav-collapsed .app-side-nav .settings-btn-label,
   body.has-shared-sidebar.side-nav-collapsed .app-side-nav .profile-name {

@@ -395,37 +395,50 @@ function buildMonthKeysForYear(yearKey) {
   return keys;
 }
 
-function timelineKeysForChart(incomeEntries, expenseEntries) {
-  const points = [];
-  for (const entry of incomeEntries) {
-    const date = new Date(entry.received_at);
-    if (!Number.isNaN(date.getTime())) points.push(date);
-  }
-  for (const entry of expenseEntries) {
-    const date = new Date(entry.spent_at);
-    if (!Number.isNaN(date.getTime())) points.push(date);
-  }
+function timelineKeysForChart(_incomeEntries, _expenseEntries) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
 
+  const createdAt = new Date(appState.user?.created_at || "");
+  const createdYear = Number.isNaN(createdAt.getTime()) ? null : createdAt.getFullYear();
+
+  // Full scrollable range: account creation year → currentYear + 20
+  const firstYear = Number.isFinite(createdYear) ? createdYear : currentYear;
+  const lastYear = currentYear + 20;
+
+
+  // Return the full range so scroll works; the SVG fills the container width
+  const keys = [];
+  for (let year = firstYear; year <= lastYear; year += 1) {
+    keys.push(String(year));
+  }
+  return keys;
+}
+
+function timelineWindowKeys() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const createdAt = new Date(appState.user?.created_at || "");
   const createdYear = Number.isNaN(createdAt.getTime()) ? null : createdAt.getFullYear();
-  const minEntryYear = points.length ? Math.min(...points.map((date) => date.getFullYear())) : null;
-  const maxEntryYear = points.length ? Math.max(...points.map((date) => date.getFullYear())) : null;
+  const firstYear = Number.isFinite(createdYear) ? createdYear : currentYear;
+  const lastYear = currentYear + 20;
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 960;
+  const WINDOW = isMobile ? 6 : 8;
+  const PREFERRED_BEFORE = isMobile ? 2 : 3;
+  const clampedStart = Math.max(firstYear, currentYear - PREFERRED_BEFORE);
+  const actualBefore = currentYear - clampedStart;
+  const actualAfter = Math.min(WINDOW - 1 - actualBefore, lastYear - currentYear);
+  const windowEnd = currentYear + actualAfter;
+  return { windowStart: windowEnd - (WINDOW - 1), windowEnd };
+}
 
-  const startYear = Number.isFinite(createdYear)
-    ? createdYear
-    : Number.isFinite(minEntryYear)
-      ? minEntryYear
-      : currentYear;
-  const FUTURE_YEARS_AHEAD = 3;
-  const endYearBase = Math.max(
-    currentYear,
-    Number.isFinite(maxEntryYear) ? maxEntryYear : currentYear,
-    startYear
-  );
-  const endYear = endYearBase + FUTURE_YEARS_AHEAD;
-
+function allHistoricalYearKeys() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const createdAt = new Date(appState.user?.created_at || "");
+  const createdYear = Number.isNaN(createdAt.getTime()) ? null : createdAt.getFullYear();
+  const startYear = Number.isFinite(createdYear) ? createdYear : currentYear;
+  const endYear = currentYear + 20;
   const keys = [];
   for (let year = startYear; year <= endYear; year += 1) {
     keys.push(String(year));
@@ -917,17 +930,65 @@ function polylinePoints(values, xForIndex, yForValue, options = {}) {
   return points.join(" ");
 }
 
+function buildWealthValues(keys, incomeValues, expenseValues, view) {
+  if (view.keyType === "year") {
+    // Cumulative wealth across ALL historical years so partial windows show correct totals
+    const histYearKeys = allHistoricalYearKeys();
+    const allIncomeTotals = buildYearlyTotals(appState.incomeEntries, histYearKeys, "received_at");
+    const allExpenseTotals = buildYearlyTotals(appState.expenseEntries, histYearKeys, "spent_at");
+    let running = 0;
+    const yearWealthMap = new Map();
+    for (const yearKey of histYearKeys) {
+      running += (allIncomeTotals[yearKey] || 0) - (allExpenseTotals[yearKey] || 0);
+      yearWealthMap.set(yearKey, Number(running.toFixed(2)));
+    }
+    return keys.map((key) => yearWealthMap.get(key) ?? 0);
+  }
+
+  // For month/day/hour views: cumulative wealth up to start of visible period
+  let startingWealth = 0;
+  if (view.keyType === "month" && view.selectedYear) {
+    const histYearKeys = allHistoricalYearKeys();
+    const allIncomeTotals = buildYearlyTotals(appState.incomeEntries, histYearKeys, "received_at");
+    const allExpenseTotals = buildYearlyTotals(appState.expenseEntries, histYearKeys, "spent_at");
+    for (const yearKey of histYearKeys) {
+      if (yearKey >= view.selectedYear) break;
+      startingWealth += (allIncomeTotals[yearKey] || 0) - (allExpenseTotals[yearKey] || 0);
+    }
+  } else if ((view.keyType === "day" || view.keyType === "hour") && view.selectedMonthKey) {
+    const histYearKeys = allHistoricalYearKeys();
+    const allMonthKeys = histYearKeys.flatMap((y) => buildMonthKeysForYear(y));
+    const allIncomeTotals = buildMonthlyTotals(appState.incomeEntries, allMonthKeys, "received_at");
+    const allExpenseTotals = buildMonthlyTotals(appState.expenseEntries, allMonthKeys, "spent_at");
+    for (const monthKey of allMonthKeys) {
+      if (monthKey >= view.selectedMonthKey) break;
+      startingWealth += (allIncomeTotals[monthKey] || 0) - (allExpenseTotals[monthKey] || 0);
+    }
+  }
+
+  let running = startingWealth;
+  return keys.map((_, index) => {
+    running += incomeValues[index] - expenseValues[index];
+    return Number(running.toFixed(2));
+  });
+}
+
 function renderCashflowBars(incomeEntries, expenseEntries) {
   const container = document.getElementById("cashflow-bars");
   if (!container) return;
 
+  // If the container has no width yet (hidden panel, first paint),
+  // wait one frame and retry once.
+  if (container.getBoundingClientRect().width === 0) {
+    requestAnimationFrame(() => renderCashflowBars(incomeEntries, expenseEntries));
+    return;
+  }
+
   const view = resolveCashflowViewState(incomeEntries, expenseEntries);
   const { keys } = view;
   const { incomeValues, expenseValues } = buildSeriesForView(view, incomeEntries, expenseEntries);
-  const savingsValues = keys.map((_, index) =>
-    Number((incomeValues[index] - expenseValues[index]).toFixed(2))
-  );
-  const allValues = incomeValues.concat(expenseValues).concat(savingsValues);
+  const wealthValues = buildWealthValues(keys, incomeValues, expenseValues, view);
+  const allValues = incomeValues.concat(expenseValues).concat(wealthValues);
   const maxValue = Math.max(...allValues, 0);
   const minValue = Math.min(...allValues, 0);
   const range = Math.max(1, maxValue - minValue);
@@ -946,23 +1007,28 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   const padRight = isMobile ? 10 : 28;
   const padTop = isMobile ? 22 : 18;
   const padBottom = isMobile ? 32 : 44;
-  const slotWidth =
-    view.keyType === "year"
-      ? (isMobile ? 60 : 130)
-      : view.keyType === "month"
-        ? (isMobile ? 44 : 84)
-        : view.keyType === "hour"
-          ? (isMobile ? 24 : 36)
-          : (isMobile ? 28 : 42);
-  const minWidth =
-    view.keyType === "year"
-      ? (isMobile ? 280 : 640)
-      : view.keyType === "month"
-        ? (isMobile ? 320 : 900)
-        : view.keyType === "hour"
-          ? (isMobile ? 320 : 860)
-          : (isMobile ? 280 : 640);
-  const width = Math.max(minWidth, padLeft + padRight + Math.max(keys.length - 1, 1) * slotWidth);
+
+  const isTimeline = view.level === "timeline";
+  const yAxisPanelWidth = isMobile ? 0 : 78;
+
+  // On mobile: use window.innerWidth as ground truth — it never changes based on content.
+  // On desktop: measure the container after layout.
+  let scrollWidth;
+  if (isMobile) {
+    scrollWidth = Math.max(100, window.innerWidth - 24 - 8 - yAxisPanelWidth);
+  } else {
+    const containerRect = container.getBoundingClientRect();
+    scrollWidth = Math.max(200, containerRect.width - 28 - yAxisPanelWidth);
+  }
+
+  // Slot width derived from scrollWidth so exactly VISIBLE_YEARS fit in the viewport.
+  const VISIBLE_YEARS = isMobile ? 6 : 8;
+  const TIMELINE_SLOT_PX = isTimeline
+    ? scrollWidth / (VISIBLE_YEARS - 1)
+    : (isMobile ? 22 : 80);
+
+  const timelineFullWidth = padLeft + padRight + Math.max(keys.length - 1, 1) * TIMELINE_SLOT_PX;
+  const width = isTimeline ? Math.max(scrollWidth, timelineFullWidth) : scrollWidth;
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
 
@@ -1006,45 +1072,51 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
       `<text class="cashflow-mobile-max-label" x="4" y="${yForValue(yMax) + 12}" text-anchor="start">${escapeHtml(formatAxisMoney(yMax))}</text>`
     : "";
 
-  const incomePolyline = polylinePoints(incomeValues, xForIndex, yForValue, { startX: padLeft });
-  const expensePolyline = polylinePoints(expenseValues, xForIndex, yForValue, { startX: padLeft });
-  const savingsPolyline = polylinePoints(savingsValues, xForIndex, yForValue, { startX: padLeft });
+  const incomePolyline = polylinePoints(incomeValues, xForIndex, yForValue);
+  const expensePolyline = polylinePoints(expenseValues, xForIndex, yForValue);
+  const wealthPolyline = polylinePoints(wealthValues, xForIndex, yForValue);
+
+  // Minimum pixels between x-axis labels to avoid overlap
+  const MIN_LABEL_PX = 28;
+  const pixelsPerSlot = keys.length > 1 ? plotWidth / (keys.length - 1) : plotWidth;
+  const labelStep = Math.max(1, Math.ceil(MIN_LABEL_PX / pixelsPerSlot));
 
   const labels = keys
     .map((key, index) => {
+      if (index % labelStep !== 0) return "";
+      const rawLabel = view.keyType === "year"
+        ? (isMobile ? key.slice(-2) : key)
+        : view.keyType === "month"
+          ? monthShortYearLabelFromKey(key)
+          : view.keyType === "hour"
+            ? hourShortLabelFromKey(key)
+            : dayShortLabelFromKey(key);
       return `
         <text class="cashflow-x-label" x="${xForIndex(index)}" y="${height - 10}" text-anchor="middle">
-        ${escapeHtml(
-          view.keyType === "year"
-            ? key
-            : view.keyType === "month"
-              ? monthShortYearLabelFromKey(key)
-              : view.keyType === "hour"
-                ? hourShortLabelFromKey(key)
-                : dayShortLabelFromKey(key)
-        )}
+        ${escapeHtml(rawLabel)}
       </text>
     `;
     })
     .join("");
 
-  const savingsDots = savingsValues
+  const dotR = isMobile ? 2.2 : 2.8;
+  const wealthDots = wealthValues
     .map(
       (value, index) =>
-        `<circle class="cashflow-point-savings" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`
+        `<circle class="cashflow-point-savings" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="${dotR}"></circle>`
     )
     .join("");
 
   const incomeDotsWithIndex = incomeValues
     .map(
       (value, index) =>
-        `<circle class="cashflow-point-income" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`
+        `<circle class="cashflow-point-income" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="${dotR}"></circle>`
     )
     .join("");
   const expenseDotsWithIndex = expenseValues
     .map(
       (value, index) =>
-        `<circle class="cashflow-point-expense" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="2.8"></circle>`
+        `<circle class="cashflow-point-expense" data-point-index="${index}" cx="${xForIndex(index)}" cy="${yForValue(value)}" r="${dotR}"></circle>`
     )
     .join("");
 
@@ -1092,16 +1164,16 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
         ${yAxisLabels}
       </div>
       <div class="cashflow-scroll">
-        <svg class="cashflow-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${cashflowT("cashflow.chart_aria", "Linienverlauf für Einnahmen, Ausgaben und Erspartes")}">
+        <svg class="cashflow-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${cashflowT("cashflow.chart_aria", "Linienverlauf für Einnahmen, Ausgaben und Vermögen")}">
           ${yGridLines}
           <line class="cashflow-axis" x1="${padLeft}" y1="${zeroY}" x2="${width - padRight}" y2="${zeroY}"></line>
           <line class="cashflow-hover-line" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}"></line>
           <polyline class="cashflow-line-income" points="${incomePolyline}"></polyline>
           <polyline class="cashflow-line-expense" points="${expensePolyline}"></polyline>
-          <polyline class="cashflow-line-savings" points="${savingsPolyline}"></polyline>
+          <polyline class="cashflow-line-savings" points="${wealthPolyline}"></polyline>
           ${incomeDotsWithIndex}
           ${expenseDotsWithIndex}
-          ${savingsDots}
+          ${wealthDots}
           ${hoverZones}
           ${labels}
           ${mobileMinMaxLabels}
@@ -1111,7 +1183,7 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
     <div class="cashflow-legend" aria-hidden="true">
       <span class="cashflow-legend-item"><span class="cashflow-legend-dot income"></span>${cashflowT("income_short", "Einnahmen")}</span>
       <span class="cashflow-legend-item"><span class="cashflow-legend-dot expense"></span>${cashflowT("expenses_short", "Ausgaben")}</span>
-      <span class="cashflow-legend-item"><span class="cashflow-legend-dot savings"></span>${cashflowT("cashflow.saved", "Erspartes")}</span>
+      <span class="cashflow-legend-item"><span class="cashflow-legend-dot savings"></span>${cashflowT("cashflow.wealth", "Vermögen")}</span>
     </div>
     ${isEmptySeries ? `<p class="bars-empty">${cashflowT("cashflow.no_data_selection", "Keine Daten für diese Auswahl vorhanden.")}</p>` : ""}
   `;
@@ -1209,13 +1281,13 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
     const pointLabel = chartLabelForKey(view.level, keys[index]);
     const income = formatMoney(incomeValues[index]);
     const expense = formatMoney(expenseValues[index]);
-    const savings = formatMoney(savingsValues[index]);
+    const wealth = formatMoney(wealthValues[index]);
 
     tooltip.innerHTML = `
       <p class="cashflow-tooltip-title">${escapeHtml(pointLabel)}</p>
       <p class="cashflow-tooltip-row"><span>${cashflowT("income_short", "Einnahmen")}</span><strong>${escapeHtml(income)}</strong></p>
       <p class="cashflow-tooltip-row"><span>${cashflowT("expenses_short", "Ausgaben")}</span><strong>${escapeHtml(expense)}</strong></p>
-      <p class="cashflow-tooltip-row"><span>${cashflowT("cashflow.saved_short", "Erspart")}</span><strong>${escapeHtml(savings)}</strong></p>
+      <p class="cashflow-tooltip-row"><span>${cashflowT("cashflow.wealth_short", "Vermögen")}</span><strong>${escapeHtml(wealth)}</strong></p>
     `;
     tooltip.hidden = false;
     positionTooltip(event);
@@ -1266,6 +1338,19 @@ function renderCashflowBars(incomeEntries, expenseEntries) {
   }
 
   scrollArea.addEventListener("mouseleave", hideHover);
+  scrollArea.addEventListener("scroll", hideHover, { passive: true });
+
+  // On timeline level: scroll so the 8-year window is visible on first render
+  if (isTimeline && !scrollArea.dataset.timelineScrolled) {
+    scrollArea.dataset.timelineScrolled = "1";
+    const { windowStart } = timelineWindowKeys();
+    const startIndex = keys.indexOf(String(windowStart));
+    if (startIndex >= 0) {
+      requestAnimationFrame(() => {
+        scrollArea.scrollLeft = xForIndex(startIndex) - firstPointOffset;
+      });
+    }
+  }
   scrollArea.addEventListener("scroll", hideHover, { passive: true });
 }
 

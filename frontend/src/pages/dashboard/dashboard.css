@@ -301,6 +301,7 @@ html.dashboard-view-preload .dash-main .view-panel {
   border-radius: 18px;
   padding: 22px;
   min-width: 0;
+  overflow: hidden;
   box-shadow:
     0 2px 8px rgba(29, 45, 62, 0.07),
     0 1px 2px rgba(29, 45, 62, 0.04);
@@ -393,7 +394,10 @@ html.dashboard-view-preload .dash-main .view-panel {
 }
 
 .cashflow-scroll {
-  width: 100%;
+  /* width:0 + min-width:100% prevents this element from ever being wider
+     than its parent, regardless of how wide the SVG child is. */
+  width: 0;
+  min-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 4px;
@@ -404,7 +408,9 @@ html.dashboard-view-preload .dash-main .view-panel {
   display: flex;
   align-items: stretch;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .cashflow-y-axis-panel {
@@ -443,7 +449,7 @@ html.dashboard-view-preload .dash-main .view-panel {
 
 .cashflow-svg {
   display: block;
-  max-width: none;
+}
 }
 
 .cashflow-grid {
@@ -1442,7 +1448,6 @@ html.dashboard-view-preload .dash-main .view-panel {
   .cashflow-chart {
     min-height: 0;
     padding: 6px 4px;
-    overflow: hidden;
   }
 
   .cashflow-y-axis-panel {
@@ -1451,11 +1456,11 @@ html.dashboard-view-preload .dash-main .view-panel {
 
   .cashflow-plot-shell {
     width: 100%;
-    overflow: hidden;
   }
 
   .cashflow-scroll {
-    overflow-x: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* ── Mobile Min/Max Labels im SVG ── */

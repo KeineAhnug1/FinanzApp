@@ -113,12 +113,10 @@ body {
   align-items: center;
 }
 
-.hp-nav__wordmark {
-  font-family: var(--hp-font-display);
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: -0.02em;
-  color: var(--hp-ink);
+.hp-nav__logo-img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .hp-nav__links {

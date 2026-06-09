@@ -557,9 +557,9 @@ function ensureSidebar(topbar, controls) {
     sideNav.innerHTML = `
       <div class="app-side-nav-head">
         <button class="side-nav-collapse-toggle" type="button" aria-expanded="true" aria-label="${t("topbar.menu", "Menue")}">
-          <span class="side-nav-collapse-icon" aria-hidden="true">&#9776;</span>
+          <img class="side-nav-head-logo" src="/shared/images/finanzapp-logo.svg" alt="" aria-hidden="true" />
         </button>
-        <a class="side-nav-title side-nav-title-link" href="${HOMEPAGE_PATH}">${t("topbar.brand", "FBM Finance")}</a>
+        <a class="side-nav-title side-nav-title-link side-nav-brand-text" href="${HOMEPAGE_PATH}">${t("topbar.brand", "FBM Finance")}</a>
       </div>
       <nav class="app-nav-links" aria-label="${t("nav_app", "App-Navigation")}"></nav>
       <div class="app-side-nav-bottom"></div>
