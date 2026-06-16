@@ -1,0 +1,35 @@
+# Copy this file to .dev.vars and fill in your real values.
+# .dev.vars is used by wrangler for local development.
+# NEVER commit .dev.vars — it contains secrets.
+
+# ─── Supabase ─────────────────────────────────────────────────────────────────
+# Get from: Supabase Dashboard → your project → Settings → API
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# ─── Session ──────────────────────────────────────────────────────────────────
+SESSION_COOKIE_NAME=finanzapp_session
+SESSION_TTL_MINUTES=180
+EMAIL_CODE_TTL_MINUTES=15
+
+# ─── E-Mail (Resend) ──────────────────────────────────────────────────────────
+RESEND_API_KEY=re_your_key_here
+EMAIL_FROM=FinanzApp <noreply@yourdomain.com>
+
+# ─── Aktien-APIs ──────────────────────────────────────────────────────────────
+STOCK_API_URL=http://3.225.21.161
+STOCK_API_KEY=your-stock-api-key
+TWELVE_DATA_API_KEY=your-twelve-data-key
+
+# ─── KI-Assistent (OpenRouter) ────────────────────────────────────────────────
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_MODEL=arcee-ai/trinity-large-preview:free
+OPENROUTER_SITE_URL=http://localhost:4000
+OPENROUTER_APP_NAME=FinanzApp
+
+# ─── Logo-Service (optional) ──────────────────────────────────────────────────
+LOGO_DEV_API_KEY=your-logo-dev-key
+
+# ─── App ──────────────────────────────────────────────────────────────────────
+FRONTEND_ORIGIN=http://localhost:4000
+DEV_EXPOSE_VERIFICATION_CODE=true

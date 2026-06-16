@@ -1,47 +1,16 @@
 {
-  "name": "fbm-finance",
-  "version": "1.0.0",
+  "name": "finanzapp",
+  "version": "0.1.0",
   "private": true,
-  "description": "FBM Finance - PostgreSQL/Supabase Backend",
-  "main": "backend/server.mjs",
   "scripts": {
-    "start": "node backend/server.mjs",
-    "backend:start": "node backend/server.mjs",
-    "web:dev": "vite --config frontend/vite.config.ts",
-    "web:build": "vite build --config frontend/vite.config.ts",
-    "web:preview": "vite preview --config frontend/vite.config.ts",
-    "dev": "concurrently \"npm run backend:start\" \"npm run web:dev\"",
-    "db:check": "node database/check-connection.mjs",
-    "db:clear": "node database/clear-database.mjs",
-    "db:migrate": "node database/migrate-to-supabase.mjs",
-    "lint": "eslint backend/ database/ frontend/src/",
-    "lint:fix": "eslint backend/ database/ frontend/src/ --fix",
-    "format": "prettier --write \"backend/**/*.mjs\" \"database/**/*.mjs\" \"frontend/src/**/*.js\" \"frontend/src/**/*.css\"",
-    "format:check": "prettier --check \"backend/**/*.mjs\" \"database/**/*.mjs\" \"frontend/src/**/*.js\" \"frontend/src/**/*.css\"",
-    "type-check": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json",
-    "cf:dev": "npm run web:build && wrangler pages dev frontend/dist",
-    "cf:deploy": "npm run web:build && wrangler pages deploy frontend/dist --project-name finanzapp"
-  },
-  "dependencies": {
-    "dotenv": "^17.2.4",
-    "nodemailer": "^8.0.1",
-    "pg": "^8.20.0",
-    "resend": "^6.12.4"
+    "start": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev": "npm run start",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "type-check": "npm run type-check --prefix backend && npm run type-check --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^25.9.1",
-    "@types/nodemailer": "^8.0.0",
-    "@types/pg": "^8.20.0",
-    "concurrently": "^10.0.3",
-    "eslint": "^10.4.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-n": "^18.1.0",
-    "prettier": "^3.8.3",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.16",
-    "wrangler": "^4.97.0"
+    "concurrently": "^10.0.3"
   }
 }

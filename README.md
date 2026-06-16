@@ -1,159 +1,175 @@
-# FinanzApp 🚀💸📊
+# FinanzApp
 
-Willkommen zur aktuellen Projekt-README 🎯  
-Ein zentraler Server steuert alle Module 🧠⚙️
+Persönliche Finanz-App mit Dashboard, Aktien-Depot, Gruppen, Forum und KI-Assistent.
 
-## Module (aktuell) 🧩
-- Login: `/` 🔐
-- Dashboard: `/pages/dashboard/dashboard.html` 📈
-- Gruppen: `/groups/` 👥
-- Stocks: `/stocks/` 📉
-- Fragen: `/questions/` ❓
-- Konten: `/accounts/` 🏦
+Stack: **Next.js 15** · **Hono** · React 19 · TypeScript · Supabase · Cloudflare Pages + Workers
 
-## Voraussetzungen ✅
-1. Node.js 18+ 🟢
-2. PostgreSQL/Supabase Datenbank (Zugriff via `DATABASE_URL`) 🐘
-3. `.env` im Projekt-Root 📄
+---
 
-## Installation 📦
-```bash
-npm install
+## Projektstruktur
+
 ```
-
-Hinweis: Die Anwendung nutzt aktuell PostgreSQL/Supabase via `DATABASE_URL`. Frühere MongoDB‑Hinweise sind historisch und für den aktuellen Code nicht relevant.
-
-## Datenbank vorbereiten 🗄️
-- Supabase Dashboard → SQL Editor → Datei `database/supabase-schema.sql` ausführen
-- Alternativ: `npm run db:migrate` (zeigt Hinweise zur Ausführung)
-
-## Starten ▶️
-```bash
-npm start
-```
-
-Danach:
-- `http://localhost:3000/` 🔐
-- `http://localhost:3000/pages/dashboard/dashboard.html` 📊
-- `http://localhost:3000/groups/` 👥
-- `http://localhost:3000/stocks/` 📉
-- `http://localhost:3000/questions/` ❓
-- `http://localhost:3000/accounts/` 🏦
-
-## Nützliche Skripte 🛠️
-- `npm start` (zentraler Server) ⚡
-- `npm run db:check` (DB-Verbindung prüfen) 🧪
-- `npm run db:migrate` (Hinweise zum Supabase-Schema – No‑Op, gibt nur Anweisungen aus) 🧱
-- `npm run db:clear` (Platzhalter – No‑Op, führt keine Löschung aus) 🧹
-- `npm run lint` (ESLint prüfen) ✨
-
-## Sicherheit/Deployment Hinweise 🔒
-
-- Cloudflare/Reverse Proxy: Setze `TRUST_PROXY=true`, damit Rate‑Limits die Client‑IP aus `CF-Connecting-IP`/`X-Forwarded-For` korrekt nutzen.
-- DB‑SSL: Steuere SSL via `DB_SSL_MODE` (`disable` | `prefer` | `require`). Lokal z. B. `disable`, in Produktion `require`.
-- CSRF: State‑changing API‑Requests (POST/PUT/PATCH/DELETE) erwarten einen Header `x-csrf-token`, der dem `csrf_token`‑Cookie entspricht. Der Client (`frontend/src/shared/js/api-client.js`) lädt diesen Token automatisch über `/api/session` und sendet ihn bei Schreib‑Requests mit.
-- CSP/Security‑Header: Der Server setzt sichere Default‑Header für HTML/JSON. Wenn externe Ressourcen (CDNs etc.) benötigt werden, müssen deren Domains in der CSP erlaubt werden.
-
-## Aktueller Datenstruktur-Stand 🧭🗂️
-![Aktuelle Datenstruktur](./Structure.png)
-
-## Relevante Struktur 📁
-```text
 FinanzApp/
-  backend/server.mjs
-  frontend/
-    dashboard/
-    groups/
-    stocks/
-    questions/
-    accounts/
-    shared/
-    data/
-  database/
-  Datastructure.png
+├── frontend/   # Next.js 15 App — reine UI, keine DB-Zugriffe
+└── backend/    # Hono API-Server — Cloudflare Worker
+```
+
+Das Frontend kommuniziert mit dem Backend ausschließlich über HTTP (`NEXT_PUBLIC_API_URL`).
+Keine Supabase-Schlüssel und keine Server-Secrets im Frontend-Bundle.
+
+---
+
+## Voraussetzungen
+
+- Node.js 18+
+- Supabase-Projekt (Schema einmalig ausführen, siehe unten)
+- Cloudflare-Account (für KV-Namespace `SESSIONS`)
+
+---
+
+## Backend (`backend/`)
+
+### Entwicklung
+
+```bash
+cd backend
+npm install
+npx wrangler dev           # Hono-Worker auf http://localhost:8787
+```
+
+### Umgebungsvariablen
+
+Lokale Entwicklung → `.dev.vars` im `backend/`-Verzeichnis:
+
+```env
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+SESSION_SECRET=<min. 32 zufällige Zeichen>
+CODE_HMAC_SECRET=<min. 32 zufällige Zeichen>
+SESSION_COOKIE_NAME=finanzapp_session
+SESSION_TTL_MINUTES=180
+EMAIL_CODE_TTL_MINUTES=15
+RESEND_API_KEY=re_...
+EMAIL_FROM=FinanzApp <noreply@yourdomain.com>
+STOCK_API_URL=http://3.225.21.161
+STOCK_API_KEY=<key>
+TWELVE_DATA_API_KEY=<key>
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_MODEL=arcee-ai/trinity-large-preview:free
+OPENROUTER_SITE_URL=https://finanzapp.pages.dev
+OPENROUTER_APP_NAME=FinanzApp
+LOGO_DEV_API_KEY=<key>
+FRONTEND_ORIGIN=http://localhost:3000
+DEV_EXPOSE_VERIFICATION_CODE=true
+```
+
+KV-Namespace anlegen (einmalig):
+```bash
+cd backend
+npx wrangler kv namespace create SESSIONS
+npx wrangler kv namespace create SESSIONS --preview
+```
+IDs in `backend/wrangler.toml` eintragen.
+
+### Deployment
+
+```bash
+cd backend
+npm run deploy   # wrangler deploy
+```
+
+Secrets im Cloudflare Dashboard unter **Settings → Environment Variables** setzen (nicht in `wrangler.toml`).
+
+---
+
+## Frontend (`frontend/`)
+
+### Entwicklung
+
+```bash
+cd frontend
+npm install
+# .env.local anlegen:
+echo "NEXT_PUBLIC_API_URL=http://localhost:8787" > .env.local
+npm run dev        # Next.js auf http://localhost:3000
+```
+
+| Seite | URL |
+|---|---|
+| Login / Register | `http://localhost:3000/login` |
+| Dashboard | `http://localhost:3000/dashboard` |
+| Konten | `http://localhost:3000/accounts` |
+| Aktien | `http://localhost:3000/stocks` |
+| Gruppen | `http://localhost:3000/groups` |
+| Forum | `http://localhost:3000/questions` |
+| Einstellungen | `http://localhost:3000/settings` |
+| Homepage | `http://localhost:3000/home` |
+
+### Umgebungsvariablen
+
+`.env.local` (lokale Entwicklung):
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8787
+```
+
+`.env.production` / Cloudflare Pages-Variable:
+
+```env
+NEXT_PUBLIC_API_URL=https://api.finanzapp.workers.dev
+```
+
+### Cloudflare Pages
+
+```bash
+cd frontend
+npm run pages:build   # baut mit @cloudflare/next-on-pages
+npm run preview       # startet wrangler pages dev
+npm run deploy        # pages:build + wrangler pages deploy
 ```
 
 ---
 
-## Hinweise 💡
-- Datenbank: **Supabase (PostgreSQL)** via `DATABASE_URL`
-- Session-Cookie: `finanzapp_session`
-- Ohne Session Redirect zurück auf `/`
+## Datenbank (Supabase)
 
-## Stock API (FastAPI) Dokumentation 📚
+Schema einmalig im Supabase SQL-Editor ausführen.
 
-Diese API liefert Aktiendetails und historische Kursdaten (via TwelveData) aus einer SQLite-Datenbank.
-
-### Basis-URL
-- Produktions-IP: `http://3.225.21.161`
-
-### Authentifizierung
-- Header erforderlich: `x-api-key: <STOCK_API_KEY>`
-- Bei ungültigem Key: `401 Unauthorized`
-
-### Relevante Umgebungsvariablen
-```env
-STOCK_API_KEY="<api_key_for_clients>"
-TWELVE_API_KEY_1="<twelvedata_key_primary>"
-TWELVE_API_KEY_2="<twelvedata_key_secondary>"
+Benötigte PostgreSQL-Funktion:
+```sql
+CREATE OR REPLACE FUNCTION increment_bank_balance(p_account_id UUID, p_delta NUMERIC)
+RETURNS VOID AS $$
+  UPDATE bank_accounts SET balance = balance + p_delta WHERE id = p_account_id;
+$$ LANGUAGE sql;
 ```
 
-Hinweise:
-- In der gezeigten Implementierung ist der Datenbankpfad fest auf `/home/ubuntu/data/stocks.db` gesetzt.
-- Der in Nachrichten geteilte Server-Login/Passwort-Text sollte nicht in Repository-Dateien versioniert werden.
+---
 
-### Endpunkte
+## API-Endpunkte (Backend)
 
-1. Healthcheck
-- `GET /`
-- Antwort:
-```json
-{"status":"running"}
-```
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| GET | `/api/auth/session` | Aktuelle Session |
+| POST | `/api/auth/login` | Login |
+| POST | `/api/auth/logout` | Logout |
+| POST | `/api/auth/register` | Registrierung |
+| POST | `/api/auth/verify` | E-Mail-Bestätigung |
+| POST | `/api/auth/forgot-password` | Passwort-Reset anfordern |
+| POST | `/api/auth/reset-password` | Passwort zurücksetzen |
+| GET/PATCH/DELETE | `/api/users/me` | Eigenes Profil |
+| POST | `/api/users/me/password` | Passwort ändern |
+| GET/POST | `/api/finance/bank-accounts` | Konten |
+| GET/POST | `/api/finance/income` | Einnahmen |
+| GET/POST | `/api/finance/expenses` | Ausgaben |
+| GET | `/api/finance/transactions` | Transaktionen |
+| GET | `/api/budgets/status` | Budget-Alerts |
+| GET/POST | `/api/groups` | Gruppen |
+| GET/POST | `/api/questions` | Forum-Fragen |
+| GET | `/api/stocks/search` | Aktiensuche |
 
-2. Stock Lookup
-- `GET /stock/{query}?exchange={EXCHANGE}`
-- Beispiel:
-```bash
-curl -H "x-api-key: <STOCK_API_KEY>" \
-  "http://3.225.21.161/stock/AAPL?exchange=NASDAQ"
-```
-- Verhalten:
-  - Sucht Aktie über `symbol + exchange` in `stocks`-Tabelle.
-  - Lädt historische Tagesdaten (`1day`, aufsteigend) von TwelveData.
-  - Nutzt zwei API Keys als Fallback bei Quota/Fehlern.
+---
 
-3. Suche
-- `GET /search?q={TEXT}&exchange={EXCHANGE}`
-- Beispiel:
-```bash
-curl -H "x-api-key: <STOCK_API_KEY>" \
-  "http://3.225.21.161/search?q=Apple&exchange=NASDAQ"
-```
-- Antwort: Liste von Treffern mit `symbol`, `name`, `exchange`, `country` (max. 20).
+## Sicherheit
 
-### Typische Fehlerantworten
-- `401`: Ungültiger oder fehlender API Key
-- `{"error":"stock symbol ... not found on exchange ..."}`: Symbol nicht vorhanden
-- `{"error":"historical price data unavailable"}`: Keine Historie von TwelveData verfügbar
-
-### Beispielstruktur einer erfolgreichen `/stock`-Antwort
-```json
-{
-  "symbol": "AAPL",
-  "name": "Apple Inc",
-  "exchange": "NASDAQ",
-  "currency": "USD",
-  "data_available": true,
-  "historical": [
-    {
-      "date": "2026-02-20",
-      "open": 182.11,
-      "high": 184.02,
-      "low": 181.55,
-      "close": 183.76,
-      "volume": 51234567
-    }
-  ]
-}
-```
+- **CSRF:** Alle schreibenden Requests erwarten Header `x-csrf-token` mit dem Wert des `csrf_token`-Cookies (Double-Submit-Cookie-Pattern).
+- **Session-Cookie:** `finanzapp_session` (HttpOnly, SameSite=Lax).
+- **CORS:** Backend akzeptiert Requests nur vom konfigurierten `FRONTEND_ORIGIN`.

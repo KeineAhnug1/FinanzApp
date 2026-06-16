@@ -1,12 +1,28 @@
-# Node
-node_modules/
-.DS_Store
-
-# Builds
-apps/web/dist/
-dist/
-
-# Env
+# env files
 .env
+.env.local
+.env.*.local
 .dev.vars
 
+# OS
+.DS_Store
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Next.js build output at root (legacy)
+.next/
+next-env.d.ts
+
+# Root dev tooling
+node_modules/
+package-lock.json
+
+# Sub-project build artifacts (each project has its own .gitignore)
+backend/node_modules/
+backend/dist/
+backend/.wrangler/
+frontend/node_modules/
+frontend/.next/
+frontend/.vercel/
+frontend/.wrangler/

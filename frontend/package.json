@@ -1,0 +1,35 @@
+{
+  "name": "finanzapp-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 4000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "preview": "npx wrangler pages dev",
+    "deploy": "npm run pages:build && npx wrangler pages deploy"
+  },
+  "dependencies": {
+    "@cloudflare/next-on-pages": "^1.13.12",
+    "@hookform/resolvers": "^5.4.0",
+    "@tanstack/react-query": "^5.80.7",
+    "next": "15.3.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-hook-form": "^7.56.4",
+    "recharts": "^2.15.3",
+    "zod": "^3.25.51",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.24",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^9.28.0",
+    "eslint-config-next": "15.3.3",
+    "typescript": "^5.9.3"
+  }
+}
