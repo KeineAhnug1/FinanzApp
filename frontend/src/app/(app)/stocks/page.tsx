@@ -10,7 +10,6 @@ import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 import { useFinnhubWs } from '@/hooks/useFinnhubWs';
 import { StockDetailDrawer } from '@/components/stocks/StockDetailDrawer';
-import { StockCompare } from '@/components/stocks/StockCompare';
 
 const PIE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#6366f1','#14b8a6','#f97316'];
 
@@ -440,8 +439,6 @@ export default function StocksPage() {
       <div className="stocks-topbar">
         <StockSearch onPick={(sym) => openDrawer(sym, 'buy')} inputRef={searchInputRef} />
       </div>
-
-      <StockCompare />
 
       {positions.length === 0 ? (
         <div className="stocks-empty stocks-empty--rich">
