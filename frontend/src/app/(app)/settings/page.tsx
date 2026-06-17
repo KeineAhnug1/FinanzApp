@@ -223,13 +223,13 @@ function ThemeSection() {
         <p className="einst-subsection-title">Farbmodus</p>
         <div className="theme-mode-group">
           <button className={`theme-option${theme === 'light' ? ' is-active' : ''}`} type="button" onClick={() => applyTheme('light')}>
-            <span className="theme-mode-icon">☀️</span> Hell
+            Hell
           </button>
           <button className={`theme-option${theme === 'dark' ? ' is-active' : ''}`} type="button" onClick={() => applyTheme('dark')}>
-            <span className="theme-mode-icon">🌙</span> Dunkel
+            Dunkel
           </button>
           <button className={`theme-option${theme === 'auto' ? ' is-active' : ''}`} type="button" onClick={() => applyTheme('auto')}>
-            <span className="theme-mode-icon">🔄</span> Automatisch
+            Automatisch
           </button>
         </div>
         <p className="einst-subsection-title" style={{ marginTop: 16 }}>Kontrast</p>

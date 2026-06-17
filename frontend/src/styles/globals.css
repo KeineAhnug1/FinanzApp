@@ -8234,10 +8234,6 @@ html.dashboard-view-preload .dash-main .view-panel {
   color: var(--ui-primary);
 }
 
-.theme-mode-icon {
-  font-size: 0.95rem;
-}
-
 /* ── Kontrastmodus-Buttons (gleiche Basis wie theme-option) ── */
 .contrast-mode-group {
   display: flex;
@@ -10366,10 +10362,6 @@ label {
   display: flex;
   gap: var(--ui-space-1);
   flex-wrap: wrap;
-}
-
-.theme-mode-icon {
-  font-size: 0.95rem;
 }
 
 /* ── Kontrastmodus-Buttons (gleiche Basis wie theme-option) ── */
