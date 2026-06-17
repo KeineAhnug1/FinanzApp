@@ -146,7 +146,9 @@ function ArrowIcon({ up }: { up: boolean }) {
 
 function buildPortfolioSeries(
   allHistories: Record<string, HistoryPoint[]>,
-  enriched: { symbol: string; shares: number }[]
+  enriched: { symbol: string; shares: number }[],
+  range: Range,
+  liveQuotes: Record<string, number>,
 ): { date: string; Wert: number }[] {
   if (!Object.keys(allHistories).length) return [];
 
@@ -167,8 +169,18 @@ function buildPortfolioSeries(
 
   const result: { date: string; Wert: number }[] = [];
   const lastKnown: Record<string, number> = {};
+  const symbolsWithData = enriched.filter(p => closeMaps[p.symbol]);
+  const threshold = Math.ceil(symbolsWithData.length / 2);
 
   for (const date of dates) {
+    let liveCount = 0;
+    for (const p of symbolsWithData) {
+      if (closeMaps[p.symbol]?.has(date)) liveCount++;
+    }
+    // For intraday view: skip timestamps where fewer than half the positions
+    // have real data points — avoids stale carry-forward creating fake jumps.
+    if (range === '1T' && liveCount < threshold) continue;
+
     let total = 0;
     let hasAny = false;
     for (const p of enriched) {
@@ -179,6 +191,21 @@ function buildPortfolioSeries(
       if (price > 0) { total += price * p.shares; hasAny = true; }
     }
     if (hasAny) result.push({ date, Wert: Math.round(total * 100) / 100 });
+  }
+
+  const liveSymbolCount = enriched.filter(p => liveQuotes[p.symbol] != null).length;
+  const enoughLiveData = range !== '1T' || liveSymbolCount >= threshold;
+
+  if (enoughLiveData) {
+    let liveTotal = 0;
+    for (const p of enriched) {
+      const price = liveQuotes[p.symbol] ?? lastKnown[p.symbol] ?? 0;
+      if (price > 0) liveTotal += price * p.shares;
+    }
+    if (liveTotal > 0) {
+      const nowLabel = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      result.push({ date: nowLabel, Wert: Math.round(liveTotal * 100) / 100 });
+    }
   }
 
   return result;
@@ -377,7 +404,7 @@ export default function StocksPage() {
   const focusedPosition = focusSymbol ? enriched.find(p => p.symbol === focusSymbol) : null;
   const focusedCurrency = focusedQuote?.currency ?? 'USD';
 
-  const portfolioSeries = buildPortfolioSeries(allHistories, enriched);
+  const portfolioSeries = buildPortfolioSeries(allHistories, enriched, range, liveQuotes);
 
   const singleSeries = focusSymbol
     ? (allHistories[focusSymbol] ?? [])
@@ -432,6 +459,9 @@ export default function StocksPage() {
   const drawerOwnedShares = drawerSymbol
     ? (positions.find(p => p.symbol === drawerSymbol)?.shares ?? 0)
     : 0;
+  const drawerAvgBuyPrice = drawerSymbol
+    ? positions.find(p => p.symbol === drawerSymbol)?.avg_buy_price
+    : undefined;
   const drawerLivePrice = drawerSymbol ? liveQuotes[drawerSymbol] : undefined;
 
   return (
@@ -662,6 +692,7 @@ export default function StocksPage() {
         symbol={drawerSymbol}
         onClose={() => setDrawerSymbol(null)}
         ownedShares={drawerOwnedShares}
+        avgBuyPrice={drawerAvgBuyPrice}
         livePrice={drawerLivePrice}
         initialTab={drawerTab}
       />
