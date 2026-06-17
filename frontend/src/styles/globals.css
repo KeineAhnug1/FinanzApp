@@ -549,14 +549,14 @@ body.has-shared-sidebar .page-topbar {
 
 .app-side-nav .app-nav-link {
   min-height: 44px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
   justify-content: flex-start;
   font-size: 0.84rem;
   white-space: nowrap;
   position: relative;
-  border-radius: 6px;
+  border-radius: 14px;
 }
 
 .app-side-nav .app-nav-link.is-active::before {
@@ -8734,33 +8734,6 @@ header h1 {
 .theme-option.is-active {
   background: var(--clr-surface-soft);
   color: var(--clr-text);
-}
-
-.app-nav-links {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.app-nav-link {
-  border: 1px solid var(--clr-border);
-  background: var(--clr-surface);
-  color: var(--clr-text-muted);
-  border-radius: 999px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.app-nav-link:hover {
-  color: var(--clr-text);
-}
-
-.app-nav-link.is-active {
-  border-color: var(--clr-primary);
-  color: var(--clr-primary-strong);
-  background: var(--clr-surface-soft);
 }
 
 .depot-account-picker {
