@@ -127,30 +127,44 @@ function AccountCard({ account, onUpdate }: { account: BankAccount; onUpdate: ()
         {renaming ? (
           <div className="account-rename-wrap">
             <input
-              className="form-input"
+              className="form-input account-rename-input"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false); }}
               autoFocus
             />
-            <button className="btn btn-primary btn-sm" onClick={handleRename}>Speichern</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setRenaming(false)}>Abbrechen</button>
+            <div className="account-rename-actions">
+              <button className="btn btn-primary btn-sm" onClick={handleRename}>Speichern</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setRenaming(false)}>Abbrechen</button>
+            </div>
           </div>
         ) : (
-          <button className="account-name-btn" onClick={() => setRenaming(true)} title="Umbenennen">
-            {account.label || account.name || 'Konto'}
-          </button>
+          <>
+            <button className="account-name-btn" onClick={() => setRenaming(true)} title="Umbenennen">
+              {account.label || account.name || 'Konto'}
+            </button>
+            <span className={`account-balance ${balance < 0 ? 'is-negative' : ''}`}>
+              {formatMoney(balance)}
+            </span>
+          </>
         )}
-        <span className={`account-balance ${balance < 0 ? 'is-negative' : ''}`}>
-          {formatMoney(balance)}
-        </span>
       </div>
 
       <div className="account-type">{account.type || 'Bankkonto'}</div>
 
       <div className="account-card-actions">
-        <button className="btn btn-ghost btn-sm" onClick={() => setRenaming(true)}>✏️ Umbenennen</button>
-        <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>🗑️ Löschen</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setRenaming(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+          </svg>
+          Umbenennen
+        </button>
+        <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+          </svg>
+          Löschen
+        </button>
       </div>
 
       {confirmDelete && (

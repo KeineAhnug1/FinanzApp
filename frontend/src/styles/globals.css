@@ -280,7 +280,7 @@ body {
 /* Sidebar layout */
 body.has-shared-sidebar {
   --side-nav-expanded-width: 248px;
-  --side-nav-collapsed-width: 86px;
+  --side-nav-collapsed-width: 60px;
   padding-left: var(--side-nav-expanded-width);
   transition: padding-left 180ms ease;
 }
@@ -547,6 +547,7 @@ body.has-shared-sidebar .page-topbar {
   font-size: 0.84rem;
   white-space: nowrap;
   position: relative;
+  border-radius: 6px;
 }
 
 .app-side-nav .app-nav-link.is-active::before {
@@ -672,9 +673,9 @@ body.has-shared-sidebar.side-nav-collapsed .app-side-nav .profile-name {
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .settings-btn,
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .profile-btn,
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-nav-link {
-  justify-content: flex-start;
-  padding-left: 10px;
-  padding-right: 10px;
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 body.has-shared-sidebar.side-nav-collapsed .app-side-nav .app-sub-nav {
@@ -2225,14 +2226,33 @@ input.touched:invalid ~ .field-hint,
 
 .account-rename-wrap {
   display: flex;
+  flex-direction: column;
   gap: var(--ui-space-2);
-  align-items: center;
+  align-items: stretch;
   flex: 1;
+  width: 100%;
 }
 
-.account-rename-wrap .form-input {
-  flex: 1;
-  min-width: 0;
+.account-rename-input {
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 600;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
+
+.account-rename-actions {
+  display: flex;
+  gap: var(--ui-space-2);
+  justify-content: flex-end;
+}
+
+.account-card-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .account-card-actions {
@@ -4990,14 +5010,13 @@ input.touched:invalid ~ .field-hint,
   border: 1px solid var(--clr-border);
   border-radius: 12px;
   padding: 11px 14px;
-  background: color-mix(in srgb, var(--clr-surface) 80%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--clr-surface);
   color: var(--clr-text);
   font: inherit;
   font-size: 0.9rem;
   outline: none;
   box-sizing: border-box;
+  box-shadow: var(--ui-shadow-soft);
   transition: border-color 0.14s, box-shadow 0.14s;
 }
 
@@ -10456,6 +10475,12 @@ label {
 .stocks-drawer-summary strong {
   font-weight: 700;
   text-align: right;
+}
+
+.stocks-drawer-pnl-per-share {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.8;
 }
 
 .stocks-drawer-warning {
