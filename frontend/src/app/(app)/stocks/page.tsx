@@ -436,22 +436,6 @@ export default function StocksPage() {
 
   const chartLoading = allHistLoading && chartData.length === 0;
 
-  const deletePosition = async (symbol: string) => {
-    const result = await apiFetch(`/api/stocks/positions/${encodeURIComponent(symbol)}`, {
-      method: 'DELETE',
-      headers: { 'x-csrf-token': getCsrfToken() },
-    });
-    if (result.ok) {
-      toast.success('Position entfernt');
-      queryClient.invalidateQueries({ queryKey: ['stock-positions'] });
-      queryClient.invalidateQueries({ queryKey: ['stock-quotes'] });
-      queryClient.invalidateQueries({ queryKey: ['all-histories'] });
-      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-    } else {
-      toast.error(result.message ?? 'Fehler');
-    }
-  };
-
   const openDrawer = (symbol: string, tab: 'buy' | 'sell' = 'buy') => {
     setDrawerSymbol(symbol);
     setDrawerTab(tab);
@@ -616,7 +600,6 @@ export default function StocksPage() {
               <span className="align-right">Aktuell</span>
               <span className="align-right">Wert</span>
               <span className="align-right">+/–</span>
-              <span></span>
             </div>
             {enriched.map((p, idx) => {
               const currency = p.quote?.currency ?? 'USD';
@@ -651,19 +634,6 @@ export default function StocksPage() {
                   <div className="stocks-fm-cell align-right"><strong>{fmtPrice(p.value, currency)}</strong></div>
                   <div className="stocks-fm-cell align-right">
                     <PerfBadge pct={p.pnlPct} />
-                  </div>
-                  <div className="stocks-fm-cell align-right">
-                    <button
-                      className="stock-delete-btn"
-                      onClick={e => { e.stopPropagation(); deletePosition(p.symbol); }}
-                      title="Position entfernen"
-                      aria-label={`${p.symbol} entfernen`}
-                      type="button"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
                   </div>
                 </div>
               );

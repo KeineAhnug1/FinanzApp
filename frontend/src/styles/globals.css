@@ -5497,39 +5497,7 @@ input.touched:invalid ~ .field-hint,
   background: color-mix(in srgb, var(--clr-surface) 80%, var(--clr-surface-soft) 20%);
 }
 
-/* ── Delete button ── */
-.stock-delete-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--clr-border);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--clr-text-muted);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
 
-.stock-delete-btn:hover {
-  background: color-mix(in srgb, #ef4444 10%, transparent);
-  border-color: #ef4444;
-  color: #ef4444;
-}
-
-[data-theme="dark"] .stock-delete-btn {
-  border-color: var(--clr-border);
-  color: var(--clr-text-muted);
-}
-
-[data-theme="dark"] .stock-delete-btn:hover {
-  background: color-mix(in srgb, #ef4444 16%, transparent);
-  border-color: #f87171;
-  color: #f87171;
-}
 
 /* ── Analysis search input (glassmorphism) ── */
 .analysis-search-input {
