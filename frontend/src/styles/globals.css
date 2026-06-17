@@ -362,12 +362,21 @@ body.has-shared-sidebar .page-topbar {
 
 /* Nav links */
 .app-nav-links {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--ui-space-1);
+  width: 100%;
+}
+
+.app-nav-item {
+  width: 100%;
 }
 
 .app-nav-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
   border: 1px solid transparent;
   background: transparent;
   color: var(--ui-text-muted);
