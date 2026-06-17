@@ -371,7 +371,7 @@ body.has-shared-sidebar .page-topbar {
   border: 1px solid transparent;
   background: transparent;
   color: var(--ui-text-muted);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 7px var(--ui-space-2);
   font-size: 0.82rem;
   font-weight: 500;
