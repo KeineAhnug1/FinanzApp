@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, useController } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/components/ui/Toast';
@@ -45,19 +45,19 @@ function formatDate(dateStr: string): string {
   }).format(new Date(dateStr));
 }
 
-// ---- New Question Form ----
+// ---- Ask Form (right panel) ----
 const questionSchema = z.object({
   thema: z.string().min(1, 'Thema erforderlich').max(120),
-  message: z.string().min(5, 'Nachricht zu kurz (min. 5 Zeichen)').max(2000),
+  message: z.string().min(5, 'Mindestens 5 Zeichen').max(2000),
 });
-
 type QuestionData = z.infer<typeof questionSchema>;
 
-function NewQuestionForm({ onSaved }: { onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<QuestionData>({
+function AskPanel({ onCreated, onClose }: { onCreated: (q: Question) => void; onClose: () => void }) {
+  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<QuestionData>({
     resolver: zodResolver(questionSchema),
   });
+
+  const { field: messageField } = useController({ name: 'message', control, defaultValue: '' });
 
   const onSubmit = async (data: QuestionData) => {
     const result = await apiFetch('/api/questions', {
@@ -65,41 +65,37 @@ function NewQuestionForm({ onSaved }: { onSaved: () => void }) {
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify(data),
     });
-    if (!result.ok) { toast.error(result.message ?? 'Fehler beim Posten'); return; }
+    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success('Frage gestellt');
     reset();
-    setOpen(false);
-    onSaved();
+    onCreated(result.question as Question);
   };
 
-  if (!open) {
-    return (
-      <button className="btn btn-primary" onClick={() => setOpen(true)}>
-        + Frage stellen
-      </button>
-    );
-  }
-
   return (
-    <div className="new-question-form">
-      <h3 className="section-title">Neue Frage</h3>
-      <form className="entry-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-        <div>
+    <div className="questions-panel-card">
+      <div className="questions-panel-thread-header">
+        <button className="btn btn-ghost btn-sm" onClick={onClose}>← Zurück</button>
+      </div>
+      <h2 className="questions-panel-title">Neue Frage</h2>
+      <form className="questions-panel-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <div className="questions-panel-field">
           <label className="form-label">Thema</label>
           <input className="form-input" placeholder="z.B. Wie spare ich richtig?" maxLength={120} {...register('thema')} />
           {errors.thema && <p className="form-error">{errors.thema.message}</p>}
         </div>
-        <div>
+        <div className="questions-panel-field">
           <label className="form-label">Frage / Beschreibung</label>
-          <textarea className="form-input" rows={4} placeholder="Deine Frage..." maxLength={2000} {...register('message')} />
+          <MentionInput
+            value={messageField.value}
+            onChange={messageField.onChange}
+            rows={5}
+            placeholder="Deine Frage… Schreibe @Finzbro für eine KI-Antwort"
+          />
           {errors.message && <p className="form-error">{errors.message.message}</p>}
         </div>
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Posten…' : 'Frage posten'}
-          </button>
-          <button className="btn btn-ghost" type="button" onClick={() => { setOpen(false); reset(); }}>
-            Abbrechen
           </button>
         </div>
       </form>
@@ -107,48 +103,118 @@ function NewQuestionForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
+// ---- Mention input ----
+function MentionInput({ value, onChange, rows = 2, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [showSuggestion, setShowSuggestion] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    onChange(val);
+    const cursor = e.target.selectionStart ?? val.length;
+    const textBefore = val.slice(0, cursor);
+    const atMatch = /@(\w*)$/.exec(textBefore);
+    setShowSuggestion(!!atMatch && 'finzbro'.startsWith(atMatch[1].toLowerCase()));
+  };
+
+  const insertMention = () => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? value.length;
+    const textBefore = value.slice(0, cursor);
+    const textAfter = value.slice(cursor);
+    const atMatch = /@(\w*)$/.exec(textBefore);
+    if (!atMatch) return;
+    const newValue = textBefore.slice(0, atMatch.index) + '@Finzbro ' + textAfter;
+    onChange(newValue);
+    setShowSuggestion(false);
+    setTimeout(() => {
+      const pos = atMatch.index + '@Finzbro '.length;
+      textarea.setSelectionRange(pos, pos);
+      textarea.focus();
+    }, 0);
+  };
+
+  const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const highlighted = escaped.replace(/(@Finzbro)/gi, '<mark class="mention-highlight">$1</mark>');
+
+  return (
+    <div className="mention-input-wrap">
+      <div className="mention-input-mirror" aria-hidden="true" dangerouslySetInnerHTML={{ __html: highlighted.replace(/\n/g, '<br/>') + '&nbsp;' }} />
+      <textarea
+        ref={inputRef}
+        className="form-input mention-input-textarea"
+        placeholder={placeholder ?? 'Deine Antwort… Schreibe @Finzbro für eine KI-Antwort'}
+        maxLength={2000}
+        rows={rows}
+        value={value}
+        onChange={handleChange}
+        onKeyDown={(e) => {
+          if (showSuggestion && (e.key === 'Tab' || e.key === 'Enter')) { e.preventDefault(); insertMention(); }
+          if (e.key === 'Escape') setShowSuggestion(false);
+        }}
+      />
+      {showSuggestion && (
+        <div className="mention-suggestion" onMouseDown={(e) => { e.preventDefault(); insertMention(); }}>
+          <span><strong>@Finzbro</strong> — KI-Assistent</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- Answer Form ----
-const answerSchema = z.object({
-  message: z.string().min(2, 'Antwort zu kurz').max(2000),
-});
-
-type AnswerData = z.infer<typeof answerSchema>;
-
 function AnswerForm({ questionId, onSaved }: { questionId: string; onSaved: () => void }) {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<AnswerData>({
-    resolver: zodResolver(answerSchema),
-  });
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const onSubmit = async (data: AnswerData) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (message.trim().length < 2) { setError('Antwort zu kurz'); return; }
+    setError('');
+    setSubmitting(true);
     const result = await apiFetch(`/api/questions/${questionId}/answers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ message: message.trim() }),
     });
+    setSubmitting(false);
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success('Antwort gepostet');
-    reset();
+    setMessage('');
     onSaved();
   };
 
   return (
-    <form className="answer-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-      <input className="form-input" placeholder="Deine Antwort…" maxLength={2000} {...register('message')} />
-      {errors.message && <p className="form-error">{errors.message.message}</p>}
-      <button className="btn btn-primary btn-sm" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Senden…' : 'Antworten'}
+    <form className="answer-form" onSubmit={onSubmit} noValidate>
+      <MentionInput value={message} onChange={setMessage} />
+      {error && <p className="form-error">{error}</p>}
+      <button className="btn btn-primary btn-sm" type="submit" disabled={submitting}>
+        {submitting ? 'Senden…' : 'Antworten'}
       </button>
     </form>
   );
 }
 
-// ---- Question Detail / Thread ----
-function QuestionThread({ question, onClose, onUpdate }: { question: Question; onClose: () => void; onUpdate: () => void }) {
+// ---- Thread panel (right panel when question selected) ----
+function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onClose: () => void; onUpdate: () => void }) {
   const queryClient = useQueryClient();
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ['question', question.id],
     queryFn: () => apiFetch(`/api/questions/${question.id}`).then((d) => d.question as Question),
+    refetchInterval: (query) => {
+      const q = query.state.data as Question | undefined;
+      // Stop polling once the question is answered
+      if (q?.answered) return false;
+      return 3000;
+    },
   });
 
   const q = detail ?? question;
@@ -171,24 +237,21 @@ function QuestionThread({ question, onClose, onUpdate }: { question: Question; o
   };
 
   return (
-    <div className="question-thread">
-      <div className="thread-header">
+    <div className="questions-panel-card questions-panel-card--thread">
+      <div className="questions-panel-thread-header">
         <button className="btn btn-ghost btn-sm" onClick={onClose}>← Zurück</button>
-      </div>
-
-      <div className="question-detail">
         <div className="question-meta">
           <span className="question-author">{q.author?.first_name || q.author?.username || 'Unbekannt'}</span>
           <span className="question-date">{formatDate(q.created_at)}</span>
           {q.answered && <span className="badge badge-success">Beantwortet</span>}
         </div>
-        <h2 className="question-thema">{q.thema}</h2>
-        <p className="question-message">{q.message}</p>
-        <div className="question-actions">
-          <button className={`like-btn${q.liked_by_me ? ' is-liked' : ''}`} onClick={likeQuestion}>
-            ♥ {q.likes}
-          </button>
-        </div>
+      </div>
+      <h2 className="questions-panel-title">{q.thema}</h2>
+      <p className="questions-panel-message">{q.message}</p>
+      <div className="question-actions">
+        <button className={`like-btn${q.liked_by_me ? ' is-liked' : ''}`} onClick={likeQuestion}>
+          ♥ {q.likes}
+        </button>
       </div>
 
       <div className="answers-section">
@@ -197,7 +260,7 @@ function QuestionThread({ question, onClose, onUpdate }: { question: Question; o
         {(q.answers ?? []).map((a) => (
           <div key={a.id} className={`answer-item${a.is_bot ? ' is-bot' : ''}`}>
             <div className="answer-meta">
-              <span className="answer-author">{a.is_bot ? '🤖 FinzbRo' : a.author?.first_name || a.author?.username || 'Unbekannt'}</span>
+              <span className="answer-author">{a.is_bot ? 'FinzbRo' : a.author?.first_name || a.author?.username || 'Unbekannt'}</span>
               <span className="answer-date">{formatDate(a.created_at)}</span>
             </div>
             <p className="answer-message">{a.message}</p>
@@ -206,12 +269,11 @@ function QuestionThread({ question, onClose, onUpdate }: { question: Question; o
                 ♥ {a.likes}
               </button>
               {a.is_mine && (
-                <button className="btn btn-ghost btn-sm" onClick={() => deleteAnswer(a.id)}>🗑️</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => deleteAnswer(a.id)}>Löschen</button>
               )}
             </div>
           </div>
         ))}
-
         <AnswerForm
           questionId={q.id}
           onSaved={() => queryClient.invalidateQueries({ queryKey: ['question', q.id] })}
@@ -222,7 +284,13 @@ function QuestionThread({ question, onClose, onUpdate }: { question: Question; o
 }
 
 // ---- Question Card ----
-function QuestionCard({ question, onClick, onDelete, onRefresh }: { question: Question; onClick: () => void; onDelete: () => Promise<void>; onRefresh: () => void }) {
+function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
+  question: Question;
+  active: boolean;
+  onClick: () => void;
+  onDelete: () => Promise<void>;
+  onRefresh: () => void;
+}) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleLike = async (e: React.MouseEvent) => {
@@ -232,7 +300,7 @@ function QuestionCard({ question, onClick, onDelete, onRefresh }: { question: Qu
   };
 
   return (
-    <div className="question-card" onClick={onClick}>
+    <div className={`question-card${active ? ' is-active' : ''}`} onClick={onClick}>
       <div className="question-card-meta">
         <span className="question-author">{question.author?.first_name || question.author?.username || 'Unbekannt'}</span>
         <span className="question-date">{formatDate(question.created_at)}</span>
@@ -244,7 +312,7 @@ function QuestionCard({ question, onClick, onDelete, onRefresh }: { question: Qu
         <button className={`like-btn${question.liked_by_me ? ' is-liked' : ''}`} onClick={handleLike}>♥ {question.likes}</button>
         {question.is_mine && (
           <>
-            <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}>🗑️</button>
+            <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}>Löschen</button>
             {confirmDelete && (
               <Modal open onClose={() => setConfirmDelete(false)} title="Frage löschen">
                 <p>Möchtest du diese Frage wirklich löschen?</p>
@@ -266,11 +334,14 @@ function QuestionCard({ question, onClick, onDelete, onRefresh }: { question: Qu
 export default function QuestionsPage() {
   const [search, setSearch] = useState('');
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [showAskPanel, setShowAskPanel] = useState(false);
   const queryClient = useQueryClient();
+
+  const panelOpen = !!selectedQuestion || showAskPanel;
 
   const { data: questions = [], isLoading } = useQuery<Question[]>({
     queryKey: ['questions', search],
-    queryFn: () => apiFetch(`/api/questions${search ? `?q=${encodeURIComponent(search)}` : ''}`).then((d) => d.questions ?? []),
+    queryFn: () => apiFetch(`/api/questions${search ? `?search=${encodeURIComponent(search)}` : ''}`).then((d) => d.questions ?? []),
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['questions'] });
@@ -279,57 +350,75 @@ export default function QuestionsPage() {
     const result = await apiFetch(`/api/questions/${id}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrfToken() } });
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success('Frage gelöscht');
+    if (selectedQuestion?.id === id) setSelectedQuestion(null);
     refresh();
   };
 
-  if (selectedQuestion) {
-    return (
-      <div className="questions-page page-content">
-        <QuestionThread
-          question={selectedQuestion}
-          onClose={() => { setSelectedQuestion(null); refresh(); }}
-          onUpdate={refresh}
-        />
-      </div>
-    );
-  }
+  const closePanel = () => {
+    setSelectedQuestion(null);
+    setShowAskPanel(false);
+  };
 
   return (
-    <div className="questions-page page-content">
-      <div className="page-header">
-        <h1 className="page-title">Forum</h1>
-        <NewQuestionForm onSaved={refresh} />
-      </div>
+    <div className={`questions-layout page-content${panelOpen ? ' questions-layout--panel-open' : ''}`}>
 
-      <div className="questions-search-wrap">
+      {/* Left: list */}
+      <div className="questions-list-col">
+        <div className="questions-list-header">
+          <h1 className="page-title">Forum</h1>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => { setSelectedQuestion(null); setShowAskPanel(true); }}
+          >
+            Frage stellen
+          </button>
+        </div>
         <input
-          className="form-input"
+          className="form-input questions-search"
           placeholder="Fragen durchsuchen…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 320 }}
         />
+
+        {isLoading && <div className="loading-state"><span className="spinner" /><span>Lade…</span></div>}
+        {!isLoading && questions.length === 0 && (
+          <div className="empty-state">
+            <p>{search ? 'Keine Ergebnisse.' : 'Noch keine Fragen.'}</p>
+          </div>
+        )}
+
+        <div className="questions-list">
+          {questions.map((q) => (
+            <QuestionCard
+              key={q.id}
+              question={q}
+              active={selectedQuestion?.id === q.id}
+              onClick={() => { setShowAskPanel(false); setSelectedQuestion(q); }}
+              onDelete={() => deleteQuestion(q.id)}
+              onRefresh={refresh}
+            />
+          ))}
+        </div>
       </div>
 
-      {isLoading && <div className="loading-state"><span className="spinner" /><span>Lade…</span></div>}
-
-      {!isLoading && questions.length === 0 && (
-        <div className="empty-state">
-          <p>{search ? 'Keine Ergebnisse gefunden.' : 'Noch keine Fragen. Stell die erste!'}</p>
+      {/* Right: panel (only when open) */}
+      {panelOpen && (
+        <div className="questions-panel-col">
+          {selectedQuestion ? (
+            <ThreadPanel
+              question={selectedQuestion}
+              onClose={closePanel}
+              onUpdate={refresh}
+            />
+          ) : (
+            <AskPanel
+              onCreated={(q) => { refresh(); setShowAskPanel(false); setSelectedQuestion(q); }}
+              onClose={closePanel}
+            />
+          )}
         </div>
       )}
 
-      <div className="questions-list">
-        {questions.map((q) => (
-          <QuestionCard
-            key={q.id}
-            question={q}
-            onClick={() => setSelectedQuestion(q)}
-            onDelete={() => deleteQuestion(q.id)}
-            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['questions'] })}
-          />
-        ))}
-      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 
-interface GroupMember { id: number; user_id: number; username: string; first_name?: string; role: string; }
+interface GroupMember { id: number; user_id: number; username: string; first_name?: string; role: string; status?: string; }
 interface GroupFunding { id: number; title: string; target_amount: number; current_amount: number; description?: string; }
 interface Group {
   id: number;
@@ -77,14 +77,21 @@ function InvitationsModal({ onClose, onUpdate }: { onClose: () => void; onUpdate
   const queryClient = useQueryClient();
   const { data: invitations = [], isLoading } = useQuery<Invitation[]>({
     queryKey: ['invitations'],
-    queryFn: () => apiFetch('/api/groups/invitations').then((d) => d.invitations ?? []),
+    queryFn: () => apiFetch('/api/groups/invitations').then((d) =>
+      (d.invitations ?? []).map((inv: Record<string, unknown>) => ({
+        id: Number(inv.group_id),
+        group_id: Number(inv.group_id),
+        group_name: String(inv.name ?? ''),
+        invited_by: String(inv.invited_by ?? ''),
+      }))
+    ),
   });
 
   const respond = async (groupId: number, accept: boolean) => {
     const result = await apiFetch(`/api/groups/${groupId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ accept }),
+      body: JSON.stringify({ decision: accept ? 'accept' : 'decline' }),
     });
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success(accept ? 'Einladung angenommen' : 'Einladung abgelehnt');
@@ -119,15 +126,51 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [fundDesc, setFundDesc] = useState('');
   const [donateAmount, setDonateAmount] = useState<Record<number, string>>({});
 
-  const { data: group, isLoading } = useQuery<Group>({
+  const { data: group, isLoading } = useQuery<Group | null>({
     queryKey: ['group', groupId],
-    queryFn: () => apiFetch(`/api/groups/${groupId}`).then((d) => d.group),
+    queryFn: () => apiFetch(`/api/groups/${groupId}`).then((d) => {
+      if (!d.ok || !d.group) return null;
+      return {
+        id: Number(d.group.group_id),
+        name: d.group.name,
+        address: d.group.address ?? undefined,
+        created_at: d.group.created_at,
+        is_admin: d.is_admin ?? false,
+        members: (d.members ?? []).map((m: Record<string, unknown>) => ({
+          id: Number(m.user_id),
+          user_id: Number(m.user_id),
+          username: String(m.username ?? ''),
+          first_name: m.first_name ? String(m.first_name) : undefined,
+          role: String(m.role ?? ''),
+          status: m.status ? String(m.status) : undefined,
+        })),
+        funding: (d.fundings ?? []).map((f: Record<string, unknown>) => ({
+          id: Number(f.funding_id),
+          title: String(f.info ?? f.title ?? ''),
+          target_amount: Number(f.amount ?? 0),
+          current_amount: Number(f.total_donated ?? 0),
+          description: f.description ? String(f.description) : undefined,
+        })),
+      } as Group;
+    }),
+    enabled: !!groupId,
   });
 
   const { data: messages = [] } = useQuery({
     queryKey: ['group-messages', groupId],
-    queryFn: () => apiFetch(`/api/groups/${groupId}/messages`).then((d) => d.messages ?? []),
+    queryFn: () => apiFetch(`/api/groups/${groupId}/messages`).then((d) =>
+      (d.messages ?? []).map((m: Record<string, unknown>) => {
+        const u = m.user as Record<string, unknown> | null;
+        return {
+          id: m.message_id,
+          message: m.message,
+          created_at: m.created_at,
+          sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : null),
+        };
+      })
+    ),
     refetchInterval: 10000,
+    enabled: !!groupId,
   });
 
   if (isLoading || !group) return <p className="loading-msg">Lädt Gruppe…</p>;
@@ -171,7 +214,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
     const result = await apiFetch(`/api/groups/${groupId}/funding`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ title: fundTitle, target_amount: Number(fundTarget), description: fundDesc }),
+      body: JSON.stringify({ info: fundTitle, amount: Number(fundTarget) }),
     });
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success('Sammelaktion erstellt');
@@ -304,12 +347,25 @@ export default function GroupsPage() {
 
   const { data: groups = [], isLoading } = useQuery<{ id: number; name: string; address?: string; member_count?: number }[]>({
     queryKey: ['groups'],
-    queryFn: () => apiFetch('/api/groups').then((d) => d.groups ?? []),
+    queryFn: () => apiFetch('/api/groups').then((d) =>
+      (d.groups ?? []).map((g: Record<string, unknown>) => ({
+        id: Number(g.group_id),
+        name: String(g.name ?? ''),
+        address: g.address ? String(g.address) : undefined,
+      }))
+    ),
   });
 
-  const { data: invitations = [] } = useQuery<{ id: number }[]>({
+  const { data: invitations = [] } = useQuery<Invitation[]>({
     queryKey: ['invitations'],
-    queryFn: () => apiFetch('/api/groups/invitations').then((d) => d.invitations ?? []),
+    queryFn: () => apiFetch('/api/groups/invitations').then((d) =>
+      (d.invitations ?? []).map((inv: Record<string, unknown>) => ({
+        id: Number(inv.group_id),
+        group_id: Number(inv.group_id),
+        group_name: String(inv.name ?? ''),
+        invited_by: String(inv.invited_by ?? ''),
+      }))
+    ),
   });
 
   const refresh = () => {
@@ -332,7 +388,7 @@ export default function GroupsPage() {
         <div className="form-actions">
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Gruppe erstellen</button>
           <button className="btn btn-secondary" onClick={() => setShowInvitations(true)}>
-            📬 Einladungen {invitations.length > 0 && <span className="badge badge-error">{invitations.length}</span>}
+            Einladungen {invitations.length > 0 && <span className="badge badge-error">{invitations.length}</span>}
           </button>
         </div>
       </div>

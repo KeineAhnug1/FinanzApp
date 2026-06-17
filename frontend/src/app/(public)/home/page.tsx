@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { apiUrl } from '@/lib/api-client';
 
 const SLIDES = [
   {
@@ -36,83 +37,16 @@ const SLIDES = [
   },
 ];
 
-const TECH_CARDS = [
-  {
-    id: 'ai-enhancement',
-    img: '/homepage/images/ai-enhancement.svg',
-    alt: 'Abstrakte KI-Analyse mit Score-Linien und Vorhersagefenstern',
-    tag: 'AI Enhancement',
-    title: 'Adaptive Finance Intelligence',
-    body: 'KI-Layer für dynamische Kategorisierung, Mustererkennung und proaktive Insights — ohne manuellen Aufwand.',
-    alt2: false,
-  },
-  {
-    id: 'serverless',
-    img: '/homepage/images/serverless.svg',
-    alt: 'Serverlose Infrastruktur mit Event-Flows und verteilten Funktionen',
-    tag: 'Serverless Computing',
-    title: 'Instant Elastic Runtime',
-    body: 'Event-basierte Dienste reagieren in Echtzeit auf Lastspitzen und entkoppeln Nutzung von statischer Infrastruktur.',
-    alt2: true,
-  },
-  {
-    id: 'quantum',
-    img: '/homepage/images/quantum-ready.svg',
-    alt: 'Quantum-inspirierte Netzwerkstruktur mit Knoten und Interferenzmustern',
-    tag: 'Quantum Computing (Roadmap)',
-    title: 'Quantum-Ready Core Design',
-    body: 'Die Architektur ist modular vorbereitet, um künftige Quantum-Optimierung in Analytik und Prognosepfade einzubinden.',
-    alt2: false,
-  },
-  {
-    id: 'blockchain',
-    img: '/homepage/images/blockchain.svg',
-    alt: 'Kettenstruktur mit verifizierten Finanzblöcken und Signaturpunkten',
-    tag: 'Blockchain',
-    title: 'Verifiable Financial Ledger Layer',
-    body: 'Kritische Finanzereignisse können auditierbar protokolliert werden, um Unveränderbarkeit und Vertrauen abzusichern.',
-    alt2: true,
-  },
-  {
-    id: 'saas',
-    img: '/homepage/images/saas.svg',
-    alt: 'SaaS-Bereitstellung mit mehreren Releases, Pipelines und Nutzergruppen',
-    tag: 'SaaS',
-    title: 'Continuous Value Delivery',
-    body: 'Release-Zyklen, Sicherheitsupdates und Produktverbesserungen laufen kontinuierlich, damit die Plattform ohne Downtime mitwächst.',
-    alt2: false,
-  },
-  {
-    id: 'loadbalanced',
-    img: '/homepage/images/load-balanced.svg',
-    alt: 'Load-Balancer mit verteilten Datenströmen auf mehrere Service-Knoten',
-    tag: 'Load Balanced (Roadmap)',
-    title: 'Traffic-Aware Service Orchestration',
-    body: 'Eingehender Traffic wird intelligent verteilt, um Antwortzeiten stabil zu halten und kritische Services robust zu betreiben.',
-    alt2: true,
-  },
-  {
-    id: 'scalable',
-    img: '/homepage/images/scalable.svg',
-    alt: 'Skalierende Cluster-Topologie mit wachsendem Service-Gitter',
-    tag: 'Scalable Architecture',
-    title: 'Horizontal Growth Without Friction',
-    body: 'Services werden horizontal skaliert und klar getrennt deployt — erweiterbar, wartbar und für neue Module offen.',
-    alt2: false,
-  },
-  {
-    id: 'aws',
-    img: '/homepage/images/aws-backend.svg',
-    alt: 'Cloud-Infrastruktur auf AWS mit Services, Datenebene und Monitoring',
-    tag: 'Backend on AWS',
-    title: 'Cloud Operations with Production Discipline',
-    body: 'Der Backend-Stack ist cloud-fokussiert aufgebaut: reproduzierbare Deployments, stabile Betriebsprozesse und hohe Verfügbarkeit.',
-    alt2: true,
-  },
-];
-
 export default function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    fetch(apiUrl('/api/auth/session'), { credentials: 'include' })
+      .then(r => r.json())
+      .then((d: { ok?: boolean }) => { if (d?.ok) setIsLoggedIn(true); })
+      .catch(() => {});
+  }, []);
 
   // Scroll reveal
   useEffect(() => {
@@ -139,7 +73,6 @@ export default function HomePage() {
       v.muted = true;
       v.playsInline = true;
     });
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -158,22 +91,15 @@ export default function HomePage() {
   }, []);
 
   const totalSlides = SLIDES.length;
-
-  const goPrev = () => {
-    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
-  };
-  const goNext = () => {
-    setCurrentSlide((prev) => (prev + 1) % totalSlides);
-  };
-  const goTo = (idx: number) => {
-    setCurrentSlide(idx);
-  };
+  const goPrev = () => setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
+  const goNext = () => setCurrentSlide((prev) => (prev + 1) % totalSlides);
+  const goTo = (idx: number) => setCurrentSlide(idx);
 
   return (
     <>
       {/* ═══════════════ NAVBAR ═══════════════ */}
       <header className="hp-nav">
-        <Link className="hp-nav__brand" href="/home" aria-label="Zur FBM Finance Homepage">
+        <Link className="hp-nav__brand" href={isLoggedIn ? '/dashboard' : '/home'} aria-label="Zur FBM Finance Homepage">
           <span className="hp-nav__logo">
             <img src="/shared/images/finanzapp-logo.svg" alt="FBM Finance" className="hp-nav__logo-img" />
           </span>
@@ -181,10 +107,11 @@ export default function HomePage() {
         <nav className="hp-nav__links" aria-label="Hauptnavigation">
           <a href="#features" className="hp-nav__link">Features</a>
           <a href="#showcase" className="hp-nav__link">Screens</a>
-          <a href="#tech" className="hp-nav__link">Technologie</a>
         </nav>
         <div className="hp-nav__actions">
-          <Link className="hp-nav__cta" href="/login">Anmelden</Link>
+          <Link className="hp-nav__cta" href={isLoggedIn ? '/dashboard' : '/login'}>
+            {isLoggedIn ? 'Dashboard' : 'Anmelden'}
+          </Link>
         </div>
       </header>
 
@@ -212,7 +139,9 @@ export default function HomePage() {
             </p>
             <div className="hp-hero__actions reveal-up" style={{ '--delay': '240ms' } as React.CSSProperties}>
               <a className="hp-btn hp-btn--primary" href="#features">Features entdecken</a>
-              <Link className="hp-btn hp-btn--ghost" href="/login">Jetzt starten &rarr;</Link>
+              <Link className="hp-btn hp-btn--ghost" href={isLoggedIn ? '/dashboard' : '/login'}>
+                {isLoggedIn ? 'Zum Dashboard →' : 'Jetzt starten →'}
+              </Link>
             </div>
             <div className="hp-hero__stats reveal-up" style={{ '--delay': '320ms' } as React.CSSProperties}>
               <div className="hp-stat">
@@ -299,9 +228,9 @@ export default function HomePage() {
         {/* ═══════════════ FEATURES GRID ═══════════════ */}
         <section id="features" className="hp-section hp-features reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-section__head">
-            <p className="hp-label">AI Enhancement</p>
-            <h2 className="hp-section__title">Adaptive Finance Intelligence</h2>
-            <p className="hp-section__sub">Unsere AI-Layer priorisieren relevante Ausgabenmuster, kategorisieren dynamisch und liefern Kontext, bevor man aktiv suchen muss. Ergebnis: weniger Rauschen, mehr Entscheidungen.</p>
+            <p className="hp-label">Features</p>
+            <h2 className="hp-section__title">Alles was du brauchst</h2>
+            <p className="hp-section__sub">Einnahmen, Ausgaben, Aktien, Gruppen und mehr — in einer Plattform vereint.</p>
           </div>
           <div className="hp-features__grid">
             <article className="hp-feat-card hp-feat-card--wide">
@@ -379,13 +308,14 @@ export default function HomePage() {
               aria-label="Demo der schnellen Registrierung in FBM Finance"
             >
               <source src="/homepage/videos/register.mp4" type="video/mp4" />
-              <span>Dein Browser unterstützt dieses Videoformat nicht.</span>
             </video>
             <div className="hp-video-story__overlay">
               <p className="hp-label hp-label--light">Onboarding Experience</p>
               <h2 className="hp-video-story__title">Schnelle Registrierung in Sekunden</h2>
               <p className="hp-video-story__body">Einmal scrollen, kurz ansehen, direkt verstehen: Der Flow ist auf Tempo gebaut und bleibt während des Scrollens im Fokus.</p>
-              <Link className="hp-btn hp-btn--outline-light" href="/login">Jetzt registrieren &rarr;</Link>
+              <Link className="hp-btn hp-btn--outline-light" href={isLoggedIn ? '/dashboard' : '/login'}>
+                {isLoggedIn ? 'Zum Dashboard →' : 'Jetzt registrieren →'}
+              </Link>
             </div>
           </div>
         </section>
@@ -396,7 +326,9 @@ export default function HomePage() {
             <p className="hp-label">Tracking Workflow</p>
             <h2 className="hp-section__title">Einnahmen und Ausgaben in einem Flow</h2>
             <p className="hp-section__sub">Das Video zeigt, wie Buchungen schnell erfasst und sofort im Finanzbild sichtbar werden. So bleibt der Alltag übersichtlich, ohne lange Eingaben.</p>
-            <Link className="hp-btn hp-btn--primary" href="/login" style={{ marginTop: '24px' }}>App starten &rarr;</Link>
+            <Link className="hp-btn hp-btn--primary" href={isLoggedIn ? '/dashboard' : '/login'} style={{ marginTop: '24px' }}>
+              {isLoggedIn ? 'Dashboard öffnen →' : 'App starten →'}
+            </Link>
           </div>
           <div className="hp-showcase-row__media">
             <div className="hp-showcase-row__frame">
@@ -409,7 +341,6 @@ export default function HomePage() {
                 aria-label="Demo zum Erfassen von Einnahmen und Ausgaben in FBM Finance"
               >
                 <source src="/homepage/videos/IncomeAndExpenses.mp4" type="video/mp4" />
-                <span>Dein Browser unterstützt dieses Videoformat nicht.</span>
               </video>
             </div>
           </div>
@@ -423,12 +354,7 @@ export default function HomePage() {
             <p className="hp-section__sub">Diese Unterpunkte zeigen, wie reduzierte Oberflächen den Fokus auf Entscheidungen legen statt auf visuelle Ablenkung.</p>
           </div>
           <div className="hp-carousel">
-            <button
-              className="hp-carousel__arrow hp-carousel__arrow--prev"
-              type="button"
-              aria-label="Vorheriges Bild anzeigen"
-              onClick={goPrev}
-            >
+            <button className="hp-carousel__arrow hp-carousel__arrow--prev" type="button" aria-label="Vorheriges Bild" onClick={goPrev}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6"/>
               </svg>
@@ -450,12 +376,7 @@ export default function HomePage() {
                 </article>
               ))}
             </div>
-            <button
-              className="hp-carousel__arrow hp-carousel__arrow--next"
-              type="button"
-              aria-label="Nächstes Bild anzeigen"
-              onClick={goNext}
-            >
+            <button className="hp-carousel__arrow hp-carousel__arrow--next" type="button" aria-label="Nächstes Bild" onClick={goNext}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6"/>
               </svg>
@@ -475,34 +396,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ═══════════════ TECH STACK ═══════════════ */}
-        <section id="tech" className="hp-section hp-tech-grid reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <div className="hp-section__head">
-            <p className="hp-label">Technologie-Stack</p>
-            <h2 className="hp-section__title">Enterprise-Grade, <em>von Anfang an</em></h2>
-            <p className="hp-section__sub">Jede Entscheidung im Stack zielt auf Performance, Skalierbarkeit und Zukunftssicherheit.</p>
-          </div>
-          <div className="hp-tech-grid__items">
-            {TECH_CARDS.map((card, idx) => (
-              <article
-                key={card.id}
-                id={card.id}
-                className={`hp-tech-card${card.alt2 ? ' hp-tech-card--alt' : ''} reveal-up`}
-                style={{ '--delay': `${idx * 60}ms` } as React.CSSProperties}
-              >
-                <figure className="hp-tech-card__fig">
-                  <img src={card.img} alt={card.alt} loading="lazy" />
-                </figure>
-                <div className="hp-tech-card__body">
-                  <p className="hp-label">{card.tag}</p>
-                  <h3 className="hp-tech-card__title">{card.title}</h3>
-                  <p className="hp-tech-card__text">{card.body}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
         {/* ═══════════════ FINAL CTA ═══════════════ */}
         <section className="hp-cta reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-cta__bg" aria-hidden="true">
@@ -514,7 +407,9 @@ export default function HomePage() {
             <h2 className="hp-cta__title">Bereit, deine Finanzen<br /><em>in den Griff zu bekommen?</em></h2>
             <p className="hp-cta__sub">Kostenlos starten, sofort loslegen. Kein Abo, keine versteckten Kosten.</p>
             <div className="hp-cta__actions">
-              <Link className="hp-btn hp-btn--primary hp-btn--lg" href="/login">Kostenlos registrieren</Link>
+              <Link className="hp-btn hp-btn--primary hp-btn--lg" href={isLoggedIn ? '/dashboard' : '/login'}>
+                {isLoggedIn ? 'Dashboard öffnen' : 'Kostenlos registrieren'}
+              </Link>
               <a className="hp-btn hp-btn--ghost-dark" href="#features">Features ansehen</a>
             </div>
           </div>

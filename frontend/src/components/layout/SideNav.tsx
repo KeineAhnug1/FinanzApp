@@ -75,7 +75,7 @@ export function SideNav() {
         >
           <img src="/shared/images/finanzapp-logo.svg" alt="FBM Finance" className="sidenav__logo-img" width={32} height={32} aria-hidden="true" />
         </button>
-        <Link className="side-nav-title side-nav-title-link side-nav-brand-text" href="/dashboard">
+        <Link className="side-nav-title side-nav-title-link side-nav-brand-text" href="/home">
           FBM Finance
         </Link>
       </div>

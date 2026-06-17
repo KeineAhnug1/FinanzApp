@@ -57,7 +57,7 @@ export function Topbar() {
   return (
     <header className="dash-topbar">
       <div className="topbar-left">
-        <Link className="brand-link" href="/dashboard" aria-label="FBM Finance">
+        <Link className="brand-link" href="/home" aria-label="FBM Finance">
           <img src="/shared/images/finanzapp-logo.svg" alt="FBM Finance" className="topbar__logo-img" height={36} style={{ width: 'auto', display: 'block' }} />
           <span className="brand-sub">{title}</span>
         </Link>

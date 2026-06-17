@@ -21,6 +21,7 @@ interface Props {
   symbol: string | null;
   onClose: () => void;
   ownedShares: number;
+  avgBuyPrice?: number;
   livePrice?: number;
   initialTab?: 'buy' | 'sell';
 }
@@ -67,7 +68,7 @@ function ChartTip({ active, payload, label, currency }: {
   );
 }
 
-export function StockDetailDrawer({ symbol, onClose, ownedShares, livePrice, initialTab = 'buy' }: Props) {
+export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, livePrice, initialTab = 'buy' }: Props) {
   const queryClient = useQueryClient();
   const [range, setRange] = useState<DrawerRange>('1M');
   const [tab, setTab] = useState<'buy' | 'sell'>(initialTab);
@@ -123,6 +124,10 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, livePrice, ini
   const price = livePrice ?? quote?.price ?? 0;
   const sharesNum = Number(shares);
   const totalValue = Number.isFinite(sharesNum) && sharesNum > 0 ? sharesNum * price : 0;
+
+  // P&L für Verkauf: (aktueller Kurs - Ø Kaufkurs) * zu verkaufende Anteile
+  const pnlPerShare = avgBuyPrice != null && price > 0 ? price - avgBuyPrice : null;
+  const tradePnl = pnlPerShare != null && sharesNum > 0 ? pnlPerShare * sharesNum : null;
 
   const chartData = useMemo(
     () => history.map((h) => ({ date: fmtDateLabel(h.date, range), close: h.close })),
@@ -272,8 +277,27 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, livePrice, ini
             <div className="stocks-drawer-summary">
               <span>Kurs</span>
               <strong>{fmtCurrency(price, currency)}</strong>
+              {tab === 'sell' && avgBuyPrice != null && (
+                <>
+                  <span>Ø Kaufkurs</span>
+                  <strong>{fmtCurrency(avgBuyPrice, currency)}</strong>
+                </>
+              )}
               <span>{tab === 'buy' ? 'Kosten' : 'Erlös'}</span>
               <strong className={tab === 'buy' ? 'clr-danger' : 'clr-success'}>{fmtCurrency(totalValue, currency)}</strong>
+              {tab === 'sell' && tradePnl != null && sharesNum > 0 && (
+                <>
+                  <span>Gewinn/Verlust</span>
+                  <strong className={tradePnl >= 0 ? 'clr-success' : 'clr-danger'}>
+                    {tradePnl >= 0 ? '+' : ''}{fmtCurrency(tradePnl, currency)}
+                    {pnlPerShare != null && (
+                      <span className="stocks-drawer-pnl-per-share">
+                        {' '}({pnlPerShare >= 0 ? '+' : ''}{fmtCurrency(pnlPerShare, currency)}/Aktie)
+                      </span>
+                    )}
+                  </strong>
+                </>
+              )}
             </div>
             {insufficientFunds && (
               <div className="stocks-drawer-warning">Nicht genügend Guthaben auf diesem Bankkonto.</div>

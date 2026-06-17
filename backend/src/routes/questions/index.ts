@@ -74,11 +74,14 @@ async function listQuestionsWithRelations(
 
   const questionIds = filtered.map((q) => q.id);
 
-  const [{ data: answers }, { data: qLikes }, { data: myQLikes }] = await Promise.all([
+  const [{ data: answers }, { data: qLikes }, { data: myQLikes }, { data: botUser }] = await Promise.all([
     db.from('global_answers').select('*').in('question_id', questionIds).order('created_at', { ascending: true }),
     db.from('question_likes').select('question_id').in('question_id', questionIds),
     db.from('question_likes').select('question_id').in('question_id', questionIds).eq('user_id', userId),
+    db.from('users').select('id').eq('email', FINZBRO_EMAIL).maybeSingle(),
   ]);
+
+  const botId = botUser ? String((botUser as { id: number | string }).id) : null;
 
   const typedAnswers = (answers ?? []) as AnswerRow[];
   const answerIds = typedAnswers.map((a) => a.id);
@@ -120,6 +123,7 @@ async function listQuestionsWithRelations(
       is_mine: Number(q.from_user_id) === userId,
       answers: qAnswers.map((a) => {
         const aAuthor = usersById.get(String(a.from_user_id));
+        const isBot = botId !== null && String(a.from_user_id) === botId;
         return {
           id: String(a.id), message: a.message, edited: a.edited,
           created_at: a.created_at, updated_at: a.updated_at,
@@ -127,6 +131,7 @@ async function listQuestionsWithRelations(
           liked_by_me: myAIds.has(String(a.id)),
           author: aAuthor ? { id: String(aAuthor.id), username: aAuthor.username, first_name: aAuthor.first_name } : null,
           is_mine: Number(a.from_user_id) === userId,
+          is_bot: isBot,
         };
       }),
     };
@@ -138,36 +143,168 @@ async function maybeCreateFinzbroAnswer(
   env: Env,
   questionId: number,
   thema: string,
-  message: string,
+  questionMessage: string,
+  triggeringMessage: string,
 ) {
   const cfg = getConfig(env);
   const apiKey = cfg.openrouterApiKey || cfg.openrouterApiKey2;
   if (!apiKey) return;
 
   const finzbroEmail = env.FINZBRO_BOT_EMAIL ?? FINZBRO_EMAIL;
-  const { data: bot } = await db.from('users').select('id').eq('email', finzbroEmail).single();
-  if (!bot) return;
 
-  const prompt = `Du bist FinzbRo, ein freundlicher Finanz-Assistent in einer deutschsprachigen Finanz-Community-App.\nBeantworte folgende Frage kurz und hilfreich auf Deutsch:\n\nThema: ${thema}\nFrage: ${message}\n\nAntworte in 2-4 Sätzen. Sei direkt, hilfreich und freundlich.`;
+  // Find or create the FinzbRo bot user
+  let { data: bot } = await db.from('users').select('id').eq('email', finzbroEmail).single();
+  if (!bot) {
+    const { data: created } = await db
+      .from('users')
+      .insert({ username: 'finzbro', email: finzbroEmail, password: '', first_name: 'FinzbRo', last_name: '' })
+      .select('id')
+      .single();
+    bot = created;
+  }
+  if (!bot) {
+    console.error('[questions:finzbro] could not find or create bot user');
+    return;
+  }
+
+  // Fetch all existing answers in the thread (excluding the one just inserted — it's triggeringMessage)
+  const { data: existingAnswers } = await db
+    .from('global_answers')
+    .select('from_user_id, message')
+    .eq('question_id', questionId)
+    .order('created_at', { ascending: true });
+
+  // Build conversation history: question → answers so far → triggering message
+  const history: { role: 'user' | 'assistant'; content: string }[] = [
+    { role: 'user', content: `Thema: ${thema}\n\n${questionMessage}` },
+  ];
+
+  for (const a of (existingAnswers ?? []) as { from_user_id: number | string; message?: string | null }[]) {
+    if (!a.message) continue;
+    // Bot answers become assistant turns; human answers become user turns
+    const role = String(a.from_user_id) === String(bot.id) ? 'assistant' : 'user';
+    history.push({ role, content: a.message });
+  }
+
+  // Add the message that @mentioned FinzbRo (only if it differs from the question itself)
+  if (triggeringMessage !== questionMessage) {
+    history.push({ role: 'user', content: triggeringMessage });
+  }
+
+  const messages = [
+    {
+      role: 'system' as const,
+      content: 'Du bist FinzbRo, ein freundlicher und kompetenter Finanz-Assistent in einer deutschen Finanz-Community-App. Antworte immer auf Deutsch, präzise und hilfreich. Maximal 4 Sätze. Ignoriere @Finzbro-Erwähnungen — antworte einfach inhaltlich.',
+    },
+    ...history,
+  ];
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: cfg.openrouterModel, messages: [{ role: 'user', content: prompt }], max_tokens: 300 }),
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': cfg.openrouterSiteUrl,
+        'X-Title': cfg.openrouterAppName,
+      },
+      body: JSON.stringify({ model: cfg.openrouterModel, messages, max_tokens: 400 }),
     });
-    if (!response.ok) return;
-    const data = await response.json() as Record<string, unknown>;
+    console.log('[finzbro] openrouter status:', response.status, 'model:', cfg.openrouterModel);
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error('[finzbro] openrouter error', response.status, errText);
+      return;
+    }
+    const raw = await response.text();
+    console.log('[finzbro] raw response length:', raw.length, 'preview:', raw.slice(0, 120));
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(raw) as Record<string, unknown>;
+    } catch (parseErr) {
+      console.error('[finzbro] JSON parse failed:', parseErr, 'raw:', raw.slice(0, 200));
+      return;
+    }
     const content = (data?.choices as Record<string, unknown>[])?.[0]?.message as Record<string, unknown>;
     const answerText = String(content?.content ?? '').trim();
-    if (!answerText) return;
+    console.log('[finzbro] answerText length:', answerText.length, 'preview:', answerText.slice(0, 80));
+    if (!answerText) {
+      console.error('[finzbro] empty answerText, content was:', JSON.stringify(content));
+      return;
+    }
 
-    await db.from('global_answers').insert({ question_id: questionId, from_user_id: bot.id, message: answerText, edited: false });
+    const { error: insertErr } = await db.from('global_answers').insert({ question_id: questionId, from_user_id: bot.id, message: answerText, edited: false });
+    if (insertErr) {
+      console.error('[finzbro] insert error:', JSON.stringify(insertErr));
+      return;
+    }
     await db.from('global_questions').update({ answered: true, updated_at: new Date().toISOString() }).eq('id', questionId);
+    console.log('[finzbro] answer inserted successfully for question', questionId);
   } catch (err) {
     console.error('[questions:finzbro] generation failed', { questionId, err });
   }
 }
+
+function mentionsFinzbro(text: string): boolean {
+  return /@finzbro/i.test(text);
+}
+
+// POST /api/questions/finzbro — direct chat with FinzbRo AI
+questions.post('/finzbro', async (c) => {
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 20, windowMs: 60_000, group: 'finzbro-chat' });
+  if (rl) return rl;
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const csrf = await checkCsrf(c.req.raw);
+  if (csrf) return csrf;
+
+  const cfg = getConfig(c.env);
+  const apiKey = cfg.openrouterApiKey || cfg.openrouterApiKey2;
+  if (!apiKey) return jsonResponse({ ok: false, message: 'KI nicht verfügbar.' }, 503);
+
+  const payload = await parseBody<Record<string, unknown>>(c.req.raw);
+  const userMessage = String(payload.message ?? '').trim().slice(0, 1000);
+  if (!userMessage) return jsonResponse({ ok: false, message: 'Nachricht ist erforderlich.' }, 400);
+
+  const history = Array.isArray(payload.history)
+    ? (payload.history as Array<{ role: string; content: string }>)
+        .slice(-10)
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role, content: String(m.content ?? '').slice(0, 500) }))
+    : [];
+
+  const messages = [
+    { role: 'system', content: 'Du bist FinzbRo, ein freundlicher und kompetenter Finanz-Assistent in einer deutschen Finanz-App. Antworte immer auf Deutsch, kurz, präzise und hilfreich. Maximal 4 Sätze pro Antwort.' },
+    ...history,
+    { role: 'user', content: userMessage },
+  ];
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': cfg.openrouterSiteUrl,
+        'X-Title': cfg.openrouterAppName,
+      },
+      body: JSON.stringify({ model: cfg.openrouterModel, messages, max_tokens: 400 }),
+    });
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error('[finzbro-chat] openrouter error', response.status, errText);
+      return jsonResponse({ ok: false, message: 'FinzbRo ist gerade nicht verfügbar.' }, 502);
+    }
+    const data = await response.json() as Record<string, unknown>;
+    const content = (data?.choices as Record<string, unknown>[])?.[0]?.message as Record<string, unknown>;
+    const reply = String(content?.content ?? '').trim();
+    if (!reply) return jsonResponse({ ok: false, message: 'Keine Antwort erhalten.' }, 502);
+    return jsonResponse({ ok: true, reply }, 200);
+  } catch (err) {
+    console.error('[finzbro-chat] failed', err);
+    return jsonResponse({ ok: false, message: 'Fehler beim Aufrufen der KI.' }, 500);
+  }
+});
 
 // GET /api/questions
 questions.get('/', async (c) => {
@@ -200,11 +337,13 @@ questions.post('/', async (c) => {
 
   if (!inserted) return jsonResponse({ ok: false, message: 'Frage konnte nicht erstellt werden.' }, 500);
 
-  // Fire-and-forget FinzbRo
-  const env = c.env;
-  const db = auth.db;
-  const qId = Number(inserted.id);
-  Promise.resolve().then(() => maybeCreateFinzbroAnswer(db, env, qId, thema, message).catch(console.error));
+  // Fire-and-forget: response geht sofort raus, FinzbRo antwortet asynchron
+  if (mentionsFinzbro(thema) || mentionsFinzbro(message)) {
+    const env = c.env;
+    const db = auth.db;
+    const qId = Number(inserted.id);
+    c.executionCtx.waitUntil(maybeCreateFinzbroAnswer(db, env, qId, thema, message, message).catch(console.error));
+  }
 
   return jsonResponse({
     ok: true,
@@ -239,11 +378,14 @@ questions.get('/:id', async (c) => {
 
   const typedAnswers = (answers ?? []) as AnswerRow[];
   const answerIds = typedAnswers.map((a) => a.id);
-  const [{ data: aLikes }, { data: myALikes }, { data: author }] = await Promise.all([
+  const [{ data: aLikes }, { data: myALikes }, { data: author }, { data: botUser }] = await Promise.all([
     answerIds.length ? auth.db.from('answer_likes').select('answer_id').in('answer_id', answerIds) : Promise.resolve({ data: [] }),
     answerIds.length ? auth.db.from('answer_likes').select('answer_id').in('answer_id', answerIds).eq('user_id', auth.user.id) : Promise.resolve({ data: [] }),
     auth.db.from('users').select('id, username, first_name').eq('id', q.from_user_id).maybeSingle(),
+    auth.db.from('users').select('id').eq('email', FINZBRO_EMAIL).maybeSingle(),
   ]);
+
+  const botId = botUser ? String((botUser as { id: number | string }).id) : null;
 
   const aLikesCount = new Map<string, number>();
   for (const l of (aLikes ?? []) as LikeRefRow[]) aLikesCount.set(String(l.answer_id), (aLikesCount.get(String(l.answer_id)) ?? 0) + 1);
@@ -263,11 +405,13 @@ questions.get('/:id', async (c) => {
       author: author ? { id: String((author as UserRow).id), username: (author as UserRow).username, first_name: (author as UserRow).first_name } : null,
       answers: typedAnswers.map((a) => {
         const aAuthor = usersById.get(String(a.from_user_id));
+        const isBot = botId !== null && String(a.from_user_id) === botId;
         return {
           id: String(a.id), message: a.message, edited: a.edited,
           created_at: a.created_at, updated_at: a.updated_at,
           likes: aLikesCount.get(String(a.id)) ?? 0, liked_by_me: myAIds.has(String(a.id)),
           is_mine: Number(a.from_user_id) === auth.user.id,
+          is_bot: isBot,
           author: aAuthor ? { id: String(aAuthor.id), username: aAuthor.username, first_name: aAuthor.first_name } : null,
         };
       }),
@@ -363,7 +507,7 @@ questions.post('/:id/answers', async (c) => {
   const questionId = Number(c.req.param('id'));
   if (!Number.isFinite(questionId)) return badRequest('question_id ist ungültig');
 
-  const { data: question } = await auth.db.from('global_questions').select('id').eq('id', questionId).single();
+  const { data: question } = await auth.db.from('global_questions').select('id, thema, message').eq('id', questionId).single();
   if (!question) return notFound('Frage nicht gefunden');
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
@@ -372,6 +516,15 @@ questions.post('/:id/answers', async (c) => {
 
   await auth.db.from('global_answers').insert({ question_id: questionId, from_user_id: auth.user.id, message, edited: false });
   await auth.db.from('global_questions').update({ answered: true, updated_at: new Date().toISOString() }).eq('id', questionId);
+
+  if (mentionsFinzbro(message)) {
+    const env = c.env;
+    const db = auth.db;
+    const q = question as { id: number | string; thema?: string | null; message?: string | null };
+    c.executionCtx.waitUntil(
+      maybeCreateFinzbroAnswer(db, env, questionId, String(q.thema ?? ''), String(q.message ?? ''), message).catch(console.error)
+    );
+  }
 
   return jsonResponse({ ok: true, message: 'Antwort erstellt' }, 201);
 });

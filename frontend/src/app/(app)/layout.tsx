@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Topbar } from '@/components/layout/Topbar';
@@ -18,6 +18,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, setUser } = useAppStore();
   const { sideNavCollapsed } = useUiStore();
   const [checked, setChecked] = useState(false);
+  const redirectingRef = useRef(false);
+
+  const handleUnauthenticated = () => {
+    if (redirectingRef.current) return;
+    redirectingRef.current = true;
+    queryClient.clear();
+    useAppStore.getState().clearSession();
+    router.replace('/login');
+  };
 
   // Apply body classes required by CSS selectors
   useEffect(() => {
@@ -31,6 +40,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     document.body.classList.toggle('side-nav-collapsed', sideNavCollapsed);
   }, [sideNavCollapsed]);
 
+  // Intercept 401 responses from any fetch call while inside the app
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      if (response.status === 401) {
+        handleUnauthenticated();
+      }
+      return response;
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (user) {
       setChecked(true);
@@ -41,15 +66,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       .then((data: { ok?: boolean; session_user?: User }) => {
         if (data?.ok && data.session_user) {
           setUser(data.session_user);
-          // Invalidate all queries so new user always gets fresh data
           queryClient.invalidateQueries();
           setChecked(true);
         } else {
-          router.replace('/login');
+          handleUnauthenticated();
         }
       })
-      .catch(() => router.replace('/login'));
-  }, [user, router, setUser, queryClient]);
+      .catch(() => handleUnauthenticated());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   if (!checked) return null;
 
