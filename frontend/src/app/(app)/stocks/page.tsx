@@ -46,18 +46,26 @@ const RANGES: Range[] = ['1T', '1W', '1M', '1J', 'Max'];
 
 function fmtDateLabel(raw: string, range: Range) {
   if (range === '1T') {
-    // raw is full timestamp "YYYY-MM-DD HH:MM:SS"
+    // raw: "YYYY-MM-DD HH:MM:SS"
     return raw.split(' ')[1]?.slice(0, 5) ?? '';
   }
   if (range === '1W') {
-    // raw is normalized to "YYYY-MM-DD"
-    const d = new Date(raw);
-    return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    // raw: "YYYY-MM-DD HH" (hourly bucket)
+    const [datePart, hourPart] = raw.split(' ');
+    const d = new Date(datePart ?? raw);
+    const weekday = d.toLocaleDateString('de-DE', { weekday: 'short' });
+    return hourPart ? `${weekday} ${hourPart}:00` : weekday;
+  }
+  if (range === '1M') {
+    // raw: "YYYY-MM-DD HH" (hourly bucket) — show date only to avoid clutter
+    const d = new Date(raw.slice(0, 10));
+    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
   }
   if (range === 'Max') {
     const d = new Date(raw.slice(0, 10));
     return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
   }
+  // 1J
   const d = new Date(raw.slice(0, 10));
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
 }
@@ -152,12 +160,17 @@ function buildPortfolioSeries(
 ): { date: string; Wert: number }[] {
   if (!Object.keys(allHistories).length) return [];
 
-  // For daily+ ranges, normalize timestamps to YYYY-MM-DD so that intraday
-  // settlement-time differences between exchanges (SAP.DE 07:00 UTC vs
-  // AAPL 13:30 UTC) don't create separate date-buckets for the same trading day,
-  // which would cause a visible jump at the start of the chart.
-  const normalizeDate = (raw: string) =>
-    range === '1T' ? raw : raw.slice(0, 10);
+  // Normalize timestamps to avoid cross-exchange settlement-time gaps creating
+  // spurious jumps in the portfolio chart:
+  // - 1T: keep full timestamp (5m resolution, same-exchange intraday)
+  // - 1W/1M: truncate to YYYY-MM-DD HH — hourly buckets merge SAP.DE (07:00 UTC)
+  //   and US stocks (13:30 UTC) correctly without losing intraday detail
+  // - 1J/Max: truncate to YYYY-MM-DD (daily candles, no intraday detail needed)
+  const normalizeDate = (raw: string): string => {
+    if (range === '1T') return raw;
+    if (range === '1W' || range === '1M') return raw.slice(0, 13); // "YYYY-MM-DD HH"
+    return raw.slice(0, 10); // "YYYY-MM-DD"
+  };
 
   const dateSet = new Set<string>();
   for (const hist of Object.values(allHistories)) {

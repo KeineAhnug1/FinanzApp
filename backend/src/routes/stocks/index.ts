@@ -83,8 +83,8 @@ stocks.get('/logo', async (c) => {
 
 const YAHOO_PERIOD_CONFIG: Record<string, { interval: string; range: string }> = {
   '1d':  { interval: '5m',  range: '1d'  },
-  '5d':  { interval: '1h',  range: '5d'  },
-  '1mo': { interval: '1d',  range: '1mo' },
+  '5d':  { interval: '30m', range: '5d'  },
+  '1mo': { interval: '1h',  range: '1mo' },
   '1y':  { interval: '1d',  range: '1y'  },
   'max': { interval: '1wk', range: 'max' },
 };
@@ -442,10 +442,11 @@ stocks.get('/history/:symbol', async (c) => {
   try {
     let history = await fetchYahoo(cfg.interval, cfg.range);
 
-    // For 1d, if the US market just opened there may be <20 data points.
-    // Fall back to 2d/15m to show yesterday + today for a meaningful chart.
+    // For 1d, try a finer interval to get more intraday points.
+    // We avoid fetching '2d' range because mixing yesterday + today creates
+    // a visible price jump in the portfolio chart when markets open at different times.
     if (period === '1d' && history.length < 20) {
-      const fallback = await fetchYahoo('15m', '2d');
+      const fallback = await fetchYahoo('5m', '1d');
       if (fallback.length > history.length) history = fallback;
     }
 
