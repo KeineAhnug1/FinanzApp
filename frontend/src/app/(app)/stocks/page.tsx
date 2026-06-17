@@ -45,14 +45,14 @@ const RANGE_PERIODS: Record<Range, string> = { '1T': '1d', '1W': '5d', '1M': '1m
 const RANGES: Range[] = ['1T', '1W', '1M', '1J', 'Max'];
 
 function fmtDateLabel(raw: string, range: Range) {
-  if (range === '1T' || range === '1W') {
-    const parts = raw.split(' ');
-    const time = parts[1]?.slice(0, 5) ?? '';
-    if (range === '1W' && parts[0]) {
-      const d = new Date(parts[0]);
-      return `${d.toLocaleDateString('de-DE', { weekday: 'short' })} ${time}`;
-    }
-    return time;
+  if (range === '1T') {
+    // raw is full timestamp "YYYY-MM-DD HH:MM:SS"
+    return raw.split(' ')[1]?.slice(0, 5) ?? '';
+  }
+  if (range === '1W') {
+    // raw is normalized to "YYYY-MM-DD"
+    const d = new Date(raw);
+    return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
   }
   if (range === 'Max') {
     const d = new Date(raw.slice(0, 10));
@@ -152,9 +152,16 @@ function buildPortfolioSeries(
 ): { date: string; Wert: number }[] {
   if (!Object.keys(allHistories).length) return [];
 
+  // For daily+ ranges, normalize timestamps to YYYY-MM-DD so that intraday
+  // settlement-time differences between exchanges (SAP.DE 07:00 UTC vs
+  // AAPL 13:30 UTC) don't create separate date-buckets for the same trading day,
+  // which would cause a visible jump at the start of the chart.
+  const normalizeDate = (raw: string) =>
+    range === '1T' ? raw : raw.slice(0, 10);
+
   const dateSet = new Set<string>();
   for (const hist of Object.values(allHistories)) {
-    for (const h of hist) dateSet.add(h.date);
+    for (const h of hist) dateSet.add(normalizeDate(h.date));
   }
   if (!dateSet.size) return [];
 
@@ -163,7 +170,11 @@ function buildPortfolioSeries(
   const closeMaps: Record<string, Map<string, number>> = {};
   for (const [sym, hist] of Object.entries(allHistories)) {
     const m = new Map<string, number>();
-    for (const h of hist) m.set(h.date, h.close);
+    for (const h of hist) {
+      const key = normalizeDate(h.date);
+      // Last price of the day wins (handles multiple intraday points on same date)
+      m.set(key, h.close);
+    }
     closeMaps[sym] = m;
   }
 
@@ -320,7 +331,6 @@ function StockSearch({ onPick, inputRef }: {
 
 export default function StocksPage() {
   const [range, setRange] = useState<Range>('1M');
-  const [focusSymbol, setFocusSymbol] = useState<string | null>(null);
   const [drawerSymbol, setDrawerSymbol] = useState<string | null>(null);
   const [drawerTab, setDrawerTab] = useState<'buy' | 'sell'>('buy');
   const [liveQuotes, setLiveQuotes] = useState<Record<string, number>>({});
@@ -400,19 +410,8 @@ export default function StocksPage() {
     },
   });
 
-  const focusedQuote = focusSymbol ? quotes[focusSymbol] : null;
-  const focusedPosition = focusSymbol ? enriched.find(p => p.symbol === focusSymbol) : null;
-  const focusedCurrency = focusedQuote?.currency ?? 'USD';
-
   const portfolioSeries = buildPortfolioSeries(allHistories, enriched, range, liveQuotes);
-
-  const singleSeries = focusSymbol
-    ? (allHistories[focusSymbol] ?? [])
-        .map(h => ({ date: h.date, Wert: Math.round(h.close * (focusedPosition?.shares ?? 1) * 100) / 100 }))
-    : [];
-
-  const chartSeries = focusSymbol ? singleSeries : portfolioSeries;
-  const chartData = chartSeries.map(p => ({ ...p, date: fmtDateLabel(p.date, range) }));
+  const chartData = portfolioSeries.map(p => ({ ...p, date: fmtDateLabel(p.date, range) }));
 
   const firstVal = chartData[0]?.Wert ?? 0;
   const lastVal = chartData[chartData.length - 1]?.Wert ?? 0;
@@ -421,9 +420,6 @@ export default function StocksPage() {
   const chartGradId = chartPositive ? 'stockGradPos' : 'stockGradNeg';
 
   const chartLoading = allHistLoading && chartData.length === 0;
-  const chartCurrency = focusSymbol ? focusedCurrency : 'EUR';
-  const chartTitle = focusSymbol ? `${focusSymbol}` : 'Portfolio';
-  const chartLabel2 = focusSymbol ? 'Positionswert' : 'Portfoliowert';
 
   const deletePosition = async (symbol: string) => {
     const result = await apiFetch(`/api/stocks/positions/${encodeURIComponent(symbol)}`, {
@@ -436,7 +432,6 @@ export default function StocksPage() {
       queryClient.invalidateQueries({ queryKey: ['stock-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['all-histories'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-      if (focusSymbol === symbol) setFocusSymbol(null);
     } else {
       toast.error(result.message ?? 'Fehler');
     }
@@ -445,10 +440,6 @@ export default function StocksPage() {
   const openDrawer = (symbol: string, tab: 'buy' | 'sell' = 'buy') => {
     setDrawerSymbol(symbol);
     setDrawerTab(tab);
-  };
-
-  const focusToggle = (symbol: string) => {
-    setFocusSymbol(prev => prev === symbol ? null : symbol);
   };
 
   const scrollToSearch = () => {
@@ -526,15 +517,8 @@ export default function StocksPage() {
               <div className="spc-chart-card">
                 <div className="stocks-chart-header">
                   <div className="stocks-chart-header-left">
-                    <span className="stocks-chart-title">{chartTitle}</span>
-                    {focusSymbol && focusedPosition ? (
-                      <>
-                        <span className="stocks-chart-value">{fmtPrice(focusedPosition.value, focusedCurrency)}</span>
-                        {focusedQuote && <PerfBadge pct={focusedQuote.change_pct} />}
-                      </>
-                    ) : (
-                      <span className="stocks-chart-value">{fmtEur(totalValue)}</span>
-                    )}
+                    <span className="stocks-chart-title">Portfolio</span>
+                    <span className="stocks-chart-value">{fmtEur(totalValue)}</span>
                   </div>
                   <div className="stocks-chart-header-right">
                     {wsConnected && (
@@ -567,8 +551,8 @@ export default function StocksPage() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--clr-border)" opacity={0.4} />
                       <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} tickFormatter={(v: number) => fmtPrice(v, chartCurrency)} width={86} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                      <Tooltip content={<ChartTooltip currency={chartCurrency} label2={chartLabel2} />} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} tickFormatter={(v: number) => fmtPrice(v, 'EUR')} width={86} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                      <Tooltip content={<ChartTooltip currency="EUR" label2="Portfoliowert" />} />
                       <Area type="monotone" dataKey="Wert" stroke={chartColor} strokeWidth={2} fill={`url(#${chartGradId})`} dot={false} activeDot={{ r: 4, fill: chartColor, strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -577,7 +561,7 @@ export default function StocksPage() {
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.35}>
                       <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
                     </svg>
-                    Keine Kursdaten verfügbar{focusSymbol ? ` für ${focusSymbol}` : ''}
+                    Keine Kursdaten verfügbar
                   </div>
                 )}
               </div>
@@ -610,7 +594,6 @@ export default function StocksPage() {
 
           <div className="stocks-fm-table">
             <div className="stocks-fm-header">
-              <span></span>
               <span>Aktie</span>
               <span>Trend</span>
               <span className="align-right">Anteile</span>
@@ -623,30 +606,16 @@ export default function StocksPage() {
             {enriched.map((p, idx) => {
               const currency = p.quote?.currency ?? 'USD';
               const sparkData = allHistories[p.symbol] ?? [];
-              const focused = p.symbol === focusSymbol;
               return (
                 <div
                   key={p.id}
-                  className={`stocks-fm-row${focused ? ' is-selected' : ''}`}
+                  className="stocks-fm-row"
                   style={{ animationDelay: `${idx * 40}ms` }}
                   onClick={() => openDrawer(p.symbol, 'buy')}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') openDrawer(p.symbol, 'buy'); }}
                 >
-                  <div className="stocks-fm-cell-actions">
-                    <button
-                      className={`stocks-focus-btn${focused ? ' is-active' : ''}`}
-                      onClick={e => { e.stopPropagation(); focusToggle(p.symbol); }}
-                      title={focused ? 'Fokus aufheben' : 'Im Chart fokussieren'}
-                      aria-label={focused ? `${p.symbol} Fokus aufheben` : `${p.symbol} im Chart fokussieren`}
-                      type="button"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
-                      </svg>
-                    </button>
-                  </div>
                   <div className="stocks-fm-cell-name">
                     <StockLogo symbol={p.symbol} />
                     <div className="stock-cell-info">
