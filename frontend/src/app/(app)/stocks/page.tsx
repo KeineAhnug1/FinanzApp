@@ -194,16 +194,18 @@ function buildPortfolioSeries(
   const result: { date: string; Wert: number }[] = [];
   const lastKnown: Record<string, number> = {};
   const symbolsWithData = enriched.filter(p => closeMaps[p.symbol]);
-  const threshold = Math.ceil(symbolsWithData.length / 2);
+  // Require ALL symbols with data to have a real price at each bucket.
+  // A lower threshold still allows cross-exchange gaps (SAP.DE trades 07-15 UTC,
+  // US stocks 13:30-20 UTC) to slip through, producing visible jumps when the
+  // missing symbol's carry-forward value differs from its real price at that time.
+  const threshold = symbolsWithData.length;
 
   for (const date of dates) {
     let liveCount = 0;
     for (const p of symbolsWithData) {
       if (closeMaps[p.symbol]?.has(date)) liveCount++;
     }
-    // For intraday view: skip timestamps where fewer than half the positions
-    // have real data points — avoids stale carry-forward creating fake jumps.
-    if (range === '1T' && liveCount < threshold) continue;
+    if (liveCount < threshold) continue;
 
     let total = 0;
     let hasAny = false;
@@ -217,10 +219,10 @@ function buildPortfolioSeries(
     if (hasAny) result.push({ date, Wert: Math.round(total * 100) / 100 });
   }
 
+  // Append a live-price point so the chart terminus matches the Hero value.
+  // Only add it when enough symbols have live quotes to avoid a misleading endpoint.
   const liveSymbolCount = enriched.filter(p => liveQuotes[p.symbol] != null).length;
-  const enoughLiveData = range !== '1T' || liveSymbolCount >= threshold;
-
-  if (enoughLiveData) {
+  if (liveSymbolCount >= threshold) {
     let liveTotal = 0;
     for (const p of enriched) {
       const price = liveQuotes[p.symbol] ?? lastKnown[p.symbol] ?? 0;
