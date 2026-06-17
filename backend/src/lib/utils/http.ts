@@ -1,27 +1,3 @@
-// ---------------------------------------------------------------------------
-// Cookie parsing
-// ---------------------------------------------------------------------------
-
-export function parseCookies(cookieHeader: string | null): Record<string, string> {
-  const result: Record<string, string> = {};
-  if (!cookieHeader) return result;
-  for (const part of cookieHeader.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx < 0) continue;
-    const name = part.slice(0, idx).trim();
-    try {
-      result[name] = decodeURIComponent(part.slice(idx + 1).trim());
-    } catch {
-      result[name] = part.slice(idx + 1).trim();
-    }
-  }
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Body parsing
-// ---------------------------------------------------------------------------
-
 export async function parseBody<T = Record<string, unknown>>(request: Request): Promise<T> {
   const contentType = request.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {

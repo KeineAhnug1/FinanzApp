@@ -310,16 +310,6 @@ const NORMALIZED_BLOCKED_NAME_TERMS = Object.freeze(
   BLOCKED_NAME_TERMS.map((entry) => normalizeNameValue(entry)).filter(Boolean)
 );
 
-const NORMALIZED_BLOCKED_MESSAGE_TERMS = Object.freeze(
-  BLOCKED_NAME_TERMS.map((entry) => normalizeNameValue(entry)).filter((entry) =>
-    /[a-z]/.test(entry)
-  )
-);
-
-/**
- * @param {{ username: unknown; firstName: unknown; lastName: unknown }} opts
- * @returns {string | null}
- */
 export function detectBlockedRegistrationName({ username, firstName, lastName }: { username: unknown; firstName: unknown; lastName: unknown }): string | null {
   const combinedCandidate = [username, firstName, lastName].join(" ");
   const normalizedCandidate = normalizeNameValue(combinedCandidate);
@@ -327,23 +317,6 @@ export function detectBlockedRegistrationName({ username, firstName, lastName }:
 
   for (const blockedTerm of NORMALIZED_BLOCKED_NAME_TERMS) {
     if (normalizedCandidate.includes(blockedTerm)) {
-      return blockedTerm;
-    }
-  }
-
-  return null;
-}
-
-/**
- * @param {unknown} message
- * @returns {string | null}
- */
-export function detectBlockedMessageTerm(message: unknown): string | null {
-  const normalizedMessage = normalizeNameValue(message);
-  if (!normalizedMessage) return null;
-
-  for (const blockedTerm of NORMALIZED_BLOCKED_MESSAGE_TERMS) {
-    if (normalizedMessage.includes(blockedTerm)) {
       return blockedTerm;
     }
   }

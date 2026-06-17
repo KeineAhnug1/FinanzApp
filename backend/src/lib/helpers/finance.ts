@@ -1,9 +1,9 @@
 import type { DbClient } from '@/lib/db';
 
-const PRESET_INCOME_CATEGORY_KEYS = new Set([
+export const PRESET_INCOME_CATEGORY_KEYS = new Set([
   'salary', 'freelance', 'bonus', 'refund', 'investment', 'other',
 ]);
-const PRESET_EXPENSE_CATEGORY_KEYS = new Set([
+export const PRESET_EXPENSE_CATEGORY_KEYS = new Set([
   'rent', 'groceries', 'utilities', 'transport', 'health', 'entertainment', 'other',
 ]);
 
@@ -119,9 +119,30 @@ export function resolveEntryState(
   return { effectiveRecurrence, effectiveIsActive, effectiveState };
 }
 
-// ---------------------------------------------------------------------------
-// DB helpers — all receive `db` as parameter
-// ---------------------------------------------------------------------------
+export interface BankAccountFilter {
+  ok: boolean;
+  accountIds: number[];
+  message?: string;
+  status?: number;
+}
+
+export function resolveRequestedBankAccountFilter(
+  searchParams: URLSearchParams,
+  allAccountIds: (string | number)[],
+): BankAccountFilter {
+  const raw = searchParams.get('bank_account_id');
+  if (!raw) {
+    return { ok: true, accountIds: allAccountIds.map(Number) };
+  }
+  const id = Number(raw);
+  if (!Number.isFinite(id) || id <= 0) {
+    return { ok: false, accountIds: [], message: 'bank_account_id ist ungültig', status: 400 };
+  }
+  if (!allAccountIds.map(Number).includes(id)) {
+    return { ok: false, accountIds: [], message: 'Konto nicht gefunden', status: 404 };
+  }
+  return { ok: true, accountIds: [id] };
+}
 
 export async function getUserBankAccounts(db: DbClient, userId: string | number) {
   const { data } = await db
@@ -187,30 +208,3 @@ export async function rememberUserCategory(
   if (!key || preset.has(key)) return;
   await db.from('user_categories').upsert({ user_id: userId, kind, key, value }, { onConflict: 'user_id,kind,key' });
 }
-
-export interface BankAccountFilter {
-  ok: boolean;
-  accountIds: number[];
-  message?: string;
-  status?: number;
-}
-
-export function resolveRequestedBankAccountFilter(
-  searchParams: URLSearchParams,
-  allAccountIds: (string | number)[],
-): BankAccountFilter {
-  const raw = searchParams.get('bank_account_id');
-  if (!raw) {
-    return { ok: true, accountIds: allAccountIds.map(Number) };
-  }
-  const id = Number(raw);
-  if (!Number.isFinite(id) || id <= 0) {
-    return { ok: false, accountIds: [], message: 'bank_account_id ist ungültig', status: 400 };
-  }
-  if (!allAccountIds.map(Number).includes(id)) {
-    return { ok: false, accountIds: [], message: 'Konto nicht gefunden', status: 404 };
-  }
-  return { ok: true, accountIds: [id] };
-}
-
-export { PRESET_INCOME_CATEGORY_KEYS, PRESET_EXPENSE_CATEGORY_KEYS };
