@@ -9,31 +9,26 @@ import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
-
-interface User {
-  id: number; username: string; email: string; first_name: string; last_name: string;
-  age: number | null; income: number; profileImage: string | null; created_at: string;
-}
+import type { UserClient } from '@/types';
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
   return res.json();
 }
 
-function initialsFromUser(user: Partial<User>): string {
+function initialsFromUser(user: Partial<UserClient>): string {
   const first = String(user.first_name || user.username || 'U').charAt(0).toUpperCase();
   const last = String(user.last_name || '').charAt(0).toUpperCase();
   return `${first}${last}`.trim();
 }
 
-// ---- Profile Form ----
 const profileSchema = z.object({
   first_name: z.string().min(1, 'Vorname erforderlich'),
   last_name: z.string().min(1, 'Nachname erforderlich'),
 });
 type ProfileData = z.infer<typeof profileSchema>;
 
-function ProfileSection({ user, onSaved }: { user: User; onSaved: () => void }) {
+function ProfileSection({ user, onSaved }: { user: UserClient; onSaved: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.profileImage);
   const [uploading, setUploading] = useState(false);
@@ -137,7 +132,6 @@ function ProfileSection({ user, onSaved }: { user: User; onSaved: () => void }) 
   );
 }
 
-// ---- Password Form ----
 const passwordSchema = z.object({
   current_password: z.string().min(1, 'Aktuelles Passwort erforderlich'),
   new_password: z.string().min(8, 'Neues Passwort muss mind. 8 Zeichen haben'),
@@ -190,7 +184,6 @@ function PasswordSection() {
   );
 }
 
-// ---- Theme Section ----
 function ThemeSection() {
   const [theme, setTheme] = useState(() => typeof window === 'undefined' ? 'auto' : localStorage.getItem('finanzapp.themeMode') ?? 'auto');
   const [contrast, setContrast] = useState(() => typeof window === 'undefined' ? 'normal' : localStorage.getItem('finanzapp.contrast') ?? 'normal');
@@ -242,7 +235,6 @@ function ThemeSection() {
   );
 }
 
-// ---- Danger Zone ----
 function DangerSection() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -309,17 +301,16 @@ function DangerSection() {
   );
 }
 
-// ---- Main Page ----
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { user: storeUser, setUser } = useAppStore();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState('profil');
 
-  const { data: user, isLoading } = useQuery<User>({
+  const { data: user, isLoading } = useQuery<UserClient>({
     queryKey: ['me'],
     queryFn: () => apiFetch('/api/users/me').then((d) => d.user),
-    initialData: (storeUser as User | null) ?? undefined,
+    initialData: (storeUser as UserClient | null) ?? undefined,
     staleTime: 30_000,
   });
 
