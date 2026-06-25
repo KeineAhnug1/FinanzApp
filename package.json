@@ -8,9 +8,12 @@
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "type-check": "npm run type-check --prefix backend && npm run type-check --prefix frontend",
     "lint": "npm run lint --prefix frontend",
-    "build": "npm run build --prefix frontend && npm run build --prefix backend"
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md}\""
   },
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "prettier": "^3.8.4"
   }
 }
