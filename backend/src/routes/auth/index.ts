@@ -50,7 +50,6 @@ auth.post('/login', async (c) => {
   const valid = await verifyPassword(password, user.password as string);
   if (!valid) return unauthorized('E-Mail oder Passwort falsch');
 
-  // Upgrade legacy hash on successful login
   const pw = user.password as string;
   if (!pw.startsWith('scrypt:')) {
     const upgraded = await hashPassword(password);
@@ -272,7 +271,6 @@ auth.post('/verify', async (c) => {
     throw error;
   }
 
-  // Create default finance roots
   const { data: bankAccounts } = await db
     .from('bank_accounts')
     .select('id')
