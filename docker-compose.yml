@@ -1,0 +1,18 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8787}
+    container_name: finanzapp-frontend
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    # The backend is a Cloudflare Worker and runs on the host via:
+    #   cd backend && npm run dev
+    # It is intentionally NOT included as a service here — see docs/DOCKER.md.
+    #
+    # NEXT_PUBLIC_API_URL is consumed at *build* time (Next.js inlines it into
+    # the client bundle), so it is passed as a build arg above and not as a
+    # runtime `environment:` entry.
