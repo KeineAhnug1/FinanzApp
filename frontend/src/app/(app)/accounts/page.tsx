@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 
+// Diverges from db BankAccount: backend serializes id as string and adds optional name/type fields not present in the DB row.
 interface BankAccount {
   id: string;
   label: string;
@@ -26,7 +27,6 @@ async function apiFetch(url: string, options?: RequestInit) {
   return res.json();
 }
 
-// ---- Add Account Form ----
 const addAccountSchema = z.object({
   label: z.string().min(1, 'Name ist erforderlich'),
   initial_balance: z.coerce.number().min(0, 'Anfangsguthaben muss >= 0 sein'),
@@ -75,7 +75,6 @@ function AddAccountModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   );
 }
 
-// ---- Account Card ----
 function AccountCard({ account, onUpdate }: { account: BankAccount; onUpdate: () => void }) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(account.label || account.name || '');
@@ -210,7 +209,6 @@ function AccountCard({ account, onUpdate }: { account: BankAccount; onUpdate: ()
   );
 }
 
-// ---- Main Page ----
 export default function AccountsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const queryClient = useQueryClient();
