@@ -128,23 +128,25 @@ function LoginForm({
 
       <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div>
-          <label className="login-label" htmlFor="email">
+          <label className="login-label" htmlFor="login-email">
             E-Mail
           </label>
           <input
             className={`login-input${errors.email ? ' is-error' : ''}`}
-            id="email"
+            id="login-email"
             type="email"
             autoComplete="email"
             placeholder="name@beispiel.de"
             {...register('email')}
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? 'login-email-error' : undefined}
           />
-          {errors.email && <p className="form-error">{errors.email.message}</p>}
+          {errors.email && <p id="login-email-error" className="form-error">{errors.email.message}</p>}
         </div>
 
         <div>
           <div className="login-label-row">
-            <label className="login-label" htmlFor="password">
+            <label className="login-label" htmlFor="login-password">
               Passwort
             </label>
             <button
@@ -158,13 +160,15 @@ function LoginForm({
           </div>
           <input
             className={`login-input${errors.password ? ' is-error' : ''}`}
-            id="password"
+            id="login-password"
             type="password"
             autoComplete="current-password"
             placeholder="Passwort eingeben"
             {...register('password')}
+            aria-invalid={errors.password ? true : undefined}
+            aria-describedby={errors.password ? 'login-password-error' : undefined}
           />
-          {errors.password && <p className="form-error">{errors.password.message}</p>}
+          {errors.password && <p id="login-password-error" className="form-error">{errors.password.message}</p>}
         </div>
 
         <button className="login-button" type="submit" disabled={isSubmitting}>
@@ -248,39 +252,90 @@ function RegisterForm({
       <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="form-row">
           <div>
-            <label className="login-label" htmlFor="first_name">Vorname</label>
-            <input className={`login-input${errors.first_name ? ' is-error' : ''}`} id="first_name" type="text" placeholder="Anna" {...register('first_name')} />
-            {errors.first_name && <p className="form-error">{errors.first_name.message}</p>}
+            <label className="login-label" htmlFor="register-first-name">Vorname</label>
+            <input
+              className={`login-input${errors.first_name ? ' is-error' : ''}`}
+              id="register-first-name"
+              type="text"
+              placeholder="Anna"
+              {...register('first_name')}
+              aria-invalid={errors.first_name ? true : undefined}
+              aria-describedby={errors.first_name ? 'register-first-name-error' : undefined}
+            />
+            {errors.first_name && <p id="register-first-name-error" className="form-error">{errors.first_name.message}</p>}
           </div>
           <div>
-            <label className="login-label" htmlFor="last_name">Nachname</label>
-            <input className={`login-input${errors.last_name ? ' is-error' : ''}`} id="last_name" type="text" placeholder="Schmidt" {...register('last_name')} />
-            {errors.last_name && <p className="form-error">{errors.last_name.message}</p>}
+            <label className="login-label" htmlFor="register-last-name">Nachname</label>
+            <input
+              className={`login-input${errors.last_name ? ' is-error' : ''}`}
+              id="register-last-name"
+              type="text"
+              placeholder="Schmidt"
+              {...register('last_name')}
+              aria-invalid={errors.last_name ? true : undefined}
+              aria-describedby={errors.last_name ? 'register-last-name-error' : undefined}
+            />
+            {errors.last_name && <p id="register-last-name-error" className="form-error">{errors.last_name.message}</p>}
           </div>
         </div>
 
         <div>
-          <label className="login-label" htmlFor="username">Username</label>
-          <input className={`login-input${errors.username ? ' is-error' : ''}`} id="username" type="text" placeholder="anna" {...register('username')} />
-          {errors.username && <p className="form-error">{errors.username.message}</p>}
+          <label className="login-label" htmlFor="register-username">Username</label>
+          <input
+            className={`login-input${errors.username ? ' is-error' : ''}`}
+            id="register-username"
+            type="text"
+            placeholder="anna"
+            {...register('username')}
+            aria-invalid={errors.username ? true : undefined}
+            aria-describedby={errors.username ? 'register-username-error' : undefined}
+          />
+          {errors.username && <p id="register-username-error" className="form-error">{errors.username.message}</p>}
         </div>
 
         <div>
-          <label className="login-label" htmlFor="email">E-Mail</label>
-          <input className={`login-input${errors.email ? ' is-error' : ''}`} id="email" type="email" placeholder="name@beispiel.de" {...register('email')} />
-          {errors.email && <p className="form-error">{errors.email.message}</p>}
+          <label className="login-label" htmlFor="register-email">E-Mail</label>
+          <input
+            className={`login-input${errors.email ? ' is-error' : ''}`}
+            id="register-email"
+            type="email"
+            placeholder="name@beispiel.de"
+            {...register('email')}
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? 'register-email-error' : undefined}
+          />
+          {errors.email && <p id="register-email-error" className="form-error">{errors.email.message}</p>}
         </div>
 
         <div className="form-row">
           <div>
-            <label className="login-label" htmlFor="password">Passwort</label>
-            <input className={`login-input${errors.password ? ' is-error' : ''}`} id="password" type="password" minLength={8} autoComplete="new-password" placeholder="mind. 8 Zeichen" {...register('password')} />
-            {errors.password && <p className="form-error">{errors.password.message}</p>}
+            <label className="login-label" htmlFor="register-password">Passwort</label>
+            <input
+              className={`login-input${errors.password ? ' is-error' : ''}`}
+              id="register-password"
+              type="password"
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="mind. 8 Zeichen"
+              {...register('password')}
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? 'register-password-error' : undefined}
+            />
+            {errors.password && <p id="register-password-error" className="form-error">{errors.password.message}</p>}
           </div>
           <div>
-            <label className="login-label" htmlFor="confirm_password">Passwort wiederholen</label>
-            <input className={`login-input${errors.confirm_password ? ' is-error' : ''}`} id="confirm_password" type="password" autoComplete="new-password" placeholder="wiederholen" {...register('confirm_password')} />
-            {errors.confirm_password && <p className="form-error">{errors.confirm_password.message}</p>}
+            <label className="login-label" htmlFor="register-confirm-password">Passwort wiederholen</label>
+            <input
+              className={`login-input${errors.confirm_password ? ' is-error' : ''}`}
+              id="register-confirm-password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="wiederholen"
+              {...register('confirm_password')}
+              aria-invalid={errors.confirm_password ? true : undefined}
+              aria-describedby={errors.confirm_password ? 'register-confirm-password-error' : undefined}
+            />
+            {errors.confirm_password && <p id="register-confirm-password-error" className="form-error">{errors.confirm_password.message}</p>}
           </div>
         </div>
 
@@ -370,22 +425,24 @@ function VerifyForm({
 
       <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div>
-          <label className="login-label" htmlFor="email">E-Mail</label>
-          <input className="login-input" id="email" type="email" readOnly {...register('email')} />
+          <label className="login-label" htmlFor="verify-email">E-Mail</label>
+          <input className="login-input" id="verify-email" type="email" readOnly {...register('email')} />
         </div>
 
         <div>
-          <label className="login-label" htmlFor="code">Verifizierungscode</label>
+          <label className="login-label" htmlFor="verify-code">Verifizierungscode</label>
           <input
             className={`login-input verify-code-input${errors.code ? ' is-error' : ''}`}
-            id="code"
+            id="verify-code"
             type="text"
             inputMode="numeric"
             maxLength={6}
             placeholder="123456"
             {...register('code')}
+            aria-invalid={errors.code ? true : undefined}
+            aria-describedby={errors.code ? 'verify-code-error' : undefined}
           />
-          {errors.code && <p className="form-error">{errors.code.message}</p>}
+          {errors.code && <p id="verify-code-error" className="form-error">{errors.code.message}</p>}
         </div>
 
         {remaining > 0 ? (
@@ -475,16 +532,18 @@ function ForgotForm({
 
       <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div>
-          <label className="login-label" htmlFor="email">E-Mail</label>
+          <label className="login-label" htmlFor="forgot-email">E-Mail</label>
           <input
             className={`login-input${errors.email ? ' is-error' : ''}`}
-            id="email"
+            id="forgot-email"
             type="email"
             autoComplete="email"
             placeholder="name@beispiel.de"
             {...register('email')}
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? 'forgot-email-error' : undefined}
           />
-          {errors.email && <p className="form-error">{errors.email.message}</p>}
+          {errors.email && <p id="forgot-email-error" className="form-error">{errors.email.message}</p>}
         </div>
 
         <button className="login-button" type="submit" disabled={isSubmitting}>
@@ -584,22 +643,24 @@ function ResetForm({
 
       <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div>
-          <label className="login-label" htmlFor="email">E-Mail</label>
-          <input className="login-input" id="email" type="email" readOnly {...register('email')} />
+          <label className="login-label" htmlFor="reset-email">E-Mail</label>
+          <input className="login-input" id="reset-email" type="email" readOnly {...register('email')} />
         </div>
 
         <div>
-          <label className="login-label" htmlFor="code">Code aus der E-Mail</label>
+          <label className="login-label" htmlFor="reset-code">Code aus der E-Mail</label>
           <input
             className={`login-input verify-code-input${errors.code ? ' is-error' : ''}`}
-            id="code"
+            id="reset-code"
             type="text"
             inputMode="numeric"
             maxLength={6}
             placeholder="123456"
             {...register('code')}
+            aria-invalid={errors.code ? true : undefined}
+            aria-describedby={errors.code ? 'reset-code-error' : undefined}
           />
-          {errors.code && <p className="form-error">{errors.code.message}</p>}
+          {errors.code && <p id="reset-code-error" className="form-error">{errors.code.message}</p>}
         </div>
 
         {remaining > 0 ? (
@@ -609,31 +670,35 @@ function ResetForm({
         ) : null}
 
         <div>
-          <label className="login-label" htmlFor="new_password">Neues Passwort</label>
+          <label className="login-label" htmlFor="reset-new-password">Neues Passwort</label>
           <input
             className={`login-input${errors.new_password ? ' is-error' : ''}`}
-            id="new_password"
+            id="reset-new-password"
             type="password"
             minLength={8}
             autoComplete="new-password"
             placeholder="mind. 8 Zeichen"
             {...register('new_password')}
+            aria-invalid={errors.new_password ? true : undefined}
+            aria-describedby={errors.new_password ? 'reset-new-password-error' : undefined}
           />
-          {errors.new_password && <p className="form-error">{errors.new_password.message}</p>}
+          {errors.new_password && <p id="reset-new-password-error" className="form-error">{errors.new_password.message}</p>}
         </div>
 
         <div>
-          <label className="login-label" htmlFor="confirm_password">Neues Passwort bestätigen</label>
+          <label className="login-label" htmlFor="reset-confirm-password">Neues Passwort bestätigen</label>
           <input
             className={`login-input${errors.confirm_password ? ' is-error' : ''}`}
-            id="confirm_password"
+            id="reset-confirm-password"
             type="password"
             autoComplete="new-password"
             placeholder="wiederholen"
             {...register('confirm_password')}
+            aria-invalid={errors.confirm_password ? true : undefined}
+            aria-describedby={errors.confirm_password ? 'reset-confirm-password-error' : undefined}
           />
           {errors.confirm_password && (
-            <p className="form-error">{errors.confirm_password.message}</p>
+            <p id="reset-confirm-password-error" className="form-error">{errors.confirm_password.message}</p>
           )}
         </div>
 
