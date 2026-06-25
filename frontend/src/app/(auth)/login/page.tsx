@@ -87,12 +87,19 @@ function LoginForm({
   const onSubmit = async (data: LoginData) => {
     setStatusMsg('Prüfe Login…');
     setStatusType('idle');
-    const res = await fetch(apiUrl('/api/auth/login'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify(data),
-    });
+    let res: Response;
+    try {
+      res = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify(data),
+      });
+    } catch {
+      setStatusMsg('Server nicht erreichbar.');
+      setStatusType('error');
+      return;
+    }
     const result = await res.json().catch(() => ({}));
 
     if (res.status === 429) {
@@ -197,18 +204,25 @@ function RegisterForm({
   const onSubmit = async (data: RegisterData) => {
     setStatusMsg('Konto wird vorbereitet…');
     setStatusType('idle');
-    const res = await fetch(apiUrl('/api/auth/register'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({
-        first_name: data.first_name,
-        last_name: data.last_name,
-        username: data.username,
-        email: data.email,
-        password: data.password,
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          username: data.username,
+          email: data.email,
+          password: data.password,
+        }),
+      });
+    } catch {
+      setStatusMsg('Server nicht erreichbar.');
+      setStatusType('error');
+      return;
+    }
     const result = await res.json().catch(() => ({}));
 
     if (res.status === 429) {
@@ -321,12 +335,19 @@ function VerifyForm({
   const onSubmit = async (data: VerifyData) => {
     setStatusMsg('Code wird geprüft…');
     setStatusType('idle');
-    const res = await fetch(apiUrl('/api/auth/verify'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ email: data.email, code: data.code }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(apiUrl('/api/auth/verify'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({ email: data.email, code: data.code }),
+      });
+    } catch {
+      setStatusMsg('Server nicht erreichbar.');
+      setStatusType('error');
+      return;
+    }
     const result = await res.json().catch(() => ({}));
     if (!res.ok) {
       setStatusMsg(result.message ?? 'Code konnte nicht verifiziert werden.');
@@ -422,12 +443,19 @@ function ForgotForm({
   const onSubmit = async (data: ForgotData) => {
     setStatusMsg('Code wird angefordert…');
     setStatusType('idle');
-    const res = await fetch(apiUrl('/api/auth/forgot-password'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ email: data.email }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(apiUrl('/api/auth/forgot-password'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({ email: data.email }),
+      });
+    } catch {
+      setStatusMsg('Server nicht erreichbar.');
+      setStatusType('error');
+      return;
+    }
     const result = await res.json().catch(() => ({}));
 
     if (res.status === 429) {
@@ -510,16 +538,23 @@ function ResetForm({
   const onSubmit = async (data: ResetData) => {
     setStatusMsg('Passwort wird zurückgesetzt…');
     setStatusType('idle');
-    const res = await fetch(apiUrl('/api/auth/reset-password'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({
-        email: data.email,
-        code: data.code,
-        new_password: data.new_password,
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(apiUrl('/api/auth/reset-password'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({
+          email: data.email,
+          code: data.code,
+          new_password: data.new_password,
+        }),
+      });
+    } catch {
+      setStatusMsg('Server nicht erreichbar.');
+      setStatusType('error');
+      return;
+    }
     const result = await res.json().catch(() => ({}));
 
     if (res.status === 429) {
