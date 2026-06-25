@@ -131,6 +131,16 @@ Das Frontend kommuniziert mit dem Backend ausschließlich über HTTP (`NEXT_PUBL
 
 ---
 
+## Design
+
+Die vollständige Design-Sprache, Farbpalette, Spacing-Tokens und Komponenten-Patterns sind in [`design/`](./design/) dokumentiert:
+
+- [`design/README.md`](./design/README.md) — Übersicht, Design-Prinzipien, Themes
+- [`design/design-tokens.md`](./design/design-tokens.md) — vollständige CSS-Token-Referenz
+- [`design/screenshots/`](./design/screenshots/) — Aufnahmen aller Hauptseiten
+
+---
+
 ## Nützliche Befehle
 
 ```bash
