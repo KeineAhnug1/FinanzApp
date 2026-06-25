@@ -152,7 +152,6 @@ async function maybeCreateFinzbroAnswer(
 
   const finzbroEmail = env.FINZBRO_BOT_EMAIL ?? FINZBRO_EMAIL;
 
-  // Find or create the FinzbRo bot user
   let { data: bot } = await db.from('users').select('id').eq('email', finzbroEmail).single();
   if (!bot) {
     const { data: created } = await db
@@ -162,31 +161,24 @@ async function maybeCreateFinzbroAnswer(
       .single();
     bot = created;
   }
-  if (!bot) {
-    console.error('[questions:finzbro] could not find or create bot user');
-    return;
-  }
+  if (!bot) return;
 
-  // Fetch all existing answers in the thread (excluding the one just inserted — it's triggeringMessage)
   const { data: existingAnswers } = await db
     .from('global_answers')
     .select('from_user_id, message')
     .eq('question_id', questionId)
     .order('created_at', { ascending: true });
 
-  // Build conversation history: question → answers so far → triggering message
   const history: { role: 'user' | 'assistant'; content: string }[] = [
     { role: 'user', content: `Thema: ${thema}\n\n${questionMessage}` },
   ];
 
   for (const a of (existingAnswers ?? []) as { from_user_id: number | string; message?: string | null }[]) {
     if (!a.message) continue;
-    // Bot answers become assistant turns; human answers become user turns
     const role = String(a.from_user_id) === String(bot.id) ? 'assistant' : 'user';
     history.push({ role, content: a.message });
   }
 
-  // Add the message that @mentioned FinzbRo (only if it differs from the question itself)
   if (triggeringMessage !== questionMessage) {
     history.push({ role: 'user', content: triggeringMessage });
   }
@@ -210,38 +202,17 @@ async function maybeCreateFinzbroAnswer(
       },
       body: JSON.stringify({ model: cfg.openrouterModel, messages, max_tokens: 400 }),
     });
-    console.log('[finzbro] openrouter status:', response.status, 'model:', cfg.openrouterModel);
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.error('[finzbro] openrouter error', response.status, errText);
-      return;
-    }
-    const raw = await response.text();
-    console.log('[finzbro] raw response length:', raw.length, 'preview:', raw.slice(0, 120));
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(raw) as Record<string, unknown>;
-    } catch (parseErr) {
-      console.error('[finzbro] JSON parse failed:', parseErr, 'raw:', raw.slice(0, 200));
-      return;
-    }
+    if (!response.ok) return;
+    const data = await response.json() as Record<string, unknown>;
     const content = (data?.choices as Record<string, unknown>[])?.[0]?.message as Record<string, unknown>;
     const answerText = String(content?.content ?? '').trim();
-    console.log('[finzbro] answerText length:', answerText.length, 'preview:', answerText.slice(0, 80));
-    if (!answerText) {
-      console.error('[finzbro] empty answerText, content was:', JSON.stringify(content));
-      return;
-    }
+    if (!answerText) return;
 
     const { error: insertErr } = await db.from('global_answers').insert({ question_id: questionId, from_user_id: bot.id, message: answerText, edited: false });
-    if (insertErr) {
-      console.error('[finzbro] insert error:', JSON.stringify(insertErr));
-      return;
-    }
+    if (insertErr) return;
     await db.from('global_questions').update({ answered: true, updated_at: new Date().toISOString() }).eq('id', questionId);
-    console.log('[finzbro] answer inserted successfully for question', questionId);
   } catch (err) {
-    console.error('[questions:finzbro] generation failed', { questionId, err });
+    console.error('finzbro answer failed:', err);
   }
 }
 
@@ -499,6 +470,8 @@ questions.post('/:id/like', async (c) => {
 
 // POST /api/questions/:id/answers
 questions.post('/:id/answers', async (c) => {
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 10, windowMs: 60_000, group: 'forum-answers' });
+  if (rl) return rl;
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
   const csrf = await checkCsrf(c.req.raw);
