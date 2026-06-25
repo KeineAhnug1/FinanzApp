@@ -45,7 +45,6 @@ function formatDate(dateStr: string): string {
   }).format(new Date(dateStr));
 }
 
-// ---- Ask Form (right panel) ----
 const questionSchema = z.object({
   thema: z.string().min(1, 'Thema erforderlich').max(120),
   message: z.string().min(5, 'Mindestens 5 Zeichen').max(2000),
@@ -103,7 +102,6 @@ function AskPanel({ onCreated, onClose }: { onCreated: (q: Question) => void; on
   );
 }
 
-// ---- Mention input ----
 function MentionInput({ value, onChange, rows = 2, placeholder }: {
   value: string;
   onChange: (v: string) => void;
@@ -168,7 +166,6 @@ function MentionInput({ value, onChange, rows = 2, placeholder }: {
   );
 }
 
-// ---- Answer Form ----
 function AnswerForm({ questionId, onSaved }: { questionId: string; onSaved: () => void }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -202,7 +199,6 @@ function AnswerForm({ questionId, onSaved }: { questionId: string; onSaved: () =
   );
 }
 
-// ---- Thread panel (right panel when question selected) ----
 function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onClose: () => void; onUpdate: () => void }) {
   const queryClient = useQueryClient();
 
@@ -211,7 +207,6 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
     queryFn: () => apiFetch(`/api/questions/${question.id}`).then((d) => d.question as Question),
     refetchInterval: (query) => {
       const q = query.state.data as Question | undefined;
-      // Stop polling once the question is answered
       if (q?.answered) return false;
       return 3000;
     },
@@ -283,7 +278,6 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
   );
 }
 
-// ---- Question Card ----
 function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
   question: Question;
   active: boolean;
@@ -330,7 +324,6 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
   );
 }
 
-// ---- Main Page ----
 export default function QuestionsPage() {
   const [search, setSearch] = useState('');
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
@@ -361,8 +354,6 @@ export default function QuestionsPage() {
 
   return (
     <div className={`questions-layout page-content${panelOpen ? ' questions-layout--panel-open' : ''}`}>
-
-      {/* Left: list */}
       <div className="questions-list-col">
         <div className="questions-list-header">
           <h1 className="page-title">Forum</h1>
@@ -401,7 +392,6 @@ export default function QuestionsPage() {
         </div>
       </div>
 
-      {/* Right: panel (only when open) */}
       {panelOpen && (
         <div className="questions-panel-col">
           {selectedQuestion ? (
@@ -418,7 +408,6 @@ export default function QuestionsPage() {
           )}
         </div>
       )}
-
     </div>
   );
 }
