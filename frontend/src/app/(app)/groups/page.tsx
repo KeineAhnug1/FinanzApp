@@ -359,13 +359,13 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
 
 function GroupListItem({ group, onClick }: { group: GroupSummary; onClick: () => void }) {
   return (
-    <div className="group-card" onClick={onClick}>
+    <button type="button" className="group-card group-card-button" onClick={onClick}>
       <h3 className="group-card-name">{group.name}</h3>
       {group.address && <p className="group-card-address">{group.address}</p>}
       {group.member_count !== undefined && (
         <span className="group-card-members">{group.member_count} Mitglieder</span>
       )}
-    </div>
+    </button>
   );
 }
 

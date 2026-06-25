@@ -293,8 +293,19 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
     onRefresh();
   };
 
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+  };
+
   return (
-    <div className={`question-card${active ? ' is-active' : ''}`} onClick={onClick}>
+    <div
+      className={`question-card${active ? ' is-active' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={handleKey}
+    >
       <div className="question-card-meta">
         <span className="question-author">{question.author?.first_name || question.author?.username || 'Unbekannt'}</span>
         <span className="question-date">{formatDate(question.created_at)}</span>
