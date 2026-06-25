@@ -731,6 +731,7 @@ export default function DashboardPage() {
   return (
     <div className="dash-shell">
       <div className="dash-main">
+        <h1 className="page-title">Dashboard</h1>
         <div className="dash-nav-row">
           <div className="entry-tab-nav" role="tablist">
             <button className={`entry-tab-btn${view === 'overview' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'overview'} onClick={() => switchView('overview')}>Übersicht</button>
