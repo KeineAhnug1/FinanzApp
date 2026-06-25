@@ -48,7 +48,6 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  // Scroll reveal
   useEffect(() => {
     const els = document.querySelectorAll('.reveal-up');
     const io = new IntersectionObserver(
@@ -63,7 +62,6 @@ export default function HomePage() {
     return () => io.disconnect();
   }, []);
 
-  // Video autoplay on visible
   useEffect(() => {
     const videos = Array.from(
       document.querySelectorAll<HTMLVideoElement>('.js-autoplay-on-visible')
@@ -97,7 +95,6 @@ export default function HomePage() {
 
   return (
     <>
-      {/* ═══════════════ NAVBAR ═══════════════ */}
       <header className="hp-nav">
         <Link className="hp-nav__brand" href={isLoggedIn ? '/dashboard' : '/home'} aria-label="Zur FBM Finance Homepage">
           <span className="hp-nav__logo">
@@ -117,7 +114,6 @@ export default function HomePage() {
 
       <main className="hp-main">
 
-        {/* ═══════════════ HERO ═══════════════ */}
         <section className="hp-hero" aria-labelledby="hp-hero-title">
           <div className="hp-hero__bg" aria-hidden="true">
             <div className="hp-hero__orb hp-hero__orb--1"></div>
@@ -225,7 +221,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ═══════════════ FEATURES GRID ═══════════════ */}
         <section id="features" className="hp-section hp-features reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-section__head">
             <p className="hp-label">Features</p>
@@ -296,7 +291,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ═══════════════ VIDEO REGISTRIERUNG ═══════════════ */}
         <section id="quick-register" className="hp-video-story">
           <div className="hp-video-story__sticky">
             <video
@@ -320,7 +314,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ═══════════════ INCOME/EXPENSES SHOWCASE ═══════════════ */}
         <section id="showcase" className="hp-section hp-showcase-row reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-showcase-row__text">
             <p className="hp-label">Tracking Workflow</p>
@@ -346,7 +339,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ═══════════════ DESIGN CAROUSEL ═══════════════ */}
         <section id="minimal-design" className="hp-section hp-carousel-section reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-section__head">
             <p className="hp-label">Minimalist Design</p>
@@ -396,7 +388,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ═══════════════ FINAL CTA ═══════════════ */}
         <section className="hp-cta reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-cta__bg" aria-hidden="true">
             <div className="hp-cta__orb hp-cta__orb--1"></div>
@@ -417,7 +408,6 @@ export default function HomePage() {
 
       </main>
 
-      {/* ═══════════════ FOOTER ═══════════════ */}
       <footer className="hp-footer">
         <div className="hp-footer__inner">
           <span className="hp-footer__brand">FBM Finance</span>
