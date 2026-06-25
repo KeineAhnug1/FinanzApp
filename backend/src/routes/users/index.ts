@@ -1,11 +1,10 @@
 import { Hono } from 'hono';
 import type { Env } from '@/types';
 import { requireAuth } from '@/lib/helpers/auth';
-import { createDb } from '@/lib/db';
 import { checkCsrf } from '@/lib/utils/csrf';
 import { checkRateLimit } from '@/lib/utils/rate-limit';
-import { parseBody } from '@/lib/utils/http';
-import { badRequest, jsonResponse } from '@/lib/utils/responses';
+import { parseBody, isSecure } from '@/lib/utils/http';
+import { badRequest, jsonResponse, notFound } from '@/lib/utils/responses';
 import { hashPassword, verifyPassword } from '@/lib/utils/password';
 import {
   invalidateAllUserSessions,
@@ -14,13 +13,9 @@ import {
   getSessionToken,
   destroySession,
 } from '@/lib/session';
-import { isSecure } from '@/lib/utils/http';
 
 const users = new Hono<{ Bindings: Env }>();
 
-// ---------------------------------------------------------------------------
-// GET /me
-// ---------------------------------------------------------------------------
 users.get('/me', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
@@ -31,7 +26,7 @@ users.get('/me', async (c) => {
     .eq('id', auth.user.id)
     .single();
 
-  if (!user) return jsonResponse({ ok: false, message: 'Benutzer nicht gefunden' }, 404);
+  if (!user) return notFound('Benutzer nicht gefunden');
 
   return jsonResponse({
     ok: true,
@@ -49,9 +44,6 @@ users.get('/me', async (c) => {
   }, 200);
 });
 
-// ---------------------------------------------------------------------------
-// PATCH /me
-// ---------------------------------------------------------------------------
 users.patch('/me', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
@@ -79,9 +71,6 @@ users.patch('/me', async (c) => {
   return jsonResponse({ ok: true, message: 'Profil aktualisiert' }, 200);
 });
 
-// ---------------------------------------------------------------------------
-// DELETE /me
-// ---------------------------------------------------------------------------
 users.delete('/me', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
@@ -110,18 +99,11 @@ users.delete('/me', async (c) => {
 
   await db.from('users').delete().eq('id', userId);
 
-  return new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': `finanzapp_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`,
-    },
+  return jsonResponse({ ok: true }, 200, {
+    'Set-Cookie': `finanzapp_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`,
   });
 });
 
-// ---------------------------------------------------------------------------
-// POST /me/password
-// ---------------------------------------------------------------------------
 users.post('/me/password', async (c) => {
   const request = c.req.raw;
 
@@ -142,7 +124,7 @@ users.post('/me/password', async (c) => {
   if (newPassword.length < 8) return badRequest('Neues Passwort muss mindestens 8 Zeichen haben');
 
   const { data: user } = await auth.db.from('users').select('password').eq('id', auth.user.id).single();
-  if (!user) return jsonResponse({ ok: false, message: 'Benutzer nicht gefunden' }, 404);
+  if (!user) return notFound('Benutzer nicht gefunden');
 
   const isValid = await verifyPassword(currentPassword, user.password as string);
   if (!isValid) return jsonResponse({ ok: false, code: 'wrong_password', message: 'Aktuelles Passwort ist falsch' }, 400);
@@ -154,18 +136,11 @@ users.post('/me/password', async (c) => {
   await destroySession(c.env, oldToken);
   const newToken = await createSession(c.env, auth.user.id);
   const secure = isSecure(request);
-  return new Response(JSON.stringify({ ok: true, message: 'Passwort erfolgreich geändert' }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': buildSessionCookie(c.env, newToken, secure),
-    },
+  return jsonResponse({ ok: true, message: 'Passwort erfolgreich geändert' }, 200, {
+    'Set-Cookie': buildSessionCookie(c.env, newToken, secure),
   });
 });
 
-// ---------------------------------------------------------------------------
-// PUT /me/profile-image
-// ---------------------------------------------------------------------------
 users.put('/me/profile-image', async (c) => {
   const request = c.req.raw;
 
