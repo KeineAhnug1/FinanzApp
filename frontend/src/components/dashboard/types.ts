@@ -1,0 +1,85 @@
+export interface BankAccount {
+  id: string;
+  label: string;
+  balance: number;
+  type: string;
+}
+
+export interface IncomeEntry {
+  id: string;
+  source: string;
+  amount: number;
+  category: string;
+  cycle: string;
+  received_at: string;
+  bank_account_id: string;
+  note?: string;
+}
+
+export interface ExpenseEntry {
+  id: string;
+  source: string;
+  amount: number;
+  category: string;
+  cycle: string;
+  spent_at: string;
+  bank_account_id: string;
+  note?: string;
+}
+
+export interface BudgetAlert {
+  category: string;
+  spent: number;
+  target: number;
+  percentage: number;
+  exceeded: boolean;
+}
+
+export type AnyEntry = IncomeEntry | ExpenseEntry;
+
+export const INCOME_CATEGORIES = [
+  { value: 'salary', label: 'Gehalt' },
+  { value: 'freelance', label: 'Freelance' },
+  { value: 'bonus', label: 'Bonus' },
+  { value: 'refund', label: 'Rückzahlung' },
+  { value: 'investment', label: 'Kapitalerträge' },
+  { value: 'other', label: 'Sonstiges' },
+];
+
+export const EXPENSE_CATEGORIES = [
+  { value: 'rent', label: 'Miete' },
+  { value: 'groceries', label: 'Lebensmittel' },
+  { value: 'utilities', label: 'Nebenkosten' },
+  { value: 'transport', label: 'Mobilität' },
+  { value: 'health', label: 'Gesundheit' },
+  { value: 'entertainment', label: 'Freizeit' },
+  { value: 'other', label: 'Sonstiges' },
+];
+
+export const CYCLE_OPTIONS = [
+  { value: 'once', label: 'Einmalig' },
+  { value: 'weekly', label: 'Wöchentlich' },
+  { value: 'monthly', label: 'Monatlich' },
+];
+
+export const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].map(({ value, label }) => [value, label])
+);
+
+export function getCategoryLabel(cat: string): string {
+  return CATEGORY_LABELS[cat] || cat;
+}
+
+export function formatMoney(amount: number): string {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
+}
+
+export function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr));
+}
+
+export function toDatetimeLocal(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
