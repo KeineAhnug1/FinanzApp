@@ -393,6 +393,7 @@ export default function SettingsPage() {
         </nav>
       </aside>
       <div className="einst-content">
+        <h1 className="page-title">Einstellungen</h1>
         <ProfileSection user={user} onSaved={refresh} />
         <ThemeSection />
         <PasswordSection />

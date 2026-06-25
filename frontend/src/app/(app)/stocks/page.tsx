@@ -442,6 +442,7 @@ export default function StocksPage() {
 
   return (
     <div className="depot-page">
+      <h1 className="page-title">Aktien</h1>
       <div className="stocks-topbar">
         <StockSearch onPick={(sym) => openDrawer(sym, 'buy')} inputRef={searchInputRef} />
       </div>

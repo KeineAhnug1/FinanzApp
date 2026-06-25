@@ -66,11 +66,12 @@ export default function FinzbroChatPage() {
 
   return (
     <div className="finzbro-chat-page page-content">
+      <h1 className="sr-only">KI Finanz-Assistent</h1>
       <div className="finzbro-chat-header">
         <div className="finzbro-chat-title-wrap">
           <span className="finzbro-chat-avatar-icon">{BOT_ICON}</span>
           <div>
-            <h1 className="finzbro-chat-title">FinzbRo</h1>
+            <h2 className="finzbro-chat-title">FinzbRo</h2>
             <p className="finzbro-chat-subtitle">KI Finanz-Assistent</p>
           </div>
         </div>
