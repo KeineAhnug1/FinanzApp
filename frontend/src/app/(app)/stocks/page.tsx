@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -336,7 +336,6 @@ export default function StocksPage() {
   const [drawerSymbol, setDrawerSymbol] = useState<string | null>(null);
   const [drawerTab, setDrawerTab] = useState<'buy' | 'sell'>('buy');
   const [liveQuotes, setLiveQuotes] = useState<Record<string, number>>({});
-  const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data: positions = [] } = useQuery<StockPosition[]>({
