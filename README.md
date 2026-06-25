@@ -156,6 +156,17 @@ npm run dev --prefix backend    # Wrangler auf :8787
 lsof -ti :8787 | xargs kill -9
 ```
 
+### Docker (optional)
+
+For a containerized frontend (useful for evaluation):
+
+```sh
+docker compose up --build       # builds + starts frontend on :4000
+cd backend && npm run dev       # backend Worker still runs on the host (:8787)
+```
+
+See `docs/DOCKER.md` for why the backend isn't containerized.
+
 ---
 
 ## Sicherheit
