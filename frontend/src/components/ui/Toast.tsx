@@ -11,11 +11,24 @@ interface ToastMessage {
   message: string;
 }
 
-let listeners: Array<(msg: ToastMessage) => void> = [];
+type Listener = (msg: ToastMessage) => void;
+
+const toastBus = {
+  listeners: new Set<Listener>(),
+  subscribe(listener: Listener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  },
+  emit(msg: ToastMessage): void {
+    for (const listener of this.listeners) listener(msg);
+  },
+};
 
 export function toast(message: string, type: ToastType = 'info') {
   const id = Math.random().toString(36).slice(2);
-  for (const listener of listeners) listener({ id, type, message });
+  toastBus.emit({ id, type, message });
 }
 toast.success = (msg: string) => toast(msg, 'success');
 toast.error = (msg: string) => toast(msg, 'error');
@@ -25,16 +38,13 @@ export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
-    const handler = (msg: ToastMessage) => {
+    const unsubscribe = toastBus.subscribe((msg) => {
       setToasts((prev) => [...prev, msg]);
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== msg.id));
       }, 4000);
-    };
-    listeners.push(handler);
-    return () => {
-      listeners = listeners.filter((l) => l !== handler);
-    };
+    });
+    return unsubscribe;
   }, []);
 
   if (!toasts.length) return null;
