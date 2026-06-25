@@ -26,3 +26,6 @@ frontend/node_modules/
 frontend/.next/
 frontend/.vercel/
 frontend/.wrangler/
+
+# Claude Code agent scratch worktrees (managed by the harness, not project content)
+.claude/worktrees/
