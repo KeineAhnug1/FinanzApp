@@ -6,10 +6,9 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl } from '@/lib/api-client';
 import { useFinnhubWs } from '@/hooks/useFinnhubWs';
-import { StockDetailDrawer } from '@/components/stocks/StockDetailDrawer';
+import { StockDetailDrawer, fmtPrice, fmtEur, fmtPct } from '@/components/stocks/StockDetailDrawer';
 
 const PIE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#6366f1','#14b8a6','#f97316'];
 
@@ -22,18 +21,6 @@ interface StockQuote {
 }
 interface HistoryPoint { date: string; close: number; }
 interface SearchResult { symbol: string; name: string; exchange?: string; }
-
-const fmtEur = (v: number) =>
-  new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
-
-function fmtPrice(v: number, currency = 'USD') {
-  try {
-    return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${currency}`;
-  }
-}
-const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });

@@ -15,6 +15,7 @@ const RANGES: DrawerRange[] = ['1T', '1W', '1M', '1J', 'Max'];
 
 interface HistoryPoint { date: string; close: number; }
 interface Quote { symbol: string; price: number; change: number; change_pct: number; name?: string; currency?: string; }
+// API response shape (id stringified, label non-null) — differs from the DB row in @/types/db.
 interface BankAccount { id: string; label: string; balance: number; }
 
 interface Props {
@@ -26,16 +27,16 @@ interface Props {
   initialTab?: 'buy' | 'sell';
 }
 
-function fmtCurrency(v: number, currency = 'USD') {
+export function fmtPrice(v: number, currency = 'USD') {
   try {
     return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(v);
   } catch {
     return `${v.toFixed(2)} ${currency}`;
   }
 }
-const fmtEur = (v: number) =>
+export const fmtEur = (v: number) =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
-const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+export const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
 
 function fmtDateLabel(raw: string, range: DrawerRange) {
   if (range === '1T' || range === '1W') {
@@ -62,7 +63,7 @@ function ChartTip({ active, payload, label, currency }: {
   return (
     <div className="stocks-chart-tooltip">
       <span className="stocks-chart-tooltip-label">{label}</span>
-      <span className="stocks-chart-tooltip-val">{fmtCurrency(payload[0]?.value ?? 0, currency)}</span>
+      <span className="stocks-chart-tooltip-val">{fmtPrice(payload[0]?.value ?? 0, currency)}</span>
       <span className="stocks-chart-tooltip-sub">Kurs</span>
     </div>
   );
@@ -125,7 +126,6 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
   const sharesNum = Number(shares);
   const totalValue = Number.isFinite(sharesNum) && sharesNum > 0 ? sharesNum * price : 0;
 
-  // P&L für Verkauf: (aktueller Kurs - Ø Kaufkurs) * zu verkaufende Anteile
   const pnlPerShare = avgBuyPrice != null && price > 0 ? price - avgBuyPrice : null;
   const tradePnl = pnlPerShare != null && sharesNum > 0 ? pnlPerShare * sharesNum : null;
 
@@ -182,7 +182,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
         </div>
 
         <div className="stocks-drawer-price-row">
-          <span className="stocks-drawer-price">{fmtCurrency(price, currency)}</span>
+          <span className="stocks-drawer-price">{fmtPrice(price, currency)}</span>
           {quote && (
             <span className={`stock-perf-badge ${quote.change_pct >= 0 ? 'positive' : 'negative'}`}>
               {fmtPct(quote.change_pct)}
@@ -224,7 +224,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--clr-border)" opacity={0.4} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} tickFormatter={(v: number) => fmtCurrency(v, currency)} width={86} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} tickFormatter={(v: number) => fmtPrice(v, currency)} width={86} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                 <Tooltip content={<ChartTip currency={currency} />} />
                 <Area type="monotone" dataKey="close" stroke={chartColor} strokeWidth={2} fill={`url(#drawerGrad-${chartPositive ? 'p' : 'n'})`} dot={false} activeDot={{ r: 4, fill: chartColor, strokeWidth: 0 }} />
               </AreaChart>
@@ -276,23 +276,23 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
             </label>
             <div className="stocks-drawer-summary">
               <span>Kurs</span>
-              <strong>{fmtCurrency(price, currency)}</strong>
+              <strong>{fmtPrice(price, currency)}</strong>
               {tab === 'sell' && avgBuyPrice != null && (
                 <>
                   <span>Ø Kaufkurs</span>
-                  <strong>{fmtCurrency(avgBuyPrice, currency)}</strong>
+                  <strong>{fmtPrice(avgBuyPrice, currency)}</strong>
                 </>
               )}
               <span>{tab === 'buy' ? 'Kosten' : 'Erlös'}</span>
-              <strong className={tab === 'buy' ? 'clr-danger' : 'clr-success'}>{fmtCurrency(totalValue, currency)}</strong>
+              <strong className={tab === 'buy' ? 'clr-danger' : 'clr-success'}>{fmtPrice(totalValue, currency)}</strong>
               {tab === 'sell' && tradePnl != null && sharesNum > 0 && (
                 <>
                   <span>Gewinn/Verlust</span>
                   <strong className={tradePnl >= 0 ? 'clr-success' : 'clr-danger'}>
-                    {tradePnl >= 0 ? '+' : ''}{fmtCurrency(tradePnl, currency)}
+                    {tradePnl >= 0 ? '+' : ''}{fmtPrice(tradePnl, currency)}
                     {pnlPerShare != null && (
                       <span className="stocks-drawer-pnl-per-share">
-                        {' '}({pnlPerShare >= 0 ? '+' : ''}{fmtCurrency(pnlPerShare, currency)}/Aktie)
+                        {' '}({pnlPerShare >= 0 ? '+' : ''}{fmtPrice(pnlPerShare, currency)}/Aktie)
                       </span>
                     )}
                   </strong>
