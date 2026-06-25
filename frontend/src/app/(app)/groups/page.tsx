@@ -9,26 +9,63 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 
-interface GroupMember { id: number; user_id: number; username: string; first_name?: string; role: string; status?: string; }
-interface GroupFunding { id: number; title: string; target_amount: number; current_amount: number; description?: string; }
-interface Group {
+interface GroupMemberView {
+  id: number;
+  user_id: number;
+  username: string;
+  first_name?: string;
+  role: string;
+  status?: string;
+}
+
+interface GroupFundingView {
+  id: number;
+  title: string;
+  target_amount: number;
+  current_amount: number;
+  description?: string;
+}
+
+interface GroupView {
   id: number;
   name: string;
   address?: string;
   created_at: string;
-  members?: GroupMember[];
-  funding?: GroupFunding[];
+  members?: GroupMemberView[];
+  funding?: GroupFundingView[];
   is_admin?: boolean;
 }
-interface Invitation { id: number; group_id: number; group_name: string; invited_by: string; }
-interface GroupMessage { id: number; message: string; sender_name?: string; created_at: string; }
+
+interface Invitation {
+  id: number;
+  group_id: number;
+  group_name: string;
+  invited_by: string;
+}
+
+interface GroupMessageView {
+  id: number;
+  message: string;
+  sender_name?: string;
+  created_at: string;
+}
+
+interface GroupSummary {
+  id: number;
+  name: string;
+  address?: string;
+  member_count?: number;
+}
+
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
   return res.json();
 }
-function formatMoney(n: number) { return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n); }
 
-// ---- Create Group Modal ----
+function formatMoney(n: number) {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
+}
+
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
   address: z.string().optional(),
@@ -72,7 +109,6 @@ function CreateGroupModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   );
 }
 
-// ---- Invitations Modal ----
 function InvitationsModal({ onClose, onUpdate }: { onClose: () => void; onUpdate: () => void }) {
   const queryClient = useQueryClient();
   const { data: invitations = [], isLoading } = useQuery<Invitation[]>({
@@ -116,7 +152,6 @@ function InvitationsModal({ onClose, onUpdate }: { onClose: () => void; onUpdate
   );
 }
 
-// ---- Group Detail ----
 function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void }) {
   const queryClient = useQueryClient();
   const [inviteUsername, setInviteUsername] = useState('');
@@ -126,7 +161,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [fundDesc, setFundDesc] = useState('');
   const [donateAmount, setDonateAmount] = useState<Record<number, string>>({});
 
-  const { data: group, isLoading } = useQuery<Group | null>({
+  const { data: group, isLoading } = useQuery<GroupView | null>({
     queryKey: ['group', groupId],
     queryFn: () => apiFetch(`/api/groups/${groupId}`).then((d) => {
       if (!d.ok || !d.group) return null;
@@ -151,21 +186,21 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           current_amount: Number(f.total_donated ?? 0),
           description: f.description ? String(f.description) : undefined,
         })),
-      } as Group;
+      } as GroupView;
     }),
     enabled: !!groupId,
   });
 
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [] } = useQuery<GroupMessageView[]>({
     queryKey: ['group-messages', groupId],
     queryFn: () => apiFetch(`/api/groups/${groupId}/messages`).then((d) =>
       (d.messages ?? []).map((m: Record<string, unknown>) => {
         const u = m.user as Record<string, unknown> | null;
         return {
-          id: m.message_id,
-          message: m.message,
-          created_at: m.created_at,
-          sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : null),
+          id: Number(m.message_id),
+          message: String(m.message ?? ''),
+          created_at: String(m.created_at ?? ''),
+          sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : undefined),
         };
       })
     ),
@@ -247,7 +282,6 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         <button className="btn btn-ghost btn-sm" onClick={leaveGroup}>Gruppe verlassen</button>
       </div>
 
-      {/* Members */}
       <div className="group-section">
         <h3 className="section-title">Mitglieder ({(group.members ?? []).length})</h3>
         <div className="members-list">
@@ -266,7 +300,6 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         )}
       </div>
 
-      {/* Funding */}
       <div className="group-section">
         <h3 className="section-title">Sammelaktionen</h3>
         {(group.funding ?? []).map((f) => (
@@ -305,11 +338,10 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         )}
       </div>
 
-      {/* Chat */}
       <div className="group-section">
         <h3 className="section-title">Gruppenkanal</h3>
         <div className="chat-messages">
-          {(messages as GroupMessage[]).map((m) => (
+          {messages.map((m) => (
             <div key={m.id} className="chat-message">
               <span className="chat-sender">{m.sender_name ?? 'Unbekannt'}</span>
               <span className="chat-text">{m.message}</span>
@@ -325,8 +357,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   );
 }
 
-// ---- Group List Item ----
-function GroupListItem({ group, onClick }: { group: { id: number; name: string; address?: string; member_count?: number }; onClick: () => void }) {
+function GroupListItem({ group, onClick }: { group: GroupSummary; onClick: () => void }) {
   return (
     <div className="group-card" onClick={onClick}>
       <h3 className="group-card-name">{group.name}</h3>
@@ -338,14 +369,13 @@ function GroupListItem({ group, onClick }: { group: { id: number; name: string; 
   );
 }
 
-// ---- Main Page ----
 export default function GroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showInvitations, setShowInvitations] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: groups = [], isLoading } = useQuery<{ id: number; name: string; address?: string; member_count?: number }[]>({
+  const { data: groups = [], isLoading } = useQuery<GroupSummary[]>({
     queryKey: ['groups'],
     queryFn: () => apiFetch('/api/groups').then((d) =>
       (d.groups ?? []).map((g: Record<string, unknown>) => ({
