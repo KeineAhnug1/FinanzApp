@@ -9,6 +9,8 @@ import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/respo
 
 const groups = new Hono<{ Bindings: Env }>();
 
+// Returns null for non-finite input so missing DB amounts serialize as null
+// (toFixedAmount() in lib/helpers/finance coerces null/NaN to 0).
 function toNum(v: unknown): number | null {
   const n = Number(v);
   return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
