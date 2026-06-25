@@ -36,7 +36,6 @@ export function Topbar() {
       const data = await res.json();
       if (data?.ok && data.session_user) {
         const sessionUser = data.session_user as User;
-        // If session belongs to a different user than what's cached, clear everything
         if (user && user.id !== sessionUser.id) {
           queryClient.clear();
           useAppStore.getState().clearSession();

@@ -21,31 +21,23 @@ export function SideNav() {
     useUiStore();
   const sideNavRef = useRef<HTMLElement>(null);
 
-  // Restore collapsed state from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(SIDENAV_COLLAPSED_KEY);
       if (stored === '1') useUiStore.setState({ sideNavCollapsed: true });
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
-  // Persist collapsed state
   useEffect(() => {
     try {
       localStorage.setItem(SIDENAV_COLLAPSED_KEY, sideNavCollapsed ? '1' : '0');
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [sideNavCollapsed]);
 
-  // Close mobile nav on route change
   useEffect(() => {
     setSideNavMobileOpen(false);
   }, [pathname, setSideNavMobileOpen]);
 
-  // Close mobile nav on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (window.innerWidth > 960) return;
