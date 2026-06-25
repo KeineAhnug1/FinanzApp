@@ -13,7 +13,9 @@ import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 
-// ---- Types ----
+// API-shape types: the backend's /api/finance and /api/budgets endpoints return
+// stringified IDs and a non-nullable `label`/`source`/`category` that the DB
+// row types in @/types/db (which model raw PostgreSQL rows) cannot express.
 interface BankAccount { id: string; label: string; balance: number; type: string; }
 interface IncomeEntry { id: string; source: string; amount: number; category: string; cycle: string; received_at: string; bank_account_id: string; note?: string; }
 interface ExpenseEntry { id: string; source: string; amount: number; category: string; cycle: string; spent_at: string; bank_account_id: string; note?: string; }
@@ -57,17 +59,14 @@ async function apiFetch(url: string, options?: RequestInit) {
   return res.json();
 }
 
-// ---- Cashflow Drilldown Chart Data Builders ----
-
-// Builds 8-year window starting at windowStart.
-// Vermögen = cumulative (income - expenses) from account founding year up to that year.
+// Vermögen is cumulative (income − expenses) from the user's founding year
+// up to each visible year, so the line keeps continuity across windows.
 function buildTimelineData(
   income: IncomeEntry[],
   expenses: ExpenseEntry[],
   windowStart: number,
   foundingYear: number,
 ) {
-  // Aggregate all data by year
   const byYear: Record<number, { income: number; expense: number }> = {};
   for (const e of income) {
     const y = new Date(e.received_at).getFullYear();
@@ -80,11 +79,9 @@ function buildTimelineData(
     byYear[y].expense += Number(e.amount);
   }
 
-  // Compute cumulative Vermögen from foundingYear up through each visible year
   const years: number[] = [];
   for (let y = windowStart; y < windowStart + 8; y++) years.push(y);
 
-  // Running cumulative from founding year to windowStart - 1
   let runningTotal = 0;
   for (let y = foundingYear; y < windowStart; y++) {
     const d = byYear[y];
@@ -104,7 +101,6 @@ function buildTimelineData(
   });
 }
 
-// Returns all 12 months of a given year, zero-filled
 function buildMonthlyData(income: IncomeEntry[], expenses: ExpenseEntry[], year: string) {
   const months: string[] = [];
   for (let m = 1; m <= 12; m++) months.push(`${year}-${String(m).padStart(2, '0')}`);
@@ -130,7 +126,6 @@ function buildMonthlyData(income: IncomeEntry[], expenses: ExpenseEntry[], year:
   });
 }
 
-// Returns all days in a given month (YYYY-MM), zero-filled
 function buildDailyData(income: IncomeEntry[], expenses: ExpenseEntry[], monthKey: string) {
   const [year, month] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -169,7 +164,6 @@ function DrilldownCashflowChart({
   foundingYear: number;
 }) {
   const currentYear = new Date().getFullYear();
-  // Default: current year at position 4 (0-indexed), so windowStart = currentYear - 4
   const defaultWindowStart = currentYear - 4;
   const minWindowStart = foundingYear;
 
@@ -269,7 +263,6 @@ function DrilldownCashflowChart({
   );
 }
 
-// ---- Pie Chart ----
 function CategoryPieChart({ income, expenses, mode }: { income: IncomeEntry[]; expenses: ExpenseEntry[]; mode: 'income' | 'expense' | 'both' }) {
   if (mode === 'both') {
     const byIncomeCat: Record<string, number> = {};
@@ -357,7 +350,6 @@ function CategoryPieChart({ income, expenses, mode }: { income: IncomeEntry[]; e
   );
 }
 
-// ---- Budget Alerts ----
 function BudgetAlerts({ alerts }: { alerts: BudgetAlert[] }) {
   const critical = alerts.filter((a) => a.percentage >= 80);
   if (!critical.length) return null;
@@ -376,7 +368,6 @@ function BudgetAlerts({ alerts }: { alerts: BudgetAlert[] }) {
   );
 }
 
-// ---- Grouped Transaction List ----
 type AnyEntry = IncomeEntry | ExpenseEntry;
 
 function groupByDate(entries: AnyEntry[], dateField: string) {
@@ -485,7 +476,6 @@ function GroupedList({ entries, type, onEdit, onDelete }: {
   );
 }
 
-// ---- Income Form ----
 const incomeSchema = z.object({
   source: z.string().min(1, 'Bezeichnung erforderlich'),
   amount: z.coerce.number().positive('Betrag muss positiv sein'),
@@ -579,7 +569,6 @@ function IncomeFormComp({ bankAccounts, editEntry, onSaved, onCancel }: {
   );
 }
 
-// ---- Expense Form ----
 const expenseSchema = z.object({
   source: z.string().min(1, 'Bezeichnung erforderlich'),
   amount: z.coerce.number().positive('Betrag muss positiv sein'),
@@ -673,7 +662,6 @@ function ExpenseFormComp({ bankAccounts, editEntry, onSaved, onCancel }: {
   );
 }
 
-// ---- Main Dashboard Page ----
 type DashboardView = 'overview' | 'income' | 'expense';
 
 export default function DashboardPage() {
@@ -743,7 +731,6 @@ export default function DashboardPage() {
   return (
     <div className="dash-shell">
       <div className="dash-main">
-        {/* ── Tab nav row ── */}
         <div className="dash-nav-row">
           <div className="entry-tab-nav" role="tablist">
             <button className={`entry-tab-btn${view === 'overview' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'overview'} onClick={() => switchView('overview')}>Übersicht</button>
@@ -762,7 +749,6 @@ export default function DashboardPage() {
 
         {isLoading && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Lade Daten…</p>}
 
-        {/* ── Übersicht panel ── */}
         <div className="view-panel" hidden={view !== 'overview'}>
           <div className="hero-card">
             <p className="hero-label">Gesamtsaldo</p>
@@ -836,7 +822,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Einnahmen panel ── */}
         <div className="view-panel" hidden={view !== 'income'}>
           <div className="income-grid">
             <div className="panel panel-span-2">
@@ -860,7 +845,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Ausgaben panel ── */}
         <div className="view-panel" hidden={view !== 'expense'}>
           <div className="income-grid">
             <div className="panel panel-span-2">
