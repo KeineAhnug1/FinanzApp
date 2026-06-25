@@ -18,7 +18,6 @@ interface FlashMessage {
   text: string;
 }
 
-// Schemas
 const loginSchema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
   password: z.string().min(1, 'Passwort ist erforderlich'),
@@ -65,25 +64,6 @@ type VerifyData = z.infer<typeof verifySchema>;
 type ForgotData = z.infer<typeof forgotSchema>;
 type ResetData = z.infer<typeof resetSchema>;
 
-async function postJson(url: string, payload: unknown) {
-  try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const csrf = getCsrfToken();
-    if (csrf) headers['x-csrf-token'] = csrf;
-    const res = await fetch(apiUrl(url), {
-      method: 'POST',
-      credentials: 'include',
-      headers,
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    return { ...data, ok: res.ok, status: res.status };
-  } catch {
-    return { ok: false, status: 0, message: 'Server nicht erreichbar.' };
-  }
-}
-
-// ---- Login Form ----
 function LoginForm({
   onSwitchMode,
   flash,
@@ -107,20 +87,25 @@ function LoginForm({
   const onSubmit = async (data: LoginData) => {
     setStatusMsg('Prüfe Login…');
     setStatusType('idle');
-    const result = await postJson('/api/auth/login', data);
+    const res = await fetch(apiUrl('/api/auth/login'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
 
-    if (result.status === 429) {
+    if (res.status === 429) {
       setStatusMsg(`Zu viele Versuche. Bitte warte ${result.retryAfter ?? 60} Sekunden.`);
       setStatusType('error');
       return;
     }
-    if (!result.ok) {
+    if (!res.ok) {
       setStatusMsg(result.message ?? 'E-Mail oder Passwort ist falsch.');
       setStatusType('error');
       return;
     }
 
-    // Clear all cached data from any previous session before entering the app
     queryClient.clear();
     useAppStore.getState().clearSession();
 
@@ -196,7 +181,6 @@ function LoginForm({
   );
 }
 
-// ---- Register Form ----
 function RegisterForm({
   onSwitchMode,
 }: {
@@ -213,20 +197,26 @@ function RegisterForm({
   const onSubmit = async (data: RegisterData) => {
     setStatusMsg('Konto wird vorbereitet…');
     setStatusType('idle');
-    const result = await postJson('/api/auth/register', {
-      first_name: data.first_name,
-      last_name: data.last_name,
-      username: data.username,
-      email: data.email,
-      password: data.password,
+    const res = await fetch(apiUrl('/api/auth/register'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        username: data.username,
+        email: data.email,
+        password: data.password,
+      }),
     });
+    const result = await res.json().catch(() => ({}));
 
-    if (result.status === 429) {
+    if (res.status === 429) {
       setStatusMsg(`Zu viele Versuche. Bitte warte ${result.retryAfter ?? 60} Sekunden.`);
       setStatusType('error');
       return;
     }
-    if (!result.ok) {
+    if (!res.ok) {
       setStatusMsg(result.message ?? 'Konto konnte nicht erstellt werden.');
       setStatusType('error');
       return;
@@ -297,7 +287,6 @@ function RegisterForm({
   );
 }
 
-// ---- Verify Form ----
 function VerifyForm({
   pendingEmail,
   expiresIn,
@@ -332,8 +321,14 @@ function VerifyForm({
   const onSubmit = async (data: VerifyData) => {
     setStatusMsg('Code wird geprüft…');
     setStatusType('idle');
-    const result = await postJson('/api/auth/verify', { email: data.email, code: data.code });
-    if (!result.ok) {
+    const res = await fetch(apiUrl('/api/auth/verify'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify({ email: data.email, code: data.code }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
       setStatusMsg(result.message ?? 'Code konnte nicht verifiziert werden.');
       setStatusType('error');
       return;
@@ -406,7 +401,6 @@ function VerifyForm({
   );
 }
 
-// ---- Forgot Form ----
 function ForgotForm({
   pendingEmail,
   onSwitchMode,
@@ -428,9 +422,15 @@ function ForgotForm({
   const onSubmit = async (data: ForgotData) => {
     setStatusMsg('Code wird angefordert…');
     setStatusType('idle');
-    const result = await postJson('/api/auth/forgot-password', { email: data.email });
+    const res = await fetch(apiUrl('/api/auth/forgot-password'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify({ email: data.email }),
+    });
+    const result = await res.json().catch(() => ({}));
 
-    if (result.status === 429) {
+    if (res.status === 429) {
       setStatusMsg(`Zu viele Versuche. Bitte warte ${result.retryAfter ?? 60} Sekunden.`);
       setStatusType('error');
       return;
@@ -476,7 +476,6 @@ function ForgotForm({
   );
 }
 
-// ---- Reset Form ----
 function ResetForm({
   pendingEmail,
   expiresIn,
@@ -511,18 +510,24 @@ function ResetForm({
   const onSubmit = async (data: ResetData) => {
     setStatusMsg('Passwort wird zurückgesetzt…');
     setStatusType('idle');
-    const result = await postJson('/api/auth/reset-password', {
-      email: data.email,
-      code: data.code,
-      new_password: data.new_password,
+    const res = await fetch(apiUrl('/api/auth/reset-password'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify({
+        email: data.email,
+        code: data.code,
+        new_password: data.new_password,
+      }),
     });
+    const result = await res.json().catch(() => ({}));
 
-    if (result.status === 429) {
+    if (res.status === 429) {
       setStatusMsg(`Zu viele Versuche. Bitte warte ${result.retryAfter ?? 60} Sekunden.`);
       setStatusType('error');
       return;
     }
-    if (!result.ok) {
+    if (!res.ok) {
       setStatusMsg(result.message ?? 'Fehler beim Zurücksetzen.');
       setStatusType('error');
       return;
@@ -623,7 +628,6 @@ function ResetForm({
   );
 }
 
-// ---- Brand panel (left side) ----
 function BrandPanel() {
   return (
     <aside className="auth-brand-panel" aria-hidden="true">
@@ -658,7 +662,6 @@ function BrandPanel() {
   );
 }
 
-// ---- Two-panel wrapper ----
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="auth-page">
@@ -677,7 +680,6 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ---- Main AuthPage orchestrator ----
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [pendingEmail, setPendingEmail] = useState('');
