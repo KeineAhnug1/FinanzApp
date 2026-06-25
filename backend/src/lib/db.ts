@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // @ts-ignore — postgres is used dynamically to avoid type-parameter conflicts
 import createPostgres from 'postgres';
 import { createClient } from '@supabase/supabase-js';
@@ -29,6 +28,8 @@ type AnyResult<T> = QueryResult<T> | QueryResultMany<T>;
 
 class QueryBuilder<T = Row> {
   private _table: string;
+  // any required: postgres tagged-template client has incompatible generic parameters with @ts-ignore'd import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _sql: any;
   private _op: 'select' | 'insert' | 'update' | 'delete' | 'upsert' = 'select';
   private _selectCols = '*';
@@ -46,6 +47,8 @@ class QueryBuilder<T = Row> {
   private _returnMaybe = false;
   private _pIdx = 1;
 
+  // any required: postgres tagged-template client has incompatible generic parameters with @ts-ignore'd import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(sql: any, table: string) {
     this._sql = sql;
     this._table = table;
@@ -343,6 +346,8 @@ class QueryBuilder<T = Row> {
 // ---------------------------------------------------------------------------
 
 export class PgClient {
+  // any required: postgres tagged-template client has incompatible generic parameters with @ts-ignore'd import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private sql: any;
 
   constructor(connectionString: string) {
@@ -367,7 +372,7 @@ export class PgClient {
       const args = keys.map((k, i) => `${k} => $${i + 1}`).join(', ');
       const rows = await this.sql.unsafe(
         `SELECT ${name}(${args})`,
-        Object.values(params) as any[],
+        Object.values(params),
       );
       return { data: (rows[0] as Row | undefined)?.[name] ?? null, error: null };
     } catch (err) {
@@ -382,8 +387,10 @@ export class PgClient {
 // ---------------------------------------------------------------------------
 
 export interface DbClient {
+  // any required: return type must accommodate both QueryBuilder and SupabaseClient's query builder, which have incompatible chainable APIs
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from(table: string): any;
-  rpc(name: string, params: Record<string, unknown>): Promise<{ data: unknown; error: any }>;
+  rpc(name: string, params: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
 }
 
 export function createDb(
