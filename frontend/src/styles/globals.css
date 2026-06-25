@@ -10978,3 +10978,24 @@ label {
     grid-template-columns: auto 1fr;
   }
 }
+
+button.group-card-button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--ui-surface);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  display: block;
+}
+button.group-card-button:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+.question-card[role="button"]:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
