@@ -1,0 +1,11 @@
+node_modules
+.next
+.wrangler
+dist
+build
+*.lock
+package-lock.json
+.claude/worktrees
+nextapp
+frontend/src/styles/globals.css
+backend/src/lib/db.ts
