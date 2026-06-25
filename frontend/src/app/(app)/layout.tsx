@@ -80,10 +80,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">Zum Inhalt springen</a>
       <Topbar />
       <SideNav />
       <MobileNavToggle />
-      <main className="app-main">{children}</main>
+      {/* tabIndex={-1} allows programmatic focus from the skip link without making <main> tabbable in normal flow */}
+      <main id="main-content" tabIndex={-1} className="app-main">{children}</main>
       <BottomNav />
       <ToastContainer />
     </>

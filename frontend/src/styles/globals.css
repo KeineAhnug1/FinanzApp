@@ -253,6 +253,27 @@ body {
   border: 0;
 }
 
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 999;
+  padding: 10px 16px;
+  background: var(--ui-primary);
+  color: #fff;
+  border-radius: var(--ui-radius-md);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 160ms ease;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--ui-focus-ring, var(--ui-primary));
+  outline-offset: 2px;
+}
+
 /* Topbar */
 .dash-topbar,
 .layout-toolbar,
