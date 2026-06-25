@@ -112,14 +112,26 @@ function ProfileSection({ user, onSaved }: { user: UserClient; onSaved: () => vo
         </dl>
         <form className="einst-form" onSubmit={handleSubmit(onSubmit)} noValidate style={{ marginTop: 16 }}>
           <div className="einst-field">
-            <label className="field-label">Vorname</label>
-            <input className="field-input" {...register('first_name')} />
-            {errors.first_name && <p className="form-status is-error">{errors.first_name.message}</p>}
+            <label className="field-label" htmlFor="profile-first-name">Vorname</label>
+            <input
+              id="profile-first-name"
+              className="field-input"
+              {...register('first_name')}
+              aria-invalid={errors.first_name ? true : undefined}
+              aria-describedby={errors.first_name ? 'profile-first-name-error' : undefined}
+            />
+            {errors.first_name && <p id="profile-first-name-error" className="form-status is-error">{errors.first_name.message}</p>}
           </div>
           <div className="einst-field">
-            <label className="field-label">Nachname</label>
-            <input className="field-input" {...register('last_name')} />
-            {errors.last_name && <p className="form-status is-error">{errors.last_name.message}</p>}
+            <label className="field-label" htmlFor="profile-last-name">Nachname</label>
+            <input
+              id="profile-last-name"
+              className="field-input"
+              {...register('last_name')}
+              aria-invalid={errors.last_name ? true : undefined}
+              aria-describedby={errors.last_name ? 'profile-last-name-error' : undefined}
+            />
+            {errors.last_name && <p id="profile-last-name-error" className="form-status is-error">{errors.last_name.message}</p>}
           </div>
           <div className="einst-actions">
             <button className="btn-primary" type="submit" disabled={isSubmitting}>
@@ -159,19 +171,45 @@ function PasswordSection() {
       <div className="einst-card">
         <form className="einst-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <div className="einst-field">
-            <label className="field-label">Aktuelles Passwort</label>
-            <input className="field-input" type="password" autoComplete="current-password" {...register('current_password')} />
-            {errors.current_password && <p className="form-status is-error">{errors.current_password.message}</p>}
+            <label className="field-label" htmlFor="pw-current">Aktuelles Passwort</label>
+            <input
+              id="pw-current"
+              className="field-input"
+              type="password"
+              autoComplete="current-password"
+              {...register('current_password')}
+              aria-invalid={errors.current_password ? true : undefined}
+              aria-describedby={errors.current_password ? 'pw-current-error' : undefined}
+            />
+            {errors.current_password && <p id="pw-current-error" className="form-status is-error">{errors.current_password.message}</p>}
           </div>
           <div className="einst-field">
-            <label className="field-label">Neues Passwort</label>
-            <input className="field-input" type="password" autoComplete="new-password" placeholder="mind. 8 Zeichen" {...register('new_password')} />
-            {errors.new_password && <p className="form-status is-error">{errors.new_password.message}</p>}
+            <label className="field-label" htmlFor="pw-new">Neues Passwort</label>
+            <input
+              id="pw-new"
+              className="field-input"
+              type="password"
+              autoComplete="new-password"
+              placeholder="mind. 8 Zeichen"
+              {...register('new_password')}
+              aria-invalid={errors.new_password ? true : undefined}
+              aria-describedby={errors.new_password ? 'pw-new-error' : undefined}
+            />
+            {errors.new_password && <p id="pw-new-error" className="form-status is-error">{errors.new_password.message}</p>}
           </div>
           <div className="einst-field">
-            <label className="field-label">Passwort wiederholen</label>
-            <input className="field-input" type="password" autoComplete="new-password" placeholder="wiederholen" {...register('confirm_password')} />
-            {errors.confirm_password && <p className="form-status is-error">{errors.confirm_password.message}</p>}
+            <label className="field-label" htmlFor="pw-confirm">Passwort wiederholen</label>
+            <input
+              id="pw-confirm"
+              className="field-input"
+              type="password"
+              autoComplete="new-password"
+              placeholder="wiederholen"
+              {...register('confirm_password')}
+              aria-invalid={errors.confirm_password ? true : undefined}
+              aria-describedby={errors.confirm_password ? 'pw-confirm-error' : undefined}
+            />
+            {errors.confirm_password && <p id="pw-confirm-error" className="form-status is-error">{errors.confirm_password.message}</p>}
           </div>
           <div className="einst-actions">
             <button className="btn-primary" type="submit" disabled={isSubmitting}>

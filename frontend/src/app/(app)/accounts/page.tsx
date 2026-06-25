@@ -55,14 +55,30 @@ function AddAccountModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <Modal open onClose={onClose} title="Konto hinzufügen">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="entry-form">
         <div>
-          <label className="form-label">Kontoname</label>
-          <input className="form-input" placeholder="z.B. Girokonto" {...register('label')} />
-          {errors.label && <p className="form-error">{errors.label.message}</p>}
+          <label className="form-label" htmlFor="account-label">Kontoname</label>
+          <input
+            id="account-label"
+            className="form-input"
+            placeholder="z.B. Girokonto"
+            {...register('label')}
+            aria-invalid={errors.label ? true : undefined}
+            aria-describedby={errors.label ? 'account-label-error' : undefined}
+          />
+          {errors.label && <p id="account-label-error" className="form-error">{errors.label.message}</p>}
         </div>
         <div>
-          <label className="form-label">Anfangsguthaben (€)</label>
-          <input className="form-input" type="number" step="0.01" min="0" {...register('initial_balance')} />
-          {errors.initial_balance && <p className="form-error">{errors.initial_balance.message}</p>}
+          <label className="form-label" htmlFor="account-initial-balance">Anfangsguthaben (€)</label>
+          <input
+            id="account-initial-balance"
+            className="form-input"
+            type="number"
+            step="0.01"
+            min="0"
+            {...register('initial_balance')}
+            aria-invalid={errors.initial_balance ? true : undefined}
+            aria-describedby={errors.initial_balance ? 'account-initial-balance-error' : undefined}
+          />
+          {errors.initial_balance && <p id="account-initial-balance-error" className="form-error">{errors.initial_balance.message}</p>}
         </div>
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={isSubmitting}>

@@ -71,14 +71,31 @@ export function IncomeForm({
     <form className="income-form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <div className="form-two-cols">
         <div>
-          <label className="field-label">Bezeichnung</label>
-          <input className="field-input" placeholder="z.B. Gehalt" {...register('source')} />
-          {errors.source && <p className="form-status is-error">{errors.source.message}</p>}
+          <label className="field-label" htmlFor="income-source">Bezeichnung</label>
+          <input
+            id="income-source"
+            className="field-input"
+            placeholder="z.B. Gehalt"
+            aria-invalid={errors.source ? true : undefined}
+            aria-describedby={errors.source ? 'income-source-error' : undefined}
+            {...register('source')}
+          />
+          {errors.source && <p id="income-source-error" className="form-status is-error">{errors.source.message}</p>}
         </div>
         <div>
-          <label className="field-label">Betrag (€)</label>
-          <input className="field-input" type="number" step="0.01" min="0.01" placeholder="0,00" {...register('amount')} />
-          {errors.amount && <p className="form-status is-error">{errors.amount.message}</p>}
+          <label className="field-label" htmlFor="income-amount">Betrag (€)</label>
+          <input
+            id="income-amount"
+            className="field-input"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="0,00"
+            aria-invalid={errors.amount ? true : undefined}
+            aria-describedby={errors.amount ? 'income-amount-error' : undefined}
+            {...register('amount')}
+          />
+          {errors.amount && <p id="income-amount-error" className="form-status is-error">{errors.amount.message}</p>}
         </div>
       </div>
       <div className="form-two-cols">
@@ -101,11 +118,17 @@ export function IncomeForm({
           <input className="field-input" type="datetime-local" {...register('received_at')} />
         </div>
         <div>
-          <label className="field-label">Konto</label>
-          <select className="field-input" {...register('bank_account_id')}>
+          <label className="field-label" htmlFor="income-bank-account">Konto</label>
+          <select
+            id="income-bank-account"
+            className="field-input"
+            aria-invalid={errors.bank_account_id ? true : undefined}
+            aria-describedby={errors.bank_account_id ? 'income-bank-account-error' : undefined}
+            {...register('bank_account_id')}
+          >
             {bankAccounts.map((a) => <option key={a.id} value={a.id}>{a.label} ({formatMoney(a.balance)})</option>)}
           </select>
-          {errors.bank_account_id && <p className="form-status is-error">{errors.bank_account_id.message}</p>}
+          {errors.bank_account_id && <p id="income-bank-account-error" className="form-status is-error">{errors.bank_account_id.message}</p>}
         </div>
       </div>
       <div>
