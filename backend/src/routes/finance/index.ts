@@ -47,6 +47,9 @@ finance.post('/bank-accounts', async (c) => {
   const csrf = await checkCsrf(c.req.raw);
   if (csrf) return csrf;
 
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'bank-create' });
+  if (rl) return rl;
+
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
   const label = String(payload.label ?? payload.name ?? '').trim();
   if (!label) return badRequest('Kontoname ist erforderlich');
@@ -70,6 +73,9 @@ finance.patch('/bank-accounts/:id', async (c) => {
 
   const csrf = await checkCsrf(c.req.raw);
   if (csrf) return csrf;
+
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'bank-update' });
+  if (rl) return rl;
 
   const accountId = Number(accountIdRaw);
   if (!Number.isFinite(accountId) || accountId <= 0) return badRequest('bank_account_id ist ungültig');
@@ -101,6 +107,9 @@ finance.delete('/bank-accounts/:id', async (c) => {
 
   const csrf = await checkCsrf(c.req.raw);
   if (csrf) return csrf;
+
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'bank-delete' });
+  if (rl) return rl;
 
   const accountId = Number(accountIdRaw);
   if (!Number.isFinite(accountId) || accountId <= 0) return badRequest('bank_account_id ist ungültig');
