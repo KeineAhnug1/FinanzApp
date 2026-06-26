@@ -9,6 +9,7 @@ import {
   uniqueCategoryList,
   resolveEntryState,
   resolveRequestedBankAccountFilter,
+  parsePaginationCursor,
 } from '../finance';
 
 describe('toFixedAmount', () => {
@@ -145,5 +146,68 @@ describe('resolveRequestedBankAccountFilter', () => {
   it('returns the filtered id when valid', () => {
     const result = resolveRequestedBankAccountFilter(new URLSearchParams('bank_account_id=2'), [1, 2]);
     expect(result).toEqual({ ok: true, accountIds: [2] });
+  });
+});
+
+describe('parsePaginationCursor', () => {
+  const simple = { defaultLimit: 200, maxLimit: 200 } as const;
+  const composite = { defaultLimit: 50, maxLimit: 200, format: 'composite' as const };
+
+  it('parses a simple integer cursor', () => {
+    expect(parsePaginationCursor('123', null, simple)).toEqual({
+      cursor: { id: 123, ord: 0 },
+      limit: 200,
+    });
+  });
+
+  it('parses a composite cursor with underscore separator', () => {
+    expect(parsePaginationCursor('1700000000000_42', null, composite)).toEqual({
+      cursor: { ord: 1700000000000, id: 42 },
+      limit: 50,
+    });
+  });
+
+  it('parses a composite cursor with colon separator', () => {
+    expect(parsePaginationCursor('1700000000000:42', null, composite)).toEqual({
+      cursor: { ord: 1700000000000, id: 42 },
+      limit: 50,
+    });
+  });
+
+  it('returns null cursor for undefined / empty / whitespace input', () => {
+    expect(parsePaginationCursor(undefined, null, simple).cursor).toBeNull();
+    expect(parsePaginationCursor(null, null, simple).cursor).toBeNull();
+    expect(parsePaginationCursor('', null, simple).cursor).toBeNull();
+    expect(parsePaginationCursor('   ', null, simple).cursor).toBeNull();
+  });
+
+  it('returns null cursor for non-numeric simple input', () => {
+    expect(parsePaginationCursor('abc', null, simple).cursor).toBeNull();
+    expect(parsePaginationCursor('0', null, simple).cursor).toBeNull();
+  });
+
+  it('returns null cursor for a malformed composite input', () => {
+    expect(parsePaginationCursor('not-a-cursor', null, composite).cursor).toBeNull();
+    expect(parsePaginationCursor('123', null, composite).cursor).toBeNull();
+    expect(parsePaginationCursor('123_', null, composite).cursor).toBeNull();
+    expect(parsePaginationCursor('_42', null, composite).cursor).toBeNull();
+  });
+
+  it('clamps limits to the maxLimit', () => {
+    expect(parsePaginationCursor(null, '500', simple).limit).toBe(200);
+    expect(parsePaginationCursor(null, '500', composite).limit).toBe(200);
+  });
+
+  it('falls back to defaultLimit for missing / invalid / non-positive limits', () => {
+    expect(parsePaginationCursor(null, null, simple).limit).toBe(200);
+    expect(parsePaginationCursor(null, '', composite).limit).toBe(50);
+    expect(parsePaginationCursor(null, 'abc', composite).limit).toBe(50);
+    expect(parsePaginationCursor(null, '0', composite).limit).toBe(50);
+    expect(parsePaginationCursor(null, '-3', composite).limit).toBe(50);
+  });
+
+  it('passes through limits within range', () => {
+    expect(parsePaginationCursor(null, '25', composite).limit).toBe(25);
+    expect(parsePaginationCursor(null, '150', simple).limit).toBe(150);
   });
 });
