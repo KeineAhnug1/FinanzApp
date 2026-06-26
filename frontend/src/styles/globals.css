@@ -2324,9 +2324,48 @@ input.touched:invalid ~ .field-hint,
 .history-item__amount--expense { color: var(--ui-danger, #b91c1c); }
 .history-empty { padding: var(--ui-space-6) var(--ui-space-3); text-align: center; color: var(--ui-text-muted); }
 
+/* Share accounts (Aktienkonten) */
+.share-accounts-section { margin-top: var(--ui-space-6); }
+
+.share-accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--ui-space-4);
+}
+
+.share-account-card {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  padding: var(--ui-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+
+.share-account-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+}
+
+.share-account-card__name {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.share-account-card__meta {
+  font-size: 0.85rem;
+  color: var(--ui-text-muted);
+}
+
+.share-account-card__actions { margin-top: auto; }
+
 @media (max-width: 600px) {
   .history-item { grid-template-columns: 1fr auto; }
   .history-item__date { grid-column: 1 / -1; }
+  .share-accounts-grid { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
