@@ -5415,7 +5415,7 @@ input.touched:invalid ~ .field-hint,
 .stock-logo-circle {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--clr-surface-soft);
@@ -5423,12 +5423,13 @@ input.touched:invalid ~ .field-hint,
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 4px;
 }
 
 .stock-logo-circle .stock-logo {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 0;
 }
 

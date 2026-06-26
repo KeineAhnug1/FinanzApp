@@ -71,7 +71,7 @@ function StockLogo({ symbol, size = 36 }: { symbol: string; size?: number }) {
     return () => { cancelled = true; };
   }, [symbol]);
 
-  const style = { width: size, height: size, borderRadius: '50%', flexShrink: 0 } as const;
+  const style = { width: size, height: size, flexShrink: 0 } as const;
   const initials = symbol.replace(/[-_.]/g, '').slice(0, 2).toUpperCase();
 
   if (logoUrl === undefined && !failed) {
