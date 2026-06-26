@@ -7,64 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
-
-interface GroupMemberView {
-  id: number;
-  user_id: number;
-  username: string;
-  first_name?: string;
-  role: string;
-  status?: string;
-}
-
-interface GroupFundingView {
-  id: number;
-  title: string;
-  target_amount: number;
-  current_amount: number;
-  description?: string;
-}
-
-interface GroupView {
-  id: number;
-  name: string;
-  address?: string;
-  created_at: string;
-  members?: GroupMemberView[];
-  funding?: GroupFundingView[];
-  is_admin?: boolean;
-}
-
-interface Invitation {
-  id: number;
-  group_id: number;
-  group_name: string;
-  invited_by: string;
-}
-
-interface GroupMessageView {
-  id: number;
-  message: string;
-  sender_name?: string;
-  created_at: string;
-}
-
-interface GroupSummary {
-  id: number;
-  name: string;
-  address?: string;
-  member_count?: number;
-}
-
-async function apiFetch(url: string, options?: RequestInit) {
-  const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
-  return res.json();
-}
-
-function formatMoney(n: number) {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
-}
+import { getCsrfToken } from '@/lib/api-client';
+import { apiFetch, formatMoney } from '@/components/groups/api';
+import type { GroupView, GroupMessageView, GroupSummary, Invitation } from '@/components/groups/types';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
