@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
+import { ShareAccountsSection } from '@/components/accounts/ShareAccountsSection';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 
 // Diverges from db BankAccount: backend serializes id as string and adds optional name/type fields not present in the DB row.
@@ -273,6 +274,8 @@ export default function AccountsPage() {
           onSaved={() => { setShowAdd(false); refresh(); }}
         />
       )}
+
+      <ShareAccountsSection />
     </div>
   );
 }
