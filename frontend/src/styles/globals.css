@@ -3196,6 +3196,40 @@ input.touched:invalid ~ .field-hint,
   display: flex;
   flex-direction: column;
   gap: 2px;
+  position: relative;
+  padding-right: 28px;
+}
+
+.chat-message__delete {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.chat-message:hover .chat-message__delete,
+.chat-message__delete:focus-visible {
+  opacity: 1;
+}
+
+.chat-message__delete:hover {
+  background: var(--ui-surface-soft);
+  color: var(--ui-text);
+}
+
+.chat-message__confirm-actions { margin-top: 16px; }
+
+@media (max-width: 960px) {
+  .chat-message__delete { opacity: 1; }
 }
 
 .chat-sender { font-size: 0.78rem; font-weight: 600; color: var(--ui-primary); }

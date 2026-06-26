@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 
 interface GroupMemberView {
   id: number;
@@ -34,6 +35,7 @@ interface GroupView {
   members?: GroupMemberView[];
   funding?: GroupFundingView[];
   is_admin?: boolean;
+  session_user_id?: string;
 }
 
 interface Invitation {
@@ -48,6 +50,7 @@ interface GroupMessageView {
   message: string;
   sender_name?: string;
   created_at: string;
+  user_id: string;
 }
 
 interface GroupSummary {
@@ -171,6 +174,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         address: d.group.address ?? undefined,
         created_at: d.group.created_at,
         is_admin: d.is_admin ?? false,
+        session_user_id: d.session_user_id ? String(d.session_user_id) : undefined,
         members: (d.members ?? []).map((m: Record<string, unknown>) => ({
           id: Number(m.user_id),
           user_id: Number(m.user_id),
@@ -201,6 +205,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           message: String(m.message ?? ''),
           created_at: String(m.created_at ?? ''),
           sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : undefined),
+          user_id: String(u?.user_id ?? ''),
         };
       })
     ),
@@ -342,10 +347,12 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         <h3 className="section-title">Gruppenkanal</h3>
         <div className="chat-messages">
           {messages.map((m) => (
-            <div key={m.id} className="chat-message">
-              <span className="chat-sender">{m.sender_name ?? 'Unbekannt'}</span>
-              <span className="chat-text">{m.message}</span>
-            </div>
+            <ChatMessageItem
+              key={m.id}
+              groupId={groupId}
+              message={m}
+              canDelete={(!!group.session_user_id && m.user_id === group.session_user_id) || !!group.is_admin}
+            />
           ))}
         </div>
         <form className="chat-input-form" onSubmit={sendMessage}>
