@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
 import type { Env } from '@/types';
 import authRoutes from '@/routes/auth';
 import usersRoutes from '@/routes/users';
@@ -31,6 +32,26 @@ app.use('*', async (c, next) => {
   });
   return corsMiddleware(c, next);
 });
+
+app.use(
+  '*',
+  secureHeaders({
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    xXssProtection: '0',
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginResourcePolicy: 'cross-origin',
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+      payment: [],
+    },
+  }),
+);
 
 app.route('/api/auth', authRoutes);
 app.route('/api/users', usersRoutes);
