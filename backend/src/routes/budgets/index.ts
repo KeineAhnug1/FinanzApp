@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/helpers/auth';
 import { checkCsrf } from '@/lib/utils/csrf';
 import { parseBody } from '@/lib/utils/http';
 import { badRequest, notFound, jsonResponse } from '@/lib/utils/responses';
-import { normalizeCategoryValue, getUserBankAccounts } from '@/lib/helpers/finance';
+import { normalizeCategoryValue, getUserBankAccounts, toFixedAmount } from '@/lib/helpers/finance';
 
 const budgets = new Hono<{ Bindings: Env }>();
 
@@ -12,8 +12,8 @@ function serializeBudget(b: Record<string, unknown>) {
   return {
     id: String(b.id),
     category: String(b.category ?? ''),
-    target_amount: Number(Number(b.target_amount).toFixed(2)),
-    current_amount: Number(Number(b.current_amount ?? 0).toFixed(2)),
+    target_amount: toFixedAmount(b.target_amount),
+    current_amount: toFixedAmount(b.current_amount),
     reset_date: b.reset_date ? String(b.reset_date) : null,
     created_at: b.created_at ? String(b.created_at) : null,
   };
@@ -176,8 +176,8 @@ budgets.get('/status', async (c) => {
   }
 
   const alerts = budgetList.map((b: Record<string, unknown>) => {
-    const target = Number(Number(b.target_amount).toFixed(2));
-    const spent = Number((expensesByCategory.get(String(b.category ?? '').toLowerCase()) ?? 0).toFixed(2));
+    const target = toFixedAmount(b.target_amount);
+    const spent = toFixedAmount(expensesByCategory.get(String(b.category ?? '').toLowerCase()));
     const percentage = target > 0 ? Math.round((spent / target) * 100) : 0;
     return {
       budget_id: String(b.id),
