@@ -6666,6 +6666,33 @@ html.dashboard-view-preload .dash-main .view-panel {
   flex: 1;
 }
 
+.dashboard__loading {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.dashboard__pie-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.dashboard__pie-header .panel-title {
+  margin: 0;
+}
+
+.dashboard__pie-mode-toggle {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.dashboard__pie-mode-toggle .dashboard__pie-mode-btn {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+}
+
 .panel {
   background: var(--bg-surface);
   border: 1px solid var(--border);
