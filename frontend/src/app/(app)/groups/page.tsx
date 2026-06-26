@@ -12,6 +12,7 @@ import { apiFetch, formatMoney } from '@/components/groups/api';
 import type { GroupView, GroupMessageView, GroupSummary, Invitation } from '@/components/groups/types';
 import { MembersAdminActions } from '@/components/groups/MembersAdminSection';
 import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
+import { ExpensesSection } from '@/components/groups/ExpensesSection';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -140,6 +141,17 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           info: a.info != null ? String(a.info) : null,
           date: a.date != null ? String(a.date) : null,
           created_at: a.created_at != null ? String(a.created_at) : null,
+        })),
+        expenses: (d.expenses ?? []).map((e: Record<string, unknown>) => ({
+          group_expense_id: String(e.group_expense_id ?? ''),
+          group_funding_id: String(e.group_funding_id ?? ''),
+          amount: Number(e.amount ?? 0),
+          info: e.info ? String(e.info) : null,
+          state: (e.state as 'open' | 'paid' | 'overdue' | null) ?? null,
+          cycle: e.cycle ? String(e.cycle) : null,
+          due_date: e.due_date ? String(e.due_date) : null,
+          pay_date: e.pay_date ? String(e.pay_date) : null,
+          created_at: e.created_at ? String(e.created_at) : null,
         })),
       } as GroupView;
     }),
@@ -292,6 +304,13 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
               />
               <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
             </div>
+            <ExpensesSection
+              groupId={groupId}
+              fundingId={f.id}
+              fundingAmount={f.target_amount}
+              expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
+              isAdmin={!!isAdmin}
+            />
           </div>
         ))}
         {isAdmin && (
