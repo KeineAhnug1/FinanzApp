@@ -17,6 +17,8 @@ interface HistoryPoint { date: string; close: number; }
 interface Quote { symbol: string; price: number; change: number; change_pct: number; name?: string; currency?: string; }
 // API response shape (id stringified, label non-null) — differs from the DB row in @/types/db.
 interface BankAccount { id: string; label: string; balance: number; }
+interface ShareAccount { id: number | string; label: string; }
+interface PositionRow { symbol: string; units?: number; shares?: number; }
 
 interface Props {
   symbol: string | null;
@@ -76,6 +78,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
   const [tab, setTab] = useState<'buy' | 'sell'>(initialTab);
   const [shares, setShares] = useState('');
   const [bankAccountId, setBankAccountId] = useState<string>('');
+  const [shareAccountId, setShareAccountId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { setTab(initialTab); }, [initialTab, symbol]);
@@ -122,6 +125,47 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     if (!bankAccountId && bankAccounts.length > 0) setBankAccountId(bankAccounts[0]!.id);
   }, [bankAccounts, bankAccountId]);
 
+  const { data: shareAccounts = [] } = useQuery<ShareAccount[]>({
+    queryKey: ['share-accounts'],
+    enabled: open,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await fetch(apiUrl('/api/finance/share-accounts'), { credentials: 'include' });
+      const d = await r.json() as { ok: boolean; share_accounts?: ShareAccount[] };
+      return d.share_accounts ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (shareAccounts.length === 0) return;
+    if (defaultShareAccountId != null) {
+      const match = shareAccounts.find((a) => Number(a.id) === defaultShareAccountId);
+      if (match) { setShareAccountId(String(match.id)); return; }
+    }
+    setShareAccountId(String(shareAccounts[0]!.id));
+  }, [shareAccounts, defaultShareAccountId, symbol]);
+
+  const { data: depotPositions = [] } = useQuery<PositionRow[]>({
+    queryKey: ['stock-positions', shareAccountId, 'drawer'],
+    enabled: open && shareAccountId !== '',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const r = await fetch(
+        apiUrl(`/api/stocks/positions?share_account_id=${encodeURIComponent(shareAccountId)}`),
+        { credentials: 'include' },
+      );
+      const d = await r.json() as { ok: boolean; positions?: PositionRow[] };
+      return d.positions ?? [];
+    },
+  });
+
+  const depotOwnedShares = useMemo(() => {
+    if (!symbol || shareAccountId === '') return ownedShares;
+    const row = depotPositions.find((p) => p.symbol === symbol);
+    if (!row) return 0;
+    return Number(row.shares ?? row.units ?? 0);
+  }, [depotPositions, symbol, shareAccountId, ownedShares]);
+
   const currency = quote?.currency ?? 'USD';
   const price = livePrice ?? quote?.price ?? 0;
   const sharesNum = Number(shares);
@@ -141,19 +185,22 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
 
   const selectedBank = bankAccounts.find((b) => b.id === bankAccountId);
   const insufficientFunds = tab === 'buy' && selectedBank ? selectedBank.balance < totalValue : false;
-  const insufficientShares = tab === 'sell' && sharesNum > ownedShares;
+  const insufficientShares = tab === 'sell' && sharesNum > depotOwnedShares;
 
   const handleTrade = async () => {
-    if (!symbol || !sharesNum || sharesNum <= 0 || !bankAccountId) return;
+    if (!symbol || !sharesNum || sharesNum <= 0 || !bankAccountId || !shareAccountId) return;
     setSubmitting(true);
     try {
-      const body: Record<string, unknown> = { symbol, shares: sharesNum, bank_account_id: Number(bankAccountId) };
-      if (defaultShareAccountId != null) body.share_account_id = defaultShareAccountId;
       const res = await fetch(apiUrl(`/api/stocks/positions/${tab}`), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          symbol,
+          shares: sharesNum,
+          bank_account_id: Number(bankAccountId),
+          share_account_id: Number(shareAccountId),
+        }),
       });
       const data = await res.json() as { ok: boolean; message?: string };
       if (data.ok) {
