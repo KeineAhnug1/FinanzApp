@@ -52,11 +52,13 @@ groups.post('/', async (c) => {
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
   const name = String(payload.name ?? '').trim();
+  const info = String(payload.info ?? '').trim();
   const address = String(payload.address ?? '').trim();
   if (!name) return badRequest('Gruppenname ist erforderlich.');
+  if (info.length > 500) return badRequest('Beschreibung zu lang (max. 500 Zeichen)');
 
   const { data: group } = await auth.db
-    .from('groups').insert({ name, address: address || null }).select('id').single();
+    .from('groups').insert({ name, info: info || null, address: address || null }).select('id').single();
   if (!group) return jsonResponse({ ok: false, message: 'Gruppe konnte nicht erstellt werden.' }, 500);
 
   await auth.db.from('group_members').insert({
@@ -65,7 +67,7 @@ groups.post('/', async (c) => {
 
   return jsonResponse({
     ok: true,
-    group: { group_id: String(group.id), name, address: address || null, role: 'admin', status: 'accepted' },
+    group: { group_id: String(group.id), name, info: info || null, address: address || null, role: 'admin', status: 'accepted' },
   }, 201);
 });
 

@@ -17,6 +17,7 @@ import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
+  info: z.string().max(500, 'Max. 500 Zeichen').optional(),
   address: z.string().optional(),
 });
 type CreateGroupData = z.infer<typeof createGroupSchema>;
@@ -44,6 +45,11 @@ function CreateGroupModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <label className="form-label">Gruppenname</label>
           <input className="form-input" placeholder="z.B. WG Müller" {...register('name')} />
           {errors.name && <p className="form-error">{errors.name.message}</p>}
+        </div>
+        <div>
+          <label className="form-label">Beschreibung (optional)</label>
+          <textarea className="form-input" rows={3} placeholder="Worum geht es in der Gruppe?" {...register('info')} />
+          {errors.info && <p className="form-error">{errors.info.message}</p>}
         </div>
         <div>
           <label className="form-label">Adresse (optional)</label>
@@ -110,6 +116,8 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [fundDesc, setFundDesc] = useState('');
   const [fundActivity, setFundActivity] = useState('');
   const [donateAmount, setDonateAmount] = useState<Record<number, string>>({});
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
 
   const { data: group, isLoading } = useQuery<GroupView | null>({
     queryKey: ['group', groupId],
@@ -193,11 +201,12 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
     setInviteUsername('');
   };
 
-  const leaveGroup = async () => {
+  const leaveGroup = async (): Promise<boolean> => {
     const result = await apiFetch(`/api/groups/${groupId}/leave`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
-    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
+    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return false; }
     toast.success('Gruppe verlassen');
     onBack();
+    return true;
   };
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -254,7 +263,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         <button className="btn btn-ghost btn-sm" onClick={onBack}>← Zurück</button>
         <h2 className="group-name">{group.name}</h2>
         {group.address && <span className="group-address">{group.address}</span>}
-        <button className="btn btn-ghost btn-sm" onClick={leaveGroup}>Gruppe verlassen</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setLeaveConfirmOpen(true)}>Gruppe verlassen</button>
       </div>
 
       <div className="group-section">
@@ -356,6 +365,32 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           <button className="btn btn-primary btn-sm" type="submit">Senden</button>
         </form>
       </div>
+
+      {leaveConfirmOpen && (
+        <Modal open onClose={() => { if (!leaveBusy) setLeaveConfirmOpen(false); }} title="Gruppe verlassen" size="sm">
+          <p>Möchtest du die Gruppe <strong>{group.name}</strong> wirklich verlassen?</p>
+          <p style={{ color: 'var(--ui-text-muted)', fontSize: '0.85rem', marginTop: 8 }}>
+            Falls du wieder beitreten möchtest, musst du erneut eingeladen werden.
+          </p>
+          <div className="form-actions" style={{ marginTop: 16 }}>
+            <button
+              className="btn btn-danger"
+              disabled={leaveBusy}
+              onClick={async () => {
+                setLeaveBusy(true);
+                const ok = await leaveGroup();
+                setLeaveBusy(false);
+                if (ok) setLeaveConfirmOpen(false);
+              }}
+            >
+              {leaveBusy ? 'Verlassen…' : 'Verlassen'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setLeaveConfirmOpen(false)} disabled={leaveBusy}>
+              Abbrechen
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
