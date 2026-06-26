@@ -8,6 +8,7 @@ import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/respo
 import { toNum, getGroupCtx } from './_shared';
 import membersRoutes from './members';
 import activitiesRoutes from './activities';
+import expensesRoutes from './expenses';
 
 const groups = new Hono<{ Bindings: Env }>();
 
@@ -516,5 +517,6 @@ groups.delete('/:id/messages/:msgId', async (c) => {
 
 groups.route('/', membersRoutes);
 groups.route('/', activitiesRoutes);
+groups.route('/', expensesRoutes);
 
 export default groups;
