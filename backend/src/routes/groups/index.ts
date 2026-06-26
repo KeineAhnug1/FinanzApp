@@ -7,6 +7,7 @@ import { parseBody } from '@/lib/utils/http';
 import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/responses';
 import { toNum, getGroupCtx } from './_shared';
 import membersRoutes from './members';
+import activitiesRoutes from './activities';
 
 const groups = new Hono<{ Bindings: Env }>();
 
@@ -514,5 +515,6 @@ groups.delete('/:id/messages/:msgId', async (c) => {
 });
 
 groups.route('/', membersRoutes);
+groups.route('/', activitiesRoutes);
 
 export default groups;
