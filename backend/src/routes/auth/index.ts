@@ -178,7 +178,9 @@ auth.post('/register', async (c) => {
   try {
     delivered = await sendVerificationEmail(c.env, email, firstName, code);
   } catch (err) {
-    console.error('[register] Email send failed:', err);
+    if (c.env.NODE_ENV !== 'production') {
+      console.error('[register] Email send failed:', err);
+    }
     return jsonResponse({ ok: false, message: 'E-Mail konnte nicht versendet werden.' }, 502);
   }
 
@@ -339,7 +341,9 @@ auth.post('/forgot-password', async (c) => {
     try {
       await sendPasswordResetEmail(c.env, email, user.first_name, code);
     } catch (err) {
-      console.error('[forgot-password] Email send failed:', err);
+      if (c.env.NODE_ENV !== 'production') {
+        console.error('[forgot-password] Email send failed:', err);
+      }
     }
   }
 
