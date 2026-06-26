@@ -122,18 +122,39 @@ stocks.get('/positions', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
 
-  const { data: account } = await auth.db
-    .from('share_accounts')
-    .select('id')
-    .eq('user_id', auth.user.id)
-    .maybeSingle();
+  const shareAccountIdRaw = new URL(c.req.url).searchParams.get('share_account_id');
+  const shareAccountId = shareAccountIdRaw ? Number(shareAccountIdRaw) : null;
+  if (shareAccountId !== null && (!Number.isFinite(shareAccountId) || shareAccountId <= 0)) {
+    return badRequest('Ungültige share_account_id');
+  }
 
-  if (!account) return jsonResponse({ ok: true, positions: [] }, 200);
-
-  const { data: rows } = await auth.db
-    .from('shares')
-    .select('id, symbol, units, bought_for')
-    .eq('share_account_id', account.id);
+  let rows: unknown[] | null;
+  if (shareAccountId !== null) {
+    const { data: target } = await auth.db
+      .from('share_accounts')
+      .select('id')
+      .eq('id', shareAccountId)
+      .eq('user_id', auth.user.id)
+      .maybeSingle();
+    if (!target) return badRequest('Aktienkonto nicht gefunden');
+    const { data } = await auth.db
+      .from('shares')
+      .select('id, symbol, units, bought_for')
+      .eq('share_account_id', shareAccountId);
+    rows = data;
+  } else {
+    const { data: accountIds } = await auth.db
+      .from('share_accounts')
+      .select('id')
+      .eq('user_id', auth.user.id);
+    const ownedIds = ((accountIds ?? []) as { id: number }[]).map((a) => Number(a.id));
+    if (ownedIds.length === 0) return jsonResponse({ ok: true, positions: [] }, 200);
+    const { data } = await auth.db
+      .from('shares')
+      .select('id, symbol, units, bought_for')
+      .in('share_account_id', ownedIds);
+    rows = data;
+  }
 
   const aggregated = new Map<string, { shares: number; cost: number }>();
   for (const r of (rows ?? []) as { id: number; symbol: string; units: string; bought_for: string }[]) {
@@ -222,10 +243,15 @@ stocks.post('/positions/buy', async (c) => {
   const symbol = String(payload.symbol ?? '').trim().toUpperCase();
   const shares = Number(payload.shares);
   const bankAccountId = Number(payload.bank_account_id);
+  const shareAccountIdRaw = payload.share_account_id;
+  const shareAccountId = shareAccountIdRaw != null && shareAccountIdRaw !== '' ? Number(shareAccountIdRaw) : null;
 
   if (!symbol || !isValidSymbol(symbol)) return badRequest('Ungültiges Symbol');
   if (!Number.isFinite(shares) || shares <= 0) return badRequest('shares muss eine positive Zahl sein');
   if (!Number.isFinite(bankAccountId) || bankAccountId <= 0) return badRequest('bank_account_id ist erforderlich');
+  if (shareAccountId !== null && (!Number.isFinite(shareAccountId) || shareAccountId <= 0)) {
+    return badRequest('Ungültige share_account_id');
+  }
 
   const { data: bank } = await auth.db
     .from('bank_accounts')
@@ -242,7 +268,19 @@ stocks.post('/positions/buy', async (c) => {
   const balance = toFixedAmount((bank as { balance: unknown }).balance);
   if (balance < cost) return badRequest('Nicht genügend Guthaben auf dem Bankkonto');
 
-  const accountId = await getOrCreateShareAccount(auth.db, auth.user.id);
+  let accountId: number | null;
+  if (shareAccountId !== null) {
+    const { data: target } = await auth.db
+      .from('share_accounts')
+      .select('id')
+      .eq('id', shareAccountId)
+      .eq('user_id', auth.user.id)
+      .maybeSingle();
+    if (!target) return badRequest('Aktienkonto nicht gefunden');
+    accountId = shareAccountId;
+  } else {
+    accountId = await getOrCreateShareAccount(auth.db, auth.user.id);
+  }
   if (!accountId) return jsonResponse({ ok: false, message: 'Aktienkonto konnte nicht erstellt werden' }, 500);
 
   await auth.db.from('shares').insert({
@@ -280,10 +318,15 @@ stocks.post('/positions/sell', async (c) => {
   const symbol = String(payload.symbol ?? '').trim().toUpperCase();
   const shares = Number(payload.shares);
   const bankAccountId = Number(payload.bank_account_id);
+  const shareAccountIdRaw = payload.share_account_id;
+  const shareAccountId = shareAccountIdRaw != null && shareAccountIdRaw !== '' ? Number(shareAccountIdRaw) : null;
 
   if (!symbol || !isValidSymbol(symbol)) return badRequest('Ungültiges Symbol');
   if (!Number.isFinite(shares) || shares <= 0) return badRequest('shares muss eine positive Zahl sein');
   if (!Number.isFinite(bankAccountId) || bankAccountId <= 0) return badRequest('bank_account_id ist erforderlich');
+  if (shareAccountId !== null && (!Number.isFinite(shareAccountId) || shareAccountId <= 0)) {
+    return badRequest('Ungültige share_account_id');
+  }
 
   const { data: bank } = await auth.db
     .from('bank_accounts')
@@ -293,24 +336,49 @@ stocks.post('/positions/sell', async (c) => {
     .maybeSingle();
   if (!bank) return badRequest('Bankkonto nicht gefunden');
 
-  const { data: account } = await auth.db
-    .from('share_accounts')
-    .select('id')
-    .eq('user_id', auth.user.id)
-    .maybeSingle();
-  if (!account) return badRequest('Keine Aktienposition vorhanden');
+  if (shareAccountId !== null) {
+    const { data: target } = await auth.db
+      .from('share_accounts')
+      .select('id')
+      .eq('id', shareAccountId)
+      .eq('user_id', auth.user.id)
+      .maybeSingle();
+    if (!target) return badRequest('Aktienkonto nicht gefunden');
+  }
 
-  const { data: lots } = await auth.db
-    .from('shares')
-    .select('id, units, bought_for, bought_at')
-    .eq('share_account_id', account.id)
-    .eq('symbol', symbol)
-    .order('bought_at', { ascending: true });
+  let lots: unknown[] | null;
+  if (shareAccountId !== null) {
+    const { data } = await auth.db
+      .from('shares')
+      .select('id, units, bought_for, bought_at')
+      .eq('share_account_id', shareAccountId)
+      .eq('symbol', symbol)
+      .order('bought_at', { ascending: true });
+    lots = data;
+  } else {
+    const { data: ownedAccounts } = await auth.db
+      .from('share_accounts')
+      .select('id')
+      .eq('user_id', auth.user.id);
+    const ownedIds = ((ownedAccounts ?? []) as { id: number }[]).map((a) => Number(a.id));
+    if (ownedIds.length === 0) return badRequest('Keine Aktienposition vorhanden');
+    const { data } = await auth.db
+      .from('shares')
+      .select('id, units, bought_for, bought_at')
+      .in('share_account_id', ownedIds)
+      .eq('symbol', symbol)
+      .order('bought_at', { ascending: true });
+    lots = data;
+  }
 
   type LotRow = { id: number; units: string; bought_for: string; bought_at: string };
   const lotRows = (lots ?? []) as LotRow[];
   const owned = lotRows.reduce((sum, l) => sum + Number(l.units), 0);
-  if (owned + 1e-9 < shares) return badRequest('Nicht genügend Anteile zum Verkaufen');
+  if (owned + 1e-9 < shares) {
+    return badRequest(shareAccountId !== null
+      ? 'Nicht genügend Anteile in diesem Aktienkonto'
+      : 'Nicht genügend Anteile zum Verkaufen');
+  }
 
   const quote = await fetchCurrentPrice(symbol, cfg.finnhubApiKey);
   if (!quote) return jsonResponse({ ok: false, message: 'Kursdaten nicht verfügbar' }, 503);
