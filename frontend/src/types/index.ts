@@ -1,10 +1,3 @@
-/**
- * index.ts — Barrel re-export for all type definitions.
- *
- * Usage:
- *   import type { User, BankAccount, ApiResponse } from '@/types';
- */
-
 export type {
   // Users
   User,
