@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/Toast';
 import { getCsrfToken } from '@/lib/api-client';
 import { apiFetch, formatMoney } from '@/components/groups/api';
 import type { GroupView, GroupMessageView, GroupSummary, Invitation } from '@/components/groups/types';
+import { MembersAdminActions } from '@/components/groups/MembersAdminSection';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -116,6 +117,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         address: d.group.address ?? undefined,
         created_at: d.group.created_at,
         is_admin: d.is_admin ?? false,
+        session_user_id: d.session_user_id ? Number(d.session_user_id) : undefined,
         members: (d.members ?? []).map((m: Record<string, unknown>) => ({
           id: Number(m.user_id),
           user_id: Number(m.user_id),
@@ -234,6 +236,11 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
             <div key={m.id} className="member-item">
               <span>{m.first_name || m.username}</span>
               {m.role === 'admin' && <span className="badge badge-info">Admin</span>}
+              <MembersAdminActions
+                groupId={groupId}
+                member={m}
+                canManage={!!isAdmin && group.session_user_id !== undefined && m.user_id !== group.session_user_id}
+              />
             </div>
           ))}
         </div>

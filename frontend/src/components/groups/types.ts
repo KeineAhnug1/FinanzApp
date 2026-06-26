@@ -28,27 +28,33 @@ export interface GroupView {
   id: number;
   name: string;
   address?: string;
+  info?: string;
   created_at: string;
   members?: MemberView[];
   funding?: FundingView[];
+  activities?: ActivityView[];
+  expenses?: ExpenseView[];
   is_admin?: boolean;
+  session_user_id?: number;
 }
 
 export interface ActivityView {
-  id: number;
-  info: string;
-  date: string;
+  activity_id: string;
+  info: string | null;
+  date: string | null;
+  created_at: string | null;
 }
 
 export interface ExpenseView {
-  id: number;
-  funding_id: number;
+  group_expense_id: string;
+  group_funding_id: string;
   amount: number;
-  info: string;
-  state: string;
-  cycle: string;
-  due_date: string;
-  pay_date: string;
+  info: string | null;
+  state: 'open' | 'paid' | 'overdue' | null;
+  cycle: string | null;
+  due_date: string | null;
+  pay_date: string | null;
+  created_at: string | null;
 }
 
 export interface GroupMessageView {
