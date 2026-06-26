@@ -8,11 +8,11 @@ export interface MemberView {
 }
 
 export interface ContributionView {
-  id: number;
-  bank_account_id: number;
+  id?: number;
+  bank_account_id?: number;
   amount: number;
   contributor_name?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface FundingView {

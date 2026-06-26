@@ -14,6 +14,7 @@ import { MembersAdminActions } from '@/components/groups/MembersAdminSection';
 import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
 import { ExpensesSection } from '@/components/groups/ExpensesSection';
 import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
+import { FundingBalance } from '@/components/groups/FundingBalance';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -144,6 +145,9 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           target_amount: Number(f.amount ?? 0),
           current_amount: Number(f.total_donated ?? 0),
           description: f.description ? String(f.description) : undefined,
+          contributions: (Array.isArray(f.contributions) ? f.contributions : []).map(
+            (c: Record<string, unknown>) => ({ amount: Number(c.amount ?? 0) })
+          ),
         })),
         activities: (d.activities ?? []).map((a: Record<string, unknown>) => ({
           activity_id: String(a.activity_id),
@@ -303,6 +307,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
             <div className="funding-bar-wrap">
               <div className="funding-bar" style={{ width: `${f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0}%` }} />
             </div>
+            <FundingBalance funding={f} />
             <div className="form-row groups-page__donate-row">
               <input
                 className="form-input"
