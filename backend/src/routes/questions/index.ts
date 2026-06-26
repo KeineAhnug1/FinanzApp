@@ -308,7 +308,9 @@ questions.post('/', async (c) => {
 
   if (!inserted) return jsonResponse({ ok: false, message: 'Frage konnte nicht erstellt werden.' }, 500);
 
-  // Fire-and-forget: response geht sofort raus, FinzbRo antwortet asynchron
+  // waitUntil keeps the OpenRouter call alive past the response so the client
+  // does not block on the LLM round-trip; errors are swallowed because the
+  // bot answer is best-effort and a failure must not surface to the user.
   if (mentionsFinzbro(thema) || mentionsFinzbro(message)) {
     const env = c.env;
     const db = auth.db;
