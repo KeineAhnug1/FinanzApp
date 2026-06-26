@@ -104,7 +104,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {isLoading && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Lade Daten…</p>}
+        {isLoading && <p className="dashboard__loading">Lade Daten…</p>}
 
         <div className="view-panel" hidden={view !== 'overview'}>
           <div className="hero-card">
@@ -144,28 +144,25 @@ export default function DashboardPage() {
               />
             </div>
             <div className="panel">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <h3 className="panel-title" style={{ margin: 0 }}>
+              <div className="dashboard__pie-header">
+                <h3 className="panel-title">
                   {pieMode === 'expense' ? 'Ausgaben' : pieMode === 'income' ? 'Einnahmen' : 'Ein- & Ausgaben'} nach Kategorie
                 </h3>
-                <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                <div className="dashboard__pie-mode-toggle">
                   <button
-                    className={`entry-tab-btn${pieMode === 'expense' ? ' is-active' : ''}`}
-                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                    className={`entry-tab-btn dashboard__pie-mode-btn${pieMode === 'expense' ? ' is-active' : ''}`}
                     onClick={() => setPieMode('expense')}
                   >
                     Ausgaben
                   </button>
                   <button
-                    className={`entry-tab-btn${pieMode === 'income' ? ' is-active' : ''}`}
-                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                    className={`entry-tab-btn dashboard__pie-mode-btn${pieMode === 'income' ? ' is-active' : ''}`}
                     onClick={() => setPieMode('income')}
                   >
                     Einnahmen
                   </button>
                   <button
-                    className={`entry-tab-btn${pieMode === 'both' ? ' is-active' : ''}`}
-                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                    className={`entry-tab-btn dashboard__pie-mode-btn${pieMode === 'both' ? ' is-active' : ''}`}
                     onClick={() => setPieMode('both')}
                   >
                     Beide
