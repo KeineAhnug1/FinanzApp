@@ -138,12 +138,18 @@ function MentionInput({ value, onChange, rows = 2, placeholder }: {
     }, 0);
   };
 
-  const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const highlighted = escaped.replace(/(@Finzbro)/gi, '<mark class="mention-highlight">$1</mark>');
+  const segments = value.split(/(@Finzbro)/gi);
 
   return (
     <div className="mention-input-wrap">
-      <div className="mention-input-mirror" aria-hidden="true" dangerouslySetInnerHTML={{ __html: highlighted.replace(/\n/g, '<br/>') + '&nbsp;' }} />
+      <div className="mention-input-mirror" aria-hidden="true">
+        {segments.map((seg, i) =>
+          /^@Finzbro$/i.test(seg)
+            ? <mark key={i} className="mention-highlight">{seg}</mark>
+            : seg
+        )}
+        {' '}
+      </div>
       <textarea
         ref={inputRef}
         className="form-input mention-input-textarea"
@@ -309,7 +315,7 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
       <div className="question-card-meta">
         <span className="question-author">{question.author?.first_name || question.author?.username || 'Unbekannt'}</span>
         <span className="question-date">{formatDate(question.created_at)}</span>
-        {question.answered && <span className="badge badge-success" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>Beantwortet</span>}
+        {question.answered && <span className="badge badge-success questions__small-badge">Beantwortet</span>}
       </div>
       <h3 className="question-card-title">{question.thema}</h3>
       <p className="question-card-preview">{question.message.slice(0, 120)}{question.message.length > 120 ? '…' : ''}</p>
@@ -321,8 +327,8 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
             {confirmDelete && (
               <Modal open onClose={() => setConfirmDelete(false)} title="Frage löschen">
                 <p>Möchtest du diese Frage wirklich löschen?</p>
-                <p style={{ color: 'var(--ui-error, #e53e3e)', marginTop: 8 }}><strong>Alle Antworten werden ebenfalls gelöscht.</strong></p>
-                <div className="form-actions" style={{ marginTop: 16 }}>
+                <p className="questions__error-text"><strong>Alle Antworten werden ebenfalls gelöscht.</strong></p>
+                <div className="form-actions questions__section-spacer">
                   <button className="btn btn-danger" onClick={async (e) => { e.stopPropagation(); await onDelete(); setConfirmDelete(false); }}>Löschen</button>
                   <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }}>Abbrechen</button>
                 </div>

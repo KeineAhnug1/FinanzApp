@@ -2708,6 +2708,20 @@ input.touched:invalid ~ .field-hint,
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ui-primary) 18%, transparent);
 }
 
+.questions__small-badge {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+}
+
+.questions__error-text {
+  color: var(--ui-error, #e53e3e);
+  margin-top: 8px;
+}
+
+.questions__section-spacer {
+  margin-top: 16px;
+}
+
 @media (max-width: 960px) {
   .questions-layout,
   .questions-layout--panel-open {
