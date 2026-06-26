@@ -90,9 +90,9 @@ export default function DashboardPage() {
         <h1 className="page-title">Dashboard</h1>
         <div className="dash-nav-row">
           <div className="entry-tab-nav" role="tablist">
-            <button className={`entry-tab-btn${view === 'overview' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'overview'} onClick={() => switchView('overview')}>Übersicht</button>
-            <button className={`entry-tab-btn${view === 'income' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'income'} onClick={() => switchView('income')}>Einnahmen</button>
-            <button className={`entry-tab-btn${view === 'expense' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'expense'} onClick={() => switchView('expense')}>Ausgaben</button>
+            <button id="tab-overview" className={`entry-tab-btn${view === 'overview' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'overview'} aria-controls="panel-overview" onClick={() => switchView('overview')}>Übersicht</button>
+            <button id="tab-income" className={`entry-tab-btn${view === 'income' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'income'} aria-controls="panel-income" onClick={() => switchView('income')}>Einnahmen</button>
+            <button id="tab-expense" className={`entry-tab-btn${view === 'expense' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'expense'} aria-controls="panel-expense" onClick={() => switchView('expense')}>Ausgaben</button>
           </div>
           {accounts.length > 1 && (
             <div className="nav-account-filter">
@@ -106,7 +106,7 @@ export default function DashboardPage() {
 
         {isLoading && <p className="dashboard__loading">Lade Daten…</p>}
 
-        <div className="view-panel" hidden={view !== 'overview'}>
+        <div className="view-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabIndex={0} hidden={view !== 'overview'}>
           <div className="hero-card">
             <p className="hero-label">Gesamtsaldo</p>
             <p className="hero-value">{formatMoney(totalIncome - totalExpenses)}</p>
@@ -176,7 +176,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="view-panel" hidden={view !== 'income'}>
+        <div className="view-panel" id="panel-income" role="tabpanel" aria-labelledby="tab-income" tabIndex={0} hidden={view !== 'income'}>
           <div className="income-grid">
             <div className="panel panel-span-2" id="income-form-panel">
               <h3 className="panel-title">{editIncome ? 'Einnahme bearbeiten' : 'Neue Einnahme'}</h3>
@@ -207,7 +207,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="view-panel" hidden={view !== 'expense'}>
+        <div className="view-panel" id="panel-expense" role="tabpanel" aria-labelledby="tab-expense" tabIndex={0} hidden={view !== 'expense'}>
           <div className="income-grid">
             <div className="panel panel-span-2" id="expense-form-panel">
               <h3 className="panel-title">{editExpense ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h3>
