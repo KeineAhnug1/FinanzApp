@@ -11,7 +11,35 @@ import type { DbClient } from '@/lib/db';
 
 const stocks = new Hono<{ Bindings: Env }>();
 
-const _profileCache = new Map<string, { currency: string; name: string }>();
+type ProfileData = { currency: string; name: string };
+type ProfileEntry = { data: ProfileData; expiresAt: number };
+const PROFILE_CACHE_TTL_MS = 60 * 60 * 1000;
+const PROFILE_CACHE_MAX = 500;
+const _profileCache = new Map<string, ProfileEntry>();
+
+export function getCachedProfile(symbol: string): ProfileData | null {
+  const entry = _profileCache.get(symbol);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    _profileCache.delete(symbol);
+    return null;
+  }
+  _profileCache.delete(symbol);
+  _profileCache.set(symbol, entry);
+  return entry.data;
+}
+
+export function setCachedProfile(symbol: string, data: ProfileData): void {
+  if (_profileCache.size >= PROFILE_CACHE_MAX && !_profileCache.has(symbol)) {
+    const oldest = _profileCache.keys().next().value;
+    if (oldest !== undefined) _profileCache.delete(oldest);
+  }
+  _profileCache.set(symbol, { data, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
+}
+
+export function _clearProfileCacheForTests(): void {
+  _profileCache.clear();
+}
 
 const SYMBOL_PATTERN = /^[A-Z0-9.\-:]{1,12}$/;
 const isValidSymbol = (sym: string): boolean => SYMBOL_PATTERN.test(sym);
@@ -142,7 +170,7 @@ async function fetchCurrentPrice(symbol: string, apiKey: string): Promise<{ pric
       { headers: { Accept: 'application/json' } },
     ).then((r) => r.json() as Promise<FinnhubQuote>);
     if (typeof q.c !== 'number' || q.c <= 0) return null;
-    let cached = _profileCache.get(symbol);
+    let cached = getCachedProfile(symbol);
     if (!cached) {
       try {
         const p = await fetch(
@@ -150,7 +178,7 @@ async function fetchCurrentPrice(symbol: string, apiKey: string): Promise<{ pric
           { headers: { Accept: 'application/json' } },
         ).then((r) => r.json() as Promise<FinnhubProfile>);
         cached = { currency: p.currency ?? 'USD', name: p.name ?? symbol };
-        _profileCache.set(symbol, cached);
+        setCachedProfile(symbol, cached);
       } catch {
         cached = { currency: 'USD', name: symbol };
       }
@@ -390,7 +418,7 @@ stocks.get('/quotes', async (c) => {
     const { sym, q } = result.value;
     if (typeof q.c !== 'number' || q.c === 0) continue; // no data or error response
 
-    let cached = _profileCache.get(sym);
+    let cached = getCachedProfile(sym);
     if (!cached) {
       try {
         const p = await fetch(
@@ -398,7 +426,7 @@ stocks.get('/quotes', async (c) => {
           { headers: { Accept: 'application/json' } }
         ).then(r => r.json() as Promise<FinnhubProfile>);
         cached = { currency: p.currency ?? 'USD', name: p.name ?? sym };
-        _profileCache.set(sym, cached);
+        setCachedProfile(sym, cached);
       } catch {
         cached = { currency: 'USD', name: sym };
       }
