@@ -6156,6 +6156,55 @@ input.touched:invalid ~ .field-hint,
   transform: translateY(-1px);
 }
 
+/* ── Entries empty state (Dashboard income/expense lists) ── */
+.entries-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 44px 20px 36px;
+  gap: 10px;
+}
+
+.entries-empty__icon {
+  color: var(--clr-primary);
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.entries-empty__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.entries-empty__sub {
+  font-size: 0.875rem;
+  color: var(--clr-text-muted, var(--ui-text-muted));
+  max-width: 340px;
+  margin: 0;
+}
+
+.entries-empty__cta {
+  margin-top: 6px;
+  padding: 9px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--clr-primary, var(--ui-primary));
+  color: #fff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.14s, transform 0.1s;
+}
+
+.entries-empty__cta:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
 /* ── Stocks analyse empty ── */
 .stocks-analyse-empty {
   display: flex;

@@ -178,7 +178,7 @@ export default function DashboardPage() {
 
         <div className="view-panel" hidden={view !== 'income'}>
           <div className="income-grid">
-            <div className="panel panel-span-2">
+            <div className="panel panel-span-2" id="income-form-panel">
               <h3 className="panel-title">{editIncome ? 'Einnahme bearbeiten' : 'Neue Einnahme'}</h3>
               {accounts.length > 0 ? (
                 <IncomeForm
@@ -194,14 +194,22 @@ export default function DashboardPage() {
             </div>
             <div className="panel panel-span-2">
               <h3 className="panel-title">Einnahmen</h3>
-              <EntriesList entries={income} type="income" onEdit={(e) => setEditIncome(e as IncomeEntry)} onDelete={deleteIncome} />
+              <EntriesList
+                entries={income}
+                type="income"
+                onEdit={(e) => setEditIncome(e as IncomeEntry)}
+                onDelete={deleteIncome}
+                onAddClick={() => {
+                  document.getElementById('income-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
             </div>
           </div>
         </div>
 
         <div className="view-panel" hidden={view !== 'expense'}>
           <div className="income-grid">
-            <div className="panel panel-span-2">
+            <div className="panel panel-span-2" id="expense-form-panel">
               <h3 className="panel-title">{editExpense ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h3>
               {accounts.length > 0 ? (
                 <ExpenseForm
@@ -217,7 +225,15 @@ export default function DashboardPage() {
             </div>
             <div className="panel panel-span-2">
               <h3 className="panel-title">Ausgaben</h3>
-              <EntriesList entries={expenses} type="expense" onEdit={(e) => setEditExpense(e as ExpenseEntry)} onDelete={deleteExpense} />
+              <EntriesList
+                entries={expenses}
+                type="expense"
+                onEdit={(e) => setEditExpense(e as ExpenseEntry)}
+                onDelete={deleteExpense}
+                onAddClick={() => {
+                  document.getElementById('expense-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
             </div>
           </div>
         </div>

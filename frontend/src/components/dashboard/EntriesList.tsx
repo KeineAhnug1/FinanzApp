@@ -24,11 +24,13 @@ export function EntriesList({
   type,
   onEdit,
   onDelete,
+  onAddClick,
 }: {
   entries: AnyEntry[];
   type: 'income' | 'expense';
   onEdit: (e: AnyEntry) => void;
   onDelete: (id: string) => void;
+  onAddClick?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -41,6 +43,9 @@ export function EntriesList({
   );
   const grouped = groupByDate(filtered, dateField);
 
+  const hasAnyEntries = entries.length > 0;
+  const isIncome = type === 'income';
+
   return (
     <>
       <div className="list-tools">
@@ -52,7 +57,40 @@ export function EntriesList({
         />
       </div>
       {filtered.length === 0 ? (
-        <p className="income-empty">Keine Einträge gefunden.</p>
+        !hasAnyEntries ? (
+          <div className="entries-empty">
+            <div className="entries-empty__icon" aria-hidden="true">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                {isIncome ? (
+                  <>
+                    <path d="M12 5v14" />
+                    <path d="M5 12l7 7 7-7" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M12 19V5" />
+                    <path d="M5 12l7-7 7 7" />
+                  </>
+                )}
+              </svg>
+            </div>
+            <p className="entries-empty__title">
+              {isIncome ? 'Noch keine Einnahmen' : 'Noch keine Ausgaben'}
+            </p>
+            <p className="entries-empty__sub">
+              {isIncome
+                ? 'Erfasse deine erste Einnahme, um Übersicht über dein Einkommen zu bekommen.'
+                : 'Erfasse deine erste Ausgabe, um deine Ausgaben im Blick zu behalten.'}
+            </p>
+            {onAddClick && (
+              <button className="entries-empty__cta" onClick={onAddClick} type="button">
+                {isIncome ? 'Einnahme erfassen' : 'Ausgabe erfassen'}
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="income-empty">Keine Treffer für deine Suche.</p>
+        )
       ) : (
         <ul className="income-list">
           {Object.entries(grouped).sort(([a], [b]) => Number(b) - Number(a)).map(([year, months]) => {
