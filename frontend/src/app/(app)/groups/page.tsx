@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { ExpensesSection, type ExpenseView } from '@/components/groups/ExpensesSection';
 
 interface GroupMemberView {
   id: number;
@@ -33,6 +34,7 @@ interface GroupView {
   created_at: string;
   members?: GroupMemberView[];
   funding?: GroupFundingView[];
+  expenses?: ExpenseView[];
   is_admin?: boolean;
 }
 
@@ -186,6 +188,17 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           current_amount: Number(f.total_donated ?? 0),
           description: f.description ? String(f.description) : undefined,
         })),
+        expenses: (d.expenses ?? []).map((e: Record<string, unknown>) => ({
+          group_expense_id: String(e.group_expense_id ?? ''),
+          group_funding_id: String(e.group_funding_id ?? ''),
+          amount: Number(e.amount ?? 0),
+          info: e.info ? String(e.info) : null,
+          state: (e.state as ExpenseView['state']) ?? null,
+          cycle: e.cycle ? String(e.cycle) : null,
+          due_date: e.due_date ? String(e.due_date) : null,
+          pay_date: e.pay_date ? String(e.pay_date) : null,
+          created_at: e.created_at ? String(e.created_at) : null,
+        })),
       } as GroupView;
     }),
     enabled: !!groupId,
@@ -324,6 +337,13 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
               />
               <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
             </div>
+            <ExpensesSection
+              groupId={groupId}
+              fundingId={f.id}
+              fundingAmount={f.target_amount}
+              expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
+              isAdmin={!!isAdmin}
+            />
           </div>
         ))}
         {isAdmin && (
