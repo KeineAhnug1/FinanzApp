@@ -45,7 +45,7 @@ export default function HomePage() {
     fetch(apiUrl('/api/auth/session'), { credentials: 'include' })
       .then(r => r.json())
       .then((d: { ok?: boolean }) => { if (d?.ok) setIsLoggedIn(true); })
-      .catch(() => {});
+      .catch(() => { /* session check is best-effort; failures fall back to logged-out state */ });
   }, []);
 
   useEffect(() => {

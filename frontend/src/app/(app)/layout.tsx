@@ -28,7 +28,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.replace('/login');
   };
 
-  // Apply body classes required by CSS selectors
   useEffect(() => {
     document.body.classList.add('has-shared-sidebar', 'has-bottom-nav');
     return () => {
