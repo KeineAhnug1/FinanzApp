@@ -11,6 +11,7 @@ import { getCsrfToken } from '@/lib/api-client';
 import { apiFetch, formatMoney } from '@/components/groups/api';
 import type { GroupView, GroupMessageView, GroupSummary, Invitation } from '@/components/groups/types';
 import { MembersAdminActions } from '@/components/groups/MembersAdminSection';
+import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -105,6 +106,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [fundTitle, setFundTitle] = useState('');
   const [fundTarget, setFundTarget] = useState('');
   const [fundDesc, setFundDesc] = useState('');
+  const [fundActivity, setFundActivity] = useState('');
   const [donateAmount, setDonateAmount] = useState<Record<number, string>>({});
 
   const { data: group, isLoading } = useQuery<GroupView | null>({
@@ -132,6 +134,12 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           target_amount: Number(f.amount ?? 0),
           current_amount: Number(f.total_donated ?? 0),
           description: f.description ? String(f.description) : undefined,
+        })),
+        activities: (d.activities ?? []).map((a: Record<string, unknown>) => ({
+          activity_id: String(a.activity_id),
+          info: a.info != null ? String(a.info) : null,
+          date: a.date != null ? String(a.date) : null,
+          created_at: a.created_at != null ? String(a.created_at) : null,
         })),
       } as GroupView;
     }),
@@ -193,14 +201,20 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const createFunding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fundTitle.trim() || !fundTarget) return;
+    const body: { info: string; amount: number; description?: string; group_activity_id?: number } = {
+      info: fundTitle,
+      amount: Number(fundTarget),
+    };
+    if (fundDesc.trim()) body.description = fundDesc.trim();
+    if (fundActivity !== '') body.group_activity_id = Number(fundActivity);
     const result = await apiFetch(`/api/groups/${groupId}/funding`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ info: fundTitle, amount: Number(fundTarget) }),
+      body: JSON.stringify(body),
     });
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success('Sammelaktion erstellt');
-    setFundTitle(''); setFundTarget(''); setFundDesc('');
+    setFundTitle(''); setFundTarget(''); setFundDesc(''); setFundActivity('');
     queryClient.invalidateQueries({ queryKey: ['group', groupId] });
   };
 
@@ -252,6 +266,8 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         )}
       </div>
 
+      <ActivitiesSection groupId={groupId} activities={group.activities} canManage={true} />
+
       <div className="group-section">
         <h3 className="section-title">Sammelaktionen</h3>
         {(group.funding ?? []).map((f) => (
@@ -285,6 +301,18 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
               <input className="form-input" type="number" min="0.01" placeholder="Ziel (€)" value={fundTarget} onChange={(e) => setFundTarget(e.target.value)} required />
             </div>
             <input className="form-input" placeholder="Beschreibung (optional)" value={fundDesc} onChange={(e) => setFundDesc(e.target.value)} />
+            {group.activities.length > 0 && (
+              <select
+                className="form-input form-select"
+                value={fundActivity}
+                onChange={(e) => setFundActivity(e.target.value)}
+              >
+                <option value="">Keine Aktivität verknüpfen</option>
+                {group.activities.map((a) => (
+                  <option key={a.activity_id} value={a.activity_id}>{a.info ?? '—'}</option>
+                ))}
+              </select>
+            )}
             <button className="btn btn-primary btn-sm" type="submit">Sammelaktion erstellen</button>
           </form>
         )}
