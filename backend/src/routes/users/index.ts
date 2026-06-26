@@ -10,6 +10,7 @@ import {
   invalidateAllUserSessions,
   createSession,
   buildSessionCookie,
+  clearSessionCookie,
   getSessionToken,
   destroySession,
 } from '@/lib/session';
@@ -100,7 +101,7 @@ users.delete('/me', async (c) => {
   await db.from('users').delete().eq('id', userId);
 
   return jsonResponse({ ok: true }, 200, {
-    'Set-Cookie': `finanzapp_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`,
+    'Set-Cookie': clearSessionCookie(c.env, isSecure(c.req.raw)),
   });
 });
 
