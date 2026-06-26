@@ -1498,6 +1498,10 @@ input.touched:invalid ~ .field-hint,
   gap: 12px;
 }
 
+.form-row > * {
+  min-width: 0;
+}
+
 .login-label {
   display: block;
   margin-bottom: 6px;

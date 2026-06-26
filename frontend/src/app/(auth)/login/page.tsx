@@ -185,9 +185,14 @@ function LoginForm({
       )}
 
       <div className="auth-divider" />
-      <button className="auth-mode-link" type="button" onClick={() => onSwitchMode('register')}>
-        Kein Konto? Jetzt registrieren
-      </button>
+      <div className="auth-mode-row">
+        <button className="auth-mode-link" type="button" onClick={() => onSwitchMode('register')}>
+          Kein Konto? Jetzt registrieren
+        </button>
+        <Link className="auth-mode-link" href="/home">
+          Zur Startseite
+        </Link>
+      </div>
     </section>
   );
 }
@@ -349,9 +354,14 @@ function RegisterForm({
       )}
 
       <div className="auth-divider" />
-      <button className="auth-mode-link" type="button" onClick={() => onSwitchMode('login')}>
-        Schon ein Konto? Zum Login
-      </button>
+      <div className="auth-mode-row">
+        <button className="auth-mode-link" type="button" onClick={() => onSwitchMode('login')}>
+          Schon ein Konto? Zum Login
+        </button>
+        <Link className="auth-mode-link" href="/home">
+          Zur Startseite
+        </Link>
+      </div>
     </section>
   );
 }
