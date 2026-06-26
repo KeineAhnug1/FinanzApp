@@ -62,6 +62,7 @@ export interface GroupMessageView {
   message: string;
   sender_name?: string;
   created_at: string;
+  user_id: string;
 }
 
 export interface GroupSummary {

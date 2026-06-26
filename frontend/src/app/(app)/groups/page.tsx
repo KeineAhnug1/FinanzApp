@@ -13,6 +13,7 @@ import type { GroupView, GroupMessageView, GroupSummary, Invitation } from '@/co
 import { MembersAdminActions } from '@/components/groups/MembersAdminSection';
 import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
 import { ExpensesSection } from '@/components/groups/ExpensesSection';
+import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -168,6 +169,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           message: String(m.message ?? ''),
           created_at: String(m.created_at ?? ''),
           sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : undefined),
+          user_id: String(u?.user_id ?? ''),
         };
       })
     ),
@@ -341,10 +343,12 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         <h3 className="section-title">Gruppenkanal</h3>
         <div className="chat-messages">
           {messages.map((m) => (
-            <div key={m.id} className="chat-message">
-              <span className="chat-sender">{m.sender_name ?? 'Unbekannt'}</span>
-              <span className="chat-text">{m.message}</span>
-            </div>
+            <ChatMessageItem
+              key={m.id}
+              groupId={groupId}
+              message={m}
+              canDelete={(group.session_user_id !== undefined && Number(m.user_id) === group.session_user_id) || !!group.is_admin}
+            />
           ))}
         </div>
         <form className="chat-input-form" onSubmit={sendMessage}>
