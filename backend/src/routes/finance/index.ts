@@ -16,6 +16,7 @@ import {
   normalizeCycle,
   parseRecurrence,
   parseBoolean,
+  parsePaginationCursor,
   resolveEntryState,
   incrementBankAccountBalance,
   uniqueCategoryList,
@@ -303,9 +304,7 @@ finance.get('/expenses', async (c) => {
   const filter = resolveRequestedBankAccountFilter(sp, allAccountIds);
   if (!filter.ok) return jsonResponse({ ok: false, message: filter.message }, filter.status ?? 400);
 
-  const limitRaw = Number(sp.get('limit'));
-  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 200;
-  const cursorId = sp.get('cursor') ? Number(sp.get('cursor')) : null;
+  const { cursor, limit } = parsePaginationCursor(sp.get('cursor'), sp.get('limit'), { defaultLimit: 200, maxLimit: 200 });
 
   let query = auth.db
     .from('private_expenses')
@@ -316,7 +315,7 @@ finance.get('/expenses', async (c) => {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (cursorId) query = query.lt('id', cursorId);
+  if (cursor) query = query.lt('id', cursor.id);
 
   const { data: entries } = await query;
 
@@ -501,9 +500,7 @@ finance.get('/income', async (c) => {
   const filter = resolveRequestedBankAccountFilter(sp, allAccountIds);
   if (!filter.ok) return jsonResponse({ ok: false, message: filter.message }, filter.status ?? 400);
 
-  const limitRaw = Number(sp.get('limit'));
-  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 200;
-  const cursorId = sp.get('cursor') ? Number(sp.get('cursor')) : null;
+  const { cursor, limit } = parsePaginationCursor(sp.get('cursor'), sp.get('limit'), { defaultLimit: 200, maxLimit: 200 });
 
   let query = auth.db
     .from('income')
@@ -514,7 +511,7 @@ finance.get('/income', async (c) => {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (cursorId) query = query.lt('id', cursorId);
+  if (cursor) query = query.lt('id', cursor.id);
 
   const { data: entries } = await query;
 
@@ -701,20 +698,14 @@ finance.get('/transactions', async (c) => {
   const filter = resolveRequestedBankAccountFilter(sp, allAccountIds);
   if (!filter.ok) return jsonResponse({ ok: false, message: filter.message }, filter.status ?? 400);
 
-  const limitRaw = Number(sp.get('limit'));
-  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+  const { cursor, limit } = parsePaginationCursor(sp.get('cursor'), sp.get('limit'), {
+    defaultLimit: 50,
+    maxLimit: 200,
+    format: 'composite',
+  });
   const categoryRaw = (sp.get('category') ?? '').trim();
-  const cursorRaw = (sp.get('cursor') ?? '').trim();
-
-  let cursorTs: number | null = null;
-  let cursorId: number | null = null;
-  if (cursorRaw) {
-    const m = cursorRaw.match(/^(\d+)[_:](\d+)$/);
-    if (m) {
-      cursorTs = Number(m[1]);
-      cursorId = Number(m[2]);
-    }
-  }
+  const cursorTs = cursor?.ord ?? null;
+  const cursorId = cursor?.id ?? null;
 
   const incomeQuery = auth.db
     .from('income')

@@ -126,6 +126,46 @@ export interface BankAccountFilter {
   status?: number;
 }
 
+export interface PaginationCursor {
+  id: number;
+  ord: number;
+}
+
+export interface ParsedPagination {
+  cursor: PaginationCursor | null;
+  limit: number;
+}
+
+export interface ParsePaginationOptions {
+  defaultLimit: number;
+  maxLimit: number;
+  format?: 'simple' | 'composite';
+}
+
+export function parsePaginationCursor(
+  rawCursor: string | null | undefined,
+  rawLimit: string | null | undefined,
+  options: ParsePaginationOptions,
+): ParsedPagination {
+  const { defaultLimit, maxLimit, format = 'simple' } = options;
+
+  const limitNum = Number(rawLimit ?? NaN);
+  const limit = Number.isFinite(limitNum) && limitNum > 0 ? Math.min(limitNum, maxLimit) : defaultLimit;
+
+  const trimmed = typeof rawCursor === 'string' ? rawCursor.trim() : '';
+  if (!trimmed) return { cursor: null, limit };
+
+  if (format === 'composite') {
+    const m = trimmed.match(/^(\d+)[_:](\d+)$/);
+    if (!m) return { cursor: null, limit };
+    return { cursor: { ord: Number(m[1]), id: Number(m[2]) }, limit };
+  }
+
+  const id = Number(trimmed);
+  if (!Number.isFinite(id) || id === 0) return { cursor: null, limit };
+  return { cursor: { id, ord: 0 }, limit };
+}
+
 export function resolveRequestedBankAccountFilter(
   searchParams: URLSearchParams,
   allAccountIds: (string | number)[],
