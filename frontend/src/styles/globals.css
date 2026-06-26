@@ -3179,6 +3179,18 @@ input.touched:invalid ~ .field-hint,
   transition: width 0.3s;
 }
 
+.funding-balance-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--ui-text-muted);
+  flex-wrap: wrap;
+}
+
+.funding-balance-detail span:nth-child(even) { opacity: 0.6; }
+
 /* Chat */
 .chat-messages {
   display: flex;
