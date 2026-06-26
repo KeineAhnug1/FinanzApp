@@ -6,6 +6,7 @@ import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody, isSecure } from '@/lib/utils/http';
 import { badRequest, jsonResponse, notFound } from '@/lib/utils/responses';
 import { hashPassword, verifyPassword } from '@/lib/utils/password';
+import { isValidImageBytes, decodeBase64Prefix, type SupportedImageMime } from '@/lib/utils/image';
 import {
   invalidateAllUserSessions,
   createSession,
@@ -168,6 +169,15 @@ users.put('/me/profile-image', async (c) => {
   if (approxBytes > MAX_SIZE_BYTES) {
     return jsonResponse({ ok: false, message: 'Bild ist zu groß (max. 200 KB)' }, 413);
   }
+
+  const mime = dataUrlMatch[1] as SupportedImageMime;
+  let header: Uint8Array;
+  try {
+    header = decodeBase64Prefix(base64Data, 16);
+  } catch {
+    return badRequest('Bilddaten ungültig.');
+  }
+  if (!isValidImageBytes(header, mime)) return badRequest('Bilddaten ungültig.');
 
   await auth.db.from('users').update({ profileImage } as Record<string, unknown>).eq('id', auth.user.id);
   return jsonResponse({ ok: true, message: 'Profilbild gespeichert' }, 200);
