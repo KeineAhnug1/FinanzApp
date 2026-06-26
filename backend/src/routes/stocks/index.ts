@@ -477,7 +477,7 @@ stocks.get('/ws', async (c) => {
   const upstreamRes = await fetch(`https://ws.finnhub.io/?token=${cfg.finnhubApiKey}`, {
     headers: { Upgrade: 'websocket' },
   });
-  const upstream = (upstreamRes as unknown as { webSocket?: WebSocket }).webSocket;
+  const upstream = upstreamRes.webSocket;
   if (!upstream) {
     return jsonResponse({ ok: false, message: 'Finnhub upstream unavailable' }, 502);
   }
@@ -486,8 +486,8 @@ stocks.get('/ws', async (c) => {
   const client = pair[0];
   const server = pair[1];
 
-  (server as unknown as { accept: () => void }).accept();
-  (upstream as unknown as { accept: () => void }).accept();
+  server.accept();
+  upstream.accept();
 
   server.addEventListener('message', (ev: MessageEvent) => {
     try { upstream.send(ev.data as string | ArrayBuffer); } catch { /* upstream closed */ }
@@ -508,7 +508,7 @@ stocks.get('/ws', async (c) => {
   return new Response(null, {
     status: 101,
     webSocket: client,
-  } as ResponseInit & { webSocket: WebSocket });
+  });
 });
 
 export default stocks;
