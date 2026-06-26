@@ -293,8 +293,8 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           ))}
         </div>
         {isAdmin && (
-          <div className="invite-form" style={{ marginTop: 12 }}>
-            <input className="form-input" placeholder="Username einladen" value={inviteUsername} onChange={(e) => setInviteUsername(e.target.value)} style={{ maxWidth: 200 }} />
+          <div className="invite-form groups-page__invite-form">
+            <input className="form-input groups-page__invite-input" placeholder="Username einladen" value={inviteUsername} onChange={(e) => setInviteUsername(e.target.value)} />
             <button className="btn btn-primary btn-sm" onClick={invite}>Einladen</button>
           </div>
         )}
@@ -312,7 +312,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
             <div className="funding-bar-wrap">
               <div className="funding-bar" style={{ width: `${f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0}%` }} />
             </div>
-            <div className="form-row" style={{ marginTop: 8 }}>
+            <div className="form-row groups-page__donate-row">
               <input
                 className="form-input"
                 type="number"
@@ -327,7 +327,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           </div>
         ))}
         {isAdmin && (
-          <form className="entry-form" onSubmit={createFunding} style={{ marginTop: 12 }}>
+          <form className="entry-form groups-page__funding-form" onSubmit={createFunding}>
             <div className="form-row">
               <input className="form-input" placeholder="Titel der Sammelaktion" value={fundTitle} onChange={(e) => setFundTitle(e.target.value)} required />
               <input className="form-input" type="number" min="0.01" placeholder="Ziel (€)" value={fundTarget} onChange={(e) => setFundTarget(e.target.value)} required />
