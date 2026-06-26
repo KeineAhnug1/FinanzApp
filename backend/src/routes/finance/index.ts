@@ -25,6 +25,7 @@ import {
   PRESET_INCOME_CATEGORY_KEYS,
   PRESET_EXPENSE_CATEGORY_KEYS,
 } from '@/lib/helpers/finance';
+import bankAccountHistoryRoutes from './bank-account-history';
 
 const finance = new Hono<{ Bindings: Env }>();
 
@@ -770,5 +771,7 @@ finance.get('/transactions', async (c) => {
 
   return jsonResponse({ ok: true, entries, next_cursor: nextCursor }, 200);
 });
+
+finance.route('/', bankAccountHistoryRoutes);
 
 export default finance;
