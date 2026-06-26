@@ -6,6 +6,7 @@ import { checkCsrf } from '@/lib/utils/csrf';
 import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody } from '@/lib/utils/http';
 import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/responses';
+import expensesRoutes from './expenses';
 
 const groups = new Hono<{ Bindings: Env }>();
 
@@ -530,5 +531,7 @@ groups.delete('/:id/messages/:msgId', async (c) => {
   await auth.db.from('group_message').delete().eq('id', messageId);
   return jsonResponse({ ok: true, message: 'Nachricht gelöscht' }, 200);
 });
+
+groups.route('/', expensesRoutes);
 
 export default groups;
