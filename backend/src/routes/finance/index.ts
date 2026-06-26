@@ -25,8 +25,11 @@ import {
   PRESET_INCOME_CATEGORY_KEYS,
   PRESET_EXPENSE_CATEGORY_KEYS,
 } from '@/lib/helpers/finance';
+import shareAccountsRoutes from './share-accounts';
 
 const finance = new Hono<{ Bindings: Env }>();
+
+finance.route('/', shareAccountsRoutes);
 
 // ---------------------------------------------------------------------------
 // Bank Accounts
