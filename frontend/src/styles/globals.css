@@ -8642,6 +8642,21 @@ html.dashboard-view-preload .dash-main .view-panel {
   }
 }
 
+.settings__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.settings__section-spacer-md {
+  margin-top: 16px;
+}
+
+.settings__muted-text {
+  color: var(--ui-text-muted);
+}
+
 
 /* ════════════════ Stocks / ShareView ════════════════ */
 /* ======================================================
