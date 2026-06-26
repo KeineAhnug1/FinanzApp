@@ -293,7 +293,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         )}
       </div>
 
-      <ActivitiesSection groupId={groupId} activities={group.activities} canManage={true} />
+      <ActivitiesSection groupId={groupId} activities={group.activities ?? []} canManage={true} />
 
       <div className="group-section">
         <h3 className="section-title">Sammelaktionen</h3>
@@ -309,15 +309,18 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
             </div>
             <FundingBalance funding={f} />
             <div className="form-row groups-page__donate-row">
-              <input
-                className="form-input"
-                type="number"
-                min="0.01"
-                step="0.01"
-                placeholder="Betrag (€)"
-                value={donateAmount[f.id] ?? ''}
-                onChange={(e) => setDonateAmount((prev) => ({ ...prev, [f.id]: e.target.value }))}
-              />
+              <div className="amount-input-wrap">
+                <input
+                  className="form-input amount-input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="Betrag"
+                  value={donateAmount[f.id] ?? ''}
+                  onChange={(e) => setDonateAmount((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                />
+                <span className="amount-input-suffix" aria-hidden="true">€</span>
+              </div>
               <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
             </div>
             <ExpensesSection
@@ -333,17 +336,20 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           <form className="entry-form groups-page__funding-form" onSubmit={createFunding}>
             <div className="form-row">
               <input className="form-input" placeholder="Titel der Sammelaktion" value={fundTitle} onChange={(e) => setFundTitle(e.target.value)} required />
-              <input className="form-input" type="number" min="0.01" placeholder="Ziel (€)" value={fundTarget} onChange={(e) => setFundTarget(e.target.value)} required />
+              <div className="amount-input-wrap">
+                <input className="form-input amount-input" type="number" min="0.01" step="0.01" placeholder="Ziel" value={fundTarget} onChange={(e) => setFundTarget(e.target.value)} required />
+                <span className="amount-input-suffix" aria-hidden="true">€</span>
+              </div>
             </div>
             <input className="form-input" placeholder="Beschreibung (optional)" value={fundDesc} onChange={(e) => setFundDesc(e.target.value)} />
-            {group.activities.length > 0 && (
+            {(group.activities?.length ?? 0) > 0 && (
               <select
                 className="form-input form-select"
                 value={fundActivity}
                 onChange={(e) => setFundActivity(e.target.value)}
               >
                 <option value="">Keine Aktivität verknüpfen</option>
-                {group.activities.map((a) => (
+                {(group.activities ?? []).map((a) => (
                   <option key={a.activity_id} value={a.activity_id}>{a.info ?? '—'}</option>
                 ))}
               </select>
