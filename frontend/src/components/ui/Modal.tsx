@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ModalProps {
@@ -12,8 +12,14 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const reactId = useId();
+  const titleId = `modal-title-${reactId}`;
 
   useEffect(() => {
     if (!open) return;
@@ -35,22 +41,78 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
+    const getFocusables = () =>
+      Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true'
+      );
+
+    const focusables = getFocusables();
+    if (focusables.length > 0) {
+      focusables[0].focus();
+    } else {
+      dialog.focus();
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const current = getFocusables();
+      if (current.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = current[0];
+      const last = current[current.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !dialog.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialog.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    dialog.addEventListener('keydown', onKeyDown);
+    return () => {
+      dialog.removeEventListener('keydown', onKeyDown);
+      const toRestore = previouslyFocusedRef.current;
+      if (toRestore && typeof toRestore.focus === 'function' && document.contains(toRestore)) {
+        toRestore.focus();
+      }
+      previouslyFocusedRef.current = null;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return createPortal(
     <div
       className="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div ref={dialogRef} className={`modal modal-${size}`}>
+      <div
+        ref={dialogRef}
+        className={`modal modal-${size}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : 'Dialog'}
+        tabIndex={-1}
+      >
         {title && (
           <div className="modal-header">
-            <h2 className="modal-title">{title}</h2>
+            <h2 id={titleId} className="modal-title">
+              {title}
+            </h2>
             <button
               type="button"
               className="modal-close"
