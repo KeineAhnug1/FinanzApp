@@ -3206,6 +3206,11 @@ input.touched:invalid ~ .field-hint,
 
 .invitation-item:last-child { border-bottom: none; }
 
+.groups-page__invite-form { margin-top: 12px; }
+.groups-page__invite-input { max-width: 200px; }
+.groups-page__donate-row { margin-top: 8px; }
+.groups-page__funding-form { margin-top: 12px; }
+
 /* ============================================================
    STOCKS PAGE
    ============================================================ */
