@@ -321,6 +321,9 @@ stocks.delete('/positions/:symbol', async (c) => {
   const csrf = await checkCsrf(c.req.raw);
   if (csrf) return csrf;
 
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'stock-sell-all' });
+  if (rl) return rl;
+
   const { data: account } = await auth.db
     .from('share_accounts')
     .select('id')
