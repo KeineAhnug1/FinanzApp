@@ -3139,6 +3139,12 @@ input.touched:invalid ~ .field-hint,
 
 .member-item:last-child { border-bottom: none; }
 
+.member-item__actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .invite-form {
   display: flex;
   gap: var(--ui-space-2);
