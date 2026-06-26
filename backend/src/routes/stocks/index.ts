@@ -288,17 +288,26 @@ stocks.post('/positions/sell', async (c) => {
   if (!quote) return jsonResponse({ ok: false, message: 'Kursdaten nicht verfügbar' }, 503);
 
   let remaining = shares;
+  const lotsToDelete: number[] = [];
+  let partialUpdate: { id: number; newUnits: number } | null = null;
   for (const lot of lotRows) {
     if (remaining <= 1e-9) break;
     const lotUnits = Number(lot.units);
     if (lotUnits <= remaining + 1e-9) {
-      await auth.db.from('shares').delete().eq('id', lot.id);
+      lotsToDelete.push(lot.id);
       remaining -= lotUnits;
     } else {
       const newUnits = Math.round((lotUnits - remaining) * 1_000_000) / 1_000_000;
-      await auth.db.from('shares').update({ units: newUnits }).eq('id', lot.id);
+      partialUpdate = { id: lot.id, newUnits };
       remaining = 0;
     }
+  }
+
+  if (lotsToDelete.length > 0) {
+    await auth.db.from('shares').delete().in('id', lotsToDelete);
+  }
+  if (partialUpdate) {
+    await auth.db.from('shares').update({ units: partialUpdate.newUnits }).eq('id', partialUpdate.id);
   }
 
   const proceeds = toFixedAmount(quote.price * shares);
