@@ -25,6 +25,7 @@ interface Props {
   avgBuyPrice?: number;
   livePrice?: number;
   initialTab?: 'buy' | 'sell';
+  defaultShareAccountId?: number | null;
 }
 
 export function fmtPrice(v: number, currency = 'USD') {
@@ -69,7 +70,7 @@ function ChartTip({ active, payload, label, currency }: {
   );
 }
 
-export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, livePrice, initialTab = 'buy' }: Props) {
+export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, livePrice, initialTab = 'buy', defaultShareAccountId }: Props) {
   const queryClient = useQueryClient();
   const [range, setRange] = useState<DrawerRange>('1M');
   const [tab, setTab] = useState<'buy' | 'sell'>(initialTab);
@@ -146,11 +147,13 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     if (!symbol || !sharesNum || sharesNum <= 0 || !bankAccountId) return;
     setSubmitting(true);
     try {
+      const body: Record<string, unknown> = { symbol, shares: sharesNum, bank_account_id: Number(bankAccountId) };
+      if (defaultShareAccountId != null) body.share_account_id = defaultShareAccountId;
       const res = await fetch(apiUrl(`/api/stocks/positions/${tab}`), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-        body: JSON.stringify({ symbol, shares: sharesNum, bank_account_id: Number(bankAccountId) }),
+        body: JSON.stringify(body),
       });
       const data = await res.json() as { ok: boolean; message?: string };
       if (data.ok) {
