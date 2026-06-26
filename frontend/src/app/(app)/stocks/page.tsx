@@ -9,6 +9,7 @@ import {
 import { apiUrl } from '@/lib/api-client';
 import { useFinnhubWs } from '@/hooks/useFinnhubWs';
 import { StockDetailDrawer, fmtPrice, fmtEur, fmtPct } from '@/components/stocks/StockDetailDrawer';
+import ShareAccountSwitcher from '@/components/stocks/ShareAccountSwitcher';
 
 const PIE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#6366f1','#14b8a6','#f97316'];
 
@@ -338,9 +339,41 @@ export default function StocksPage() {
   const [liveQuotes, setLiveQuotes] = useState<Record<string, number>>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedShareAccountId, setSelectedShareAccountIdState] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = window.localStorage.getItem('fbm.selectedShareAccount');
+    if (!stored) return null;
+    const n = Number(stored);
+    return Number.isFinite(n) ? n : null;
+  });
+  const setSelectedShareAccountId = useCallback((v: number | null) => {
+    setSelectedShareAccountIdState(v);
+    if (typeof window === 'undefined') return;
+    if (v === null) window.localStorage.removeItem('fbm.selectedShareAccount');
+    else window.localStorage.setItem('fbm.selectedShareAccount', String(v));
+  }, []);
+
+  const { data: shareAccounts = [] } = useQuery<{ id: number; label: string }[]>({
+    queryKey: ['share-accounts'],
+    queryFn: () => apiFetch('/api/finance/share-accounts').then((d) => d.share_accounts ?? []),
+  });
+
+  useEffect(() => {
+    if (selectedShareAccountId === null) return;
+    if (shareAccounts.length === 0) return;
+    if (!shareAccounts.some((a) => a.id === selectedShareAccountId)) {
+      setSelectedShareAccountId(null);
+    }
+  }, [shareAccounts, selectedShareAccountId, setSelectedShareAccountId]);
+
   const { data: positions = [] } = useQuery<StockPosition[]>({
-    queryKey: ['stock-positions'],
-    queryFn: () => apiFetch('/api/stocks/positions').then(d => d.positions ?? []),
+    queryKey: ['stock-positions', selectedShareAccountId],
+    queryFn: () => {
+      const url = selectedShareAccountId
+        ? `/api/stocks/positions?share_account_id=${selectedShareAccountId}`
+        : '/api/stocks/positions';
+      return apiFetch(url).then((d) => d.positions ?? []);
+    },
   });
 
   const symbolKey = useMemo(() => positions.map(p => p.symbol).join(','), [positions]);
@@ -442,7 +475,10 @@ export default function StocksPage() {
 
   return (
     <div className="depot-page">
-      <h1 className="page-title">Aktien</h1>
+      <div className="page-header">
+        <h1 className="page-title">Aktien</h1>
+        <ShareAccountSwitcher value={selectedShareAccountId} onChange={setSelectedShareAccountId} />
+      </div>
       <div className="stocks-topbar">
         <StockSearch onPick={(sym) => openDrawer(sym, 'buy')} inputRef={searchInputRef} />
       </div>
@@ -636,6 +672,7 @@ export default function StocksPage() {
         avgBuyPrice={drawerAvgBuyPrice}
         livePrice={drawerLivePrice}
         initialTab={drawerTab}
+        defaultShareAccountId={selectedShareAccountId}
       />
     </div>
   );

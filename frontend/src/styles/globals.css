@@ -11398,3 +11398,23 @@ button.group-card-button:focus-visible {
   flex-wrap: wrap;
   justify-content: center;
 }
+
+.share-account-switcher {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 180px;
+}
+.share-account-switcher:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 1px;
+}
+[data-theme="dark"] .share-account-switcher {
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+}
