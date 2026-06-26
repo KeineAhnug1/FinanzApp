@@ -93,7 +93,7 @@ function ProfileSection({ user, onSaved }: { user: UserClient; onSaved: () => vo
               title="Profilbild ändern"
             >
               {avatarPreview ? (
-                <img src={avatarPreview} alt="Profilbild" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                <img src={avatarPreview} alt="Profilbild" className="settings__avatar-image" />
               ) : (
                 <span>{initialsFromUser(user)}</span>
               )}
@@ -110,7 +110,7 @@ function ProfileSection({ user, onSaved }: { user: UserClient; onSaved: () => vo
           <div className="profil-row"><dt>Benutzername</dt><dd>{user.username}</dd></div>
           <div className="profil-row"><dt>Mitglied seit</dt><dd>{since}</dd></div>
         </dl>
-        <form className="einst-form" onSubmit={handleSubmit(onSubmit)} noValidate style={{ marginTop: 16 }}>
+        <form className="einst-form settings__section-spacer-md" onSubmit={handleSubmit(onSubmit)} noValidate>
           <div className="einst-field">
             <label className="field-label" htmlFor="profile-first-name">Vorname</label>
             <input
@@ -263,7 +263,7 @@ function ThemeSection() {
             Automatisch
           </button>
         </div>
-        <p className="einst-subsection-title" style={{ marginTop: 16 }}>Kontrast</p>
+        <p className="einst-subsection-title settings__section-spacer-md">Kontrast</p>
         <div className="contrast-mode-group">
           <button className={`contrast-option${contrast !== 'high' ? ' is-active' : ''}`} type="button" onClick={() => applyContrast('normal')}>Normal</button>
           <button className={`contrast-option${contrast === 'high' ? ' is-active' : ''}`} type="button" onClick={() => applyContrast('high')}>Hoher Kontrast</button>
@@ -306,7 +306,7 @@ function DangerSection() {
           <button className="btn-secondary" type="button" onClick={handleLogout}>Ausloggen</button>
         </div>
       </div>
-      <div className="einst-card einst-card--danger" style={{ marginTop: 12 }}>
+      <div className="einst-card einst-card--danger settings__section-spacer-md">
         <p className="einst-subsection-title einst-subsection-title--danger">Konto löschen</p>
         <p className="einst-danger-desc">Diese Aktion ist unwiderruflich. Alle Daten, Einnahmen, Ausgaben und Konten werden dauerhaft gelöscht.</p>
         <div className="einst-actions">
@@ -358,7 +358,7 @@ export default function SettingsPage() {
     if (data?.user) setUser(data.user);
   };
 
-  if (isLoading && !storeUser) return <div className="einst-layout"><p style={{ color: 'var(--ui-text-muted)' }}>Lade Profil…</p></div>;
+  if (isLoading && !storeUser) return <div className="einst-layout"><p className="settings__muted-text">Lade Profil…</p></div>;
   if (!user && !isLoading) {
     router.replace('/login');
     return null;
