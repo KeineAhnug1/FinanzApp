@@ -343,3 +343,65 @@ export interface CreateAnswerRequest {
 export interface UpdateAnswerRequest {
   message: string;
 }
+
+// ---------------------------------------------------------------------------
+// User Default Bank Account (receiving account for peer transfers)
+// ---------------------------------------------------------------------------
+
+export interface SetDefaultAccountRequest {
+  bank_account_id: number;
+}
+
+// ---------------------------------------------------------------------------
+// Peer-to-peer Transfers
+// ---------------------------------------------------------------------------
+
+export interface CreatePeerTransferRequest {
+  recipient_username: string;
+  from_bank_account_id: number;
+  amount: number;
+  reason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Group Shared Expenses
+// ---------------------------------------------------------------------------
+
+export interface CreateGroupSharedExpenseRequest {
+  title: string;
+  info?: string;
+  total_amount: number;
+  payment_mode: 'prepaid' | 'postpaid';
+  cycle: 'once' | 'weekly' | 'monthly' | 'yearly';
+  participant_user_ids: number[];
+}
+
+export interface DecideSharedExpenseRequest {
+  decision: 'accept' | 'reject';
+}
+
+// ---------------------------------------------------------------------------
+// Group Trips
+// ---------------------------------------------------------------------------
+
+export interface CreateGroupTripRequest {
+  name: string;
+  description?: string;
+  participant_user_ids: number[];
+}
+
+export interface AddTripExpenseRequest {
+  payer_user_id: number;
+  description: string;
+  amount: number;
+  participant_user_ids: number[];
+  spent_at?: string;
+}
+
+export interface PaySettlementRequest {}
+
+// ---------------------------------------------------------------------------
+// Group Funding — archive
+// ---------------------------------------------------------------------------
+
+export interface ArchiveFundingRequest {}
