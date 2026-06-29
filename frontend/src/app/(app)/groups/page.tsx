@@ -15,6 +15,7 @@ import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
 import { ExpensesSection } from '@/components/groups/ExpensesSection';
 import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 import { FundingBalance } from '@/components/groups/FundingBalance';
+import { TripsSection } from '@/components/groups/TripsSection';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -294,6 +295,15 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
       </div>
 
       <ActivitiesSection groupId={groupId} activities={group.activities ?? []} canManage={true} />
+
+      {group.session_user_id !== undefined && (
+        <TripsSection
+          groupId={groupId}
+          members={group.members ?? []}
+          currentUserId={group.session_user_id}
+          isAdmin={!!isAdmin}
+        />
+      )}
 
       <div className="group-section">
         <h3 className="section-title">Sammelaktionen</h3>
