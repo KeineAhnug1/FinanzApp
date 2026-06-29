@@ -15,6 +15,7 @@ import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
 import { ExpensesSection } from '@/components/groups/ExpensesSection';
 import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 import { FundingBalance } from '@/components/groups/FundingBalance';
+import { GroupTransfersSection } from '@/components/groups/GroupTransfersSection';
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -402,6 +403,11 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           </div>
         </Modal>
       )}
+
+      <div className="group-section">
+        <h2 className="section-title">Gruppen-Überweisungen</h2>
+        <GroupTransfersSection groupId={groupId} />
+      </div>
     </div>
   );
 }
