@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import type { ExpenseView } from './types';
 
 interface ExpensesSectionProps {
@@ -177,7 +177,7 @@ export default function ExpensesSection({ groupId, fundingId, fundingAmount, exp
       method: 'POST', credentials: 'include', headers: csrfJsonHeaders(),
       body: JSON.stringify(buildPayload(data)),
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!result.ok) { toast.error(result.message ?? 'Fehler beim Anlegen'); return; }
     toast.success('Ausgabe angelegt');
     setShowAdd(false);
@@ -189,7 +189,7 @@ export default function ExpensesSection({ groupId, fundingId, fundingAmount, exp
       method: 'PATCH', credentials: 'include', headers: csrfJsonHeaders(),
       body: JSON.stringify(payload),
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!result.ok) { toast.error(result.message ?? 'Fehler beim Speichern'); return false; }
     toast.success(successMsg);
     invalidate();
@@ -212,7 +212,7 @@ export default function ExpensesSection({ groupId, fundingId, fundingAmount, exp
     const res = await fetch(apiUrl(`${baseUrl}/${deleting.group_expense_id}`), {
       method: 'DELETE', credentials: 'include', headers: { 'x-csrf-token': getCsrfToken() },
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!result.ok) { toast.error(result.message ?? 'Fehler beim Löschen'); return; }
     toast.success('Ausgabe gelöscht');
     setDeleting(null);

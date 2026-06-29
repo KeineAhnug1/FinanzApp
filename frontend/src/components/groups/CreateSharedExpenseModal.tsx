@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl } from '@/lib/api-client';
+import { apiUrl, safeJson } from '@/lib/api-client';
 import { csrfHeaders } from './api';
 import type { MemberView } from './types';
 
@@ -58,7 +58,7 @@ export function CreateSharedExpenseModal({ groupId, members, onClose }: Props) {
       headers: csrfHeaders(),
       body: JSON.stringify(body),
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!res.ok || !result.ok) {
       toast.error(result.message ?? 'Konnte geteilte Ausgabe nicht anlegen');
       return;

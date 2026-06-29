@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { toast } from '@/components/ui/Toast';
 
 interface DefaultAccountSelectorProps {
@@ -19,7 +19,7 @@ export function DefaultAccountSelector({ accountId, isDefault }: DefaultAccountS
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify({ bank_account_id: accountId }),
     });
-    const json = await res.json();
+    const json = await safeJson(res);
     if (!json.ok) {
       toast.error(json.message ?? 'Fehler');
       return;

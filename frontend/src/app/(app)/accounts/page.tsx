@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/Toast';
 import { ShareAccountsSection } from '@/components/accounts/ShareAccountsSection';
 import { DefaultAccountSelector } from '@/components/accounts/DefaultAccountSelector';
 import { BankAccountHistoryModal } from '@/components/accounts/BankAccountHistoryModal';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { useFinanceInvalidator } from '@/lib/finance-mutations';
 
 // Diverges from db BankAccount: backend serializes id as string and adds optional name/type fields not present in the DB row.
@@ -29,7 +29,7 @@ function formatMoney(amount: number): string {
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
-  return res.json();
+  return safeJson(res);
 }
 
 const addAccountSchema = z.object({

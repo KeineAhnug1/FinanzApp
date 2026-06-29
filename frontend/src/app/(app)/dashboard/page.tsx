@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import {
   formatMoney,
   type BankAccount,
@@ -27,7 +27,7 @@ const VALID_TABS: DashboardView[] = ['overview', 'income', 'expense', 'recurring
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
-  return res.json();
+  return safeJson(res);
 }
 
 export default function DashboardPage() {

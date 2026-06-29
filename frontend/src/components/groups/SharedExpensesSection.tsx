@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { csrfHeaders, formatMoney } from './api';
 import { CreateSharedExpenseModal } from './CreateSharedExpenseModal';
 import type {
@@ -112,7 +112,7 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
     queryKey,
     queryFn: async () => {
       const res = await fetch(apiUrl(`/api/groups/${groupId}/shared-expenses`), { credentials: 'include' });
-      const json = await res.json();
+      const json = await safeJson(res);
       if (!res.ok || !json.ok) throw new Error(json.message ?? 'Fehler beim Laden');
       const list = Array.isArray(json.shared_expenses) ? json.shared_expenses : (Array.isArray(json.expenses) ? json.expenses : []);
       return (list as Record<string, unknown>[]).map(parseExpense);
@@ -123,6 +123,9 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey });
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+    queryClient.invalidateQueries({ queryKey: ['peer-transfers'] });
+    queryClient.invalidateQueries({ queryKey: ['group', groupId, 'transfers'] });
   };
 
   const decide = async (expenseId: number, shareId: number, decision: 'accept' | 'reject') => {
@@ -134,7 +137,7 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
         headers: csrfHeaders(),
         body: JSON.stringify({ decision }),
       });
-      const result = await res.json();
+      const result = await safeJson(res);
       if (!res.ok || !result.ok) { toast.error(result.message ?? 'Fehler'); return; }
       toast.success(decision === 'accept' ? 'Akzeptiert' : 'Abgelehnt');
       invalidate();
@@ -154,7 +157,7 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
         headers: csrfHeaders(),
         body: JSON.stringify({}),
       });
-      const result = await res.json();
+      const result = await safeJson(res);
       if (!res.ok || !result.ok) { toast.error(result.message ?? 'Fehler'); return; }
       toast.success('Teilnahme beendet');
       invalidate();
@@ -173,7 +176,7 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
         credentials: 'include',
         headers: { 'x-csrf-token': getCsrfToken() },
       });
-      const result = await res.json();
+      const result = await safeJson(res);
       if (!res.ok || !result.ok) { toast.error(result.message ?? 'Fehler beim Löschen'); return; }
       toast.success('Gruppenausgabe gelöscht');
       setDeletingId(null);

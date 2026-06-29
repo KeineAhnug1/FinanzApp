@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { csrfHeaders, formatMoney } from './api';
 import { AddTripExpenseModal } from './AddTripExpenseModal';
 import type {
@@ -107,7 +107,7 @@ export function TripDetailView({ groupId, tripId, currentUserId, isAdmin, onClos
     queryKey: ['group', groupId, 'trip', tripId],
     queryFn: async () => {
       const res = await fetch(apiUrl(`/api/groups/${groupId}/trips/${tripId}`), { credentials: 'include' });
-      const json = await res.json();
+      const json = await safeJson(res);
       if (!json.ok) return null;
       return mapTripDetail(json.trip ?? json);
     },
@@ -144,7 +144,7 @@ export function TripDetailView({ groupId, tripId, currentUserId, isAdmin, onClos
       credentials: 'include',
       headers: csrfHeaders(),
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     setPayingSettlementId(null);
     if (!result.ok) { toast.error(result.message ?? 'Fehler beim Begleichen'); return; }
     toast.success('Schuld beglichen');
@@ -157,7 +157,7 @@ export function TripDetailView({ groupId, tripId, currentUserId, isAdmin, onClos
       apiUrl(`/api/groups/${groupId}/trips/${tripId}/expenses/${deletingExpense.id}`),
       { method: 'DELETE', credentials: 'include', headers: { 'x-csrf-token': getCsrfToken() } },
     );
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!result.ok) { toast.error(result.message ?? 'Fehler beim Löschen'); return; }
     toast.success('Ausgabe gelöscht');
     setDeletingExpense(null);
@@ -172,7 +172,7 @@ export function TripDetailView({ groupId, tripId, currentUserId, isAdmin, onClos
       credentials: 'include',
       headers: { 'x-csrf-token': getCsrfToken() },
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     setCloseBusy(false);
     if (!result.ok) { toast.error(result.message ?? 'Ausflug konnte nicht geschlossen werden'); return; }
     toast.success('Ausflug geschlossen');

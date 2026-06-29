@@ -3,7 +3,7 @@
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { useFinanceInvalidator } from '@/lib/finance-mutations';
 import { toast } from '@/components/ui/Toast';
 import {
@@ -88,7 +88,7 @@ export function ExpenseForm({
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify(body),
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!result.ok) {
       toast.error(result.message ?? 'Fehler beim Speichern');
       return;
