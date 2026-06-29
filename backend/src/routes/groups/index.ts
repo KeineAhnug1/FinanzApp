@@ -10,6 +10,7 @@ import membersRoutes from './members';
 import activitiesRoutes from './activities';
 import expensesRoutes from './expenses';
 import tripsRoutes from './trips';
+import sharedExpensesRoutes from './shared-expenses';
 
 const groups = new Hono<{ Bindings: Env }>();
 
@@ -522,5 +523,6 @@ groups.route('/', membersRoutes);
 groups.route('/', activitiesRoutes);
 groups.route('/', expensesRoutes);
 groups.route('/', tripsRoutes);
+groups.route('/', sharedExpensesRoutes);
 
 export default groups;
