@@ -176,7 +176,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           id: Number(f.funding_id),
           title: String(f.info ?? f.title ?? ''),
           target_amount: Number(f.target_amount ?? 0),
-          current_amount: Number(f.amount ?? 0),
+          current_amount: Number(f.total_donated ?? f.amount ?? 0),
           archived_at: f.archived_at ? String(f.archived_at) : null,
           created_at: f.created_at ? String(f.created_at) : null,
         })),
