@@ -589,13 +589,21 @@ trips.post('/:id/trips/:tripId/settlements/:settlementId/pay', async (c) => {
     return badRequest((err as Error).message);
   }
 
-  const { data: claimed } = await auth.db
+  // Atomic claim FIRST (so two simultaneous /pay requests can't both transfer).
+  // We mark the settlement 'paid' here, then attempt the transfer. If the transfer
+  // fails, we revert. If another request already paid (no row matched), we abort
+  // before moving any money.
+  const { data: claimed, error: claimError } = await auth.db
     .from('group_trip_settlements')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
     .eq('id', settlementId)
     .eq('status', 'open')
     .select('id')
     .single();
+  if (claimError && claimError.code !== 'PGRST116') {
+    console.error('[trips.pay] settlement claim failed', claimError);
+    return serverError(`Schuld konnte nicht beglichen werden: ${claimError.message}`);
+  }
   if (!claimed) return badRequest('Settlement wurde bereits beglichen');
 
   let transferId: number;
@@ -611,11 +619,15 @@ trips.post('/:id/trips/:tripId/settlements/:settlementId/pay', async (c) => {
       tripSettlementId: settlementId,
     });
   } catch (err) {
+    // createPeerTransfer rolls back its own DB writes + balance changes on failure.
+    // We only need to revert the settlement claim so the user can retry.
+    console.error('[trips.pay] createPeerTransfer failed, reverting settlement claim', err);
     await auth.db
       .from('group_trip_settlements')
       .update({ status: 'open', paid_at: null })
-      .eq('id', settlementId);
-    return serverError((err as Error).message);
+      .eq('id', settlementId)
+      ;
+    return serverError(`Schuld konnte nicht beglichen werden: ${(err as Error).message}`);
   }
 
   return jsonResponse({ ok: true, transfer_id: String(transferId) }, 200);

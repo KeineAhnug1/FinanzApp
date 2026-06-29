@@ -19,6 +19,7 @@ import {
   parsePaginationCursor,
   resolveEntryState,
   incrementBankAccountBalance,
+  transferBetweenAccounts,
   uniqueCategoryList,
   categoryKey,
   toFixedAmount,
@@ -896,8 +897,14 @@ finance.post('/transfers', async (c) => {
     return jsonResponse({ ok: false, message: `Überweisung fehlgeschlagen: ${incomeError?.message ?? 'unbekannt'}` }, 500);
   }
 
-  await incrementBankAccountBalance(auth.db, fromId, -amount);
-  await incrementBankAccountBalance(auth.db, toId, amount);
+  try {
+    await transferBetweenAccounts(auth.db, fromId, toId, amount);
+  } catch (transferErr) {
+    console.error('[finance.post /transfers] atomic balance transfer failed, rolling back ledger rows:', transferErr);
+    await auth.db.from('income').delete().eq('id', (incomeRow as { id: number }).id);
+    await auth.db.from('private_expenses').delete().eq('id', (expenseRow as { id: number }).id);
+    return jsonResponse({ ok: false, message: `Überweisung fehlgeschlagen: ${(transferErr as Error).message}` }, 500);
+  }
 
   await rememberUserCategory(auth.db, auth.user.id, 'expense', 'transfer');
   await rememberUserCategory(auth.db, auth.user.id, 'income', 'transfer');

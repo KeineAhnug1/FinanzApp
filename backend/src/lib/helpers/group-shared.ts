@@ -1,5 +1,5 @@
 import type { DbClient } from '@/lib/db';
-import { toFixedAmount, incrementBankAccountBalance } from './finance';
+import { toFixedAmount, transferBetweenAccounts } from './finance';
 
 export async function getDefaultAccountId(db: DbClient, userId: number): Promise<number | null> {
   const { data: user } = await db
@@ -53,7 +53,7 @@ export async function createPeerTransfer(db: DbClient, input: PeerTransferInput)
   }
 
   const now = new Date().toISOString();
-  const { data: inserted } = await db
+  const { data: inserted, error: tErr } = await db
     .from('transfers')
     .insert({
       from_user_id: input.fromUserId,
@@ -71,13 +71,74 @@ export async function createPeerTransfer(db: DbClient, input: PeerTransferInput)
     .select('id')
     .single();
 
-  const transferId = Number((inserted as Record<string, unknown> | null)?.id);
+  if (tErr || !inserted) {
+    console.error('[group-shared.createPeerTransfer] transfers insert failed', tErr);
+    throw new Error(`Transfer-Insert fehlgeschlagen: ${tErr?.message ?? 'unbekannter Fehler'}`);
+  }
+
+  const transferId = Number((inserted as Record<string, unknown>).id);
   if (!Number.isFinite(transferId) || transferId <= 0) {
     throw new Error('Transfer-Insert fehlgeschlagen');
   }
 
-  await incrementBankAccountBalance(db, input.fromBankAccountId, -amount);
-  await incrementBankAccountBalance(db, input.toBankAccountId, amount);
+  // Paired ledger entries: appear in sender's expenses + recipient's income with transfer_id tag
+  const { error: expenseErr } = await db.from('private_expenses').insert({
+    bank_account_id: input.fromBankAccountId,
+    source: input.reason,
+    category: 'transfer',
+    amount,
+    theo_amount: amount,
+    spent_at: now,
+    due_date: now,
+    pay_date: now,
+    info: input.reason,
+    state: 'open',
+    note: '',
+    recurrence: null,
+    cycle: 'once',
+    is_active: true,
+    transfer_id: transferId,
+    group_id: input.groupId ?? null,
+  });
+  if (expenseErr) {
+    console.error('[group-shared.createPeerTransfer] private_expenses insert failed', expenseErr);
+    await db.from('transfers').delete().eq('id', transferId);
+    throw new Error(`Buchung fehlgeschlagen: ${expenseErr.message}`);
+  }
+
+  const { error: incomeErr } = await db.from('income').insert({
+    bank_account_id: input.toBankAccountId,
+    source: input.reason,
+    category: 'transfer',
+    amount,
+    received_at: now,
+    pay_date: now,
+    info: input.reason,
+    note: '',
+    recurrence: null,
+    cycle: 'once',
+    is_active: true,
+    state: 'open',
+    transfer_id: transferId,
+    group_id: input.groupId ?? null,
+  });
+  if (incomeErr) {
+    console.error('[group-shared.createPeerTransfer] income insert failed', incomeErr);
+    await db.from('private_expenses').delete().eq('transfer_id', transferId);
+    await db.from('transfers').delete().eq('id', transferId);
+    throw new Error(`Buchung fehlgeschlagen: ${incomeErr.message}`);
+  }
+
+  // Atomic balance transfer — both UPDATE statements run in a single PL/pgSQL transaction
+  try {
+    await transferBetweenAccounts(db, input.fromBankAccountId, input.toBankAccountId, amount);
+  } catch (err) {
+    console.error('[group-shared.createPeerTransfer] atomic transfer failed, rolling back ledger', err);
+    await db.from('income').delete().eq('transfer_id', transferId);
+    await db.from('private_expenses').delete().eq('transfer_id', transferId);
+    await db.from('transfers').delete().eq('id', transferId);
+    throw err;
+  }
 
   return transferId;
 }

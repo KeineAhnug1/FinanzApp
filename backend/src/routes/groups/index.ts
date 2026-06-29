@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/helpers/auth';
 import { checkCsrf } from '@/lib/utils/csrf';
 import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody } from '@/lib/utils/http';
-import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/responses';
+import { badRequest, forbidden, notFound, jsonResponse, serverError } from '@/lib/utils/responses';
 import { toNum, getGroupCtx, requireAdmin } from './_shared';
 import membersRoutes from './members';
 import activitiesRoutes from './activities';
@@ -356,10 +356,10 @@ groups.post('/:id/funding', async (c) => {
 
   const activityId = payload.group_activity_id ? Number(payload.group_activity_id) : null;
 
-  const { data } = await auth.db.from('group_funding')
+  const { data, error } = await auth.db.from('group_funding')
     .insert({
       group_id: groupId,
-      group_activity_id: activityId || null,
+      group_activity_id: activityId,
       amount: 0,
       info,
       target_amount: targetAmount,
@@ -367,16 +367,21 @@ groups.post('/:id/funding', async (c) => {
     })
     .select('id, group_activity_id, amount, info, target_amount, status, created_at').single();
 
+  if (error || !data) {
+    console.error('[funding.create] insert failed', error);
+    return serverError(`Sammelaktion konnte nicht angelegt werden: ${error?.message ?? 'unbekannter Fehler'}`);
+  }
+
   return jsonResponse({
     ok: true,
     funding: {
-      funding_id: String(data?.id),
+      funding_id: String(data.id),
       group_activity_id: activityId ? String(activityId) : null,
       amount: 0,
       info,
       target_amount: targetAmount,
       status: 'open',
-      created_at: data?.created_at ?? null,
+      created_at: data.created_at ?? null,
     },
   }, 201);
 });
@@ -413,15 +418,26 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
   const bankAccount = bankAccounts?.[0];
   if (!bankAccount) return badRequest('No bank account available for this user');
 
-  const { data: rpcData } = await auth.db.rpc('contribute_to_funding', {
+  const rpcResult = await auth.db.rpc('contribute_to_funding', {
     p_funding_id: fundingId,
     p_amount: requestedAmount,
-  });
-  const actualAmount = Number(rpcData ?? 0);
+  }) as { data: unknown; error: { message?: string } | null };
+  if (rpcResult.error) {
+    console.error('[funding.donate] contribute_to_funding RPC failed', rpcResult.error);
+    return serverError(`Spende fehlgeschlagen: ${rpcResult.error.message ?? 'RPC-Fehler'}`);
+  }
+  const actualAmount = Number(rpcResult.data ?? 0);
   if (!Number.isFinite(actualAmount) || actualAmount <= 0) return badRequest('Sammelaktion bereits voll');
 
   const now = new Date().toISOString();
   const donationLabel = funding.info ? `Funding donation: ${funding.info}` : 'Funding donation';
+
+  // Race-safe rollback helper: uses `refund_from_funding` RPC which decrements
+  // by delta (not absolute) and atomically reverts 'completed' status if the
+  // pool drops below target. Safe against concurrent donors.
+  const rollbackPool = async () => {
+    await auth.db.rpc('refund_from_funding', { p_funding_id: fundingId, p_amount: actualAmount });
+  };
 
   const { data: existingParticipant } = await auth.db.from('funding_participants').select('id, amount')
     .eq('group_funding_id', fundingId).eq('bank_account_id', bankAccount.id).single();
@@ -429,25 +445,72 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
   let fundingParticipantId: number;
   if (existingParticipant) {
     const newAmount = Number((Number(existingParticipant.amount ?? 0) + actualAmount).toFixed(2));
-    await auth.db.from('funding_participants').update({ amount: newAmount }).eq('id', existingParticipant.id);
+    const { error: updateErr } = await auth.db.from('funding_participants').update({ amount: newAmount }).eq('id', existingParticipant.id);
+    if (updateErr) {
+      console.error('[funding.donate] funding_participants update failed', updateErr);
+      await rollbackPool();
+      return serverError(`Spende konnte nicht verbucht werden: ${updateErr.message}`);
+    }
     fundingParticipantId = existingParticipant.id;
   } else {
-    const { data: inserted } = await auth.db.from('funding_participants')
+    const { data: inserted, error: insertErr } = await auth.db.from('funding_participants')
       .insert({ group_funding_id: fundingId, bank_account_id: bankAccount.id, amount: actualAmount })
       .select('id').single();
-    fundingParticipantId = inserted!.id;
+    if (insertErr || !inserted) {
+      console.error('[funding.donate] funding_participants insert failed', insertErr);
+      await rollbackPool();
+      return serverError(`Spende konnte nicht verbucht werden: ${insertErr?.message ?? 'unbekannter Fehler'}`);
+    }
+    fundingParticipantId = inserted.id;
   }
 
-  const { data: expense } = await auth.db.from('private_expenses').insert({
+  const { data: expense, error: expenseErr } = await auth.db.from('private_expenses').insert({
     bank_account_id: bankAccount.id, source: donationLabel, category: 'other',
     amount: actualAmount, theo_amount: actualAmount, spent_at: now, due_date: now, pay_date: now,
     info: donationLabel, note: donationLabel, state: 'open', recurrence: null, cycle: 'once', is_active: true,
     group_funding_id: fundingId, funding_participant_id: fundingParticipantId,
   }).select('id').single();
 
-  if (expense) {
-    await auth.db.from('transactions').insert({ private_expense_id: expense.id });
-    await auth.db.rpc('increment_bank_balance', { p_account_id: bankAccount.id, p_delta: -actualAmount });
+  if (expenseErr || !expense) {
+    console.error('[funding.donate] private_expenses insert failed', expenseErr);
+    if (existingParticipant) {
+      await auth.db.from('funding_participants')
+        .update({ amount: Number(existingParticipant.amount ?? 0) })
+        .eq('id', existingParticipant.id)
+        ;
+    } else {
+      await auth.db.from('funding_participants').delete().eq('id', fundingParticipantId);
+    }
+    await rollbackPool();
+    return serverError(`Spende konnte nicht verbucht werden: ${expenseErr?.message ?? 'expense insert failed'}`);
+  }
+
+  // Money debit MUST happen — if it fails after the pool/participant/expense already exist,
+  // we'd have invented money. Roll back everything if the balance RPC errors.
+  const balanceRpc = await auth.db.rpc('increment_bank_balance', {
+    p_account_id: bankAccount.id,
+    p_delta: -actualAmount,
+  }) as { error: { message: string } | null };
+  if (balanceRpc.error) {
+    console.error('[funding.donate] balance debit failed, rolling back everything', balanceRpc.error);
+    await auth.db.from('private_expenses').delete().eq('id', expense.id);
+    if (existingParticipant) {
+      await auth.db.from('funding_participants')
+        .update({ amount: Number(existingParticipant.amount ?? 0) })
+        .eq('id', existingParticipant.id);
+    } else {
+      await auth.db.from('funding_participants').delete().eq('id', fundingParticipantId);
+    }
+    await rollbackPool();
+    return serverError(`Spende konnte nicht verbucht werden: ${balanceRpc.error.message}`);
+  }
+
+  // Audit log entry — best-effort; if it fails the money is correctly tracked
+  // in private_expenses + funding_participants, just not in the legacy
+  // transactions audit table. Logged but not rolled back.
+  const auditResult = await auth.db.from('transactions').insert({ private_expense_id: expense.id });
+  if ((auditResult as { error: { message: string } | null }).error) {
+    console.error('[funding.donate] transactions audit insert failed (non-fatal)', (auditResult as { error: { message: string } }).error);
   }
 
   return jsonResponse({

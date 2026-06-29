@@ -274,6 +274,30 @@ export async function incrementBankAccountBalance(db: DbClient, accountId: strin
   await db.rpc('increment_bank_balance', { p_account_id: Number(accountId), p_delta: delta });
 }
 
+/**
+ * Atomically move `amount` from `fromId` to `toId` in a single Postgres transaction.
+ * Uses the `transfer_between_accounts` RPC which performs both UPDATEs inside one
+ * PL/pgSQL function — even if Hyperdrive drops the connection mid-call, the DB
+ * transaction is either fully applied or fully rolled back. No money-loss possible.
+ * Throws on RPC error (e.g. account not found, amount <= 0, same account).
+ */
+export async function transferBetweenAccounts(
+  db: DbClient,
+  fromId: number,
+  toId: number,
+  amount: number,
+): Promise<void> {
+  const safeAmount = toFixedAmount(amount);
+  if (safeAmount <= 0) throw new Error('Betrag muss > 0 sein');
+  if (fromId === toId) throw new Error('Quell- und Zielkonto müssen unterschiedlich sein');
+  const { error } = await db.rpc('transfer_between_accounts', {
+    p_from_id: Number(fromId),
+    p_to_id: Number(toId),
+    p_amount: safeAmount,
+  }) as { data: unknown; error: { message: string } | null };
+  if (error) throw new Error(`atomic transfer failed: ${error.message}`);
+}
+
 export async function createPeerTransfer(
   db: DbClient,
   fromUserId: number,
@@ -288,6 +312,7 @@ export async function createPeerTransfer(
 ): Promise<{ transferId: number } | { error: string }> {
   const safeAmount = toFixedAmount(amount);
   if (safeAmount <= 0) return { error: 'Betrag muss > 0 sein' };
+  if (fromBankAccountId === toBankAccountId) return { error: 'Quell- und Zielkonto müssen unterschiedlich sein' };
   const nowIso = new Date().toISOString();
   const { data: transfer, error: tErr } = await db.from('transfers').insert({
     from_user_id: fromUserId,
@@ -302,9 +327,14 @@ export async function createPeerTransfer(
     status: 'completed',
     completed_at: nowIso,
   }).select('id').single();
-  if (tErr || !transfer) return { error: 'Überweisung fehlgeschlagen' };
+  if (tErr || !transfer) {
+    console.error('[createPeerTransfer] transfers insert failed', tErr);
+    return { error: `Überweisung fehlgeschlagen: ${tErr?.message ?? 'unbekannter Fehler'}` };
+  }
 
-  await db.from('private_expenses').insert({
+  const transferId = Number(transfer.id);
+
+  const { error: expenseErr } = await db.from('private_expenses').insert({
     bank_account_id: fromBankAccountId,
     source: reason,
     category: 'transfer',
@@ -319,10 +349,15 @@ export async function createPeerTransfer(
     recurrence: null,
     cycle: 'once',
     is_active: true,
-    transfer_id: transfer.id,
+    transfer_id: transferId,
     group_id: groupId,
   });
-  await db.from('income').insert({
+  if (expenseErr) {
+    console.error('[createPeerTransfer] private_expenses insert failed', expenseErr);
+    await db.from('transfers').delete().eq('id', transferId);
+    return { error: `Überweisung fehlgeschlagen: ${expenseErr.message}` };
+  }
+  const { error: incomeErr } = await db.from('income').insert({
     bank_account_id: toBankAccountId,
     source: reason,
     category: 'transfer',
@@ -335,14 +370,27 @@ export async function createPeerTransfer(
     cycle: 'once',
     is_active: true,
     state: 'open',
-    transfer_id: transfer.id,
+    transfer_id: transferId,
     group_id: groupId,
   });
+  if (incomeErr) {
+    console.error('[createPeerTransfer] income insert failed', incomeErr);
+    await db.from('private_expenses').delete().eq('transfer_id', transferId);
+    await db.from('transfers').delete().eq('id', transferId);
+    return { error: `Überweisung fehlgeschlagen: ${incomeErr.message}` };
+  }
 
-  await incrementBankAccountBalance(db, fromBankAccountId, -safeAmount);
-  await incrementBankAccountBalance(db, toBankAccountId, safeAmount);
+  try {
+    await transferBetweenAccounts(db, fromBankAccountId, toBankAccountId, safeAmount);
+  } catch (err) {
+    console.error('[createPeerTransfer] atomic transfer failed', err);
+    await db.from('income').delete().eq('transfer_id', transferId);
+    await db.from('private_expenses').delete().eq('transfer_id', transferId);
+    await db.from('transfers').delete().eq('id', transferId);
+    return { error: (err as Error).message };
+  }
 
-  return { transferId: Number(transfer.id) };
+  return { transferId };
 }
 
 export async function rememberUserCategory(

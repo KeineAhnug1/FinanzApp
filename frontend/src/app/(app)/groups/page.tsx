@@ -298,6 +298,8 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
     }
     setDonateAmount((prev) => ({ ...prev, [fundingId]: '' }));
     queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
   };
 
   const archiveFunding = async (fundingId: number) => {

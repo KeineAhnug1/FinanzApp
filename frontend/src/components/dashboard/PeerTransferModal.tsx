@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { formatMoney, type BankAccount } from './types';
 
 const peerTransferSchema = z.object({
@@ -50,7 +50,7 @@ export function PeerTransferModal({
         reason: data.reason?.trim() || undefined,
       }),
     });
-    const result = await res.json();
+    const result = await safeJson(res);
     if (!result.ok) {
       toast.error(result.message ?? 'Überweisung fehlgeschlagen');
       return;

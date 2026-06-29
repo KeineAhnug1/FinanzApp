@@ -1,8 +1,8 @@
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 
 export async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
-  return res.json();
+  return safeJson(res);
 }
 
 export function formatMoney(n: number): string {

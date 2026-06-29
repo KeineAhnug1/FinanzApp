@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
-import { apiUrl } from '@/lib/api-client';
+import { apiUrl, safeJsonOrThrow } from '@/lib/api-client';
 import { formatMoney } from './types';
 
 interface TransferUserDto {
@@ -51,7 +51,7 @@ function toAmount(v: TransferDto['amount']): number {
 
 async function fetchTransfers(): Promise<TransferDto[]> {
   const res = await fetch(apiUrl('/api/finance/peer-transfers'), { credentials: 'include' });
-  const d = await res.json();
+  const d = await safeJsonOrThrow(res);
   return (d.items ?? []) as TransferDto[];
 }
 

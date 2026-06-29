@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import type { TripParticipantView } from './types';
 
 const addExpenseSchema = z.object({
@@ -72,7 +72,7 @@ export function AddTripExpenseModal({
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify(body),
     });
-    const result = await res.json().catch(() => ({ ok: false, message: 'Antwort konnte nicht gelesen werden' }));
+    const result = await safeJson(res);
     if (!res.ok || !result.ok) {
       toast.error(result.message ?? 'Ausgabe konnte nicht angelegt werden');
       return;
