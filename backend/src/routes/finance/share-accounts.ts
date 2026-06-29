@@ -98,6 +98,109 @@ shareAccounts.post('/share-accounts', async (c) => {
   }, 201);
 });
 
+shareAccounts.get('/share-accounts/:id/history', async (c) => {
+  const accountIdRaw = c.req.param('id');
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+
+  const accountId = Number(accountIdRaw);
+  if (!Number.isFinite(accountId) || accountId <= 0) return badRequest('share_account_id ist ungültig');
+
+  const { data: owned } = await auth.db
+    .from('share_accounts')
+    .select('id, label')
+    .eq('id', accountId)
+    .eq('user_id', auth.user.id)
+    .single();
+  if (!owned) return notFound('Aktienkonto nicht gefunden');
+
+  // The shares table uses `bought_at` (set by /api/stocks/positions/buy) for the trade
+  // timestamp. Older rows may not have it populated, so the column is requested but the
+  // value is allowed to be null. Filter is identical to the list endpoint that already
+  // works for this user, so the row visibility cannot diverge.
+  const { data: rawLots, error: shareErr } = await auth.db
+    .from('shares')
+    .select('id, symbol, units, bought_for, bought_at')
+    .eq('share_account_id', accountId);
+
+  if (shareErr) {
+    return jsonResponse(
+      { ok: false, message: `shares-Query fehlgeschlagen: ${shareErr.message ?? 'unbekannt'}` },
+      500,
+    );
+  }
+
+  let lots = (rawLots ?? []) as Record<string, unknown>[];
+
+  // Fallback: some older inserts only populated `depot_id`, not `share_account_id`.
+  // If the primary filter returns nothing, try the legacy column so the modal stays in sync
+  // with the list endpoint's count.
+  if (lots.length === 0) {
+    const { data: legacyLots } = await auth.db
+      .from('shares')
+      .select('id, symbol, units, bought_for, bought_at')
+      .eq('depot_id', accountId);
+    if (Array.isArray(legacyLots) && legacyLots.length > 0) {
+      lots = legacyLots as Record<string, unknown>[];
+    }
+  }
+
+  type Trade = { id: string; units: number; bought_for: number; total: number; created_at: string | null };
+  type Position = { symbol: string; total_shares: number; total_invested: number; trades: Trade[] };
+
+  const bySymbol = new Map<string, Position>();
+  for (const row of lots) {
+    const symbol = String(row.symbol ?? '').trim().toUpperCase();
+    if (!symbol) continue;
+    const units = Number(row.units);
+    const boughtFor = Number(row.bought_for);
+    if (!Number.isFinite(units) || !Number.isFinite(boughtFor)) continue;
+
+    const total = toFixedAmount(units * boughtFor);
+    const boughtAt = row.bought_at instanceof Date
+      ? row.bought_at.toISOString()
+      : (row.bought_at as string | null) ?? null;
+    const trade: Trade = {
+      id: String(row.id),
+      units,
+      bought_for: toFixedAmount(boughtFor),
+      total,
+      created_at: boughtAt,
+    };
+
+    const existing = bySymbol.get(symbol);
+    if (existing) {
+      existing.total_shares = Math.round((existing.total_shares + units) * 1_000_000) / 1_000_000;
+      existing.total_invested = toFixedAmount(existing.total_invested + total);
+      existing.trades.push(trade);
+    } else {
+      bySymbol.set(symbol, {
+        symbol,
+        total_shares: Math.round(units * 1_000_000) / 1_000_000,
+        total_invested: total,
+        trades: [trade],
+      });
+    }
+  }
+
+  const positions = [...bySymbol.values()]
+    .map((p) => ({
+      ...p,
+      trades: p.trades.slice().sort((a, b) => {
+        const ta = a.created_at ? Date.parse(a.created_at) : 0;
+        const tb = b.created_at ? Date.parse(b.created_at) : 0;
+        return tb - ta;
+      }),
+    }))
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+  return jsonResponse({
+    ok: true,
+    label: String(owned.label ?? `Aktienkonto ${accountId}`),
+    positions,
+  }, 200);
+});
+
 shareAccounts.patch('/share-accounts/:id', async (c) => {
   const accountIdRaw = c.req.param('id');
   const auth = await requireAuth(c);

@@ -22,6 +22,7 @@ import {
   uniqueCategoryList,
   categoryKey,
   toFixedAmount,
+  assertDateAfterAccountOpening,
   PRESET_INCOME_CATEGORY_KEYS,
   PRESET_EXPENSE_CATEGORY_KEYS,
 } from '@/lib/helpers/finance';
@@ -63,13 +64,51 @@ finance.post('/bank-accounts', async (c) => {
   const initialBalance = Number(payload.initial_balance ?? 0);
   const startBalance = Number.isFinite(initialBalance) && initialBalance >= 0 ? Math.round(initialBalance * 100) / 100 : 0;
 
+  // Account-balance starts at 0; the opening capital becomes a regular income entry so
+  // the running balance is always "sum of bookings".
   const { data } = await auth.db
     .from('bank_accounts')
-    .insert({ user_id: auth.user.id, label, balance: startBalance })
-    .select('id, label, balance')
+    .insert({ user_id: auth.user.id, label, balance: 0 })
+    .select('id, label, balance, created_at')
     .single();
 
-  return jsonResponse({ ok: true, account: { id: String(data?.id), label, balance: startBalance } }, 201);
+  if (!data) return jsonResponse({ ok: false, message: 'Konto konnte nicht erstellt werden' }, 500);
+
+  const accountId = Number((data as Record<string, unknown>).id);
+  const createdAtRaw = (data as Record<string, unknown>).created_at;
+  const createdAtIso = createdAtRaw instanceof Date
+    ? createdAtRaw.toISOString()
+    : typeof createdAtRaw === 'string'
+      ? createdAtRaw
+      : new Date().toISOString();
+
+  if (startBalance > 0) {
+    await auth.db.from('income').insert({
+      bank_account_id: accountId,
+      source: 'Startkapital',
+      category: 'opening',
+      amount: startBalance,
+      received_at: createdAtIso,
+      pay_date: createdAtIso,
+      note: '',
+      info: 'Startkapital',
+      recurrence: null,
+      cycle: 'once',
+      is_active: true,
+      state: 'open',
+    });
+    await incrementBankAccountBalance(auth.db, accountId, startBalance);
+  }
+
+  return jsonResponse({
+    ok: true,
+    account: {
+      id: String(accountId),
+      label,
+      balance: startBalance,
+      created_at: createdAtIso,
+    },
+  }, 201);
 });
 
 finance.patch('/bank-accounts/:id', async (c) => {
@@ -383,6 +422,9 @@ finance.post('/expenses', async (c) => {
   const bankAccountId = selectedId && accountIds.includes(selectedId) ? selectedId : (accountIds[0] ?? 0);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
+  const dateErr = await assertDateAfterAccountOpening(auth.db, bankAccountId, spentAt);
+  if (dateErr) return badRequest(dateErr);
+
   const { data: inserted } = await auth.db.from('private_expenses').insert({
     bank_account_id: bankAccountId,
     source, category, amount, theo_amount: amount,
@@ -449,6 +491,9 @@ finance.patch('/expenses/:id', async (c) => {
     : Number(existing.bank_account_id);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
+  const dateErr = await assertDateAfterAccountOpening(auth.db, nextAccountId, spentAt);
+  if (dateErr) return badRequest(dateErr);
+
   const { data: updated } = await auth.db.from('private_expenses').update({
     bank_account_id: nextAccountId,
     source, category, note, amount, theo_amount: amount,
@@ -489,7 +534,7 @@ finance.delete('/expenses/:id', async (c) => {
 
   const { data: existing } = await auth.db
     .from('private_expenses')
-    .select('id, amount, bank_account_id, transfer_id')
+    .select('id, amount, bank_account_id, transfer_id, is_active')
     .eq('id', entryId)
     .in('bank_account_id', accountIds)
     .single();
@@ -497,8 +542,26 @@ finance.delete('/expenses/:id', async (c) => {
   if (!existing) return notFound('Eintrag wurde nicht gefunden');
   if (existing.transfer_id != null) return badRequest('Überweisungen können nicht bearbeitet oder gelöscht werden');
 
-  await auth.db.from('private_expenses').delete().eq('id', entryId);
-  await incrementBankAccountBalance(auth.db, Number(existing.bank_account_id), toFixedAmount(existing.amount));
+  // See income DELETE: if a check-constraint trigger blocks hard DELETE, fall back to
+  // a soft delete so the entry vanishes from every user-facing view.
+  const wasActive = (existing as { is_active?: boolean }).is_active !== false;
+
+  const { error: deleteError } = await auth.db.from('private_expenses').delete().eq('id', entryId);
+  if (deleteError) {
+    console.error('[finance.delete /expenses/:id] hard delete failed, falling back to soft delete:', deleteError);
+    const { error: softError } = await auth.db
+      .from('private_expenses')
+      .update({ is_active: false, state: 'completed' })
+      .eq('id', entryId);
+    if (softError) {
+      console.error('[finance.delete /expenses/:id] soft delete also failed:', softError);
+      return jsonResponse({ ok: false, message: `Eintrag konnte nicht gelöscht werden: ${softError.message ?? 'unbekannt'}` }, 500);
+    }
+  }
+
+  if (wasActive) {
+    await incrementBankAccountBalance(auth.db, Number(existing.bank_account_id), toFixedAmount(existing.amount));
+  }
 
   return jsonResponse({ ok: true, message: 'Eintrag gelöscht' }, 200);
 });
@@ -581,6 +644,9 @@ finance.post('/income', async (c) => {
   const bankAccountId = selectedId && accountIds.includes(selectedId) ? selectedId : (accountIds[0] ?? 0);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
+  const dateErr = await assertDateAfterAccountOpening(auth.db, bankAccountId, receivedAt);
+  if (dateErr) return badRequest(dateErr);
+
   const { data: inserted } = await auth.db.from('income').insert({
     bank_account_id: bankAccountId,
     source, category, amount,
@@ -648,6 +714,9 @@ finance.patch('/income/:id', async (c) => {
     : Number(existing.bank_account_id);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
+  const dateErr = await assertDateAfterAccountOpening(auth.db, nextAccountId, receivedAt);
+  if (dateErr) return badRequest(dateErr);
+
   const { data: updated } = await auth.db.from('income').update({
     bank_account_id: nextAccountId,
     source, category, note,
@@ -688,7 +757,7 @@ finance.delete('/income/:id', async (c) => {
 
   const { data: existing } = await auth.db
     .from('income')
-    .select('id, amount, bank_account_id, transfer_id')
+    .select('id, amount, bank_account_id, transfer_id, is_active')
     .eq('id', entryId)
     .in('bank_account_id', accountIds)
     .single();
@@ -696,10 +765,148 @@ finance.delete('/income/:id', async (c) => {
   if (!existing) return notFound('Eintrag wurde nicht gefunden');
   if (existing.transfer_id != null) return badRequest('Überweisungen können nicht bearbeitet oder gelöscht werden');
 
-  await auth.db.from('income').delete().eq('id', entryId);
-  await incrementBankAccountBalance(auth.db, Number(existing.bank_account_id), -toFixedAmount(existing.amount));
+  // Some Supabase setups install a check constraint trigger on a parent `transactions` log
+  // that prevents hard DELETE (constraint `transactions_has_source` fires on the synthetic
+  // delete-row). When the hard delete is blocked, fall back to a soft-delete (state:
+  // 'completed', is_active: false) so the entry vanishes from every user-facing view while
+  // the audit trail in `transactions` stays intact.
+  const wasActive = (existing as { is_active?: boolean }).is_active !== false;
+
+  const { error: deleteError } = await auth.db.from('income').delete().eq('id', entryId);
+  if (deleteError) {
+    console.error('[finance.delete /income/:id] hard delete failed, falling back to soft delete:', deleteError);
+    const { error: softError } = await auth.db
+      .from('income')
+      .update({ is_active: false, state: 'completed' })
+      .eq('id', entryId);
+    if (softError) {
+      console.error('[finance.delete /income/:id] soft delete also failed:', softError);
+      return jsonResponse({ ok: false, message: `Eintrag konnte nicht gelöscht werden: ${softError.message ?? 'unbekannt'}` }, 500);
+    }
+  }
+
+  // Reverse the balance impact only if the entry was still "active" — otherwise its
+  // amount was already removed from the balance by a previous soft delete.
+  if (wasActive) {
+    await incrementBankAccountBalance(auth.db, Number(existing.bank_account_id), -toFixedAmount(existing.amount));
+  }
 
   return jsonResponse({ ok: true, message: 'Eintrag gelöscht' }, 200);
+});
+
+// ---------------------------------------------------------------------------
+// Transfers between bank accounts
+// ---------------------------------------------------------------------------
+
+// POST /api/finance/transfers — { from_account_id, to_account_id, amount, date?, label? }
+// Records the transfer as a paired expense (source side) and income (target side), both
+// with category 'transfer', so the two account balances move atomically.
+finance.post('/transfers', async (c) => {
+  const request = c.req.raw;
+
+  const rl = checkRateLimit(request, { maxAttempts: 60, windowMs: 60_000, group: 'finance-write' });
+  if (rl) return rl;
+
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+
+  const csrf = await checkCsrf(request);
+  if (csrf) return csrf;
+
+  const userAccounts = await ensureUserFinanceRoots(auth.db, auth.user.id);
+  const accountIds = userAccounts.map((a: { id: string }) => Number(a.id));
+  const accountById = new Map<number, { id: string; label: string }>();
+  for (const a of userAccounts as { id: string; label: string }[]) {
+    accountById.set(Number(a.id), a);
+  }
+
+  const payload = await parseBody<Record<string, unknown>>(request);
+  const fromId = Number(payload.from_account_id);
+  const toId = Number(payload.to_account_id);
+  const amount = toFixedAmount(payload.amount);
+  const dateRaw = payload.date ? new Date(String(payload.date)) : new Date();
+  const userLabel = String(payload.label ?? '').trim();
+
+  if (!Number.isFinite(fromId) || !accountIds.includes(fromId)) return badRequest('Quellkonto ist ungültig');
+  if (!Number.isFinite(toId) || !accountIds.includes(toId)) return badRequest('Zielkonto ist ungültig');
+  if (fromId === toId) return badRequest('Quell- und Zielkonto müssen unterschiedlich sein');
+  if (!Number.isFinite(amount) || amount <= 0) return badRequest('Betrag muss größer 0 sein');
+  if (Number.isNaN(dateRaw.getTime())) return badRequest('Datum ist ungültig');
+
+  const fromDateErr = await assertDateAfterAccountOpening(auth.db, fromId, dateRaw);
+  if (fromDateErr) return badRequest(fromDateErr);
+  const toDateErr = await assertDateAfterAccountOpening(auth.db, toId, dateRaw);
+  if (toDateErr) return badRequest(toDateErr);
+
+  const fromAccount = accountById.get(fromId)!;
+  const toAccount = accountById.get(toId)!;
+
+  const expenseSource = userLabel || `Transfer an ${toAccount.label}`;
+  const incomeSource = userLabel || `Transfer von ${fromAccount.label}`;
+  const dateIso = dateRaw.toISOString();
+
+  const { data: expenseRow, error: expenseError } = await auth.db.from('private_expenses').insert({
+    bank_account_id: fromId,
+    source: expenseSource,
+    category: 'transfer',
+    amount,
+    theo_amount: amount,
+    spent_at: dateIso,
+    due_date: dateIso,
+    pay_date: dateIso,
+    info: expenseSource,
+    state: 'open',
+    note: '',
+    recurrence: null,
+    cycle: 'once',
+    is_active: true,
+  }).select('*').single();
+  if (expenseError || !expenseRow) {
+    console.error('[finance.post /transfers] expense insert failed:', expenseError);
+    return jsonResponse({ ok: false, message: `Überweisung fehlgeschlagen: ${expenseError?.message ?? 'unbekannt'}` }, 500);
+  }
+
+  const { data: incomeRow, error: incomeError } = await auth.db.from('income').insert({
+    bank_account_id: toId,
+    source: incomeSource,
+    category: 'transfer',
+    amount,
+    received_at: dateIso,
+    pay_date: dateIso,
+    info: incomeSource,
+    note: '',
+    recurrence: null,
+    cycle: 'once',
+    is_active: true,
+    state: 'open',
+  }).select('*').single();
+  if (incomeError || !incomeRow) {
+    console.error('[finance.post /transfers] income insert failed, rolling back expense:', incomeError);
+    // Best-effort rollback: try hard delete, fall back to soft delete on constraint failure.
+    const { error: rollbackError } = await auth.db
+      .from('private_expenses')
+      .delete()
+      .eq('id', (expenseRow as { id: number }).id);
+    if (rollbackError) {
+      await auth.db
+        .from('private_expenses')
+        .update({ is_active: false, state: 'completed' })
+        .eq('id', (expenseRow as { id: number }).id);
+    }
+    return jsonResponse({ ok: false, message: `Überweisung fehlgeschlagen: ${incomeError?.message ?? 'unbekannt'}` }, 500);
+  }
+
+  await incrementBankAccountBalance(auth.db, fromId, -amount);
+  await incrementBankAccountBalance(auth.db, toId, amount);
+
+  await rememberUserCategory(auth.db, auth.user.id, 'expense', 'transfer');
+  await rememberUserCategory(auth.db, auth.user.id, 'income', 'transfer');
+
+  return jsonResponse({
+    ok: true,
+    expense: serializeExpenseEntry(expenseRow as Record<string, unknown>, auth.user.id),
+    income: serializeIncomeEntry(incomeRow as Record<string, unknown>, auth.user.id),
+  }, 201);
 });
 
 // ---------------------------------------------------------------------------
@@ -742,14 +949,18 @@ finance.get('/transactions', async (c) => {
 
   type Row = Record<string, unknown> & { _sortAt?: number; _id?: number; _type?: string };
 
+  // Hide soft-deleted entries from all user-facing dashboard views.
+  const isSoftDeleted = (r: Record<string, unknown>) =>
+    r.is_active === false && r.state === 'completed';
+
   const allEntries: Row[] = [
-    ...(incomeRows ?? []).map((r: Record<string, unknown>) => ({
+    ...(incomeRows ?? []).filter((r: Record<string, unknown>) => !isSoftDeleted(r)).map((r: Record<string, unknown>) => ({
       ...r,
       _type: 'income',
       _sortAt: new Date(String(r.received_at ?? r.pay_date ?? r.created_at ?? 0)).getTime(),
       _id: Number(r.id),
     })),
-    ...(expenseRows ?? []).map((r: Record<string, unknown>) => ({
+    ...(expenseRows ?? []).filter((r: Record<string, unknown>) => !isSoftDeleted(r)).map((r: Record<string, unknown>) => ({
       ...r,
       _type: 'expense',
       _sortAt: new Date(String(r.spent_at ?? r.pay_date ?? r.due_date ?? r.created_at ?? 0)).getTime(),

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { formatDate, formatMoney, getCategoryLabel, type AnyEntry } from './types';
+import { expandAllRecurring } from './recurring';
 
 function groupByDate(entries: AnyEntry[], dateField: 'received_at' | 'spent_at') {
   const byYear: Record<string, Record<string, Record<string, AnyEntry[]>>> = {};
@@ -36,7 +37,13 @@ export function EntriesList({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const dateField = type === 'income' ? 'received_at' : 'spent_at';
 
-  const filtered = entries.filter(
+  const expanded = useMemo(() => {
+    const horizon = new Date();
+    horizon.setMonth(horizon.getMonth() + 12);
+    return expandAllRecurring(entries, horizon);
+  }, [entries]);
+
+  const filtered = expanded.filter(
     (e) =>
       e.source.toLowerCase().includes(search.toLowerCase()) ||
       e.category.toLowerCase().includes(search.toLowerCase())
@@ -123,11 +130,12 @@ export function EntriesList({
                                     {dayEntries.map((entry) => {
                                       const isTransfer = entry.transfer_id != null;
                                       return (
-                                      <li key={entry.id} className="income-item">
+                                      <li key={entry.id} className={`income-item${entry.isProjected ? ' income-item--projected' : ''}`}>
                                         <div className="income-topline">
                                           <span className="income-source">
                                             {entry.source}
                                             {isTransfer && <span className="transfer-badge">Überweisung</span>}
+                                            {entry.isProjected && <span className="entry-projected-badge">geplant</span>}
                                           </span>
                                           <span className={`income-amount${type === 'expense' ? ' is-expense' : ''}`}>{formatMoney(Number(entry.amount))}</span>
                                         </div>
@@ -135,29 +143,31 @@ export function EntriesList({
                                           <span className="income-tag">{getCategoryLabel(entry.category)}</span>
                                         </div>
                                         {entry.note && <p className="income-note">{entry.note}</p>}
-                                        <div className="income-actions-inline">
-                                          <button
-                                            className="inline-action"
-                                            type="button"
-                                            onClick={() => onEdit(entry)}
-                                            disabled={isTransfer}
-                                            title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
-                                          >Bearbeiten</button>
-                                          {deleteId === entry.id ? (
-                                            <>
-                                              <button className="inline-action delete" type="button" onClick={() => { setDeleteId(null); onDelete(entry.id); }}>Löschen</button>
-                                              <button className="inline-action" type="button" onClick={() => setDeleteId(null)}>Abbrechen</button>
-                                            </>
-                                          ) : (
+                                        {!entry.isProjected && (
+                                          <div className="income-actions-inline">
                                             <button
-                                              className="inline-action delete"
+                                              className="inline-action"
                                               type="button"
-                                              onClick={() => setDeleteId(entry.id)}
+                                              onClick={() => onEdit(entry)}
                                               disabled={isTransfer}
                                               title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
-                                            >Löschen</button>
-                                          )}
-                                        </div>
+                                            >Bearbeiten</button>
+                                            {deleteId === entry.id ? (
+                                              <>
+                                                <button className="inline-action delete" type="button" onClick={() => { setDeleteId(null); onDelete(entry.id); }}>Wirklich löschen?</button>
+                                                <button className="inline-action" type="button" onClick={() => setDeleteId(null)}>Abbrechen</button>
+                                              </>
+                                            ) : (
+                                              <button
+                                                className="inline-action delete"
+                                                type="button"
+                                                onClick={() => setDeleteId(entry.id)}
+                                                disabled={isTransfer}
+                                                title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                                              >Löschen</button>
+                                            )}
+                                          </div>
+                                        )}
                                       </li>
                                       );
                                     })}

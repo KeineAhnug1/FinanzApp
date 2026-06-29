@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, useController } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,6 +43,40 @@ function formatDate(dateStr: string): string {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(dateStr));
+}
+
+const LAST_SEEN_KEY = 'finanzapp.questions.lastSeen';
+
+function readLastSeen(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(LAST_SEEN_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLastSeen(map: Record<string, string>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LAST_SEEN_KEY, JSON.stringify(map));
+  } catch {
+    // ignore quota / storage disabled
+  }
+}
+
+// Latest answer-from-someone-else timestamp, or null if there are no foreign answers yet.
+function latestForeignAnswerTs(question: Question): number | null {
+  let latest: number | null = null;
+  for (const a of question.answers ?? []) {
+    if (a.is_mine) continue;
+    const ts = new Date(a.created_at).getTime();
+    if (Number.isFinite(ts) && (latest === null || ts > latest)) latest = ts;
+  }
+  return latest;
 }
 
 const questionSchema = z.object({
@@ -284,14 +318,16 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
   );
 }
 
-function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
+function QuestionCard({ question, active, unread, onClick, onDelete, onRefresh }: {
   question: Question;
   active: boolean;
+  unread: boolean;
   onClick: () => void;
   onDelete: () => Promise<void>;
   onRefresh: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const answerCount = (question.answers ?? []).length;
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -306,7 +342,7 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
 
   return (
     <div
-      className={`question-card${active ? ' is-active' : ''}`}
+      className={`question-card${active ? ' is-active' : ''}${unread ? ' has-unread' : ''}`}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -316,10 +352,14 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
         <span className="question-author">{question.author?.first_name || question.author?.username || 'Unbekannt'}</span>
         <span className="question-date">{formatDate(question.created_at)}</span>
         {question.answered && <span className="badge badge-success questions__small-badge">Beantwortet</span>}
+        {unread && <span className="badge badge-info questions__small-badge">neu</span>}
       </div>
       <h3 className="question-card-title">{question.thema}</h3>
       <p className="question-card-preview">{question.message.slice(0, 120)}{question.message.length > 120 ? '…' : ''}</p>
       <div className="question-card-footer" onClick={(e) => e.stopPropagation()}>
+        <span className="question-card-answers-count">
+          {answerCount === 0 ? 'Keine Antworten' : `${answerCount} Antwort${answerCount === 1 ? '' : 'en'}`}
+        </span>
         <button className={`like-btn${question.liked_by_me ? ' is-liked' : ''}`} onClick={handleLike}>♥ {question.likes}</button>
         {question.is_mine && (
           <>
@@ -343,9 +383,15 @@ function QuestionCard({ question, active, onClick, onDelete, onRefresh }: {
 
 export default function QuestionsPage() {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'mine'>('all');
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [showAskPanel, setShowAskPanel] = useState(false);
+  const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setLastSeen(readLastSeen());
+  }, []);
 
   const panelOpen = !!selectedQuestion || showAskPanel;
 
@@ -355,6 +401,20 @@ export default function QuestionsPage() {
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['questions'] });
+
+  const markSeen = (id: string) => {
+    setLastSeen((prev) => {
+      const next = { ...prev, [id]: new Date().toISOString() };
+      writeLastSeen(next);
+      return next;
+    });
+  };
+
+  const openQuestion = (q: Question) => {
+    setShowAskPanel(false);
+    setSelectedQuestion(q);
+    markSeen(q.id);
+  };
 
   const deleteQuestion = async (id: string) => {
     const result = await apiFetch(`/api/questions/${id}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrfToken() } });
@@ -369,6 +429,32 @@ export default function QuestionsPage() {
     setShowAskPanel(false);
   };
 
+  const visibleQuestions = useMemo(() => {
+    if (filter === 'mine') return questions.filter((q) => q.is_mine);
+    return questions;
+  }, [questions, filter]);
+
+  const mineCount = useMemo(() => questions.filter((q) => q.is_mine).length, [questions]);
+  const mineWithUnreadCount = useMemo(() => {
+    return questions.reduce((sum, q) => {
+      if (!q.is_mine) return sum;
+      const latest = latestForeignAnswerTs(q);
+      if (latest === null) return sum;
+      const seen = lastSeen[q.id];
+      const seenTs = seen ? new Date(seen).getTime() : 0;
+      return latest > seenTs ? sum + 1 : sum;
+    }, 0);
+  }, [questions, lastSeen]);
+
+  const isUnread = (q: Question): boolean => {
+    if (!q.is_mine) return false;
+    const latest = latestForeignAnswerTs(q);
+    if (latest === null) return false;
+    const seen = lastSeen[q.id];
+    const seenTs = seen ? new Date(seen).getTime() : 0;
+    return latest > seenTs;
+  };
+
   return (
     <div className={`questions-layout page-content${panelOpen ? ' questions-layout--panel-open' : ''}`}>
       <div className="questions-list-col">
@@ -381,6 +467,27 @@ export default function QuestionsPage() {
             Frage stellen
           </button>
         </div>
+
+        <div className="entry-tab-nav questions-filter-tabs" role="tablist">
+          <button
+            className={`entry-tab-btn${filter === 'all' ? ' is-active' : ''}`}
+            role="tab"
+            aria-selected={filter === 'all'}
+            onClick={() => setFilter('all')}
+          >
+            Alle Fragen
+          </button>
+          <button
+            className={`entry-tab-btn${filter === 'mine' ? ' is-active' : ''}`}
+            role="tab"
+            aria-selected={filter === 'mine'}
+            onClick={() => setFilter('mine')}
+          >
+            Meine Fragen {mineCount > 0 && <span className="questions-filter-count">({mineCount})</span>}
+            {mineWithUnreadCount > 0 && <span className="badge badge-info questions__small-badge">{mineWithUnreadCount} neu</span>}
+          </button>
+        </div>
+
         <input
           className="form-input questions-search"
           placeholder="Fragen durchsuchen…"
@@ -389,19 +496,26 @@ export default function QuestionsPage() {
         />
 
         {isLoading && <div className="loading-state"><span className="spinner" /><span>Lade…</span></div>}
-        {!isLoading && questions.length === 0 && (
+        {!isLoading && visibleQuestions.length === 0 && (
           <div className="empty-state">
-            <p>{search ? 'Keine Ergebnisse.' : 'Noch keine Fragen.'}</p>
+            <p>
+              {search
+                ? 'Keine Ergebnisse.'
+                : filter === 'mine'
+                  ? 'Du hast noch keine Fragen gestellt.'
+                  : 'Noch keine Fragen.'}
+            </p>
           </div>
         )}
 
         <div className="questions-list">
-          {questions.map((q) => (
+          {visibleQuestions.map((q) => (
             <QuestionCard
               key={q.id}
               question={q}
               active={selectedQuestion?.id === q.id}
-              onClick={() => { setShowAskPanel(false); setSelectedQuestion(q); }}
+              unread={isUnread(q)}
+              onClick={() => openQuestion(q)}
               onDelete={() => deleteQuestion(q.id)}
               onRefresh={refresh}
             />
@@ -419,7 +533,7 @@ export default function QuestionsPage() {
             />
           ) : (
             <AskPanel
-              onCreated={(q) => { refresh(); setShowAskPanel(false); setSelectedQuestion(q); }}
+              onCreated={(q) => { refresh(); setShowAskPanel(false); setSelectedQuestion(q); markSeen(q.id); }}
               onClose={closePanel}
             />
           )}

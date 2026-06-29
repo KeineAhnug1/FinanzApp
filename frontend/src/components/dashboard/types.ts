@@ -3,6 +3,7 @@ export interface BankAccount {
   label: string;
   balance: number;
   type: string;
+  created_at?: string;
 }
 
 export interface IncomeEntry {
@@ -15,6 +16,11 @@ export interface IncomeEntry {
   bank_account_id: string;
   note?: string;
   transfer_id?: number | null;
+  recurrence?: number | null;
+  is_active?: boolean;
+  state?: string;
+  isProjected?: boolean;
+  projectedFromId?: string;
 }
 
 export interface ExpenseEntry {
@@ -27,6 +33,11 @@ export interface ExpenseEntry {
   bank_account_id: string;
   note?: string;
   transfer_id?: number | null;
+  recurrence?: number | null;
+  is_active?: boolean;
+  state?: string;
+  isProjected?: boolean;
+  projectedFromId?: string;
 }
 
 export interface BudgetAlert {
@@ -45,6 +56,7 @@ export const INCOME_CATEGORIES = [
   { value: 'bonus', label: 'Bonus' },
   { value: 'refund', label: 'Rückzahlung' },
   { value: 'investment', label: 'Kapitalerträge' },
+  { value: 'transfer', label: 'Transfer' },
   { value: 'other', label: 'Sonstiges' },
 ];
 
@@ -55,6 +67,7 @@ export const EXPENSE_CATEGORIES = [
   { value: 'transport', label: 'Mobilität' },
   { value: 'health', label: 'Gesundheit' },
   { value: 'entertainment', label: 'Freizeit' },
+  { value: 'transfer', label: 'Transfer' },
   { value: 'other', label: 'Sonstiges' },
 ];
 
@@ -62,11 +75,17 @@ export const CYCLE_OPTIONS = [
   { value: 'once', label: 'Einmalig' },
   { value: 'weekly', label: 'Wöchentlich' },
   { value: 'monthly', label: 'Monatlich' },
+  { value: 'yearly', label: 'Jährlich' },
 ];
 
-export const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
-  [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].map(({ value, label }) => [value, label])
-);
+export const CATEGORY_LABELS: Record<string, string> = {
+  ...Object.fromEntries(
+    [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].map(({ value, label }) => [value, label])
+  ),
+  // Server-only category used for the auto-generated opening-balance entry. Not
+  // exposed in the user-facing dropdowns, but rendered with this label in lists.
+  opening: 'Eröffnungssaldo',
+};
 
 export function getCategoryLabel(cat: string): string {
   return CATEGORY_LABELS[cat] || cat;

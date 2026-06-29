@@ -18,8 +18,9 @@ import { EntriesList } from '@/components/dashboard/EntriesList';
 import { IncomeForm } from '@/components/dashboard/IncomeForm';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
 import { PeerTransferModal } from '@/components/dashboard/PeerTransferModal';
+import { RecurringList } from '@/components/dashboard/RecurringList';
 
-type DashboardView = 'overview' | 'income' | 'expense';
+type DashboardView = 'overview' | 'income' | 'expense' | 'recurring';
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
@@ -38,7 +39,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem('finanzapp.dashboardView') as DashboardView | null;
-    if (stored && ['overview', 'income', 'expense'].includes(stored)) setView(stored);
+    if (stored && ['overview', 'income', 'expense', 'recurring'].includes(stored)) setView(stored);
   }, []);
 
   const switchView = (v: DashboardView) => {
@@ -55,10 +56,17 @@ export default function DashboardPage() {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions', accountFilter],
-    queryFn: () => apiFetch(`/api/finance/transactions${accountParam}`).then((d) => ({
-      income: (d.entries ?? []).filter((e: { type: string }) => e.type === 'income') as IncomeEntry[],
-      expense: (d.entries ?? []).filter((e: { type: string }) => e.type === 'expense') as ExpenseEntry[],
-    })),
+    queryFn: () => apiFetch(`/api/finance/transactions${accountParam}`).then((d) => {
+      type RawEntry = { type: string; is_active?: boolean; state?: string };
+      // Soft-deleted entries (state: 'completed' AND is_active: false) are hidden from
+      // every user-facing list. They stay in the DB to keep the audit-log constraint
+      // satisfied.
+      const visible = (d.entries ?? []).filter((e: RawEntry) => !(e.is_active === false && e.state === 'completed'));
+      return {
+        income: visible.filter((e: RawEntry) => e.type === 'income') as IncomeEntry[],
+        expense: visible.filter((e: RawEntry) => e.type === 'expense') as ExpenseEntry[],
+      };
+    }),
   });
 
   const income = transactions?.income ?? [];
@@ -67,6 +75,11 @@ export default function DashboardPage() {
   const totalIncome = income.reduce((s, e) => s + Number(e.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const savingsRate = totalIncome > 0 ? Math.max(0, ((totalIncome - totalExpenses) / totalIncome) * 100) : 0;
+
+  const filteredAccounts = accountFilter
+    ? accounts.filter((a) => String(a.id) === String(accountFilter))
+    : accounts;
+  const totalBalance = filteredAccounts.reduce((s, a) => s + Number(a.balance ?? 0), 0);
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -95,6 +108,7 @@ export default function DashboardPage() {
             <button id="tab-overview" className={`entry-tab-btn${view === 'overview' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'overview'} aria-controls="panel-overview" onClick={() => switchView('overview')}>Übersicht</button>
             <button id="tab-income" className={`entry-tab-btn${view === 'income' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'income'} aria-controls="panel-income" onClick={() => switchView('income')}>Einnahmen</button>
             <button id="tab-expense" className={`entry-tab-btn${view === 'expense' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'expense'} aria-controls="panel-expense" onClick={() => switchView('expense')}>Ausgaben</button>
+            <button id="tab-recurring" className={`entry-tab-btn${view === 'recurring' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'recurring'} aria-controls="panel-recurring" onClick={() => switchView('recurring')}>Daueraufträge</button>
           </div>
           {accounts.length > 1 && (
             <div className="nav-account-filter">
@@ -119,8 +133,8 @@ export default function DashboardPage() {
         <div className="view-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabIndex={0} hidden={view !== 'overview'}>
           <div className="hero-card">
             <p className="hero-label">Gesamtsaldo</p>
-            <p className="hero-value">{formatMoney(totalIncome - totalExpenses)}</p>
-            <p className="hero-sub">{income.length + expenses.length} Buchungen · {accounts.length} {accounts.length === 1 ? 'Konto' : 'Konten'}</p>
+            <p className="hero-value">{formatMoney(totalBalance)}</p>
+            <p className="hero-sub">{income.length + expenses.length} Buchungen · {filteredAccounts.length} {filteredAccounts.length === 1 ? 'Konto' : 'Konten'}</p>
           </div>
 
           <BudgetAlerts />
@@ -151,6 +165,7 @@ export default function DashboardPage() {
                 income={income}
                 expenses={expenses}
                 foundingYear={user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}
+                currentBalance={totalBalance}
               />
             </div>
             <div className="panel">
@@ -246,6 +261,17 @@ export default function DashboardPage() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="view-panel" id="panel-recurring" role="tabpanel" aria-labelledby="tab-recurring" tabIndex={0} hidden={view !== 'recurring'}>
+          <RecurringList
+            income={income}
+            expenses={expenses}
+            onEditIncome={(e) => { setEditIncome(e); switchView('income'); }}
+            onEditExpense={(e) => { setEditExpense(e); switchView('expense'); }}
+            onDeleteIncome={deleteIncome}
+            onDeleteExpense={deleteExpense}
+          />
         </div>
       </div>
       <PeerTransferModal

@@ -1,10 +1,10 @@
 import type { DbClient } from '@/lib/db';
 
 export const PRESET_INCOME_CATEGORY_KEYS = new Set([
-  'salary', 'freelance', 'bonus', 'refund', 'investment', 'other',
+  'salary', 'freelance', 'bonus', 'refund', 'investment', 'transfer', 'opening', 'other',
 ]);
 export const PRESET_EXPENSE_CATEGORY_KEYS = new Set([
-  'rent', 'groceries', 'utilities', 'transport', 'health', 'entertainment', 'other',
+  'rent', 'groceries', 'utilities', 'transport', 'health', 'entertainment', 'transfer', 'other',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -195,7 +195,43 @@ export async function getUserBankAccounts(db: DbClient, userId: string | number)
     id: String(a.id),
     label: String(a.label ?? `Bankkonto ${i + 1}`),
     balance: toFixedAmount(a.balance),
+    created_at: a.created_at instanceof Date
+      ? a.created_at.toISOString()
+      : (a.created_at as string | null) ?? null,
   }));
+}
+
+// Returns null if `date` is at or after the account's `created_at` (with a 1-minute
+// tolerance for clock skew), otherwise returns a German error message.
+export async function assertDateAfterAccountOpening(
+  db: DbClient,
+  bankAccountId: number,
+  date: Date,
+): Promise<string | null> {
+  if (!Number.isFinite(bankAccountId) || bankAccountId <= 0) return null;
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+  const { data } = await db
+    .from('bank_accounts')
+    .select('created_at, label')
+    .eq('id', bankAccountId)
+    .single();
+  if (!data) return null;
+  const createdAtRaw = (data as DbRow).created_at;
+  const createdAt = createdAtRaw instanceof Date
+    ? createdAtRaw
+    : typeof createdAtRaw === 'string'
+      ? new Date(createdAtRaw)
+      : null;
+  if (!createdAt || Number.isNaN(createdAt.getTime())) return null;
+  // Tolerance: allow 60s drift between client and server clocks.
+  if (date.getTime() + 60_000 < createdAt.getTime()) {
+    const label = String((data as DbRow).label ?? 'Konto');
+    const opened = new Intl.DateTimeFormat('de-DE', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(createdAt);
+    return `Datum liegt vor der Eröffnung von „${label}" (${opened}).`;
+  }
+  return null;
 }
 
 export async function ensureUserFinanceRoots(db: DbClient, userId: string | number) {

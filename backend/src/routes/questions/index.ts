@@ -7,6 +7,7 @@ import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody } from '@/lib/utils/http';
 import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/responses';
 import { getConfig } from '@/lib/config';
+import { fuzzySearchQuestions } from '@/lib/helpers/fuzzy-search';
 
 const questions = new Hono<{ Bindings: Env }>();
 
@@ -64,12 +65,9 @@ async function listQuestionsWithRelations(
 
   if (!allQuestions?.length) return [];
 
-  const search = searchRaw.trim().toLowerCase();
+  const search = searchRaw.trim();
   const filtered = search
-    ? (allQuestions as QuestionRow[]).filter((q) =>
-        String(q.thema ?? '').toLowerCase().includes(search) ||
-        String(q.message ?? '').toLowerCase().includes(search)
-      ).slice(0, 10)
+    ? fuzzySearchQuestions(allQuestions as QuestionRow[], search).slice(0, 20)
     : (allQuestions as QuestionRow[]);
 
   const questionIds = filtered.map((q) => q.id);

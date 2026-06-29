@@ -505,7 +505,7 @@ groups.get('/:id/messages', async (c) => {
   const before = sp.get('before');
 
   let query = auth.db.from('group_message')
-    .select('id, message, created_at, users(id, username, first_name, last_name)')
+    .select('id, message, created_at, users:from_user_id(id, username, first_name, last_name)')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false })
     .limit(Math.min(limit, 100));
@@ -548,7 +548,7 @@ groups.post('/:id/messages', async (c) => {
   if (message.length > 2000) return badRequest('Nachricht zu lang (max. 2000 Zeichen)');
 
   const { data } = await auth.db.from('group_message')
-    .insert({ group_id: groupId, user_id: auth.user.id, message })
+    .insert({ group_id: groupId, from_user_id: auth.user.id, message })
     .select('id, message, created_at').single();
 
   return jsonResponse({
@@ -573,11 +573,11 @@ groups.delete('/:id/messages/:msgId', async (c) => {
   const messageId = Number(c.req.param('msgId'));
   if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return badRequest('Invalid id');
 
-  const { data: msg } = await auth.db.from('group_message').select('id, user_id, group_id')
+  const { data: msg } = await auth.db.from('group_message').select('id, from_user_id, group_id')
     .eq('id', messageId).eq('group_id', groupId).single();
   if (!msg) return notFound('Nachricht nicht gefunden');
 
-  if (Number(msg.user_id) !== auth.user.id) {
+  if (Number(msg.from_user_id) !== auth.user.id) {
     const { data: ms } = await auth.db.from('group_members').select('role')
       .eq('group_id', groupId).eq('user_id', auth.user.id).single();
     if ((ms as Record<string, unknown> | null)?.role !== 'admin')

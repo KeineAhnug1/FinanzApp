@@ -1,9 +1,10 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { useFinanceInvalidator } from '@/lib/finance-mutations';
 import { toast } from '@/components/ui/Toast';
 import {
   CYCLE_OPTIONS,
@@ -22,8 +23,16 @@ const expenseSchema = z.object({
   spent_at: z.string().min(1),
   bank_account_id: z.string().min(1, 'Konto erforderlich'),
   note: z.string().optional(),
+  recurrence: z.union([z.string(), z.number()]).optional(),
 });
 type ExpenseFormData = z.infer<typeof expenseSchema>;
+
+function parseRecurrence(raw: string | number | undefined): number | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
+}
 
 export function ExpenseForm({
   bankAccounts,
@@ -36,7 +45,8 @@ export function ExpenseForm({
   onSaved: () => void;
   onCancel: () => void;
 }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
+  const invalidate = useFinanceInvalidator();
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       source: editEntry?.source ?? '',
@@ -46,17 +56,37 @@ export function ExpenseForm({
       spent_at: editEntry?.spent_at ? toDatetimeLocal(new Date(editEntry.spent_at)) : toDatetimeLocal(),
       bank_account_id: editEntry?.bank_account_id ?? bankAccounts[0]?.id ?? '',
       note: editEntry?.note ?? '',
+      recurrence: editEntry?.recurrence != null ? String(editEntry.recurrence) : '',
     },
   });
 
+  const cycleValue = useWatch({ control, name: 'cycle' });
+  const selectedAccountId = useWatch({ control, name: 'bank_account_id' });
+  const isRecurring = cycleValue && cycleValue !== 'once';
+
+  const selectedAccount = bankAccounts.find((a) => a.id === selectedAccountId);
+  const minDate = selectedAccount?.created_at
+    ? toDatetimeLocal(new Date(selectedAccount.created_at))
+    : undefined;
+
   const onSubmit = async (data: ExpenseFormData) => {
+    if (minDate && data.spent_at < minDate) {
+      toast.error('Datum liegt vor der Kontoeröffnung');
+      return;
+    }
     const url = editEntry ? `/api/finance/expenses/${editEntry.id}` : '/api/finance/expenses';
     const method = editEntry ? 'PATCH' : 'POST';
+    const recurrence = data.cycle === 'once' ? null : parseRecurrence(data.recurrence);
+    const body = {
+      ...data,
+      spent_at: new Date(data.spent_at).toISOString(),
+      recurrence,
+    };
     const res = await fetch(apiUrl(url), {
       method,
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ ...data, spent_at: new Date(data.spent_at).toISOString() }),
+      body: JSON.stringify(body),
     });
     const result = await res.json();
     if (!result.ok) {
@@ -64,6 +94,7 @@ export function ExpenseForm({
       return;
     }
     toast.success(editEntry ? 'Ausgabe aktualisiert' : 'Ausgabe gespeichert');
+    invalidate();
     onSaved();
   };
 
@@ -112,10 +143,25 @@ export function ExpenseForm({
           </select>
         </div>
       </div>
+      {isRecurring && (
+        <div>
+          <label className="field-label" htmlFor="expense-recurrence">Dauer (Anzahl Zyklen)</label>
+          <input
+            id="expense-recurrence"
+            className="field-input"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="leer = unbegrenzt"
+            {...register('recurrence')}
+          />
+          <p className="field-hint">12 = 12 Buchungen, leer oder 0 = unbegrenzt.</p>
+        </div>
+      )}
       <div className="form-two-cols">
         <div>
           <label className="field-label">Datum</label>
-          <input className="field-input" type="datetime-local" {...register('spent_at')} />
+          <input className="field-input" type="datetime-local" min={minDate} {...register('spent_at')} />
         </div>
         <div>
           <label className="field-label" htmlFor="expense-bank-account">Konto</label>

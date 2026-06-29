@@ -7,7 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
+import { ShareAccountHistoryModal } from '@/components/accounts/ShareAccountHistoryModal';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { useFinanceInvalidator } from '@/lib/finance-mutations';
 
 interface ShareAccountSummary {
   id: number;
@@ -159,6 +161,7 @@ function ShareAccountCard({
   onRenameSubmit,
   onRenameCancel,
   onDeleteRequest,
+  onShowHistory,
 }: {
   account: ShareAccountSummary;
   isRenaming: boolean;
@@ -168,34 +171,55 @@ function ShareAccountCard({
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onDeleteRequest: () => void;
+  onShowHistory: () => void;
 }) {
+  const onTopKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onShowHistory();
+    }
+  };
+
   return (
     <div className="share-account-card">
-      <div className="share-account-card__header">
-        {isRenaming ? (
-          <div className="account-rename-wrap">
-            <input
-              className="form-input account-rename-input"
-              value={renameDraft}
-              onChange={(e) => onRenameChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onRenameSubmit(); if (e.key === 'Escape') onRenameCancel(); }}
-              autoFocus
-            />
-            <div className="account-rename-actions">
-              <button className="btn btn-primary btn-sm" onClick={onRenameSubmit}>Speichern</button>
-              <button className="btn btn-ghost btn-sm" onClick={onRenameCancel}>Abbrechen</button>
+      {isRenaming ? (
+        <div className="account-card-top">
+          <div className="share-account-card__header">
+            <div className="account-rename-wrap">
+              <input
+                className="form-input account-rename-input"
+                value={renameDraft}
+                onChange={(e) => onRenameChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onRenameSubmit(); if (e.key === 'Escape') onRenameCancel(); }}
+                autoFocus
+              />
+              <div className="account-rename-actions">
+                <button className="btn btn-primary btn-sm" onClick={onRenameSubmit}>Speichern</button>
+                <button className="btn btn-ghost btn-sm" onClick={onRenameCancel}>Abbrechen</button>
+              </div>
             </div>
           </div>
-        ) : (
-          <button className="account-name-btn share-account-card__name" onClick={onRenameStart} title="Umbenennen">
-            {account.label}
-          </button>
-        )}
-      </div>
-
-      <div className="share-account-card__meta">
-        {account.position_count} Position{account.position_count === 1 ? '' : 'en'} · {formatMoney(Number(account.total_invested))} investiert
-      </div>
+          <div className="share-account-card__meta">
+            {account.position_count} Position{account.position_count === 1 ? '' : 'en'} · {formatMoney(Number(account.total_invested))} investiert
+          </div>
+        </div>
+      ) : (
+        <div
+          className="account-card-top account-card-top--clickable"
+          role="button"
+          tabIndex={0}
+          onClick={onShowHistory}
+          onKeyDown={onTopKey}
+          title="Verlauf anzeigen"
+        >
+          <div className="share-account-card__header">
+            <span className="account-name-btn share-account-card__name">{account.label}</span>
+          </div>
+          <div className="share-account-card__meta">
+            {account.position_count} Position{account.position_count === 1 ? '' : 'en'} · {formatMoney(Number(account.total_invested))} investiert
+          </div>
+        </div>
+      )}
 
       <div className="account-card-actions share-account-card__actions">
         <button className="btn btn-ghost btn-sm" onClick={onRenameStart}>
@@ -217,17 +241,23 @@ function ShareAccountCard({
 
 export default function ShareAccountsSection() {
   const queryClient = useQueryClient();
+  const invalidate = useFinanceInvalidator();
   const [showAdd, setShowAdd] = useState(false);
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [historyId, setHistoryId] = useState<number | null>(null);
 
   const { data: shareAccounts = [], isLoading } = useQuery<ShareAccountSummary[]>({
     queryKey: ['share-accounts'],
     queryFn: () => apiFetch('/api/finance/share-accounts').then((d) => d.share_accounts ?? []),
   });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['share-accounts'] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['share-accounts'] });
+    queryClient.invalidateQueries({ queryKey: ['share-account-history'] });
+    invalidate();
+  };
 
   const handleRenameSubmit = async (id: number) => {
     const next = renameDraft.trim();
@@ -246,6 +276,7 @@ export default function ShareAccountsSection() {
 
   const deletingAccount = deletingId === null ? null : shareAccounts.find((a) => a.id === deletingId) ?? null;
   const deletingOthers = deletingAccount ? shareAccounts.filter((a) => a.id !== deletingAccount.id) : [];
+  const historyAccount = historyId === null ? null : shareAccounts.find((a) => a.id === historyId) ?? null;
 
   return (
     <section className="share-accounts-section">
@@ -276,6 +307,7 @@ export default function ShareAccountsSection() {
               onRenameSubmit={() => handleRenameSubmit(a.id)}
               onRenameCancel={() => { setRenamingId(null); setRenameDraft(''); }}
               onDeleteRequest={() => setDeletingId(a.id)}
+              onShowHistory={() => setHistoryId(a.id)}
             />
           ))}
         </div>
@@ -294,6 +326,14 @@ export default function ShareAccountsSection() {
           others={deletingOthers}
           onClose={() => setDeletingId(null)}
           onDeleted={() => { setDeletingId(null); refresh(); }}
+        />
+      )}
+
+      {historyAccount && (
+        <ShareAccountHistoryModal
+          accountId={Number(historyAccount.id)}
+          accountLabel={historyAccount.label}
+          onClose={() => setHistoryId(null)}
         />
       )}
     </section>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +9,9 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { ShareAccountsSection } from '@/components/accounts/ShareAccountsSection';
 import { DefaultAccountSelector } from '@/components/accounts/DefaultAccountSelector';
+import { BankAccountHistoryModal } from '@/components/accounts/BankAccountHistoryModal';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { useFinanceInvalidator } from '@/lib/finance-mutations';
 
 // Diverges from db BankAccount: backend serializes id as string and adds optional name/type fields not present in the DB row.
 interface BankAccount {
@@ -19,6 +20,7 @@ interface BankAccount {
   name?: string;
   balance: number;
   type: string;
+  created_at?: string;
 }
 
 function formatMoney(amount: number): string {
@@ -36,6 +38,146 @@ const addAccountSchema = z.object({
 });
 
 type AddAccountData = z.infer<typeof addAccountSchema>;
+
+const transferSchema = z.object({
+  from_account_id: z.string().min(1, 'Quellkonto wählen'),
+  to_account_id: z.string().min(1, 'Zielkonto wählen'),
+  amount: z.coerce.number().positive('Betrag muss größer 0 sein'),
+  date: z.string().min(1, 'Datum erforderlich'),
+  label: z.string().optional(),
+}).refine((d) => d.from_account_id !== d.to_account_id, {
+  message: 'Quell- und Zielkonto müssen unterschiedlich sein',
+  path: ['to_account_id'],
+});
+
+type TransferData = z.infer<typeof transferSchema>;
+
+function toDatetimeLocal(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function TransferModal({
+  accounts,
+  onClose,
+  onSaved,
+}: {
+  accounts: BankAccount[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const defaultFrom = accounts[0]?.id ?? '';
+  const defaultTo = accounts.find((a) => a.id !== defaultFrom)?.id ?? '';
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<TransferData>({
+    resolver: zodResolver(transferSchema),
+    defaultValues: {
+      from_account_id: defaultFrom,
+      to_account_id: defaultTo,
+      amount: '' as unknown as number,
+      date: toDatetimeLocal(),
+      label: '',
+    },
+  });
+
+  const selectedFrom = watch('from_account_id');
+  const selectedTo = watch('to_account_id');
+
+  const fromAccount = accounts.find((a) => a.id === selectedFrom);
+  const toAccount = accounts.find((a) => a.id === selectedTo);
+  const minDate = (() => {
+    const candidates = [fromAccount?.created_at, toAccount?.created_at].filter(Boolean) as string[];
+    if (candidates.length === 0) return undefined;
+    // Both accounts must already exist at the transfer date — pick the later of the two openings.
+    const latestTs = Math.max(...candidates.map((iso) => new Date(iso).getTime()));
+    if (!Number.isFinite(latestTs)) return undefined;
+    return toDatetimeLocal(new Date(latestTs));
+  })();
+
+  const onSubmit = async (data: TransferData) => {
+    if (minDate && data.date < minDate) {
+      toast.error('Datum liegt vor der Eröffnung eines der Konten');
+      return;
+    }
+    const result = await apiFetch('/api/finance/transfers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify({
+        from_account_id: Number(data.from_account_id),
+        to_account_id: Number(data.to_account_id),
+        amount: Number(data.amount),
+        date: new Date(data.date).toISOString(),
+        label: data.label?.trim() || undefined,
+      }),
+    });
+    if (!result.ok) { toast.error(result.message ?? 'Überweisung fehlgeschlagen'); return; }
+    toast.success('Überweisung gebucht');
+    onSaved();
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Überweisung zwischen Konten">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="entry-form">
+        <div>
+          <label className="form-label" htmlFor="transfer-from">Von Konto</label>
+          <select id="transfer-from" className="form-input form-select" {...register('from_account_id')}>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label || a.name || 'Konto'} ({formatMoney(Number(a.balance))})
+              </option>
+            ))}
+          </select>
+          {errors.from_account_id && <p className="form-error">{errors.from_account_id.message}</p>}
+        </div>
+        <div>
+          <label className="form-label" htmlFor="transfer-to">Auf Konto</label>
+          <select id="transfer-to" className="form-input form-select" {...register('to_account_id')}>
+            {accounts
+              .filter((a) => a.id !== selectedFrom)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label || a.name || 'Konto'} ({formatMoney(Number(a.balance))})
+                </option>
+              ))}
+          </select>
+          {errors.to_account_id && <p className="form-error">{errors.to_account_id.message}</p>}
+        </div>
+        <div>
+          <label className="form-label" htmlFor="transfer-amount">Betrag (€)</label>
+          <input
+            id="transfer-amount"
+            className="form-input"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="0,00"
+            {...register('amount')}
+          />
+          {errors.amount && <p className="form-error">{errors.amount.message}</p>}
+        </div>
+        <div>
+          <label className="form-label" htmlFor="transfer-date">Datum</label>
+          <input id="transfer-date" className="form-input" type="datetime-local" min={minDate} {...register('date')} />
+          {errors.date && <p className="form-error">{errors.date.message}</p>}
+        </div>
+        <div>
+          <label className="form-label" htmlFor="transfer-label">Bezeichnung (optional)</label>
+          <input
+            id="transfer-label"
+            className="form-input"
+            placeholder="z.B. Sparrate Juni"
+            {...register('label')}
+          />
+        </div>
+        <div className="form-actions">
+          <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Buche…' : 'Überweisung buchen'}
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={onClose}>Abbrechen</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 function AddAccountModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<AddAccountData>({
@@ -95,11 +237,11 @@ function AddAccountModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 }
 
 function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; isDefault: boolean; onUpdate: () => void }) {
-  const router = useRouter();
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(account.label || account.name || '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [transferTarget, setTransferTarget] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
   const accounts = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
     queryFn: () => apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []),
@@ -139,14 +281,11 @@ function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; i
   };
 
   const balance = Number(account.balance);
+  const accountIdNum = Number(account.id);
+  const displayName = account.label || account.name || 'Konto';
 
-  const openHistory = () => {
-    if (renaming || confirmDelete) return;
-    router.push(`/accounts/${account.id}`);
-  };
-
-  const handleCardKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
+  const openHistory = () => setShowHistory(true);
+  const onHeaderKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       openHistory();
@@ -154,43 +293,47 @@ function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; i
   };
 
   return (
-    <div
-      className="account-card"
-      role="button"
-      tabIndex={0}
-      onClick={openHistory}
-      onKeyDown={handleCardKey}
-    >
-      <div className="account-card-header">
-        {renaming ? (
-          <div className="account-rename-wrap" onClick={(e) => e.stopPropagation()}>
-            <input
-              className="form-input account-rename-input"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') handleRename();
-                if (e.key === 'Escape') setRenaming(false);
-              }}
-              autoFocus
-            />
-            <div className="account-rename-actions">
-              <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); handleRename(); }}>Speichern</button>
-              <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setRenaming(false); }}>Abbrechen</button>
+    <div className="account-card">
+      {renaming ? (
+        <div className="account-card-top">
+          <div className="account-card-header">
+            <div className="account-rename-wrap">
+              <input
+                className="form-input account-rename-input"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRename();
+                  if (e.key === 'Escape') setRenaming(false);
+                }}
+                autoFocus
+              />
+              <div className="account-rename-actions">
+                <button className="btn btn-primary btn-sm" onClick={handleRename}>Speichern</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setRenaming(false)}>Abbrechen</button>
+              </div>
             </div>
           </div>
-        ) : (
-          <>
-            <button className="account-name-btn" onClick={(e) => { e.stopPropagation(); setRenaming(true); }} title="Umbenennen">
-              {account.label || account.name || 'Konto'}
-            </button>
+          <div className="account-type">{account.type || 'Bankkonto'}</div>
+        </div>
+      ) : (
+        <div
+          className="account-card-top account-card-top--clickable"
+          role="button"
+          tabIndex={0}
+          onClick={openHistory}
+          onKeyDown={onHeaderKey}
+          title="Verlauf anzeigen"
+        >
+          <div className="account-card-header">
+            <span className="account-name-btn">{displayName}</span>
             <span className={`account-balance ${balance < 0 ? 'is-negative' : ''}`}>
               {formatMoney(balance)}
             </span>
-          </>
-        )}
-      </div>
+          </div>
+          <div className="account-type">{account.type || 'Bankkonto'}</div>
+        </div>
+      )}
 
       <div className="account-type">{account.type || 'Bankkonto'}</div>
 
@@ -205,13 +348,21 @@ function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; i
           </svg>
           Umbenennen
         </button>
-        <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}>
+        <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
           </svg>
           Löschen
         </button>
       </div>
+
+      {showHistory && Number.isFinite(accountIdNum) && (
+        <BankAccountHistoryModal
+          accountId={accountIdNum}
+          accountLabel={displayName}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
 
       {confirmDelete && (
         <Modal open onClose={() => { setConfirmDelete(false); setTransferTarget(''); }} title="Konto löschen">
@@ -258,6 +409,8 @@ function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; i
 
 export default function AccountsPage() {
   const [showAdd, setShowAdd] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const invalidate = useFinanceInvalidator();
   const queryClient = useQueryClient();
 
   const { data: accounts = [], isLoading } = useQuery<BankAccount[]>({
@@ -271,14 +424,29 @@ export default function AccountsPage() {
   });
   const defaultId = defaultAccount?.default_bank_account_id ?? null;
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+  const refresh = () => {
+    invalidate();
+    queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+    queryClient.invalidateQueries({ queryKey: ['share-accounts'] });
+  };
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+  const canTransfer = accounts.length >= 2;
 
   return (
     <div className="accounts-page page-content">
       <div className="page-header">
         <h1 className="page-title">Konten</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Konto hinzufügen</button>
+        <div className="form-actions">
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowTransfer(true)}
+            disabled={!canTransfer}
+            title={canTransfer ? 'Überweisung zwischen zwei Konten' : 'Mindestens zwei Konten erforderlich'}
+          >
+            → Überweisung
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Konto hinzufügen</button>
+        </div>
       </div>
 
       {isLoading && <div className="loading-state"><span className="spinner" /><span>Lade…</span></div>}
@@ -308,6 +476,14 @@ export default function AccountsPage() {
         <AddAccountModal
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); refresh(); }}
+        />
+      )}
+
+      {showTransfer && (
+        <TransferModal
+          accounts={accounts}
+          onClose={() => setShowTransfer(false)}
+          onSaved={() => { setShowTransfer(false); refresh(); }}
         />
       )}
 

@@ -44,14 +44,20 @@ bankAccountHistory.get('/bank-accounts/:id/history', async (c) => {
 
   type Row = Record<string, unknown> & { _sortAt?: number; _id?: number; _type?: string };
 
+  // Hide soft-deleted entries (is_active=false + state='completed') from the user-facing
+  // history modal — these only exist in the DB to keep the audit-log check constraint
+  // satisfied; the user already requested their deletion.
+  const isSoftDeleted = (r: Record<string, unknown>) =>
+    r.is_active === false && r.state === 'completed';
+
   const allEntries: Row[] = [
-    ...(incomeRows ?? []).map((r: Record<string, unknown>) => ({
+    ...(incomeRows ?? []).filter((r: Record<string, unknown>) => !isSoftDeleted(r)).map((r: Record<string, unknown>) => ({
       ...r,
       _type: 'income',
       _sortAt: new Date(String(r.received_at ?? r.pay_date ?? r.created_at ?? 0)).getTime(),
       _id: Number(r.id),
     })),
-    ...(expenseRows ?? []).map((r: Record<string, unknown>) => ({
+    ...(expenseRows ?? []).filter((r: Record<string, unknown>) => !isSoftDeleted(r)).map((r: Record<string, unknown>) => ({
       ...r,
       _type: 'expense',
       _sortAt: new Date(String(r.spent_at ?? r.pay_date ?? r.due_date ?? r.created_at ?? 0)).getTime(),

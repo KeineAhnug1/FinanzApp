@@ -247,11 +247,12 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!msgInput.trim()) return;
-    await apiFetch(`/api/groups/${groupId}/messages`, {
+    const result = await apiFetch(`/api/groups/${groupId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify({ message: msgInput.trim() }),
     });
+    if (!result.ok) { toast.error(result.message ?? 'Nachricht konnte nicht gesendet werden'); return; }
     setMsgInput('');
     queryClient.invalidateQueries({ queryKey: ['group-messages', groupId] });
   };
