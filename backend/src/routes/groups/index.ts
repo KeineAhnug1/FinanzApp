@@ -5,7 +5,7 @@ import { checkCsrf } from '@/lib/utils/csrf';
 import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody } from '@/lib/utils/http';
 import { badRequest, forbidden, notFound, jsonResponse } from '@/lib/utils/responses';
-import { toNum, getGroupCtx } from './_shared';
+import { toNum, getGroupCtx, requireAdmin } from './_shared';
 import membersRoutes from './members';
 import activitiesRoutes from './activities';
 import expensesRoutes from './expenses';
@@ -110,13 +110,14 @@ groups.get('/:id', async (c) => {
   const ctx = await getGroupCtx(auth.db, groupId, auth.user.id);
   if (!ctx.ok) return jsonResponse({ ok: false, message: ctx.message }, ctx.status);
 
-  const [{ data: members }, { data: activities }, { data: fundings }] = await Promise.all([
+  const [{ data: members }, { data: activities }, { data: fundings }, { data: archivedFundings }] = await Promise.all([
     auth.db.from('group_members')
       .select('role, status, users(id, username, first_name, last_name)')
       .eq('group_id', groupId)
       .in('status', ['accepted', 'pending_admin', 'invited', 'pending_member']),
     auth.db.from('group_activities').select('*').eq('group_id', groupId).order('date', { ascending: false }),
-    auth.db.from('group_funding').select('*').eq('group_id', groupId).order('created_at', { ascending: false }),
+    auth.db.from('group_funding').select('*').eq('group_id', groupId).in('status', ['open', 'completed']).order('created_at', { ascending: false }),
+    auth.db.from('group_funding').select('*').eq('group_id', groupId).eq('status', 'archived').order('archived_at', { ascending: false }),
   ]);
 
   const fundingIds = (fundings ?? []).map((f: Record<string, unknown>) => f.id as number);
@@ -164,6 +165,10 @@ groups.get('/:id', async (c) => {
         funding_id: String(f.id),
         group_activity_id: f.group_activity_id ? String(f.group_activity_id) : null,
         amount: toNum(f.amount), info: f.info ?? null, created_at: f.created_at ?? null,
+        target_amount: toNum(f.target_amount),
+        status: (f.status as string | null) ?? 'open',
+        completed_at: f.completed_at ?? null,
+        archived_at: f.archived_at ?? null,
         contributions: contributions.map((cont) => {
           const ba = cont.bank_accounts as Record<string, unknown> | null;
           const u = ba?.users as Record<string, unknown> | null;
@@ -175,6 +180,17 @@ groups.get('/:id', async (c) => {
         total_donated: Number(contributions.reduce((s, cont) => s + (toNum(cont.amount) ?? 0), 0).toFixed(2)),
       };
     }),
+    archived_fundings: (archivedFundings ?? []).map((f: Record<string, unknown>) => ({
+      funding_id: String(f.id),
+      group_activity_id: f.group_activity_id ? String(f.group_activity_id) : null,
+      amount: toNum(f.amount),
+      info: f.info ?? null,
+      created_at: f.created_at ?? null,
+      target_amount: toNum(f.target_amount),
+      status: (f.status as string | null) ?? 'archived',
+      completed_at: f.completed_at ?? null,
+      archived_at: f.archived_at ?? null,
+    })),
     expenses: expenses.map((e: Record<string, unknown>) => ({
       group_expense_id: String(e.id), group_funding_id: String(e.group_funding_id),
       amount: toNum(e.amount), info: e.info ?? null, state: e.state ?? null,
@@ -333,22 +349,34 @@ groups.post('/:id/funding', async (c) => {
   if (!ctx.ok) return jsonResponse({ ok: false, message: ctx.message }, ctx.status);
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
-  const amount = Number(payload.amount);
+  const targetAmount = Number(payload.target_amount);
   const info = String(payload.info ?? '').trim();
-  if (!Number.isFinite(amount) || amount <= 0) return badRequest('Betrag muss größer 0 sein');
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) return badRequest('Zielbetrag muss > 0 sein');
   if (!info) return badRequest('Beschreibung ist erforderlich');
 
   const activityId = payload.group_activity_id ? Number(payload.group_activity_id) : null;
 
   const { data } = await auth.db.from('group_funding')
-    .insert({ group_id: groupId, group_activity_id: activityId || null, amount, info })
-    .select('id, group_activity_id, amount, info, created_at').single();
+    .insert({
+      group_id: groupId,
+      group_activity_id: activityId || null,
+      amount: 0,
+      info,
+      target_amount: targetAmount,
+      status: 'open',
+    })
+    .select('id, group_activity_id, amount, info, target_amount, status, created_at').single();
 
   return jsonResponse({
     ok: true,
     funding: {
-      funding_id: String(data?.id), group_activity_id: activityId ? String(activityId) : null,
-      amount, info, created_at: data?.created_at ?? null,
+      funding_id: String(data?.id),
+      group_activity_id: activityId ? String(activityId) : null,
+      amount: 0,
+      info,
+      target_amount: targetAmount,
+      status: 'open',
+      created_at: data?.created_at ?? null,
     },
   }, 201);
 });
@@ -370,21 +398,29 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
     .eq('group_id', groupId).eq('user_id', auth.user.id).in('status', ['accepted', 'pending_admin']).single();
   if (!membership) return jsonResponse({ ok: false, message: 'You are not a member of this group' }, 403);
 
-  const { data: funding } = await auth.db.from('group_funding').select('id, amount, info')
+  const { data: funding } = await auth.db.from('group_funding')
+    .select('id, amount, info, status')
     .eq('id', fundingId).eq('group_id', groupId).single();
   if (!funding) return notFound('Funding not found for this group');
+  if ((funding as Record<string, unknown>).status !== 'open') return badRequest('Sammelaktion abgeschlossen');
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
-  const donationAmount = Number(payload.amount);
-  if (!Number.isFinite(donationAmount) || donationAmount <= 0) return badRequest('Donation amount must be a positive number');
+  const requestedAmount = Number(payload.amount);
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) return badRequest('Donation amount must be a positive number');
 
   const { data: bankAccounts } = await auth.db.from('bank_accounts').select('id, balance')
     .eq('user_id', auth.user.id).order('created_at', { ascending: true }).limit(1);
   const bankAccount = bankAccounts?.[0];
   if (!bankAccount) return badRequest('No bank account available for this user');
 
+  const { data: rpcData } = await auth.db.rpc('contribute_to_funding', {
+    p_funding_id: fundingId,
+    p_amount: requestedAmount,
+  });
+  const actualAmount = Number(rpcData ?? 0);
+  if (!Number.isFinite(actualAmount) || actualAmount <= 0) return badRequest('Sammelaktion bereits voll');
+
   const now = new Date().toISOString();
-  const updatedFundingAmount = Number((Number(Number(funding.amount ?? 0).toFixed(2)) + donationAmount).toFixed(2));
   const donationLabel = funding.info ? `Funding donation: ${funding.info}` : 'Funding donation';
 
   const { data: existingParticipant } = await auth.db.from('funding_participants').select('id, amount')
@@ -392,31 +428,64 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
 
   let fundingParticipantId: number;
   if (existingParticipant) {
-    const newAmount = Number((Number(existingParticipant.amount ?? 0) + donationAmount).toFixed(2));
+    const newAmount = Number((Number(existingParticipant.amount ?? 0) + actualAmount).toFixed(2));
     await auth.db.from('funding_participants').update({ amount: newAmount }).eq('id', existingParticipant.id);
     fundingParticipantId = existingParticipant.id;
   } else {
     const { data: inserted } = await auth.db.from('funding_participants')
-      .insert({ group_funding_id: fundingId, bank_account_id: bankAccount.id, amount: donationAmount })
+      .insert({ group_funding_id: fundingId, bank_account_id: bankAccount.id, amount: actualAmount })
       .select('id').single();
     fundingParticipantId = inserted!.id;
   }
 
-  await auth.db.from('group_funding').update({ amount: updatedFundingAmount }).eq('id', fundingId);
-
   const { data: expense } = await auth.db.from('private_expenses').insert({
     bank_account_id: bankAccount.id, source: donationLabel, category: 'other',
-    amount: donationAmount, theo_amount: donationAmount, spent_at: now, due_date: now, pay_date: now,
+    amount: actualAmount, theo_amount: actualAmount, spent_at: now, due_date: now, pay_date: now,
     info: donationLabel, note: donationLabel, state: 'open', recurrence: null, cycle: 'once', is_active: true,
     group_funding_id: fundingId, funding_participant_id: fundingParticipantId,
   }).select('id').single();
 
   if (expense) {
     await auth.db.from('transactions').insert({ private_expense_id: expense.id });
-    await auth.db.rpc('increment_bank_balance', { p_account_id: bankAccount.id, p_delta: -donationAmount });
+    await auth.db.rpc('increment_bank_balance', { p_account_id: bankAccount.id, p_delta: -actualAmount });
   }
 
-  return jsonResponse({ ok: true, donation: { funding_id: String(fundingId), amount: donationAmount, funding_total: updatedFundingAmount } }, 201);
+  return jsonResponse({
+    ok: true,
+    actual_amount: actualAmount,
+    requested_amount: requestedAmount,
+    capped: actualAmount < requestedAmount,
+  }, 201);
+});
+
+// POST /api/groups/:id/funding/:fundingId/archive
+groups.post('/:id/funding/:fundingId/archive', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const csrf = await checkCsrf(c.req.raw);
+  if (csrf) return csrf;
+
+  const groupId = Number(c.req.param('id'));
+  const fundingId = Number(c.req.param('fundingId'));
+  if (!Number.isFinite(groupId) || !Number.isFinite(fundingId)) return badRequest('Invalid id');
+
+  const ctx = await getGroupCtx(auth.db, groupId, auth.user.id);
+  if (!ctx.ok) return jsonResponse({ ok: false, message: ctx.message }, ctx.status);
+  const adminGuard = requireAdmin(ctx.membership as Record<string, unknown>, 'Nur Admins können archivieren');
+  if (adminGuard) return adminGuard;
+
+  const { data: funding } = await auth.db.from('group_funding').select('id, status')
+    .eq('id', fundingId).eq('group_id', groupId).single();
+  if (!funding) return notFound('Funding not found for this group');
+  if ((funding as Record<string, unknown>).status !== 'completed') {
+    return badRequest('Nur abgeschlossene Sammelaktionen können archiviert werden');
+  }
+
+  await auth.db.from('group_funding')
+    .update({ status: 'archived', archived_at: new Date().toISOString() })
+    .eq('id', fundingId);
+
+  return jsonResponse({ ok: true }, 200);
 });
 
 // GET /api/groups/:id/messages

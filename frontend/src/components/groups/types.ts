@@ -21,7 +21,19 @@ export interface FundingView {
   target_amount: number;
   current_amount: number;
   description?: string;
+  status?: 'open' | 'completed' | 'archived';
+  completed_at?: string | null;
+  archived_at?: string | null;
   contributions?: ContributionView[];
+}
+
+export interface ArchivedFundingView {
+  id: number;
+  title: string;
+  target_amount: number;
+  current_amount: number;
+  archived_at: string | null;
+  created_at: string | null;
 }
 
 export interface GroupView {
@@ -32,6 +44,7 @@ export interface GroupView {
   created_at: string;
   members?: MemberView[];
   funding?: FundingView[];
+  archived_fundings?: ArchivedFundingView[];
   activities?: ActivityView[];
   expenses?: ExpenseView[];
   is_admin?: boolean;

@@ -18,6 +18,7 @@ import { FundingBalance } from '@/components/groups/FundingBalance';
 import { SharedExpensesSection } from '@/components/groups/SharedExpensesSection';
 import { TripsSection } from '@/components/groups/TripsSection';
 import { GroupTransfersSection } from '@/components/groups/GroupTransfersSection';
+import { GroupArchiveSection } from '@/components/groups/GroupArchiveSection';
 
 type GroupTab = 'overview' | 'members' | 'activities' | 'fundings' | 'shared-expenses' | 'trips' | 'transfers' | 'archive' | 'chat';
 
@@ -161,12 +162,23 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         funding: (d.fundings ?? []).map((f: Record<string, unknown>) => ({
           id: Number(f.funding_id),
           title: String(f.info ?? f.title ?? ''),
-          target_amount: Number(f.amount ?? 0),
-          current_amount: Number(f.total_donated ?? 0),
+          target_amount: Number(f.target_amount ?? f.amount ?? 0),
+          current_amount: Number(f.total_donated ?? f.amount ?? 0),
           description: f.description ? String(f.description) : undefined,
+          status: (f.status as 'open' | 'completed' | 'archived' | undefined) ?? 'open',
+          completed_at: f.completed_at ? String(f.completed_at) : null,
+          archived_at: f.archived_at ? String(f.archived_at) : null,
           contributions: (Array.isArray(f.contributions) ? f.contributions : []).map(
             (c: Record<string, unknown>) => ({ amount: Number(c.amount ?? 0) })
           ),
+        })),
+        archived_fundings: (d.archived_fundings ?? []).map((f: Record<string, unknown>) => ({
+          id: Number(f.funding_id),
+          title: String(f.info ?? f.title ?? ''),
+          target_amount: Number(f.target_amount ?? 0),
+          current_amount: Number(f.amount ?? 0),
+          archived_at: f.archived_at ? String(f.archived_at) : null,
+          created_at: f.created_at ? String(f.created_at) : null,
         })),
         activities: (d.activities ?? []).map((a: Record<string, unknown>) => ({
           activity_id: String(a.activity_id),
@@ -247,9 +259,11 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const createFunding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fundTitle.trim() || !fundTarget) return;
-    const body: { info: string; amount: number; description?: string; group_activity_id?: number } = {
+    const target = Number(fundTarget);
+    if (!Number.isFinite(target) || target <= 0) { toast.error('Zielbetrag muss > 0 sein'); return; }
+    const body: { info: string; target_amount: number; description?: string; group_activity_id?: number } = {
       info: fundTitle,
-      amount: Number(fundTarget),
+      target_amount: target,
     };
     if (fundDesc.trim()) body.description = fundDesc.trim();
     if (fundActivity !== '') body.group_activity_id = Number(fundActivity);
@@ -275,8 +289,23 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
       body: JSON.stringify({ amount, bank_account_id: bankAccounts[0].id }),
     });
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
-    toast.success('Spende gesendet');
+    const actual = Number(result.actual_amount ?? amount);
+    if (result.capped) {
+      toast.success(`Nur ${formatMoney(actual)} wurden angenommen — Ziel erreicht.`);
+    } else {
+      toast.success('Spende gesendet');
+    }
     setDonateAmount((prev) => ({ ...prev, [fundingId]: '' }));
+    queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+  };
+
+  const archiveFunding = async (fundingId: number) => {
+    const result = await apiFetch(`/api/groups/${groupId}/funding/${fundingId}/archive`, {
+      method: 'POST',
+      headers: { 'x-csrf-token': getCsrfToken() },
+    });
+    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
+    toast.success('Sammelaktion archiviert');
     queryClient.invalidateQueries({ queryKey: ['group', groupId] });
   };
 
@@ -345,41 +374,59 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
       {tab === 'fundings' && (
         <div className="group-section">
           <h3 className="section-title">Sammelaktionen</h3>
-          {(group.funding ?? []).map((f) => (
-            <div key={f.id} className="funding-item">
-              <div className="funding-header">
-                <span className="funding-title">{f.title}</span>
-                <span className="funding-progress">{formatMoney(f.current_amount)} / {formatMoney(f.target_amount)}</span>
-              </div>
-              {f.description && <p className="funding-desc">{f.description}</p>}
-              <div className="funding-bar-wrap">
-                <div className="funding-bar" style={{ width: `${f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0}%` }} />
-              </div>
-              <FundingBalance funding={f} />
-              <div className="form-row groups-page__donate-row">
-                <div className="amount-input-wrap">
-                  <input
-                    className="form-input amount-input"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="Betrag"
-                    value={donateAmount[f.id] ?? ''}
-                    onChange={(e) => setDonateAmount((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                  />
-                  <span className="amount-input-suffix" aria-hidden="true">€</span>
+          {(group.funding ?? []).map((f) => {
+            const remaining = Math.max(0, Number((f.target_amount - f.current_amount).toFixed(2)));
+            const isCompleted = f.status === 'completed';
+            const progressPct = f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0;
+            return (
+              <div key={f.id} className="funding-item">
+                <div className="funding-header">
+                  <span className="funding-title">
+                    {f.title}
+                    {isCompleted && <span className="funding-completed-badge">Fertig</span>}
+                  </span>
+                  <span className="funding-progress">{formatMoney(f.current_amount)} / {formatMoney(f.target_amount)}</span>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
+                {f.description && <p className="funding-desc">{f.description}</p>}
+                <div className="funding-bar-wrap">
+                  <div className="funding-bar" style={{ width: `${progressPct}%` }} />
+                </div>
+                <FundingBalance funding={f} />
+                {!isCompleted && (
+                  <div className="form-row groups-page__donate-row">
+                    <div className="amount-input-wrap">
+                      <input
+                        className="form-input amount-input"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        max={remaining > 0 ? remaining : undefined}
+                        placeholder="Betrag"
+                        value={donateAmount[f.id] ?? ''}
+                        onChange={(e) => setDonateAmount((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                      />
+                      <span className="amount-input-suffix" aria-hidden="true">€</span>
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
+                  </div>
+                )}
+                {isCompleted && isAdmin && (
+                  <div className="form-actions" style={{ marginTop: 8 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => archiveFunding(f.id)}>
+                      Als fertig markieren (archivieren)
+                    </button>
+                  </div>
+                )}
+                <ExpensesSection
+                  groupId={groupId}
+                  fundingId={f.id}
+                  fundingAmount={f.target_amount}
+                  expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
+                  isAdmin={!!isAdmin}
+                />
               </div>
-              <ExpensesSection
-                groupId={groupId}
-                fundingId={f.id}
-                fundingAmount={f.target_amount}
-                expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
-                isAdmin={!!isAdmin}
-              />
-            </div>
-          ))}
+            );
+          })}
           {isAdmin && (
             <form className="entry-form groups-page__funding-form" onSubmit={createFunding}>
               <div className="form-row">
@@ -431,7 +478,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
       )}
 
       {tab === 'archive' && (
-        <div className="empty-state">Archiv folgt (Unit 9).</div>
+        <GroupArchiveSection groupId={groupId} archivedFundings={group.archived_fundings ?? []} />
       )}
 
       {tab === 'chat' && (
