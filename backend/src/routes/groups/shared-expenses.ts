@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/helpers/auth';
 import { checkCsrf } from '@/lib/utils/csrf';
 import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody } from '@/lib/utils/http';
-import { badRequest, notFound, jsonResponse } from '@/lib/utils/responses';
+import { badRequest, notFound, jsonResponse, serverError } from '@/lib/utils/responses';
 import { toFixedAmount, normalizeCycle } from '@/lib/helpers/finance';
 import type { DbClient } from '@/lib/db';
 import { getGroupCtx, requireAdmin } from './_shared';
@@ -159,24 +159,32 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
   if (info.length > 1000) return badRequest('Beschreibung zu lang (max. 1000 Zeichen)');
 
   const totalAmount = toFixedAmount(payload.total_amount);
-  if (totalAmount <= 0) return badRequest('Betrag muss größer 0 sein');
+  if (totalAmount <= 0) return badRequest('Gesamtbetrag muss größer als 0 sein');
 
   const modeRaw = String(payload.payment_mode ?? '').toLowerCase();
-  if (!VALID_MODES.has(modeRaw as PaymentMode)) return badRequest('payment_mode muss "prepaid" oder "postpaid" sein');
+  if (!VALID_MODES.has(modeRaw as PaymentMode)) return badRequest('Ungültiger Zahlungsmodus');
   const paymentMode = modeRaw as PaymentMode;
 
-  const cycle = normalizeCycle(payload.cycle) ?? 'once';
+  const cycle = normalizeCycle(payload.cycle);
+  if (!cycle) return badRequest('Ungültiger Zyklus');
 
   const rawParticipants = Array.isArray(payload.participant_user_ids) ? payload.participant_user_ids : null;
-  if (!rawParticipants || rawParticipants.length === 0) return badRequest('Mindestens ein Teilnehmer erforderlich');
-  const participantIds = Array.from(
+  if (!rawParticipants || rawParticipants.length === 0) {
+    return badRequest('Mindestens ein Teilnehmer ist erforderlich');
+  }
+  const parsedParticipants = Array.from(
     new Set(
       rawParticipants
         .map((v) => Number(v))
         .filter((n) => Number.isFinite(n) && n > 0),
     ),
   );
-  if (participantIds.length === 0) return badRequest('Ungültige Teilnehmer');
+  if (parsedParticipants.length === 0) return badRequest('Mindestens ein Teilnehmer ist erforderlich');
+
+  // admin is always a participant
+  const participantIds = parsedParticipants.includes(auth.user.id)
+    ? parsedParticipants
+    : [auth.user.id, ...parsedParticipants];
 
   const { data: members } = await auth.db
     .from('group_members')
@@ -185,17 +193,21 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     .in('status', ['accepted', 'pending_admin']);
   const memberIds = new Set<number>((members ?? []).map((m: Record<string, unknown>) => Number(m.user_id)));
   for (const pid of participantIds) {
-    if (!memberIds.has(pid)) return badRequest(`User ${pid} ist kein Gruppenmitglied`);
+    if (!memberIds.has(pid)) return badRequest('Ein Teilnehmer ist kein Mitglied der Gruppe');
   }
 
   if (paymentMode === 'prepaid') {
     const adminAccount = await getDefaultAccountId(auth.db, auth.user.id);
-    if (adminAccount == null) return badRequest('Admin hat kein Standardkonto');
+    if (adminAccount == null) {
+      return badRequest(
+        'Du benötigst ein Standardkonto. Lege eines unter "Konten" → "Als Standard" fest, bevor du Vorkasse-Ausgaben erstellen kannst.',
+      );
+    }
   }
 
   const sharesPerUser = computeEqualShares(totalAmount, participantIds.length);
 
-  const { data: expense } = await auth.db
+  const { data: expense, error: expenseError } = await auth.db
     .from('group_shared_expenses')
     .insert({
       group_id: groupId,
@@ -209,7 +221,10 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     })
     .select('id, group_id, creator_user_id, title, info, total_amount, payment_mode, cycle, next_due_date, status, created_at, updated_at')
     .single();
-  if (!expense) return jsonResponse({ ok: false, message: 'Konnte geteilte Ausgabe nicht anlegen' }, 500);
+  if (expenseError || !expense) {
+    console.error('shared-expense insert failed:', expenseError);
+    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+  }
 
   const expenseId = Number((expense as Record<string, unknown>).id);
   const now = new Date().toISOString();
@@ -225,31 +240,49 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     };
   });
 
-  await auth.db.from('group_shared_expense_shares').insert(shareRows);
+  const { error: sharesError } = await auth.db
+    .from('group_shared_expense_shares')
+    .insert(shareRows);
+  if (sharesError) {
+    console.error('shared-expense shares insert failed:', sharesError);
+    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+  }
 
-  const { data: insertedShares } = await auth.db
+  const { data: insertedShares, error: sharesSelectError } = await auth.db
     .from('group_shared_expense_shares')
     .select('*')
     .eq('shared_expense_id', expenseId)
     .order('id', { ascending: true });
+  if (sharesSelectError) {
+    console.error('shared-expense shares select failed:', sharesSelectError);
+    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+  }
 
-  const { data: period } = await auth.db
+  const { data: period, error: periodError } = await auth.db
     .from('group_shared_expense_periods')
     .insert({ shared_expense_id: expenseId, period_start: now, status: 'collecting' })
     .select('id, shared_expense_id, period_start, status, created_at, settled_at')
     .single();
+  if (periodError || !period) {
+    console.error('shared-expense period insert failed:', periodError);
+    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+  }
 
-  if (paymentMode === 'postpaid' && period) {
+  if (paymentMode === 'postpaid') {
     const creatorShare = (insertedShares ?? []).find(
       (s: Record<string, unknown>) => Number(s.user_id) === auth.user.id,
     ) as Record<string, unknown> | undefined;
     if (creatorShare) {
-      await auth.db.from('group_shared_expense_period_transfers').insert({
+      const { error: ptError } = await auth.db.from('group_shared_expense_period_transfers').insert({
         period_id: Number(period.id),
         share_id: Number(creatorShare.id),
         amount: toFixedAmount(creatorShare.share_amount),
         status: 'reserved',
       });
+      if (ptError) {
+        console.error('shared-expense creator reservation insert failed:', ptError);
+        return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+      }
     }
   }
 
