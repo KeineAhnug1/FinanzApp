@@ -519,6 +519,27 @@ groups.delete('/:id/messages/:msgId', async (c) => {
   return jsonResponse({ ok: true, message: 'Nachricht gelöscht' }, 200);
 });
 
+// GET /api/groups/:id/transfers
+groups.get('/:id/transfers', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+
+  const groupId = Number(c.req.param('id'));
+  if (!Number.isFinite(groupId)) return badRequest('Invalid group id');
+
+  const ctx = await getGroupCtx(auth.db, groupId, auth.user.id);
+  if (!ctx.ok) return jsonResponse({ ok: false, message: ctx.message }, ctx.status);
+
+  const { data } = await auth.db
+    .from('transfers')
+    .select('*, from_user:users!from_user_id(id, username, first_name, last_name), to_user:users!to_user_id(id, username, first_name, last_name)')
+    .eq('group_id', groupId)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  return jsonResponse({ ok: true, items: data ?? [] }, 200);
+});
+
 groups.route('/', membersRoutes);
 groups.route('/', activitiesRoutes);
 groups.route('/', expensesRoutes);

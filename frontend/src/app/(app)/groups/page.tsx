@@ -17,6 +17,7 @@ import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 import { FundingBalance } from '@/components/groups/FundingBalance';
 import { SharedExpensesSection } from '@/components/groups/SharedExpensesSection';
 import { TripsSection } from '@/components/groups/TripsSection';
+import { GroupTransfersSection } from '@/components/groups/GroupTransfersSection';
 
 type GroupTab = 'overview' | 'members' | 'activities' | 'fundings' | 'shared-expenses' | 'trips' | 'transfers' | 'archive' | 'chat';
 
@@ -426,7 +427,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
       )}
 
       {tab === 'transfers' && (
-        <div className="empty-state">Überweisungs-Archiv folgt (Unit 8).</div>
+        <GroupTransfersSection groupId={groupId} />
       )}
 
       {tab === 'archive' && (
