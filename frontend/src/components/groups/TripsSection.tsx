@@ -102,7 +102,13 @@ export function TripsSection({ groupId, members, currentUserId, isAdmin }: Trips
       {isLoading && <div className="loading-state"><span className="spinner" /><span>Lade…</span></div>}
 
       {!isLoading && sortedTrips.length === 0 && (
-        <p>Noch keine Ausflüge in dieser Gruppe.</p>
+        <div className="trips-empty">
+          <div className="trips-empty-icon" aria-hidden="true">🧳</div>
+          <p>Noch keine Ausflüge — erstelle deinen ersten Ausflug.</p>
+          <button className="btn btn-primary btn-sm" type="button" onClick={() => setShowCreate(true)}>
+            + Neuer Ausflug
+          </button>
+        </div>
       )}
 
       <div className="trip-list">
@@ -114,6 +120,7 @@ export function TripsSection({ groupId, members, currentUserId, isAdmin }: Trips
             : net < -0.005
               ? `Ich schulde: ${formatMoney(-net)}`
               : 'Ausgeglichen';
+          const statusClass = `trip-card-status trip-card-status--${trip.status}`;
           return (
             <div
               key={trip.id}
@@ -123,14 +130,15 @@ export function TripsSection({ groupId, members, currentUserId, isAdmin }: Trips
               onClick={() => setActiveTripId(trip.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTripId(trip.id); } }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                <strong>{trip.name}</strong>
-                <span className="badge badge-info">{STATUS_LABELS[trip.status] ?? trip.status}</span>
+              <div className="trip-card-head">
+                <div className="trip-card-title">
+                  <span className="trip-card-icon" aria-hidden="true">🧳</span>
+                  <strong>{trip.name}</strong>
+                </div>
+                <span className={statusClass}>{STATUS_LABELS[trip.status] ?? trip.status}</span>
               </div>
-              {trip.description && <span style={{ color: 'var(--text-secondary, #6b7280)' }}>{trip.description}</span>}
-              <span style={{ color: 'var(--text-secondary, #6b7280)', fontSize: '0.85rem' }}>
-                {trip.participants.length} Teilnehmer
-              </span>
+              {trip.description && <span className="trip-card-description">{trip.description}</span>}
+              <span className="trip-card-meta">{trip.participants.length} Teilnehmer</span>
               <span className={netClass}>{netLabel}</span>
             </div>
           );

@@ -52,54 +52,82 @@ export function CreateTripModal({ groupId, members, currentUserId, onClose }: Cr
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify(body),
     });
-    const result = await res.json();
-    if (!result.ok) { toast.error(result.message ?? 'Fehler beim Anlegen'); return; }
+    const result = await res.json().catch(() => ({ ok: false, message: 'Antwort konnte nicht gelesen werden' }));
+    if (!res.ok || !result.ok) {
+      toast.error(result.message ?? 'Ausflug konnte nicht angelegt werden');
+      return;
+    }
     toast.success('Ausflug erstellt');
     queryClient.invalidateQueries({ queryKey: ['group', groupId, 'trips'] });
     onClose();
   };
 
   return (
-    <Modal open onClose={onClose} title="Neuer Ausflug">
+    <Modal open onClose={onClose} title="Neuer Ausflug" size="lg">
       <form className="entry-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-        <div>
-          <label className="form-label">Name</label>
-          <input className="form-input" placeholder="z.B. Berlin-Wochenende" {...register('name')} />
-          {errors.name && <p className="form-error">{errors.name.message}</p>}
-        </div>
-        <div>
-          <label className="form-label">Beschreibung (optional)</label>
-          <textarea className="form-input" rows={3} placeholder="Was ist geplant?" {...register('description')} />
-          {errors.description && <p className="form-error">{errors.description.message}</p>}
-        </div>
-        <div>
-          <label className="form-label">Teilnehmer</label>
+        <section className="form-section">
+          <h4 className="form-section-title">Ausflug</h4>
+          <div>
+            <label className="form-label">Name</label>
+            <input className="form-input" placeholder="z.B. Berlin-Wochenende" {...register('name')} />
+            {errors.name && <p className="form-error">{errors.name.message}</p>}
+          </div>
+          <div>
+            <label className="form-label">Beschreibung (optional)</label>
+            <textarea className="form-input" rows={3} placeholder="Was ist geplant?" {...register('description')} />
+            {errors.description && <p className="form-error">{errors.description.message}</p>}
+          </div>
+        </section>
+
+        <section className="form-section">
           <Controller
             control={control}
             name="participant_user_ids"
-            render={({ field }) => (
-              <div className="trip-participant-list">
-                {members.map((m) => {
-                  const checked = field.value.includes(m.user_id);
-                  return (
-                    <label key={m.user_id} className="trip-participant-option">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) field.onChange([...field.value, m.user_id]);
-                          else field.onChange(field.value.filter((id) => id !== m.user_id));
-                        }}
-                      />
-                      <span>{m.first_name || m.username}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
+            render={({ field }) => {
+              const allIds = members.map((m) => m.user_id);
+              const selectAll = () => field.onChange(allIds);
+              const deselectAll = () => field.onChange(currentUserId ? [currentUserId] : []);
+              return (
+                <>
+                  <div className="form-section-header">
+                    <h4 className="form-section-title">Teilnehmer</h4>
+                    <div className="form-section-actions">
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={selectAll}>Alle</button>
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={deselectAll}>Nur ich</button>
+                    </div>
+                  </div>
+                  {members.length === 0 ? (
+                    <p className="form-hint">Keine Mitglieder verfügbar.</p>
+                  ) : (
+                    <div className="participant-pill-grid" role="group" aria-label="Teilnehmer auswählen">
+                      {members.map((m) => {
+                        const selected = field.value.includes(m.user_id);
+                        const label = m.first_name || m.username || `User ${m.user_id}`;
+                        return (
+                          <button
+                            type="button"
+                            key={m.user_id}
+                            className={`participant-pill${selected ? ' participant-pill--selected' : ''}`}
+                            aria-pressed={selected}
+                            onClick={() => {
+                              if (selected) field.onChange(field.value.filter((id) => id !== m.user_id));
+                              else field.onChange([...field.value, m.user_id]);
+                            }}
+                          >
+                            <span className="participant-pill__check" aria-hidden="true">{selected ? '✓' : '+'}</span>
+                            <span className="participant-pill__name">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {errors.participant_user_ids && <p className="form-error">{errors.participant_user_ids.message}</p>}
+                </>
+              );
+            }}
           />
-          {errors.participant_user_ids && <p className="form-error">{errors.participant_user_ids.message}</p>}
-        </div>
+        </section>
+
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={isSubmitting}>Erstellen</button>
           <button className="btn btn-ghost" type="button" onClick={onClose}>Abbrechen</button>
