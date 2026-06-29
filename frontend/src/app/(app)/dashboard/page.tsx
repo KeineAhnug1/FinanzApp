@@ -17,6 +17,7 @@ import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
 import { EntriesList } from '@/components/dashboard/EntriesList';
 import { IncomeForm } from '@/components/dashboard/IncomeForm';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
+import { PeerTransferModal } from '@/components/dashboard/PeerTransferModal';
 
 type DashboardView = 'overview' | 'income' | 'expense';
 
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [accountFilter, setAccountFilter] = useState('');
   const [editIncome, setEditIncome] = useState<IncomeEntry | null>(null);
   const [editExpense, setEditExpense] = useState<ExpenseEntry | null>(null);
+  const [peerTransferOpen, setPeerTransferOpen] = useState(false);
   const { user } = useAppStore();
   const queryClient = useQueryClient();
 
@@ -102,6 +104,14 @@ export default function DashboardPage() {
               </select>
             </div>
           )}
+          <button
+            type="button"
+            className="btn btn-primary dash-peer-transfer-btn"
+            onClick={() => setPeerTransferOpen(true)}
+            disabled={accounts.length === 0}
+          >
+            → Überweisung
+          </button>
         </div>
 
         {isLoading && <p className="dashboard__loading">Lade Daten…</p>}
@@ -238,6 +248,11 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      <PeerTransferModal
+        open={peerTransferOpen}
+        onClose={() => setPeerTransferOpen(false)}
+        bankAccounts={accounts}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ export interface IncomeEntry {
   received_at: string;
   bank_account_id: string;
   note?: string;
+  transfer_id?: number | null;
 }
 
 export interface ExpenseEntry {
@@ -25,6 +26,7 @@ export interface ExpenseEntry {
   spent_at: string;
   bank_account_id: string;
   note?: string;
+  transfer_id?: number | null;
 }
 
 export interface BudgetAlert {
