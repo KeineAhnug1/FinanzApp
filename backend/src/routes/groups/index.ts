@@ -9,6 +9,7 @@ import { toNum, getGroupCtx } from './_shared';
 import membersRoutes from './members';
 import activitiesRoutes from './activities';
 import expensesRoutes from './expenses';
+import sharedExpensesRoutes from './shared-expenses';
 
 const groups = new Hono<{ Bindings: Env }>();
 
@@ -520,5 +521,6 @@ groups.delete('/:id/messages/:msgId', async (c) => {
 groups.route('/', membersRoutes);
 groups.route('/', activitiesRoutes);
 groups.route('/', expensesRoutes);
+groups.route('/', sharedExpensesRoutes);
 
 export default groups;
