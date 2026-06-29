@@ -11418,3 +11418,16 @@ button.group-card-button:focus-visible {
   background: var(--ui-surface);
   border-color: var(--ui-border);
 }
+
+.transfer-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(99,102,241,0.12);
+  color: #6366f1;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.transfer-locked { opacity: 0.65; pointer-events: none; }
+[data-theme="dark"] .transfer-badge { background: rgba(129,140,248,0.18); color: #a5b4fc; }

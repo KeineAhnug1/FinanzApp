@@ -120,10 +120,15 @@ export function EntriesList({
                                     <span className="day-title">{day}</span>
                                   </summary>
                                   <ul style={{ margin: 0, padding: '0 8px 8px', listStyle: 'none', display: 'grid', gap: 8 }}>
-                                    {dayEntries.map((entry) => (
+                                    {dayEntries.map((entry) => {
+                                      const isTransfer = entry.transfer_id != null;
+                                      return (
                                       <li key={entry.id} className="income-item">
                                         <div className="income-topline">
-                                          <span className="income-source">{entry.source}</span>
+                                          <span className="income-source">
+                                            {entry.source}
+                                            {isTransfer && <span className="transfer-badge">Überweisung</span>}
+                                          </span>
                                           <span className={`income-amount${type === 'expense' ? ' is-expense' : ''}`}>{formatMoney(Number(entry.amount))}</span>
                                         </div>
                                         <div className="income-tags">
@@ -131,18 +136,31 @@ export function EntriesList({
                                         </div>
                                         {entry.note && <p className="income-note">{entry.note}</p>}
                                         <div className="income-actions-inline">
-                                          <button className="inline-action" type="button" onClick={() => onEdit(entry)}>Bearbeiten</button>
+                                          <button
+                                            className="inline-action"
+                                            type="button"
+                                            onClick={() => onEdit(entry)}
+                                            disabled={isTransfer}
+                                            title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                                          >Bearbeiten</button>
                                           {deleteId === entry.id ? (
                                             <>
                                               <button className="inline-action delete" type="button" onClick={() => { setDeleteId(null); onDelete(entry.id); }}>Löschen</button>
                                               <button className="inline-action" type="button" onClick={() => setDeleteId(null)}>Abbrechen</button>
                                             </>
                                           ) : (
-                                            <button className="inline-action delete" type="button" onClick={() => setDeleteId(entry.id)}>Löschen</button>
+                                            <button
+                                              className="inline-action delete"
+                                              type="button"
+                                              onClick={() => setDeleteId(entry.id)}
+                                              disabled={isTransfer}
+                                              title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                                            >Löschen</button>
                                           )}
                                         </div>
                                       </li>
-                                    ))}
+                                      );
+                                    })}
                                   </ul>
                                 </details>
                               </li>

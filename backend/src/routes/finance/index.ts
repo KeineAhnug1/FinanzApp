@@ -27,10 +27,12 @@ import {
 } from '@/lib/helpers/finance';
 import bankAccountHistoryRoutes from './bank-account-history';
 import shareAccountsRoutes from './share-accounts';
+import peerTransfersRoutes from './peer-transfers';
 
 const finance = new Hono<{ Bindings: Env }>();
 
 finance.route('/', shareAccountsRoutes);
+finance.route('/', peerTransfersRoutes);
 
 // ---------------------------------------------------------------------------
 // Bank Accounts
@@ -415,12 +417,13 @@ finance.patch('/expenses/:id', async (c) => {
 
   const { data: existing } = await auth.db
     .from('private_expenses')
-    .select('id, amount, bank_account_id')
+    .select('id, amount, bank_account_id, transfer_id')
     .eq('id', entryId)
     .in('bank_account_id', accountIds)
     .single();
 
   if (!existing) return notFound('Eintrag wurde nicht gefunden');
+  if (existing.transfer_id != null) return badRequest('Überweisungen können nicht bearbeitet oder gelöscht werden');
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
   const source = String(payload.source ?? '').trim();
@@ -486,12 +489,13 @@ finance.delete('/expenses/:id', async (c) => {
 
   const { data: existing } = await auth.db
     .from('private_expenses')
-    .select('id, amount, bank_account_id')
+    .select('id, amount, bank_account_id, transfer_id')
     .eq('id', entryId)
     .in('bank_account_id', accountIds)
     .single();
 
   if (!existing) return notFound('Eintrag wurde nicht gefunden');
+  if (existing.transfer_id != null) return badRequest('Überweisungen können nicht bearbeitet oder gelöscht werden');
 
   await auth.db.from('private_expenses').delete().eq('id', entryId);
   await incrementBankAccountBalance(auth.db, Number(existing.bank_account_id), toFixedAmount(existing.amount));
@@ -612,12 +616,13 @@ finance.patch('/income/:id', async (c) => {
 
   const { data: existing } = await auth.db
     .from('income')
-    .select('id, amount, bank_account_id')
+    .select('id, amount, bank_account_id, transfer_id')
     .eq('id', entryId)
     .in('bank_account_id', accountIds)
     .single();
 
   if (!existing) return notFound('Eintrag wurde nicht gefunden');
+  if (existing.transfer_id != null) return badRequest('Überweisungen können nicht bearbeitet oder gelöscht werden');
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
   const source = String(payload.source ?? '').trim();
@@ -683,12 +688,13 @@ finance.delete('/income/:id', async (c) => {
 
   const { data: existing } = await auth.db
     .from('income')
-    .select('id, amount, bank_account_id')
+    .select('id, amount, bank_account_id, transfer_id')
     .eq('id', entryId)
     .in('bank_account_id', accountIds)
     .single();
 
   if (!existing) return notFound('Eintrag wurde nicht gefunden');
+  if (existing.transfer_id != null) return badRequest('Überweisungen können nicht bearbeitet oder gelöscht werden');
 
   await auth.db.from('income').delete().eq('id', entryId);
   await incrementBankAccountBalance(auth.db, Number(existing.bank_account_id), -toFixedAmount(existing.amount));

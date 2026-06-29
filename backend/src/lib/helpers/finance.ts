@@ -44,6 +44,7 @@ function serializeEntryBase(entry: DbRow, userId: string | number | null) {
     recurrence: entry.recurrence == null ? null : Number(entry.recurrence),
     is_active: typeof entry.is_active === 'boolean' ? entry.is_active : entry.state !== 'paused',
     note: String(entry.note ?? entry.info ?? ''),
+    transfer_id: entry.transfer_id == null ? null : Number(entry.transfer_id),
     created_at: entry.created_at instanceof Date ? entry.created_at.toISOString() : (entry.created_at as string | null) ?? null,
     updated_at: entry.updated_at instanceof Date ? entry.updated_at.toISOString() : (entry.updated_at as string | null) ?? null,
   };
@@ -235,6 +236,77 @@ export async function ensureUserFinanceRoots(db: DbClient, userId: string | numb
 
 export async function incrementBankAccountBalance(db: DbClient, accountId: string | number, delta: number): Promise<void> {
   await db.rpc('increment_bank_balance', { p_account_id: Number(accountId), p_delta: delta });
+}
+
+export async function createPeerTransfer(
+  db: DbClient,
+  fromUserId: number,
+  toUserId: number,
+  fromBankAccountId: number,
+  toBankAccountId: number,
+  amount: number,
+  reason: string,
+  groupId: number | null = null,
+  groupExpenseShareId: number | null = null,
+  tripSettlementId: number | null = null,
+): Promise<{ transferId: number } | { error: string }> {
+  const safeAmount = toFixedAmount(amount);
+  if (safeAmount <= 0) return { error: 'Betrag muss > 0 sein' };
+  const nowIso = new Date().toISOString();
+  const { data: transfer, error: tErr } = await db.from('transfers').insert({
+    from_user_id: fromUserId,
+    to_user_id: toUserId,
+    from_bank_account_id: fromBankAccountId,
+    to_bank_account_id: toBankAccountId,
+    amount: safeAmount,
+    reason,
+    group_id: groupId,
+    group_expense_share_id: groupExpenseShareId,
+    trip_settlement_id: tripSettlementId,
+    status: 'completed',
+    completed_at: nowIso,
+  }).select('id').single();
+  if (tErr || !transfer) return { error: 'Überweisung fehlgeschlagen' };
+
+  await db.from('private_expenses').insert({
+    bank_account_id: fromBankAccountId,
+    source: reason,
+    category: 'transfer',
+    amount: safeAmount,
+    theo_amount: safeAmount,
+    spent_at: nowIso,
+    due_date: nowIso,
+    pay_date: nowIso,
+    info: reason,
+    state: 'open',
+    note: '',
+    recurrence: null,
+    cycle: 'once',
+    is_active: true,
+    transfer_id: transfer.id,
+    group_id: groupId,
+  });
+  await db.from('income').insert({
+    bank_account_id: toBankAccountId,
+    source: reason,
+    category: 'transfer',
+    amount: safeAmount,
+    received_at: nowIso,
+    pay_date: nowIso,
+    info: reason,
+    note: '',
+    recurrence: null,
+    cycle: 'once',
+    is_active: true,
+    state: 'open',
+    transfer_id: transfer.id,
+    group_id: groupId,
+  });
+
+  await incrementBankAccountBalance(db, fromBankAccountId, -safeAmount);
+  await incrementBankAccountBalance(db, toBankAccountId, safeAmount);
+
+  return { transferId: Number(transfer.id) };
 }
 
 export async function rememberUserCategory(
