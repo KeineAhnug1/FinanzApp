@@ -40,6 +40,8 @@ export function CreateSharedExpenseModal({ groupId, members, onClose }: Props) {
     },
   });
 
+  const allMemberIds = members.map((m) => m.user_id);
+
   const onSubmit = async (data: FormData) => {
     const body: Record<string, unknown> = {
       title: data.title.trim(),
@@ -57,7 +59,10 @@ export function CreateSharedExpenseModal({ groupId, members, onClose }: Props) {
       body: JSON.stringify(body),
     });
     const result = await res.json();
-    if (!res.ok || !result.ok) { toast.error(result.message ?? 'Fehler beim Anlegen'); return; }
+    if (!res.ok || !result.ok) {
+      toast.error(result.message ?? 'Konnte geteilte Ausgabe nicht anlegen');
+      return;
+    }
     toast.success('Gruppenausgabe angelegt');
     queryClient.invalidateQueries({ queryKey: ['group', groupId, 'shared-expenses'] });
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -65,8 +70,9 @@ export function CreateSharedExpenseModal({ groupId, members, onClose }: Props) {
   };
 
   return (
-    <Modal open onClose={onClose} title="Neue Gruppenausgabe">
+    <Modal open onClose={onClose} title="Neue Gruppenausgabe" size="lg">
       <form className="entry-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <h3 className="modal-section-header">Grundinfo</h3>
         <div>
           <label className="form-label">Titel</label>
           <input className="form-input" placeholder="z.B. Miete" {...register('title')} />
@@ -95,40 +101,70 @@ export function CreateSharedExpenseModal({ groupId, members, onClose }: Props) {
           </select>
           {errors.cycle && <p className="form-error">{errors.cycle.message}</p>}
         </div>
-        <div>
-          <label className="form-label">Teilnehmer</label>
-          <Controller
-            control={control}
-            name="participant_user_ids"
-            render={({ field }) => (
-              <div className="shared-expense-participants">
-                {members.length === 0 && <p className="form-hint">Keine Mitglieder verfügbar.</p>}
-                {members.map((m) => {
-                  const checked = field.value.includes(m.user_id);
-                  return (
-                    <label key={m.user_id} className="shared-expense-participant">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) field.onChange([...field.value, m.user_id]);
-                          else field.onChange(field.value.filter((id) => id !== m.user_id));
-                        }}
-                      />
-                      <span>{m.first_name || m.username}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          />
-          {errors.participant_user_ids && <p className="form-error">{errors.participant_user_ids.message}</p>}
-        </div>
+
+        <h3 className="modal-section-header">Teilnehmer</h3>
+        <Controller
+          control={control}
+          name="participant_user_ids"
+          render={({ field }) => (
+            <div>
+              {members.length === 0 ? (
+                <p className="form-hint">Keine Mitglieder verfügbar.</p>
+              ) : (
+                <>
+                  <div className="participant-pill-actions">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => field.onChange(allMemberIds)}
+                    >
+                      Alle auswählen
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => field.onChange([])}
+                    >
+                      Alle abwählen
+                    </button>
+                  </div>
+                  <div className="participant-pill-grid">
+                    {members.map((m) => {
+                      const selected = field.value.includes(m.user_id);
+                      const label = m.first_name || m.username;
+                      return (
+                        <button
+                          key={m.user_id}
+                          type="button"
+                          className={`participant-pill${selected ? ' participant-pill--selected' : ''}`}
+                          aria-pressed={selected}
+                          onClick={() => {
+                            if (selected) field.onChange(field.value.filter((id) => id !== m.user_id));
+                            else field.onChange([...field.value, m.user_id]);
+                          }}
+                        >
+                          <span>{label}</span>
+                          <span className="participant-pill-check" aria-hidden="true">✓</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {errors.participant_user_ids && (
+                <p className="form-error">{errors.participant_user_ids.message}</p>
+              )}
+            </div>
+          )}
+        />
+
+        <h3 className="modal-section-header">Notiz</h3>
         <div>
           <label className="form-label">Info (optional)</label>
           <textarea className="form-input" rows={2} maxLength={500} {...register('info')} />
           {errors.info && <p className="form-error">{errors.info.message}</p>}
         </div>
+
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={isSubmitting}>Anlegen</button>
           <button className="btn btn-ghost" type="button" onClick={onClose}>Abbrechen</button>
