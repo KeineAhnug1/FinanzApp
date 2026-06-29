@@ -25,6 +25,8 @@ export interface User {
   income: number;
   /** Stored as "profileImage" (quoted identifier in DB). */
   profileImage: string | null;
+  /** FK to bank_accounts — receiving account for incoming peer transfers. */
+  default_bank_account_id: number | null;
   created_at: string;
 }
 
@@ -152,6 +154,10 @@ export interface Income {
   is_active: boolean | null;
   /** CHECK constraint enforced by DB but column has no NOT NULL. */
   state: 'open' | 'paused' | 'completed' | null;
+  /** FK to transfers — set when this income row mirrors a peer transfer. Immutable. */
+  transfer_id: number | null;
+  /** FK to groups — set for group-context income (used by Group Transfers tab). */
+  group_id: number | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -184,6 +190,10 @@ export interface Expense {
   group_funding_id: number | null;
   funding_participant_id: number | null;
   legacy_expense_entry_id: string | null;
+  /** FK to transfers — set when this expense row mirrors a peer transfer. Immutable. */
+  transfer_id: number | null;
+  /** FK to groups — set for group-context expenses (used by Group Transfers tab). */
+  group_id: number | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -231,6 +241,7 @@ export interface Group {
   name: string;
   info: string | null;
   address: string | null;
+  archived_at: string | null;
   created_at: string;
 }
 
@@ -272,6 +283,10 @@ export interface GroupFunding {
   /** DECIMAL DEFAULT 0 but no NOT NULL — can be NULL. */
   amount: number | null;
   info: string | null;
+  target_amount: number;
+  status: 'open' | 'completed' | 'archived';
+  completed_at: string | null;
+  archived_at: string | null;
   created_at: string;
 }
 
@@ -303,6 +318,131 @@ export interface GroupExpense {
   pay_date: string | null;
   due_date: string | null;
   created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Transfers (peer-to-peer)
+// ---------------------------------------------------------------------------
+
+/** Row in the `transfers` table. Immutable once created. */
+export interface Transfer {
+  id: number;
+  from_user_id: number;
+  to_user_id: number;
+  from_bank_account_id: number;
+  to_bank_account_id: number;
+  amount: number;
+  reason: string | null;
+  group_id: number | null;
+  group_expense_share_id: number | null;
+  trip_settlement_id: number | null;
+  status: 'pending' | 'completed' | 'cancelled';
+  created_at: string;
+  completed_at: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Group Shared Expenses (Splitwise-style recurring expenses)
+// ---------------------------------------------------------------------------
+
+/** Row in the `group_shared_expenses` table. */
+export interface GroupSharedExpense {
+  id: number;
+  group_id: number;
+  creator_user_id: number;
+  title: string;
+  info: string | null;
+  total_amount: number;
+  payment_mode: 'prepaid' | 'postpaid';
+  cycle: 'once' | 'weekly' | 'monthly' | 'yearly';
+  next_due_date: string | null;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  created_at: string;
+  updated_at: string | null;
+}
+
+/** Row in the `group_shared_expense_shares` table. */
+export interface GroupSharedExpenseShare {
+  id: number;
+  shared_expense_id: number;
+  user_id: number;
+  share_amount: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'left' | 'paid';
+  decided_at: string | null;
+  created_at: string;
+}
+
+/** Row in the `group_shared_expense_periods` table. */
+export interface GroupSharedExpensePeriod {
+  id: number;
+  shared_expense_id: number;
+  period_start: string;
+  status: 'collecting' | 'settled' | 'cancelled';
+  created_at: string;
+  settled_at: string | null;
+}
+
+/** Row in the `group_shared_expense_period_transfers` table. */
+export interface GroupSharedExpensePeriodTransfer {
+  id: number;
+  period_id: number;
+  share_id: number;
+  transfer_id: number | null;
+  amount: number;
+  status: 'reserved' | 'released' | 'cancelled';
+}
+
+// ---------------------------------------------------------------------------
+// Group Trips (Splitwise-style trip expenses with min-cash-flow settlements)
+// ---------------------------------------------------------------------------
+
+/** Row in the `group_trips` table. */
+export interface GroupTrip {
+  id: number;
+  group_id: number;
+  creator_user_id: number;
+  name: string;
+  description: string | null;
+  status: 'open' | 'closed' | 'archived';
+  created_at: string;
+  closed_at: string | null;
+}
+
+/** Row in the `group_trip_participants` table. */
+export interface GroupTripParticipant {
+  id: number;
+  trip_id: number;
+  user_id: number;
+}
+
+/** Row in the `group_trip_expenses` table. */
+export interface GroupTripExpense {
+  id: number;
+  trip_id: number;
+  payer_user_id: number;
+  description: string;
+  amount: number;
+  spent_at: string;
+  created_at: string;
+}
+
+/** Row in the `group_trip_expense_participants` table. */
+export interface GroupTripExpenseParticipant {
+  id: number;
+  trip_expense_id: number;
+  user_id: number;
+}
+
+/** Row in the `group_trip_settlements` table. */
+export interface GroupTripSettlement {
+  id: number;
+  trip_id: number;
+  from_user_id: number;
+  to_user_id: number;
+  amount: number;
+  status: 'open' | 'paid' | 'cancelled';
+  created_at: string;
+  paid_at: string | null;
 }
 
 // ---------------------------------------------------------------------------

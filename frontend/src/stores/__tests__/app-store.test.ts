@@ -12,6 +12,7 @@ const sampleUser: User = {
   age: 30,
   income: 5000,
   profileImage: null,
+  default_bank_account_id: null,
   created_at: '2026-01-01T00:00:00Z',
 };
 
