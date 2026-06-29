@@ -19,8 +19,11 @@ import { IncomeForm } from '@/components/dashboard/IncomeForm';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
 import { PeerTransferModal } from '@/components/dashboard/PeerTransferModal';
 import { RecurringList } from '@/components/dashboard/RecurringList';
+import { TransfersList } from '@/components/dashboard/TransfersList';
 
-type DashboardView = 'overview' | 'income' | 'expense' | 'recurring';
+type DashboardView = 'overview' | 'income' | 'expense' | 'recurring' | 'transfers';
+
+const VALID_TABS: DashboardView[] = ['overview', 'income', 'expense', 'recurring', 'transfers'];
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
@@ -39,7 +42,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem('finanzapp.dashboardView') as DashboardView | null;
-    if (stored && ['overview', 'income', 'expense', 'recurring'].includes(stored)) setView(stored);
+    if (stored && (VALID_TABS as string[]).includes(stored)) setView(stored);
   }, []);
 
   const switchView = (v: DashboardView) => {
@@ -109,6 +112,7 @@ export default function DashboardPage() {
             <button id="tab-income" className={`entry-tab-btn${view === 'income' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'income'} aria-controls="panel-income" onClick={() => switchView('income')}>Einnahmen</button>
             <button id="tab-expense" className={`entry-tab-btn${view === 'expense' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'expense'} aria-controls="panel-expense" onClick={() => switchView('expense')}>Ausgaben</button>
             <button id="tab-recurring" className={`entry-tab-btn${view === 'recurring' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'recurring'} aria-controls="panel-recurring" onClick={() => switchView('recurring')}>Daueraufträge</button>
+            <button id="tab-transfers" className={`entry-tab-btn${view === 'transfers' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'transfers'} aria-controls="panel-transfers" onClick={() => switchView('transfers')}>Überweisungen</button>
           </div>
           {accounts.length > 1 && (
             <div className="nav-account-filter">
@@ -118,14 +122,6 @@ export default function DashboardPage() {
               </select>
             </div>
           )}
-          <button
-            type="button"
-            className="btn btn-primary dash-peer-transfer-btn"
-            onClick={() => setPeerTransferOpen(true)}
-            disabled={accounts.length === 0}
-          >
-            → Überweisung
-          </button>
         </div>
 
         {isLoading && <p className="dashboard__loading">Lade Daten…</p>}
@@ -272,6 +268,15 @@ export default function DashboardPage() {
             onDeleteIncome={deleteIncome}
             onDeleteExpense={deleteExpense}
           />
+        </div>
+
+        <div className="view-panel" id="panel-transfers" role="tabpanel" aria-labelledby="tab-transfers" tabIndex={0} hidden={view !== 'transfers'}>
+          {view === 'transfers' && (
+            <TransfersList
+              accountFilter={accountFilter}
+              onNewTransfer={() => setPeerTransferOpen(true)}
+            />
+          )}
         </div>
       </div>
       <PeerTransferModal
