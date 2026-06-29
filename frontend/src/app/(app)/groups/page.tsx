@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,6 +15,11 @@ import { ActivitiesSection } from '@/components/groups/ActivitiesSection';
 import { ExpensesSection } from '@/components/groups/ExpensesSection';
 import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 import { FundingBalance } from '@/components/groups/FundingBalance';
+import { SharedExpensesSection } from '@/components/groups/SharedExpensesSection';
+
+type GroupTab = 'overview' | 'members' | 'activities' | 'fundings' | 'shared-expenses' | 'trips' | 'transfers' | 'archive' | 'chat';
+
+const VALID_TABS: GroupTab[] = ['overview', 'members', 'activities', 'fundings', 'shared-expenses', 'trips', 'transfers', 'archive', 'chat'];
 
 const createGroupSchema = z.object({
   name: z.string().min(2, 'Name erforderlich'),
@@ -119,6 +124,17 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [donateAmount, setDonateAmount] = useState<Record<number, string>>({});
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [tab, setTab] = useState<GroupTab>('overview');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('finanzapp.groupTab') as GroupTab | null;
+    if (stored && VALID_TABS.includes(stored)) setTab(stored);
+  }, []);
+
+  const switchTab = (t: GroupTab) => {
+    setTab(t);
+    localStorage.setItem('finanzapp.groupTab', t);
+  };
 
   const { data: group, isLoading } = useQuery<GroupView | null>({
     queryKey: ['group', groupId],
@@ -128,6 +144,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         id: Number(d.group.group_id),
         name: d.group.name,
         address: d.group.address ?? undefined,
+        info: d.group.info ?? undefined,
         created_at: d.group.created_at,
         is_admin: d.is_admin ?? false,
         session_user_id: d.session_user_id ? Number(d.session_user_id) : undefined,
@@ -270,112 +287,165 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         <button className="btn btn-ghost btn-sm" onClick={() => setLeaveConfirmOpen(true)}>Gruppe verlassen</button>
       </div>
 
-      <div className="group-section">
-        <h3 className="section-title">Mitglieder ({(group.members ?? []).length})</h3>
-        <div className="members-list">
-          {(group.members ?? []).map((m) => (
-            <div key={m.id} className="member-item">
-              <span>{m.first_name || m.username}</span>
-              {m.role === 'admin' && <span className="badge badge-info">Admin</span>}
-              <MembersAdminActions
+      <nav className="entry-tab-nav" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === 'overview'} className={`entry-tab-btn${tab === 'overview' ? ' is-active' : ''}`} onClick={() => switchTab('overview')}>Übersicht</button>
+        <button type="button" role="tab" aria-selected={tab === 'members'} className={`entry-tab-btn${tab === 'members' ? ' is-active' : ''}`} onClick={() => switchTab('members')}>Mitglieder</button>
+        <button type="button" role="tab" aria-selected={tab === 'activities'} className={`entry-tab-btn${tab === 'activities' ? ' is-active' : ''}`} onClick={() => switchTab('activities')}>Aktivitäten</button>
+        <button type="button" role="tab" aria-selected={tab === 'fundings'} className={`entry-tab-btn${tab === 'fundings' ? ' is-active' : ''}`} onClick={() => switchTab('fundings')}>Sammelaktionen</button>
+        <button type="button" role="tab" aria-selected={tab === 'shared-expenses'} className={`entry-tab-btn${tab === 'shared-expenses' ? ' is-active' : ''}`} onClick={() => switchTab('shared-expenses')}>Ausgaben</button>
+        <button type="button" role="tab" aria-selected={tab === 'trips'} className={`entry-tab-btn${tab === 'trips' ? ' is-active' : ''}`} onClick={() => switchTab('trips')}>Ausflüge</button>
+        <button type="button" role="tab" aria-selected={tab === 'transfers'} className={`entry-tab-btn${tab === 'transfers' ? ' is-active' : ''}`} onClick={() => switchTab('transfers')}>Überweisungen</button>
+        <button type="button" role="tab" aria-selected={tab === 'archive'} className={`entry-tab-btn${tab === 'archive' ? ' is-active' : ''}`} onClick={() => switchTab('archive')}>Archiv</button>
+        <button type="button" role="tab" aria-selected={tab === 'chat'} className={`entry-tab-btn${tab === 'chat' ? ' is-active' : ''}`} onClick={() => switchTab('chat')}>Chat</button>
+      </nav>
+
+      {tab === 'overview' && (
+        <div className="group-section">
+          <h3 className="section-title">Übersicht</h3>
+          <div className="group-overview-stats">
+            <div><strong>{(group.members ?? []).length}</strong> Mitglieder</div>
+            <div><strong>{(group.activities ?? []).length}</strong> Aktivitäten</div>
+            <div><strong>{(group.funding ?? []).length}</strong> Sammelaktionen</div>
+          </div>
+          {group.info && <p className="group-overview-info">{group.info}</p>}
+        </div>
+      )}
+
+      {tab === 'members' && (
+        <div className="group-section">
+          <h3 className="section-title">Mitglieder ({(group.members ?? []).length})</h3>
+          <div className="members-list">
+            {(group.members ?? []).map((m) => (
+              <div key={m.id} className="member-item">
+                <span>{m.first_name || m.username}</span>
+                {m.role === 'admin' && <span className="badge badge-info">Admin</span>}
+                <MembersAdminActions
+                  groupId={groupId}
+                  member={m}
+                  canManage={!!isAdmin && group.session_user_id !== undefined && m.user_id !== group.session_user_id}
+                />
+              </div>
+            ))}
+          </div>
+          {isAdmin && (
+            <div className="invite-form groups-page__invite-form">
+              <input className="form-input groups-page__invite-input" placeholder="Username einladen" value={inviteUsername} onChange={(e) => setInviteUsername(e.target.value)} />
+              <button className="btn btn-primary btn-sm" onClick={invite}>Einladen</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'activities' && (
+        <ActivitiesSection groupId={groupId} activities={group.activities ?? []} canManage={true} />
+      )}
+
+      {tab === 'fundings' && (
+        <div className="group-section">
+          <h3 className="section-title">Sammelaktionen</h3>
+          {(group.funding ?? []).map((f) => (
+            <div key={f.id} className="funding-item">
+              <div className="funding-header">
+                <span className="funding-title">{f.title}</span>
+                <span className="funding-progress">{formatMoney(f.current_amount)} / {formatMoney(f.target_amount)}</span>
+              </div>
+              {f.description && <p className="funding-desc">{f.description}</p>}
+              <div className="funding-bar-wrap">
+                <div className="funding-bar" style={{ width: `${f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0}%` }} />
+              </div>
+              <FundingBalance funding={f} />
+              <div className="form-row groups-page__donate-row">
+                <div className="amount-input-wrap">
+                  <input
+                    className="form-input amount-input"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="Betrag"
+                    value={donateAmount[f.id] ?? ''}
+                    onChange={(e) => setDonateAmount((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                  />
+                  <span className="amount-input-suffix" aria-hidden="true">€</span>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
+              </div>
+              <ExpensesSection
                 groupId={groupId}
-                member={m}
-                canManage={!!isAdmin && group.session_user_id !== undefined && m.user_id !== group.session_user_id}
+                fundingId={f.id}
+                fundingAmount={f.target_amount}
+                expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
+                isAdmin={!!isAdmin}
               />
             </div>
           ))}
+          {isAdmin && (
+            <form className="entry-form groups-page__funding-form" onSubmit={createFunding}>
+              <div className="form-row">
+                <input className="form-input" placeholder="Titel der Sammelaktion" value={fundTitle} onChange={(e) => setFundTitle(e.target.value)} required />
+                <div className="amount-input-wrap">
+                  <input className="form-input amount-input" type="number" min="0.01" step="0.01" placeholder="Ziel" value={fundTarget} onChange={(e) => setFundTarget(e.target.value)} required />
+                  <span className="amount-input-suffix" aria-hidden="true">€</span>
+                </div>
+              </div>
+              <input className="form-input" placeholder="Beschreibung (optional)" value={fundDesc} onChange={(e) => setFundDesc(e.target.value)} />
+              {(group.activities?.length ?? 0) > 0 && (
+                <select
+                  className="form-input form-select"
+                  value={fundActivity}
+                  onChange={(e) => setFundActivity(e.target.value)}
+                >
+                  <option value="">Keine Aktivität verknüpfen</option>
+                  {(group.activities ?? []).map((a) => (
+                    <option key={a.activity_id} value={a.activity_id}>{a.info ?? '—'}</option>
+                  ))}
+                </select>
+              )}
+              <button className="btn btn-primary btn-sm" type="submit">Sammelaktion erstellen</button>
+            </form>
+          )}
         </div>
-        {isAdmin && (
-          <div className="invite-form groups-page__invite-form">
-            <input className="form-input groups-page__invite-input" placeholder="Username einladen" value={inviteUsername} onChange={(e) => setInviteUsername(e.target.value)} />
-            <button className="btn btn-primary btn-sm" onClick={invite}>Einladen</button>
-          </div>
-        )}
-      </div>
+      )}
 
-      <ActivitiesSection groupId={groupId} activities={group.activities ?? []} canManage={true} />
+      {tab === 'shared-expenses' && (
+        <SharedExpensesSection
+          groupId={groupId}
+          isAdmin={!!isAdmin}
+          sessionUserId={group.session_user_id}
+          members={group.members ?? []}
+        />
+      )}
 
-      <div className="group-section">
-        <h3 className="section-title">Sammelaktionen</h3>
-        {(group.funding ?? []).map((f) => (
-          <div key={f.id} className="funding-item">
-            <div className="funding-header">
-              <span className="funding-title">{f.title}</span>
-              <span className="funding-progress">{formatMoney(f.current_amount)} / {formatMoney(f.target_amount)}</span>
-            </div>
-            {f.description && <p className="funding-desc">{f.description}</p>}
-            <div className="funding-bar-wrap">
-              <div className="funding-bar" style={{ width: `${f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0}%` }} />
-            </div>
-            <FundingBalance funding={f} />
-            <div className="form-row groups-page__donate-row">
-              <div className="amount-input-wrap">
-                <input
-                  className="form-input amount-input"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="Betrag"
-                  value={donateAmount[f.id] ?? ''}
-                  onChange={(e) => setDonateAmount((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                />
-                <span className="amount-input-suffix" aria-hidden="true">€</span>
-              </div>
-              <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
-            </div>
-            <ExpensesSection
-              groupId={groupId}
-              fundingId={f.id}
-              fundingAmount={f.target_amount}
-              expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
-              isAdmin={!!isAdmin}
-            />
+      {tab === 'trips' && (
+        <div className="empty-state">Ausflüge folgen in Kürze (Unit 7).</div>
+      )}
+
+      {tab === 'transfers' && (
+        <div className="empty-state">Überweisungs-Archiv folgt (Unit 8).</div>
+      )}
+
+      {tab === 'archive' && (
+        <div className="empty-state">Archiv folgt (Unit 9).</div>
+      )}
+
+      {tab === 'chat' && (
+        <div className="group-section">
+          <h3 className="section-title">Gruppenkanal</h3>
+          <div className="chat-messages">
+            {messages.map((m) => (
+              <ChatMessageItem
+                key={m.id}
+                groupId={groupId}
+                message={m}
+                canDelete={(group.session_user_id !== undefined && Number(m.user_id) === group.session_user_id) || !!group.is_admin}
+              />
+            ))}
           </div>
-        ))}
-        {isAdmin && (
-          <form className="entry-form groups-page__funding-form" onSubmit={createFunding}>
-            <div className="form-row">
-              <input className="form-input" placeholder="Titel der Sammelaktion" value={fundTitle} onChange={(e) => setFundTitle(e.target.value)} required />
-              <div className="amount-input-wrap">
-                <input className="form-input amount-input" type="number" min="0.01" step="0.01" placeholder="Ziel" value={fundTarget} onChange={(e) => setFundTarget(e.target.value)} required />
-                <span className="amount-input-suffix" aria-hidden="true">€</span>
-              </div>
-            </div>
-            <input className="form-input" placeholder="Beschreibung (optional)" value={fundDesc} onChange={(e) => setFundDesc(e.target.value)} />
-            {(group.activities?.length ?? 0) > 0 && (
-              <select
-                className="form-input form-select"
-                value={fundActivity}
-                onChange={(e) => setFundActivity(e.target.value)}
-              >
-                <option value="">Keine Aktivität verknüpfen</option>
-                {(group.activities ?? []).map((a) => (
-                  <option key={a.activity_id} value={a.activity_id}>{a.info ?? '—'}</option>
-                ))}
-              </select>
-            )}
-            <button className="btn btn-primary btn-sm" type="submit">Sammelaktion erstellen</button>
+          <form className="chat-input-form" onSubmit={sendMessage}>
+            <input className="form-input" placeholder="Nachricht…" value={msgInput} onChange={(e) => setMsgInput(e.target.value)} />
+            <button className="btn btn-primary btn-sm" type="submit">Senden</button>
           </form>
-        )}
-      </div>
-
-      <div className="group-section">
-        <h3 className="section-title">Gruppenkanal</h3>
-        <div className="chat-messages">
-          {messages.map((m) => (
-            <ChatMessageItem
-              key={m.id}
-              groupId={groupId}
-              message={m}
-              canDelete={(group.session_user_id !== undefined && Number(m.user_id) === group.session_user_id) || !!group.is_admin}
-            />
-          ))}
         </div>
-        <form className="chat-input-form" onSubmit={sendMessage}>
-          <input className="form-input" placeholder="Nachricht…" value={msgInput} onChange={(e) => setMsgInput(e.target.value)} />
-          <button className="btn btn-primary btn-sm" type="submit">Senden</button>
-        </form>
-      </div>
+      )}
 
       {leaveConfirmOpen && (
         <Modal open onClose={() => { if (!leaveBusy) setLeaveConfirmOpen(false); }} title="Gruppe verlassen" size="sm">

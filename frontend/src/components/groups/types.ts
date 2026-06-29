@@ -78,3 +78,43 @@ export interface Invitation {
   group_name: string;
   invited_by: string;
 }
+
+export type SharedExpensePaymentMode = 'prepaid' | 'postpaid';
+export type SharedExpenseCycle = 'once' | 'weekly' | 'monthly' | 'yearly';
+export type SharedExpenseStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+export type SharedExpenseShareStatus = 'pending' | 'accepted' | 'rejected' | 'stopped';
+
+export interface SharedExpenseShare {
+  share_id: number;
+  user_id: number;
+  username?: string;
+  first_name?: string;
+  share_amount: number;
+  status: SharedExpenseShareStatus;
+  decided_at?: string | null;
+  stopped_at?: string | null;
+}
+
+export interface SharedExpensePeriod {
+  period_id: number;
+  shared_expense_id: number;
+  period_start: string;
+  period_end?: string | null;
+  status: SharedExpenseStatus;
+  created_at?: string;
+}
+
+export interface SharedExpense {
+  shared_expense_id: number;
+  group_id: number;
+  title: string;
+  info?: string | null;
+  total_amount: number;
+  payment_mode: SharedExpensePaymentMode;
+  cycle: SharedExpenseCycle;
+  status: SharedExpenseStatus;
+  created_by: number;
+  created_at: string;
+  shares: SharedExpenseShare[];
+  periods?: SharedExpensePeriod[];
+}

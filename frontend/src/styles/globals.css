@@ -11460,3 +11460,54 @@ button.group-card-button:focus-visible {
 }
 .transfer-locked { opacity: 0.65; pointer-events: none; }
 [data-theme="dark"] .transfer-badge { background: rgba(129,140,248,0.18); color: #a5b4fc; }
+.shared-expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.shared-expense-card {
+  padding: 16px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shared-expense-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.shared-expense-title { font-weight: 600; font-size: 1rem; }
+.shared-expense-info { color: var(--ui-text-muted); font-size: 0.85rem; margin-top: 4px; }
+.shared-expense-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.shared-expense-amount { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+.shared-expense-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.shared-expense-status--pending { background: #fef3c7; color: #92400e; }
+.shared-expense-status--active { background: #d1fae5; color: #065f46; }
+.shared-expense-status--cancelled { background: #fee2e2; color: #991b1b; }
+.shared-expense-status--completed { background: #dbeafe; color: #1e40af; }
+.shared-expense-shares-list { display: flex; flex-direction: column; gap: 8px; }
+.shared-expense-share-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-soft, #f9fafb); border-radius: 8px; gap: 12px; font-size: 0.9rem; }
+.shared-expense-share-meta { display: flex; align-items: center; gap: 8px; }
+.shared-expense-self { font-style: italic; }
+.shared-expense-participants { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--ui-border); border-radius: 8px; max-height: 200px; overflow-y: auto; }
+.shared-expense-participant { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.group-overview-stats { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
+.group-overview-info { margin-top: 12px; color: var(--ui-text-muted); }
+.group-section__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+
+[data-theme="dark"] .shared-expense-card { background: #1f2937; border-color: #374151; }
+[data-theme="dark"] .shared-expense-share-row { background: #111827; }
+[data-theme="dark"] .shared-expense-status--pending { background: rgba(251,191,36,0.18); color: #fcd34d; }
+[data-theme="dark"] .shared-expense-status--active { background: rgba(52,211,153,0.18); color: #6ee7b7; }
+[data-theme="dark"] .shared-expense-status--cancelled { background: rgba(248,113,113,0.18); color: #fca5a5; }
+[data-theme="dark"] .shared-expense-status--completed { background: rgba(96,165,250,0.18); color: #93c5fd; }
