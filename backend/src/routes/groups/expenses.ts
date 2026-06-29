@@ -90,6 +90,11 @@ expenses.post('/:id/funding/:fundingId/expenses', async (c) => {
   const newPool = toFixedAmount(poolAmount - amount);
   await auth.db.from('group_funding').update({ amount: newPool }).eq('id', fundingId);
 
+  const auditResult = await auth.db.from('transactions').insert({ group_expense_id: inserted.id });
+  if ((auditResult as { error: { message: string } | null }).error) {
+    console.error('[expenses.post] transactions audit insert failed (non-fatal)', (auditResult as { error: { message: string } }).error);
+  }
+
   return jsonResponse({ ok: true, expense: serializeExpense(inserted), funding_amount: newPool }, 201);
 });
 
