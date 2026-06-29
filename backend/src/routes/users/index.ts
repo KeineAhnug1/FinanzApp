@@ -15,8 +15,11 @@ import {
   getSessionToken,
   destroySession,
 } from '@/lib/session';
+import defaultAccountRoutes from './default-account';
 
 const users = new Hono<{ Bindings: Env }>();
+
+users.route('/', defaultAccountRoutes);
 
 users.get('/me', async (c) => {
   const auth = await requireAuth(c);
