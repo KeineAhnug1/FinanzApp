@@ -273,7 +273,7 @@ trips.post('/:id/trips', async (c) => {
     if (!memberIds.has(id)) return badRequest('Teilnehmer ist kein Gruppenmitglied');
   }
 
-  const { data: tripInserted } = await auth.db
+  const { data: tripInserted, error: tripInsertError } = await auth.db
     .from('group_trips')
     .insert({
       group_id: groupId,
@@ -284,12 +284,20 @@ trips.post('/:id/trips', async (c) => {
     })
     .select('id, group_id, creator_user_id, name, description, status, created_at, closed_at')
     .single();
-  if (!tripInserted) return serverError('Ausflug konnte nicht angelegt werden');
+  if (tripInsertError || !tripInserted) {
+    console.error('[trips.create] insert failed', tripInsertError);
+    return serverError('Datenbankfehler beim Anlegen des Ausflugs');
+  }
 
   const tripId = Number((tripInserted as Row).id);
-  await auth.db
+  const { error: partsInsertError } = await auth.db
     .from('group_trip_participants')
     .insert(participantIds.map((uid) => ({ trip_id: tripId, user_id: uid })));
+  if (partsInsertError) {
+    console.error('[trips.create] participants insert failed', partsInsertError);
+    await auth.db.from('group_trips').delete().eq('id', tripId);
+    return serverError('Teilnehmer konnten nicht gespeichert werden');
+  }
 
   const full = await loadTripFull(auth.db, tripId, auth.user.id);
   return jsonResponse({ ok: true, ...(full ?? { trip: serializeTripBase(tripInserted as Row) }) }, 201);
@@ -425,7 +433,7 @@ trips.post('/:id/trips/:tripId/expenses', async (c) => {
     if (!tripParticipantIds.has(id)) return badRequest('Teilnehmer ist kein Ausflug-Teilnehmer');
   }
 
-  const { data: inserted } = await auth.db
+  const { data: inserted, error: expenseInsertError } = await auth.db
     .from('group_trip_expenses')
     .insert({
       trip_id: tripId,
@@ -436,12 +444,20 @@ trips.post('/:id/trips/:tripId/expenses', async (c) => {
     })
     .select('id')
     .single();
-  if (!inserted) return serverError('Ausgabe konnte nicht angelegt werden');
+  if (expenseInsertError || !inserted) {
+    console.error('[trips.expense.create] insert failed', expenseInsertError);
+    return serverError('Datenbankfehler beim Anlegen der Ausgabe');
+  }
   const expenseId = Number((inserted as Row).id);
 
-  await auth.db
+  const { error: epInsertError } = await auth.db
     .from('group_trip_expense_participants')
     .insert(participantIds.map((uid) => ({ trip_expense_id: expenseId, user_id: uid })));
+  if (epInsertError) {
+    console.error('[trips.expense.create] participants insert failed', epInsertError);
+    await auth.db.from('group_trip_expenses').delete().eq('id', expenseId);
+    return serverError('Beteiligte konnten nicht gespeichert werden');
+  }
 
   await recomputeTripSettlements(auth.db, tripId);
 
