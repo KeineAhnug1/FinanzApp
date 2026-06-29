@@ -335,8 +335,6 @@ function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; i
         </div>
       )}
 
-      <div className="account-type">{account.type || 'Bankkonto'}</div>
-
       <div className="account-card-default" onClick={(e) => e.stopPropagation()}>
         <DefaultAccountSelector accountId={Number(account.id)} isDefault={isDefault} />
       </div>
