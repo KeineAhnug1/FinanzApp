@@ -16,6 +16,7 @@ import { ExpensesSection } from '@/components/groups/ExpensesSection';
 import { ChatMessageItem } from '@/components/groups/ChatMessageItem';
 import { FundingBalance } from '@/components/groups/FundingBalance';
 import { SharedExpensesSection } from '@/components/groups/SharedExpensesSection';
+import { TripsSection } from '@/components/groups/TripsSection';
 
 type GroupTab = 'overview' | 'members' | 'activities' | 'fundings' | 'shared-expenses' | 'trips' | 'transfers' | 'archive' | 'chat';
 
@@ -415,8 +416,13 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
         />
       )}
 
-      {tab === 'trips' && (
-        <div className="empty-state">Ausflüge folgen in Kürze (Unit 7).</div>
+      {tab === 'trips' && group.session_user_id !== undefined && (
+        <TripsSection
+          groupId={groupId}
+          members={group.members ?? []}
+          currentUserId={group.session_user_id}
+          isAdmin={!!isAdmin}
+        />
       )}
 
       {tab === 'transfers' && (

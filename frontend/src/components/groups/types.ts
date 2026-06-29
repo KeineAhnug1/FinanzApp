@@ -118,3 +118,49 @@ export interface SharedExpense {
   shares: SharedExpenseShare[];
   periods?: SharedExpensePeriod[];
 }
+
+export type TripStatus = 'open' | 'closed' | 'archived';
+export type TripSettlementStatus = 'open' | 'paid' | 'cancelled';
+
+export interface TripParticipantView {
+  user_id: number;
+  username?: string;
+  first_name?: string;
+}
+
+export interface TripExpenseView {
+  id: number;
+  trip_id: number;
+  payer_user_id: number;
+  payer_name?: string;
+  description: string;
+  amount: number;
+  spent_at: string;
+  participants: TripParticipantView[];
+}
+
+export interface TripSettlementView {
+  id: number;
+  trip_id: number;
+  from_user_id: number;
+  to_user_id: number;
+  from_name?: string;
+  to_name?: string;
+  amount: number;
+  status: TripSettlementStatus;
+  paid_at?: string | null;
+}
+
+export interface TripView {
+  id: number;
+  group_id: number;
+  creator_user_id: number;
+  name: string;
+  description?: string | null;
+  status: TripStatus;
+  created_at: string;
+  closed_at?: string | null;
+  participants: TripParticipantView[];
+  expenses?: TripExpenseView[];
+  settlements?: TripSettlementView[];
+}
