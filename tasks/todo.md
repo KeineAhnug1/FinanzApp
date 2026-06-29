@@ -1,71 +1,85 @@
-# FBM FinanzApp — Follow-up Roadmap
+# Group Module Expansion — Tasks
 
-> Follow-up roadmap captured during the grading-criteria pass on 2026-06-25.
-> These items are deliberately deferred — too risky or too broad for inclusion in
-> the current pass, but tracked here so they don't get lost.
-> The root-level `TODO.md` covers feature backlog; this file covers
-> architecture, quality, infrastructure, and deferred features in one place.
+## Done (delivered as PRs in this batch)
 
-## A11y & UX
+- [x] Unit 1: DB migration SQL + TypeScript types
+- [x] Unit 2: Default bank account user setting
+- [x] Unit 3: Peer-to-peer transfers
+- [x] Unit 4: Group shared expenses backend
+- [x] Unit 5: Group shared expenses frontend + tab navigation
+- [x] Unit 6: Trips backend + min-cash-flow netting
+- [x] Unit 7: Trips frontend
+- [x] Unit 8: Group transfers archive tab
+- [x] Unit 9: Sammelaktion cap + status + Archive tab
+- [x] Unit 10: Documentation + smoke test
 
-- [ ] Loading skeletons across data-heavy pages (dashboard, accounts, stocks, groups). Currently only spinners; skeletons reduce perceived load time.
-- [ ] Empty-state illustrations + suggested actions (e.g., "Noch keine Konten — Lege dein erstes Konto an" with a CTA button). Currently text-only messages.
-- [ ] Onboarding tour for first-time users (welcome screen with 3-step guide).
-- [ ] Page transitions between routes (View Transitions API or framer-motion-style CSS).
-- [ ] Focus trap inside `Modal.tsx` (currently focus can escape with Tab).
-- [ ] Confirmation dialogs for destructive actions (delete account, leave group) — partial today.
+## Manual steps required by user
 
-## Code architecture
+1. **Apply database migration:**
+   - Open Supabase SQL editor
+   - Run `seeds/migrations/2026-06-29_groups_expansion.sql`
+   - Verify all new tables exist and existing fundings still load
+2. **Verify default accounts populated:**
+   - `SELECT count(*) FROM users WHERE default_bank_account_id IS NULL` should be 0 (or only users without any bank account)
+3. **Run type checks locally:**
+   - `cd backend && npm run type-check`
+   - `cd frontend && npm run type-check`
+4. **Manual smoke test** — see ## Smoke Test below.
 
-- [ ] Refactor `frontend/src/app/(app)/dashboard/page.tsx` (873 lines) — see `docs/REFACTOR-DASHBOARD.md` for the plan.
-- [ ] Extract reusable `<Card>`, `<Button>`, `<Input>` primitives from page-level CSS into typed components.
-- [ ] Move inline `<style>` patterns in pages (e.g., `style={{ padding: '2px 8px' }}` in dashboard) into utility CSS classes.
+## Smoke Test (manual walkthrough)
 
-## Testing
+Requires two browser sessions (User A admin, User B member of a shared group).
 
-- [ ] Expand backend Vitest coverage to routes (mock Hono context, test happy/error paths for auth, finance, groups).
-- [ ] Add frontend Vitest + React Testing Library for component tests.
-- [ ] Add Playwright e2e for critical flows (login, add account, add income, view dashboard).
+### Setup
+1. Both users registered. Both have at least one bank account with non-zero balance. Both have set a default account (Unit 2 UI on `/accounts`).
+2. User A creates a group, invites User B, B accepts.
 
-## Infrastructure
+### Test 1: Peer transfer (Unit 3)
+1. A opens `/dashboard` → click "→ Überweisung".
+2. Recipient: B's username. Amount: 10€. Reason: "Test". Submit.
+3. Verify in A's transactions: a "Test" expense appears, locked (no edit/delete buttons), badge "Überweisung".
+4. B refreshes `/dashboard` → income "Test" appears, same lock.
+5. Both balances updated correctly.
 
-- [ ] Docker — see `docs/DOCKER.md` for analysis. Cloudflare Workers (backend) cannot run in a standard container; only the frontend can be containerized.
-- [ ] CI workflow (GitHub Actions) running `type-check`, `lint`, `test` on every push.
-- [ ] Run `prettier --write` repo-wide once and commit (deferred to avoid a 10k-line diff in this pass).
+### Test 2: Shared expense — prepaid (Units 4+5)
+1. A opens group, switches to "Ausgaben" tab.
+2. "Neue Gruppenausgabe" → Title: "Miete", Total: 300€, Mode: prepaid, Cycle: once, Participants: [A, B]. Submit.
+3. A sees the expense pending. A's own share is auto-accepted (creator).
+4. B refreshes, switches to "Ausgaben" tab → sees pending request with Akzeptieren / Ablehnen.
+5. B clicks Akzeptieren. Expense becomes "active". B's 150€ share is transferred to A's default account.
+6. Verify in "Überweisungen" tab: one transfer appears, source badge "Ausgabe".
 
-## Features (deferred from existing TODO.md)
+### Test 3: Shared expense — postpaid (Units 4+5)
+1. A creates another expense, mode: postpaid, participants [A, B]. Submit.
+2. B accepts. The transfer does NOT execute yet (B's reservation is held; A is creator already accepted).
+3. Wait, since all 2 participants accepted, the reservation should release immediately. Verify B's balance decreased by share, A's balance increased.
 
-### Budgets
+### Test 4: Shared expense — reject (Units 4+5)
+1. A creates expense, prepaid, participants [A, B]. B clicks "Ablehnen".
+2. Verify expense moves to status "cancelled" — no money moved.
 
-- [ ] Monatliche Budget-Limits pro Kategorie (z.B. max. 200 € / Monat für Lebensmittel)
-- [ ] Budget-Übersicht: Fortschrittsbalken mit "verbraucht / gesamt"
-- [ ] Warnung / Indikator wenn Budget überschritten oder nahezu ausgeschöpft
-- [ ] Budget auf Wochenbasis optional (z.B. 50 € / Woche)
-- [ ] Budgets an Einnahmen koppeln (prozentualer Anteil statt Fixbetrag möglich)
+### Test 5: Trip (Units 6+7)
+1. A opens group → "Ausflüge" tab → "Neuer Ausflug".
+2. Name: "Wochenende", participants: [A, B]. Submit.
+3. Click into trip → "+ Ausgabe" → Payer: A, Description: "Pizza", Amount: 30€, Participants: [A, B]. Submit.
+4. Verify settlement appears: B owes A 15€.
+5. B opens trip → sees "Ich schulde A 15€" → click Begleichen.
+6. Verify: transfer 15€ B → A, settlement marked paid, balance is now 0.
+7. Admin A → "Ausflug schließen" → works because all settlements paid.
 
-### Sparziele
+### Test 6: Sammelaktion cap (Unit 9)
+1. A creates a funding: title "Wasserkocher", target 50€.
+2. A donates 30€. Progress: 30/50.
+3. A tries to donate 100€. Toast: "Nur 20€ wurden angenommen". Status flips to completed.
+4. A clicks "Als fertig markieren". Funding disappears from active list.
+5. Switch to "Archiv" tab → funding appears in archive.
 
-- [ ] Sparziel anlegen: Zielname, Zielbetrag, Zieldatum (optional)
-- [ ] Monatliche Mindest-Sparrate definieren (z.B. min. 100 € / Monat)
-- [ ] Fortschrittsanzeige: aktueller Stand vs. Ziel, verbleibende Monate
-- [ ] Automatische Erkennung wenn Sparrate unterschritten wird
-- [ ] Sparziele mit Konto verknüpfen (z.B. Sparkonto X)
-- [ ] Mehrere parallele Sparziele gleichzeitig verwalten
+### Test 7: Transfer immutability (Unit 3 invariant)
+1. In dashboard, try to edit/delete a transfer-tagged entry. Should be impossible (UI disabled, backend rejects with 400).
 
-### Freistellungsaufträge
+## Review
 
-- [ ] Freistellungsauftrag pro Bank / Depot erfassen (Betrag, Institut)
-- [ ] Gesamtübersicht: genutzter Anteil vs. Freistellungsbetrag (801 € / 1.602 € bei Zusammenveranlagung)
-- [ ] Kapitalerträge automatisch gegen Freistellungsaufträge aufrechnen
-- [ ] Warnung wenn Freistellungsbetrag ausgeschöpft / überschritten
-- [ ] Export-Möglichkeit für Steuerübersicht (Jahresauswertung)
-
-### Kategorie-Verbesserungen
-
-- [ ] Unterkategorien einführen (z.B. Lebensmittel > Supermarkt / Restaurant / Lieferdienst)
-- [ ] Kategorien individuell umbenennen und farblich markieren
-- [ ] Eigene Kategorien anlegen und löschen
-- [ ] Standardkategorien mit Icons versehen
-- [ ] Automatische Kategorieerkennung anhand von Transaktionsbeschreibungen (Regel-Engine)
-- [ ] Kategorie-Statistiken: Trend über mehrere Monate anzeigen
-- [ ] Kategorie-Filter in allen Auswertungsansichten vereinheitlichen
+(To be filled in by user after running the smoke test.)
+- Notes:
+- Issues found:
+- Follow-ups:
