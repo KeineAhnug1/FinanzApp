@@ -97,6 +97,64 @@ describe('hashCode / verifyCode', () => {
   });
 });
 
+describe('hashPassword / verifyPassword — edge cases', () => {
+  it('round-trips a Unicode password (umlauts, currency, emoji)', async () => {
+    const pw = 'Pässwörd-€-🔒';
+    const hash = await hashPassword(pw);
+    expect(await verifyPassword(pw, hash)).toBe(true);
+    expect(await verifyPassword('Passwort-€-🔒', hash)).toBe(false);
+  });
+
+  it('returns false when verifying an empty password against a real hash', async () => {
+    const hash = await hashPassword('non-empty');
+    expect(await verifyPassword('', hash)).toBe(false);
+  });
+
+  it('hashes the empty string and round-trips it (current behavior)', async () => {
+    const hash = await hashPassword('');
+    expect(hash.startsWith('scrypt:')).toBe(true);
+    expect(await verifyPassword('', hash)).toBe(true);
+    expect(await verifyPassword('x', hash)).toBe(false);
+  });
+
+  it('round-trips a 4 KB ASCII password', async () => {
+    const long = Array.from({ length: 4096 }, (_, i) => String.fromCharCode(33 + (i % 90))).join('');
+    const other = Array.from({ length: 4096 }, (_, i) => String.fromCharCode(33 + ((i + 1) % 90))).join('');
+    const hash = await hashPassword(long);
+    expect(await verifyPassword(long, hash)).toBe(true);
+    expect(await verifyPassword(other, hash)).toBe(false);
+  });
+
+  it('does not throw on malformed stored hashes and returns false', async () => {
+    expect(await verifyPassword('x', 'scrypt:onlyonepart')).toBe(false);
+    expect(await verifyPassword('x', 'scrypt:abc:def:ghi')).toBe(false);
+    expect(await verifyPassword('x', '')).toBe(false);
+    expect(await verifyPassword('x', 'notahash')).toBe(false);
+  });
+
+  it('treats passwords with differing surrounding whitespace as distinct (password is not trimmed)', async () => {
+    const hash = await hashPassword('abc');
+    expect(await verifyPassword('abc ', hash)).toBe(false);
+    expect(await verifyPassword(' abc', hash)).toBe(false);
+    expect(await verifyPassword('abc', hash)).toBe(true);
+  });
+
+  it('produces five distinct hashes for the same password (salt randomness)', async () => {
+    const pw = 'same-input-different-salt';
+    const hashes = await Promise.all([
+      hashPassword(pw),
+      hashPassword(pw),
+      hashPassword(pw),
+      hashPassword(pw),
+      hashPassword(pw),
+    ]);
+    expect(new Set(hashes).size).toBe(5);
+    for (const h of hashes) {
+      expect(await verifyPassword(pw, h)).toBe(true);
+    }
+  });
+});
+
 describe('isScryptPasswordHash / isSha256PasswordHash', () => {
   it('detects new scrypt format', () => {
     expect(isScryptPasswordHash('scrypt:abc:def')).toBe(true);
