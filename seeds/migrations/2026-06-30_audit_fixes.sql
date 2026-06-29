@@ -125,4 +125,134 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ---------------------------------------------------------------------------
+-- Bug G2 (audit follow-up): release_period_reservations RPC moved money via
+-- direct UPDATE statements but didn't create paired private_expenses/income
+-- ledger rows — so postpaid group-expense settlements appeared in users'
+-- balances but NOT in their dashboard Einnahmen/Ausgaben journal.
+--
+-- This re-definition adds the paired ledger entries (matching the behavior
+-- of the TS-side createPeerTransfer helper). Now every member→admin transfer
+-- inside this RPC also inserts:
+--   * one private_expenses row on the member's bank account (debit)
+--   * one income row on the admin's bank account (credit)
+-- both tagged with transfer_id and group_id so the dashboard can show them.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION release_period_reservations(p_period_id INT)
+RETURNS INT AS $$
+DECLARE
+  v_shared_expense_id INT;
+  v_group_id INT;
+  v_admin_user_id INT;
+  v_admin_account_id INT;
+  v_title VARCHAR;
+  v_reason TEXT;
+  v_released INT := 0;
+  v_member_account_id INT;
+  v_transfer_id INT;
+  v_now TIMESTAMP := now();
+  r RECORD;
+BEGIN
+  SELECT gse.id, gse.group_id, gse.creator_user_id, gse.title
+    INTO v_shared_expense_id, v_group_id, v_admin_user_id, v_title
+    FROM group_shared_expense_periods p
+    JOIN group_shared_expenses gse ON gse.id = p.shared_expense_id
+   WHERE p.id = p_period_id
+   FOR UPDATE;
+
+  IF v_shared_expense_id IS NULL THEN
+    RAISE EXCEPTION 'Period % not found', p_period_id;
+  END IF;
+
+  SELECT default_bank_account_id INTO v_admin_account_id
+    FROM users WHERE id = v_admin_user_id;
+
+  IF v_admin_account_id IS NULL THEN
+    RAISE EXCEPTION 'Admin user % has no default bank account', v_admin_user_id;
+  END IF;
+
+  v_reason := 'Anteil: ' || v_title;
+
+  FOR r IN
+    SELECT pt.id AS pt_id, pt.share_id, pt.amount, s.user_id
+      FROM group_shared_expense_period_transfers pt
+      JOIN group_shared_expense_shares s ON s.id = pt.share_id
+     WHERE pt.period_id = p_period_id
+       AND pt.status = 'reserved'
+     FOR UPDATE
+  LOOP
+    SELECT default_bank_account_id INTO v_member_account_id
+      FROM users WHERE id = r.user_id;
+
+    IF v_member_account_id IS NULL THEN
+      RAISE EXCEPTION 'Member user % has no default bank account', r.user_id;
+    END IF;
+
+    -- Skip self-transfers (admin is participant of their own expense)
+    IF v_member_account_id = v_admin_account_id THEN
+      UPDATE group_shared_expense_period_transfers
+        SET status = 'released'
+       WHERE id = r.pt_id;
+      UPDATE group_shared_expense_shares
+        SET status = 'paid'
+       WHERE id = r.share_id;
+      CONTINUE;
+    END IF;
+
+    INSERT INTO transfers (
+      from_user_id, to_user_id,
+      from_bank_account_id, to_bank_account_id,
+      amount, reason, group_id, group_expense_share_id,
+      status, completed_at
+    ) VALUES (
+      r.user_id, v_admin_user_id,
+      v_member_account_id, v_admin_account_id,
+      r.amount, v_reason, v_group_id, r.share_id,
+      'completed', v_now
+    ) RETURNING id INTO v_transfer_id;
+
+    -- Paired ledger entry on sender side (private_expenses)
+    INSERT INTO private_expenses (
+      bank_account_id, source, category, amount, theo_amount,
+      spent_at, due_date, pay_date, info, state, note,
+      recurrence, cycle, is_active, transfer_id, group_id
+    ) VALUES (
+      v_member_account_id, v_reason, 'transfer', r.amount, r.amount,
+      v_now, v_now, v_now, v_reason, 'open', '',
+      NULL, 'once', TRUE, v_transfer_id, v_group_id
+    );
+
+    -- Paired ledger entry on recipient side (income)
+    INSERT INTO income (
+      bank_account_id, source, category, amount,
+      received_at, pay_date, info, note,
+      recurrence, cycle, is_active, state, transfer_id, group_id
+    ) VALUES (
+      v_admin_account_id, v_reason, 'transfer', r.amount,
+      v_now, v_now, v_reason, '',
+      NULL, 'once', TRUE, 'open', v_transfer_id, v_group_id
+    );
+
+    UPDATE bank_accounts SET balance = balance - r.amount WHERE id = v_member_account_id;
+    UPDATE bank_accounts SET balance = balance + r.amount WHERE id = v_admin_account_id;
+
+    UPDATE group_shared_expense_period_transfers
+      SET status = 'released', transfer_id = v_transfer_id
+     WHERE id = r.pt_id;
+
+    UPDATE group_shared_expense_shares
+      SET status = 'paid'
+     WHERE id = r.share_id;
+
+    v_released := v_released + 1;
+  END LOOP;
+
+  UPDATE group_shared_expense_periods
+    SET status = 'settled', settled_at = v_now
+   WHERE id = p_period_id;
+
+  RETURN v_released;
+END;
+$$ LANGUAGE plpgsql;
+
 COMMIT;
