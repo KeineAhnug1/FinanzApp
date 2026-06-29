@@ -25,6 +25,7 @@ export interface User {
   income: number;
   /** Stored as "profileImage" (quoted identifier in DB). */
   profileImage: string | null;
+  default_bank_account_id: number | null;
   created_at: string;
 }
 

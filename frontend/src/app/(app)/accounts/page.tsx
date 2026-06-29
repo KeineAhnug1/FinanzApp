@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { ShareAccountsSection } from '@/components/accounts/ShareAccountsSection';
+import { DefaultAccountSelector } from '@/components/accounts/DefaultAccountSelector';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 
 // Diverges from db BankAccount: backend serializes id as string and adds optional name/type fields not present in the DB row.
@@ -93,7 +94,7 @@ function AddAccountModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   );
 }
 
-function AccountCard({ account, onUpdate }: { account: BankAccount; onUpdate: () => void }) {
+function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; isDefault: boolean; onUpdate: () => void }) {
   const router = useRouter();
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(account.label || account.name || '');
@@ -193,6 +194,10 @@ function AccountCard({ account, onUpdate }: { account: BankAccount; onUpdate: ()
 
       <div className="account-type">{account.type || 'Bankkonto'}</div>
 
+      <div className="account-card-default" onClick={(e) => e.stopPropagation()}>
+        <DefaultAccountSelector accountId={Number(account.id)} isDefault={isDefault} />
+      </div>
+
       <div className="account-card-actions" onClick={(e) => e.stopPropagation()}>
         <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setRenaming(true); }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -260,6 +265,12 @@ export default function AccountsPage() {
     queryFn: () => apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []),
   });
 
+  const { data: defaultAccount } = useQuery<{ default_bank_account_id: number | null }>({
+    queryKey: ['user', 'default-account'],
+    queryFn: () => apiFetch('/api/users/me/default-account'),
+  });
+  const defaultId = defaultAccount?.default_bank_account_id ?? null;
+
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
 
@@ -287,7 +298,7 @@ export default function AccountsPage() {
           </div>
           <div className="accounts-grid">
             {accounts.map((a) => (
-              <AccountCard key={a.id} account={a} onUpdate={refresh} />
+              <AccountCard key={a.id} account={a} isDefault={Number(a.id) === defaultId} onUpdate={refresh} />
             ))}
           </div>
         </>
