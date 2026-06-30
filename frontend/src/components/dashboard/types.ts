@@ -20,6 +20,7 @@ export interface IncomeEntry {
   is_active?: boolean;
   state?: string;
   isProjected?: boolean;
+  isPastRecurring?: boolean;
   projectedFromId?: string;
 }
 
@@ -37,6 +38,7 @@ export interface ExpenseEntry {
   is_active?: boolean;
   state?: string;
   isProjected?: boolean;
+  isPastRecurring?: boolean;
   projectedFromId?: string;
 }
 

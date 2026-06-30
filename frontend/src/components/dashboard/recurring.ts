@@ -137,3 +137,56 @@ export function expandAllRecurring<T extends AnyEntry>(entries: T[], horizonEnd:
   }
   return out;
 }
+
+// Past-only expansion: keep the original entry as-is and add a virtual entry for
+// each occurrence that already happened between the original date and `now`.
+// Future occurrences are NOT generated — they only live in the Daueraufträge tab.
+export function expandPastRecurring<T extends AnyEntry>(entry: T, now: Date = new Date()): T[] {
+  if (!isRecurring(entry)) return [];
+  const startStr = getEntryDate(entry);
+  if (!startStr) return [];
+  const start = new Date(startStr);
+  if (Number.isNaN(start.getTime())) return [];
+  if (now <= start) return [];
+
+  const dateField = getEntryDateField(entry);
+  const maxCount = entry.recurrence ?? null;
+  const projections: T[] = [];
+  const cursor = new Date(start);
+  let index = 0;
+  const HARD_CAP = 2000;
+
+  while (index < HARD_CAP) {
+    advance(cursor, entry.cycle);
+    index++;
+    if (cursor > now) break;
+    if (maxCount != null && maxCount > 0 && index > maxCount - 1) break;
+
+    const projection = {
+      ...entry,
+      [dateField]: cursor.toISOString(),
+      id: `${entry.id}__past_${index}`,
+      isPastRecurring: true,
+      projectedFromId: entry.id,
+    } as unknown as T;
+    projections.push(projection);
+  }
+
+  return projections;
+}
+
+export function expandPastRecurringAll<T extends AnyEntry>(entries: T[], now: Date = new Date()): T[] {
+  const out: T[] = [];
+  for (const entry of entries) {
+    if (isRecurring(entry)) {
+      const startStr = getEntryDate(entry);
+      const start = startStr ? new Date(startStr) : null;
+      const originalInPast = start && !Number.isNaN(start.getTime()) && start <= now;
+      if (originalInPast) out.push(entry);
+      out.push(...expandPastRecurring(entry, now));
+    } else {
+      out.push(entry);
+    }
+  }
+  return out;
+}

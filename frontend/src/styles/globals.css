@@ -2405,7 +2405,7 @@ input.touched:invalid ~ .field-hint,
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
@@ -2413,16 +2413,37 @@ input.touched:invalid ~ .field-hint,
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-.chip:hover { color: var(--ui-text); border-color: color-mix(in srgb, var(--ui-text) 30%, var(--ui-border)); }
+.chip:hover {
+  color: var(--ui-text);
+  border-color: color-mix(in srgb, var(--ui-text) 25%, var(--ui-border));
+  background: var(--ui-surface-soft);
+}
 .chip--active {
-  background: var(--ui-text);
-  color: var(--ui-bg);
-  border-color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-primary) 14%, var(--ui-surface));
+  color: var(--ui-primary);
+  border-color: color-mix(in srgb, var(--ui-primary) 45%, transparent);
 }
-.chip--income.chip--active { background: var(--ui-success, #15803d); border-color: var(--ui-success, #15803d); color: #fff; }
-.chip--expense.chip--active { background: var(--ui-danger, #b91c1c); border-color: var(--ui-danger, #b91c1c); color: #fff; }
+.chip--income.chip--active {
+  background: color-mix(in srgb, var(--ui-success, #15803d) 14%, var(--ui-surface));
+  color: var(--ui-success, #15803d);
+  border-color: color-mix(in srgb, var(--ui-success, #15803d) 45%, transparent);
+}
+.chip--expense.chip--active {
+  background: color-mix(in srgb, var(--ui-danger, #b91c1c) 14%, var(--ui-surface));
+  color: var(--ui-danger, #b91c1c);
+  border-color: color-mix(in srgb, var(--ui-danger, #b91c1c) 45%, transparent);
+}
+[data-theme="dark"] .chip--active {
+  background: color-mix(in srgb, var(--ui-primary) 22%, transparent);
+}
+[data-theme="dark"] .chip--income.chip--active {
+  background: color-mix(in srgb, var(--ui-success, #15803d) 22%, transparent);
+}
+[data-theme="dark"] .chip--expense.chip--active {
+  background: color-mix(in srgb, var(--ui-danger, #b91c1c) 22%, transparent);
+}
 
 .history-day-list {
   list-style: none;
@@ -11889,6 +11910,24 @@ button.group-card-button:focus-visible {
 }
 .transfer-locked { opacity: 0.65; pointer-events: none; }
 [data-theme="dark"] .transfer-badge { background: rgba(129,140,248,0.18); color: #a5b4fc; }
+
+.recurring-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(168,85,247,0.12);
+  color: #9333ea;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+[data-theme="dark"] .recurring-badge { background: rgba(192,132,252,0.18); color: #d8b4fe; }
+.income-item--past-recurring {
+  background: color-mix(in srgb, #9333ea 5%, transparent);
+}
+[data-theme="dark"] .income-item--past-recurring {
+  background: color-mix(in srgb, #c084fc 9%, transparent);
+}
 .shared-expense-list {
   display: flex;
   flex-direction: column;
