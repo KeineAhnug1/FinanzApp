@@ -608,6 +608,63 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
   }, 201);
 });
 
+// POST /api/groups/:id/funding/:fundingId/claim-creator
+// Legacy-Sammelaktionen (vor der creator_user_id-Migration angelegt) haben
+// keinen Ersteller — niemand kann Ausgaben anlegen oder bezahlen. Jeder Admin
+// der Gruppe darf sich selbst nachträglich als Ersteller eintragen.
+// Sein default_bank_account_id (oder ältestes Konto) wird Empfänger.
+groups.post('/:id/funding/:fundingId/claim-creator', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 10, windowMs: 60_000, group: 'groups-mutate' });
+  if (rl) return rl;
+  const csrf = await checkCsrf(c.req.raw);
+  if (csrf) return csrf;
+
+  const groupId = Number(c.req.param('id'));
+  const fundingId = Number(c.req.param('fundingId'));
+  if (!Number.isFinite(groupId) || !Number.isFinite(fundingId)) return badRequest('Invalid id');
+
+  const ctx = await getGroupCtx(auth.db, groupId, auth.user.id);
+  if (!ctx.ok) return jsonResponse({ ok: false, message: ctx.message }, ctx.status);
+  const adminErr = requireAdmin(ctx.membership as Record<string, unknown>, 'Nur Admins können eine Sammelaktion übernehmen.');
+  if (adminErr) return adminErr;
+
+  const { data: funding } = await auth.db.from('group_funding')
+    .select('id, status, creator_user_id')
+    .eq('id', fundingId).eq('group_id', groupId).single();
+  if (!funding) return notFound('Sammelaktion nicht gefunden');
+  if ((funding as Record<string, unknown>).creator_user_id != null) {
+    return jsonResponse({ ok: false, message: 'Diese Sammelaktion hat bereits einen Ersteller.' }, 409);
+  }
+
+  const { data: userRow } = await auth.db.from('users')
+    .select('default_bank_account_id').eq('id', auth.user.id).single();
+  let bankAccountId: number | null = userRow && (userRow as Record<string, unknown>).default_bank_account_id
+    ? Number((userRow as Record<string, unknown>).default_bank_account_id)
+    : null;
+  if (!bankAccountId) {
+    const { data: ba } = await auth.db.from('bank_accounts')
+      .select('id').eq('user_id', auth.user.id).order('created_at', { ascending: true }).limit(1);
+    const first = Array.isArray(ba) ? ba[0] : null;
+    bankAccountId = first ? Number((first as Record<string, unknown>).id) : null;
+  }
+  if (!bankAccountId) {
+    return badRequest('Du brauchst mindestens ein Bankkonto, um eine Sammelaktion zu übernehmen.');
+  }
+
+  const { error } = await auth.db.from('group_funding')
+    .update({ creator_user_id: auth.user.id, creator_bank_account_id: bankAccountId })
+    .eq('id', fundingId)
+    .eq('group_id', groupId);
+  if (error) {
+    console.error('[funding.claim-creator] update failed', error);
+    return serverError(`Übernahme fehlgeschlagen: ${error.message ?? 'unbekannter Fehler'}`);
+  }
+
+  return jsonResponse({ ok: true, creator_user_id: String(auth.user.id), creator_bank_account_id: String(bankAccountId) }, 200);
+});
+
 // POST /api/groups/:id/funding/:fundingId/archive
 groups.post('/:id/funding/:fundingId/archive', async (c) => {
   const auth = await requireAuth(c);

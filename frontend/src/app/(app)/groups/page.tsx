@@ -503,6 +503,8 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
                   fundingAmount={f.target_amount}
                   fundingStatus={f.status ?? 'open'}
                   isCreator={f.creator_user_id != null && group.session_user_id !== undefined && Number(f.creator_user_id) === Number(group.session_user_id)}
+                  hasCreator={f.creator_user_id != null}
+                  canClaim={!!isAdmin && f.creator_user_id == null && (f.status ?? 'open') !== 'archived'}
                   expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
                   isAdmin={!!isAdmin}
                 />

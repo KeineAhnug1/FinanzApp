@@ -3776,6 +3776,23 @@ input.touched:invalid ~ .field-hint,
   border-radius: var(--ui-radius-md);
   margin: var(--ui-space-2) 0 0;
 }
+.expenses-section__no-creator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3);
+  background: var(--ui-surface-soft);
+  border: 1px dashed var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  margin-top: var(--ui-space-2);
+}
+.expenses-section__no-creator p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ui-text-muted);
+  line-height: 1.45;
+}
+.expenses-section__no-creator .btn { align-self: flex-start; }
 
 .expenses-list {
   list-style: none;

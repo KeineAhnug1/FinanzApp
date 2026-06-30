@@ -16,6 +16,8 @@ interface ExpensesSectionProps {
   fundingAmount: number;
   fundingStatus?: 'open' | 'completed' | 'archived';
   isCreator?: boolean;
+  hasCreator?: boolean;
+  canClaim?: boolean;
   expenses: ExpenseView[];
   isAdmin: boolean;
 }
@@ -152,20 +154,54 @@ function ExpenseFormModal({
   );
 }
 
-export default function ExpensesSection({ groupId, fundingId, fundingAmount, fundingStatus = 'open', isCreator = false, expenses }: ExpensesSectionProps) {
+export default function ExpensesSection({ groupId, fundingId, fundingAmount, fundingStatus = 'open', isCreator = false, hasCreator = true, canClaim = false, expenses }: ExpensesSectionProps) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ExpenseView | null>(null);
   const [deleting, setDeleting] = useState<ExpenseView | null>(null);
+  const [claiming, setClaiming] = useState(false);
 
-  // Nur der Ersteller darf Ausgaben verwalten. Andere Mitglieder sehen die Sektion nur,
-  // wenn bereits Ausgaben existieren (read-only).
-  if (expenses.length === 0 && !isCreator) return null;
   const canManage = isCreator && fundingStatus === 'completed';
-
   const baseUrl = `/api/groups/${groupId}/funding/${fundingId}/expenses`;
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+
+  const claimCreator = async () => {
+    if (claiming) return;
+    setClaiming(true);
+    try {
+      const res = await fetch(apiUrl(`/api/groups/${groupId}/funding/${fundingId}/claim-creator`), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'x-csrf-token': getCsrfToken() },
+      });
+      const result = await safeJson(res);
+      if (!result.ok) { toast.error(result.message ?? 'Übernahme fehlgeschlagen'); return; }
+      toast.success('Sammelaktion übernommen');
+      invalidate();
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  // Sammelaktion ohne Ersteller (Legacy / Migration nicht gelaufen) — read-only Hinweis-Box.
+  if (!hasCreator) {
+    return (
+      <div className="expenses-section">
+        <div className="expenses-section__no-creator">
+          <p>
+            Diese Sammelaktion hat keinen Ersteller hinterlegt. Solange das so ist, können
+            keine Ausgaben aus dem Pool angelegt oder bezahlt werden.
+          </p>
+          {canClaim && (
+            <button className="btn btn-primary btn-sm" type="button" onClick={claimCreator} disabled={claiming}>
+              {claiming ? 'Übernehme…' : 'Sammelaktion übernehmen'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const buildPayload = (data: ExpenseFormData): Record<string, unknown> => {
     const payload: Record<string, unknown> = { amount: data.amount };
