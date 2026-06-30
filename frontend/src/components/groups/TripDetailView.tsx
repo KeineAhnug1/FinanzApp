@@ -49,23 +49,35 @@ function mapTripDetail(raw: Record<string, unknown> | null | undefined): TripVie
       first_name: p.first_name ? String(p.first_name) : undefined,
     }),
   );
+  const partLookup = new Map<number, TripParticipantView>();
+  for (const p of participants) partLookup.set(p.user_id, p);
+
   const expenses: TripExpenseView[] = (Array.isArray(raw.expenses) ? raw.expenses : []).map(
-    (e: Record<string, unknown>) => ({
-      id: Number(e.id),
-      trip_id: Number(e.trip_id),
-      payer_user_id: Number(e.payer_user_id),
-      payer_name: e.payer_name ? String(e.payer_name) : undefined,
-      description: String(e.description ?? ''),
-      amount: Number(e.amount ?? 0),
-      spent_at: String(e.spent_at ?? ''),
-      participants: (Array.isArray(e.participants) ? e.participants : []).map(
-        (p: Record<string, unknown>) => ({
-          user_id: Number(p.user_id),
-          username: p.username ? String(p.username) : undefined,
-          first_name: p.first_name ? String(p.first_name) : undefined,
-        }),
-      ),
-    }),
+    (e: Record<string, unknown>) => {
+      const idArr = Array.isArray(e.participant_user_ids) ? e.participant_user_ids : [];
+      const partObj = Array.isArray(e.participants) ? e.participants : [];
+      const expParticipants: TripParticipantView[] = partObj.length
+        ? partObj.map((p: Record<string, unknown>) => ({
+            user_id: Number(p.user_id),
+            username: p.username ? String(p.username) : undefined,
+            first_name: p.first_name ? String(p.first_name) : undefined,
+          }))
+        : idArr.map((id) => {
+            const uid = Number(id);
+            const known = partLookup.get(uid);
+            return known ? { ...known } : { user_id: uid };
+          });
+      return {
+        id: Number(e.id),
+        trip_id: Number(e.trip_id),
+        payer_user_id: Number(e.payer_user_id),
+        payer_name: e.payer_name ? String(e.payer_name) : undefined,
+        description: String(e.description ?? ''),
+        amount: Number(e.amount ?? 0),
+        spent_at: String(e.spent_at ?? ''),
+        participants: expParticipants,
+      };
+    },
   );
   const settlements: TripSettlementView[] = (Array.isArray(raw.settlements) ? raw.settlements : []).map(
     (s: Record<string, unknown>) => ({

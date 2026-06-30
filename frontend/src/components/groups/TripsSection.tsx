@@ -22,13 +22,15 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function mapTrip(raw: Record<string, unknown>): TripView {
-  const participants: TripParticipantView[] = (Array.isArray(raw.participants) ? raw.participants : []).map(
-    (p: Record<string, unknown>) => ({
-      user_id: Number(p.user_id),
-      username: p.username ? String(p.username) : undefined,
-      first_name: p.first_name ? String(p.first_name) : undefined,
-    }),
-  );
+  const idArr = Array.isArray(raw.participant_user_ids) ? raw.participant_user_ids : [];
+  const participantsObj = Array.isArray(raw.participants) ? raw.participants : [];
+  const participants: TripParticipantView[] = participantsObj.length
+    ? participantsObj.map((p: Record<string, unknown>) => ({
+        user_id: Number(p.user_id),
+        username: p.username ? String(p.username) : undefined,
+        first_name: p.first_name ? String(p.first_name) : undefined,
+      }))
+    : idArr.map((id) => ({ user_id: Number(id) }));
   const settlements: TripSettlementView[] = (Array.isArray(raw.settlements) ? raw.settlements : []).map(
     (s: Record<string, unknown>) => ({
       id: Number(s.id),
