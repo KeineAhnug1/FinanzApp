@@ -122,11 +122,8 @@ export type Depot = ShareAccount;
 /** Row in the `shares` table. */
 export interface Share {
   id: number;
-  /** FK to share_accounts — primary association. */
+  /** FK to share_accounts. */
   share_account_id: number | null;
-  /** Legacy FK also referencing share_accounts (same table, aliased). */
-  depot_id: number | null;
-  bank_account_id: number | null;
   symbol: string;
   units: number;
   bought_at: string;

@@ -130,20 +130,7 @@ shareAccounts.get('/share-accounts/:id/history', async (c) => {
     );
   }
 
-  let lots = (rawLots ?? []) as Record<string, unknown>[];
-
-  // Fallback: some older inserts only populated `depot_id`, not `share_account_id`.
-  // If the primary filter returns nothing, try the legacy column so the modal stays in sync
-  // with the list endpoint's count.
-  if (lots.length === 0) {
-    const { data: legacyLots } = await auth.db
-      .from('shares')
-      .select('id, symbol, units, bought_for, bought_at')
-      .eq('depot_id', accountId);
-    if (Array.isArray(legacyLots) && legacyLots.length > 0) {
-      lots = legacyLots as Record<string, unknown>[];
-    }
-  }
+  const lots = (rawLots ?? []) as Record<string, unknown>[];
 
   type Trade = { id: string; units: number; bought_for: number; total: number; created_at: string | null };
   type Position = { symbol: string; total_shares: number; total_invested: number; trades: Trade[] };
@@ -307,7 +294,7 @@ shareAccounts.delete('/share-accounts/:id', async (c) => {
 
     await auth.db
       .from('shares')
-      .update({ share_account_id: transferTargetId, depot_id: transferTargetId })
+      .update({ share_account_id: transferTargetId })
       .eq('share_account_id', accountId);
   }
 

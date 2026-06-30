@@ -46,36 +46,41 @@ const isValidSymbol = (sym: string): boolean => SYMBOL_PATTERN.test(sym);
 
 // GET /api/stocks/search?q=AAPL
 stocks.get('/search', async (c) => {
-  const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'finnhub' });
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'yahoo-search' });
   if (rl) return rl;
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
-
-  const cfg = getConfig(c.env);
-  if (!cfg.finnhubApiKey)
-    return jsonResponse({ ok: false, message: 'Finnhub not configured' }, 503);
 
   const q = new URL(c.req.url).searchParams.get('q');
   if (!q?.trim()) return badRequest('q ist ein Pflichtfeld');
   if (q.length > 64) return badRequest('Suchbegriff zu lang');
 
-  type FinnhubSearchItem = { description: string; displaySymbol: string; symbol: string; type: string };
-  type FinnhubSearchResponse = { count: number; result?: FinnhubSearchItem[] };
+  type YahooSearchQuote = {
+    symbol?: string;
+    longname?: string;
+    shortname?: string;
+    exchange?: string;
+    quoteType?: string;
+  };
+  type YahooSearchResponse = { quotes?: YahooSearchQuote[] };
 
   try {
-    const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q.trim())}&token=${cfg.finnhubApiKey}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    const raw = await res.json() as FinnhubSearchResponse;
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q.trim())}&quotesCount=20&newsCount=0`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
+    const raw = await res.json() as YahooSearchResponse;
 
-    const results = (raw.result ?? []).slice(0, 20).map((r) => ({
-      symbol: r.displaySymbol,
-      name: r.description,
-      exchange: '',
-    }));
+    const results = (raw.quotes ?? [])
+      .filter((r) => r.symbol && isValidSymbol(r.symbol.toUpperCase()) && (r.quoteType === 'EQUITY' || r.quoteType === 'ETF'))
+      .slice(0, 20)
+      .map((r) => ({
+        symbol: r.symbol!.toUpperCase(),
+        name: (r.longname ?? r.shortname ?? r.symbol!).trim(),
+        exchange: r.exchange ?? '',
+      }));
 
     return jsonResponse({ ok: true, results }, 200);
   } catch {
-    return jsonResponse({ ok: false, message: 'Finnhub unavailable' }, 503);
+    return jsonResponse({ ok: false, message: 'Yahoo Finance unavailable' }, 503);
   }
 });
 
@@ -116,6 +121,50 @@ const YAHOO_PERIOD_CONFIG: Record<string, { interval: string; range: string }> =
   '1y':  { interval: '1d',  range: '1y'  },
   'max': { interval: '1wk', range: 'max' },
 };
+
+type YahooQuoteData = {
+  price: number;
+  currency: string;
+  name: string;
+  prevClose: number;
+};
+
+// Finnhub's free tier returns c:0 for non-US listings (".DE", ".PA", ".L", …).
+// Yahoo Finance has no such restriction and exposes price, currency and name
+// in the chart meta — so we use it as a fallback / for non-US symbols.
+async function fetchYahooQuote(symbol: string): Promise<YahooQuoteData | null> {
+  type YahooMeta = {
+    currency?: string;
+    regularMarketPrice?: number;
+    chartPreviousClose?: number;
+    previousClose?: number;
+    longName?: string;
+    shortName?: string;
+  };
+  type YahooResponse = { chart?: { result?: { meta?: YahooMeta }[] } };
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
+    const raw = await res.json() as YahooResponse;
+    const meta = raw.chart?.result?.[0]?.meta;
+    if (!meta || typeof meta.regularMarketPrice !== 'number' || meta.regularMarketPrice <= 0) {
+      return null;
+    }
+    const prev = typeof meta.chartPreviousClose === 'number' && meta.chartPreviousClose > 0
+      ? meta.chartPreviousClose
+      : typeof meta.previousClose === 'number' && meta.previousClose > 0
+        ? meta.previousClose
+        : meta.regularMarketPrice;
+    return {
+      price: meta.regularMarketPrice,
+      currency: meta.currency ?? 'USD',
+      name: (meta.longName ?? meta.shortName ?? symbol).trim(),
+      prevClose: prev,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // GET /api/stocks/positions
 stocks.get('/positions', async (c) => {
@@ -182,32 +231,42 @@ stocks.get('/positions', async (c) => {
   return jsonResponse({ ok: true, positions }, 200);
 });
 
-async function fetchCurrentPrice(symbol: string, apiKey: string): Promise<{ price: number; currency: string } | null> {
-  type FinnhubQuote = { c: number };
-  type FinnhubProfile = { currency: string; name: string };
+type FxEntry = { rate: number; expiresAt: number };
+const FX_CACHE_TTL_MS = 10 * 60 * 1000;
+const _fxCache = new Map<string, FxEntry>();
+
+// Returns the multiplier to convert one unit of `currency` to EUR.
+// EUR → 1. Other currencies via Yahoo's <CCY>EUR=X (e.g. USDEUR=X). Cached 10 min.
+async function getFxToEur(currency: string): Promise<number | null> {
+  const ccy = currency.toUpperCase();
+  if (ccy === 'EUR') return 1;
+  const cached = _fxCache.get(ccy);
+  if (cached && cached.expiresAt > Date.now()) return cached.rate;
+
+  type YahooMeta = { regularMarketPrice?: number };
+  type YahooResponse = { chart?: { result?: { meta?: YahooMeta }[] } };
   try {
-    const q = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-      { headers: { Accept: 'application/json' } },
-    ).then((r) => r.json() as Promise<FinnhubQuote>);
-    if (typeof q.c !== 'number' || q.c <= 0) return null;
-    let cached = getCachedProfile(symbol);
-    if (!cached) {
-      try {
-        const p = await fetch(
-          `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-          { headers: { Accept: 'application/json' } },
-        ).then((r) => r.json() as Promise<FinnhubProfile>);
-        cached = { currency: p.currency ?? 'USD', name: p.name ?? symbol };
-        setCachedProfile(symbol, cached);
-      } catch {
-        cached = { currency: 'USD', name: symbol };
-      }
-    }
-    return { price: q.c, currency: cached.currency };
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ccy}EUR=X?interval=1d&range=5d`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
+    const raw = await res.json() as YahooResponse;
+    const rate = raw.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (typeof rate !== 'number' || rate <= 0) return null;
+    _fxCache.set(ccy, { rate, expiresAt: Date.now() + FX_CACHE_TTL_MS });
+    return rate;
   } catch {
     return null;
   }
+}
+
+export function _clearFxCacheForTests(): void {
+  _fxCache.clear();
+}
+
+async function fetchCurrentPrice(symbol: string): Promise<{ price: number; currency: string } | null> {
+  const yahoo = await fetchYahooQuote(symbol);
+  if (!yahoo) return null;
+  setCachedProfile(symbol, { currency: yahoo.currency, name: yahoo.name });
+  return { price: yahoo.price, currency: yahoo.currency };
 }
 
 async function getOrCreateShareAccount(db: DbClient, userId: string | number): Promise<number | null> {
@@ -236,9 +295,6 @@ stocks.post('/positions/buy', async (c) => {
   const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'stocks-trade' });
   if (rl) return rl;
 
-  const cfg = getConfig(c.env);
-  if (!cfg.finnhubApiKey) return jsonResponse({ ok: false, message: 'Finnhub not configured' }, 503);
-
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
   const symbol = String(payload.symbol ?? '').trim().toUpperCase();
   const shares = Number(payload.shares);
@@ -261,10 +317,13 @@ stocks.post('/positions/buy', async (c) => {
     .maybeSingle();
   if (!bank) return badRequest('Bankkonto nicht gefunden');
 
-  const quote = await fetchCurrentPrice(symbol, cfg.finnhubApiKey);
+  const quote = await fetchCurrentPrice(symbol);
   if (!quote) return jsonResponse({ ok: false, message: 'Kursdaten nicht verfügbar' }, 503);
 
-  const cost = toFixedAmount(quote.price * shares);
+  const fxToEur = await getFxToEur(quote.currency);
+  if (fxToEur == null) return jsonResponse({ ok: false, message: 'Wechselkurs nicht verfügbar' }, 503);
+
+  const cost = toFixedAmount(quote.price * shares * fxToEur);
   const balance = toFixedAmount((bank as { balance: unknown }).balance);
   if (balance < cost) return badRequest('Nicht genügend Guthaben auf dem Bankkonto');
 
@@ -285,7 +344,6 @@ stocks.post('/positions/buy', async (c) => {
 
   await auth.db.from('shares').insert({
     share_account_id: accountId,
-    depot_id: accountId,
     symbol,
     units: shares,
     bought_for: toFixedAmount(quote.price),
@@ -310,9 +368,6 @@ stocks.post('/positions/sell', async (c) => {
 
   const rl = checkRateLimit(c.req.raw, { maxAttempts: 30, windowMs: 60_000, group: 'stocks-trade' });
   if (rl) return rl;
-
-  const cfg = getConfig(c.env);
-  if (!cfg.finnhubApiKey) return jsonResponse({ ok: false, message: 'Finnhub not configured' }, 503);
 
   const payload = await parseBody<Record<string, unknown>>(c.req.raw);
   const symbol = String(payload.symbol ?? '').trim().toUpperCase();
@@ -380,8 +435,11 @@ stocks.post('/positions/sell', async (c) => {
       : 'Nicht genügend Anteile zum Verkaufen');
   }
 
-  const quote = await fetchCurrentPrice(symbol, cfg.finnhubApiKey);
+  const quote = await fetchCurrentPrice(symbol);
   if (!quote) return jsonResponse({ ok: false, message: 'Kursdaten nicht verfügbar' }, 503);
+
+  const fxToEur = await getFxToEur(quote.currency);
+  if (fxToEur == null) return jsonResponse({ ok: false, message: 'Wechselkurs nicht verfügbar' }, 503);
 
   let remaining = shares;
   const lotsToDelete: number[] = [];
@@ -406,7 +464,7 @@ stocks.post('/positions/sell', async (c) => {
     await auth.db.from('shares').update({ units: partialUpdate.newUnits }).eq('id', partialUpdate.id);
   }
 
-  const proceeds = toFixedAmount(quote.price * shares);
+  const proceeds = toFixedAmount(quote.price * shares * fxToEur);
   await incrementBankAccountBalance(auth.db, bankAccountId, proceeds);
 
   return jsonResponse({
@@ -453,14 +511,10 @@ stocks.delete('/positions/:symbol', async (c) => {
 
 // GET /api/stocks/quotes?symbols=AAPL,TSLA
 stocks.get('/quotes', async (c) => {
-  const rl = checkRateLimit(c.req.raw, { maxAttempts: 60, windowMs: 60_000, group: 'finnhub' });
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 60, windowMs: 60_000, group: 'yahoo-quotes' });
   if (rl) return rl;
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
-
-  const cfg = getConfig(c.env);
-  if (!cfg.finnhubApiKey)
-    return jsonResponse({ ok: false, message: 'Finnhub not configured' }, 503);
 
   const symbols = (new URL(c.req.url).searchParams.get('symbols') ?? '')
     .split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -468,49 +522,44 @@ stocks.get('/quotes', async (c) => {
   if (symbols.length > 50) return badRequest('Zu viele Symbole (max. 50)');
   if (!symbols.every(isValidSymbol)) return badRequest('Ungültiges Symbol in Liste');
 
-  type FinnhubQuote = { c: number; d: number; dp: number; h: number; l: number; o: number; pc: number; t: number };
-  type FinnhubProfile = { currency: string; name: string; logo: string };
-
   const quoteResults = await Promise.allSettled(
-    symbols.map(sym =>
-      fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${cfg.finnhubApiKey}`, {
-        headers: { Accept: 'application/json' },
-      }).then(r => r.json() as Promise<FinnhubQuote>).then(q => ({ sym, q }))
-    )
+    symbols.map((sym) => fetchYahooQuote(sym).then((y) => ({ sym, y })))
   );
 
   const quotes: { symbol: string; name: string; price: number; change: number; change_pct: number; currency: string }[] = [];
 
-  for (const result of quoteResults) {
-    if (result.status !== 'fulfilled') continue;
-    const { sym, q } = result.value;
-    if (typeof q.c !== 'number' || q.c === 0) continue; // no data or error response
-
-    let cached = getCachedProfile(sym);
-    if (!cached) {
-      try {
-        const p = await fetch(
-          `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(sym)}&token=${cfg.finnhubApiKey}`,
-          { headers: { Accept: 'application/json' } }
-        ).then(r => r.json() as Promise<FinnhubProfile>);
-        cached = { currency: p.currency ?? 'USD', name: p.name ?? sym };
-        setCachedProfile(sym, cached);
-      } catch {
-        cached = { currency: 'USD', name: sym };
-      }
-    }
-
+  for (const r of quoteResults) {
+    if (r.status !== 'fulfilled' || !r.value.y) continue;
+    const { sym, y } = r.value;
+    setCachedProfile(sym, { currency: y.currency, name: y.name });
+    const change = y.price - y.prevClose;
+    const changePct = y.prevClose > 0 ? (change / y.prevClose) * 100 : 0;
     quotes.push({
       symbol: sym,
-      name: cached.name,
-      price: q.c,
-      change: q.d ?? 0,
-      change_pct: q.dp ?? 0,
-      currency: cached.currency,
+      name: y.name,
+      price: y.price,
+      change,
+      change_pct: changePct,
+      currency: y.currency,
     });
   }
 
   return jsonResponse({ ok: true, quotes }, 200);
+});
+
+// GET /api/stocks/fx?from=USD — EUR-multiplier for `from` currency (e.g. 0.92 for USD).
+stocks.get('/fx', async (c) => {
+  const rl = checkRateLimit(c.req.raw, { maxAttempts: 60, windowMs: 60_000, group: 'yahoo-fx' });
+  if (rl) return rl;
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+
+  const from = (new URL(c.req.url).searchParams.get('from') ?? '').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(from)) return badRequest('Ungültige Quellwährung');
+
+  const rate = await getFxToEur(from);
+  if (rate == null) return jsonResponse({ ok: false, message: 'Wechselkurs nicht verfügbar' }, 503);
+  return jsonResponse({ ok: true, from, to: 'EUR', rate }, 200);
 });
 
 // GET /api/stocks/history/:symbol?period=1mo
