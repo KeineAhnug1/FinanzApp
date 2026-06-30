@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -151,6 +151,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [tab, setTab] = useState<GroupTab>('overview');
+  const chatMessagesRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Reset to overview when switching groups; then restore user+group-scoped preference if present.
@@ -238,6 +239,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           message: String(m.message ?? ''),
           created_at: String(m.created_at ?? ''),
           sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : undefined),
+          sender_profile_image: u?.profile_image ? String(u.profile_image) : null,
           user_id: String(u?.user_id ?? ''),
         };
       })
@@ -245,6 +247,13 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
     refetchInterval: 10000,
     enabled: !!groupId,
   });
+
+  useEffect(() => {
+    if (tab !== 'chat') return;
+    const el = chatMessagesRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [tab, messages.length]);
 
   if (isLoading || !group) return <p className="loading-msg">Lädt Gruppe…</p>;
 
@@ -547,15 +556,19 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
       {tab === 'chat' && (
         <div className="group-section">
           <h3 className="section-title">Gruppenkanal</h3>
-          <div className="chat-messages">
-            {messages.map((m) => (
-              <ChatMessageItem
-                key={m.id}
-                groupId={groupId}
-                message={m}
-                canDelete={(group.session_user_id !== undefined && Number(m.user_id) === group.session_user_id) || !!group.is_admin}
-              />
-            ))}
+          <div className="chat-messages" ref={chatMessagesRef}>
+            {messages.map((m) => {
+              const isOwn = group.session_user_id !== undefined && Number(m.user_id) === group.session_user_id;
+              return (
+                <ChatMessageItem
+                  key={m.id}
+                  groupId={groupId}
+                  message={m}
+                  isOwn={isOwn}
+                  canDelete={isOwn || !!group.is_admin}
+                />
+              );
+            })}
           </div>
           <form className="chat-input-form" onSubmit={sendMessage}>
             <input className="form-input" placeholder="Nachricht…" value={msgInput} onChange={(e) => setMsgInput(e.target.value)} />

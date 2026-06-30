@@ -112,7 +112,7 @@ groups.get('/:id', async (c) => {
 
   const [{ data: members }, { data: activities }, { data: fundings }, { data: archivedFundings }] = await Promise.all([
     auth.db.from('group_members')
-      .select('role, status, users(id, username, first_name, last_name)')
+      .select('role, status, users(id, username, first_name, last_name, "profileImage")')
       .eq('group_id', groupId)
       .in('status', ['accepted', 'pending_admin', 'invited', 'pending_member']),
     auth.db.from('group_activities').select('*').eq('group_id', groupId).order('date', { ascending: false }),
@@ -153,6 +153,7 @@ groups.get('/:id', async (c) => {
       return {
         user_id: String(u?.id ?? ''), username: u?.username ?? null,
         first_name: u?.first_name ?? null, last_name: u?.last_name ?? null,
+        profile_image: u?.profileImage ?? null,
         role: m.role, status: m.status ?? null,
       };
     }),
@@ -568,7 +569,7 @@ groups.get('/:id/messages', async (c) => {
   const before = sp.get('before');
 
   let query = auth.db.from('group_message')
-    .select('id, message, created_at, users:from_user_id(id, username, first_name, last_name)')
+    .select('id, message, created_at, users:from_user_id(id, username, first_name, last_name, "profileImage")')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false })
     .limit(Math.min(limit, 100));
@@ -583,7 +584,7 @@ groups.get('/:id/messages', async (c) => {
       const u = m.users as Record<string, unknown> | null;
       return {
         message_id: String(m.id), message: m.message, created_at: m.created_at,
-        user: { user_id: String(u?.id ?? ''), username: u?.username ?? null, first_name: u?.first_name ?? null, last_name: u?.last_name ?? null },
+        user: { user_id: String(u?.id ?? ''), username: u?.username ?? null, first_name: u?.first_name ?? null, last_name: u?.last_name ?? null, profile_image: u?.profileImage ?? null },
       };
     }),
   }, 200);

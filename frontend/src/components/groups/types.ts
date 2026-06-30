@@ -3,6 +3,7 @@ export interface MemberView {
   user_id: number;
   username: string;
   first_name?: string;
+  profile_image?: string | null;
   role: string;
   status?: string;
 }
@@ -74,6 +75,7 @@ export interface GroupMessageView {
   id: number;
   message: string;
   sender_name?: string;
+  sender_profile_image?: string | null;
   created_at: string;
   user_id: string;
 }

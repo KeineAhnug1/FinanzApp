@@ -11,6 +11,7 @@ export interface ChatMessage {
   message: string;
   created_at: string;
   sender_name?: string;
+  sender_profile_image?: string | null;
   user_id: string;
 }
 
@@ -18,9 +19,18 @@ interface ChatMessageItemProps {
   groupId: number;
   message: ChatMessage;
   canDelete: boolean;
+  isOwn: boolean;
 }
 
-export function ChatMessageItem({ groupId, message, canDelete }: ChatMessageItemProps) {
+function initials(name?: string): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export function ChatMessageItem({ groupId, message, canDelete, isOwn }: ChatMessageItemProps) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -46,20 +56,37 @@ export function ChatMessageItem({ groupId, message, canDelete }: ChatMessageItem
     }
   };
 
+  const senderLabel = isOwn ? 'Ich' : (message.sender_name ?? 'Unbekannt');
+  const avatar = message.sender_profile_image;
+
   return (
-    <div className="chat-message">
-      <span className="chat-sender">{message.sender_name ?? 'Unbekannt'}</span>
-      <span className="chat-text">{message.message}</span>
-      {canDelete && (
-        <button
-          type="button"
-          className="chat-message__delete"
-          aria-label="Nachricht löschen"
-          onClick={() => setConfirmOpen(true)}
-        >
-          ✕
-        </button>
+    <div className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'}`}>
+      {!isOwn && (
+        <div className="chat-message__avatar" aria-hidden="true">
+          {avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar} alt="" className="chat-message__avatar-img" />
+          ) : (
+            <span className="chat-message__avatar-fallback">{initials(message.sender_name)}</span>
+          )}
+        </div>
       )}
+      <div className="chat-message__body">
+        <span className="chat-sender">{senderLabel}</span>
+        <div className="chat-bubble">
+          <span className="chat-text">{message.message}</span>
+          {canDelete && (
+            <button
+              type="button"
+              className="chat-message__delete"
+              aria-label="Nachricht löschen"
+              onClick={() => setConfirmOpen(true)}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
       {confirmOpen && (
         <Modal open onClose={() => (busy ? undefined : setConfirmOpen(false))} title="Nachricht löschen" size="sm">
           <p>Möchtest du diese Nachricht wirklich löschen?</p>
