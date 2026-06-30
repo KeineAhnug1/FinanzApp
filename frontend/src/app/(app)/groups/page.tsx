@@ -195,6 +195,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           status: (f.status as 'open' | 'completed' | 'archived' | undefined) ?? 'open',
           completed_at: f.completed_at ? String(f.completed_at) : null,
           archived_at: f.archived_at ? String(f.archived_at) : null,
+          creator_user_id: f.creator_user_id != null ? Number(f.creator_user_id) : null,
           contributions: (Array.isArray(f.contributions) ? f.contributions : []).map(
             (c: Record<string, unknown>) => ({ amount: Number(c.amount ?? 0) })
           ),
@@ -500,6 +501,8 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
                   groupId={groupId}
                   fundingId={f.id}
                   fundingAmount={f.target_amount}
+                  fundingStatus={f.status ?? 'open'}
+                  isCreator={f.creator_user_id != null && group.session_user_id !== undefined && Number(f.creator_user_id) === Number(group.session_user_id)}
                   expenses={(group.expenses ?? []).filter((e) => String(e.group_funding_id) === String(f.id))}
                   isAdmin={!!isAdmin}
                 />

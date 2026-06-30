@@ -25,6 +25,7 @@ export interface FundingView {
   status?: 'open' | 'completed' | 'archived';
   completed_at?: string | null;
   archived_at?: string | null;
+  creator_user_id?: number | null;
   contributions?: ContributionView[];
 }
 

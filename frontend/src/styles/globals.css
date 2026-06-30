@@ -3767,6 +3767,15 @@ input.touched:invalid ~ .field-hint,
 .expenses-section__remaining { font-size: 0.8rem; color: var(--ui-text-muted); }
 .expenses-section__actions { margin-top: var(--ui-space-2); }
 .expenses-section__empty { font-size: 0.85rem; color: var(--ui-text-muted); margin: var(--ui-space-2) 0 0; }
+.expenses-section__hint {
+  font-size: 0.85rem;
+  color: var(--ui-text-muted);
+  background: var(--ui-surface-soft);
+  border: 1px dashed var(--ui-border);
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border-radius: var(--ui-radius-md);
+  margin: var(--ui-space-2) 0 0;
+}
 
 .expenses-list {
   list-style: none;

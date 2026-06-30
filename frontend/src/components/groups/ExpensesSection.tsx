@@ -14,6 +14,8 @@ interface ExpensesSectionProps {
   groupId: number;
   fundingId: number;
   fundingAmount: number;
+  fundingStatus?: 'open' | 'completed' | 'archived';
+  isCreator?: boolean;
   expenses: ExpenseView[];
   isAdmin: boolean;
 }
@@ -150,14 +152,17 @@ function ExpenseFormModal({
   );
 }
 
-export default function ExpensesSection({ groupId, fundingId, fundingAmount, expenses, isAdmin }: ExpensesSectionProps) {
+export default function ExpensesSection({ groupId, fundingId, fundingAmount, fundingStatus = 'open', isCreator = false, expenses }: ExpensesSectionProps) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ExpenseView | null>(null);
   const [deleting, setDeleting] = useState<ExpenseView | null>(null);
 
-  if (expenses.length === 0 && !isAdmin) return null;
+  // Nur der Ersteller darf Ausgaben verwalten. Andere Mitglieder sehen die Sektion nur,
+  // wenn bereits Ausgaben existieren (read-only).
+  if (expenses.length === 0 && !isCreator) return null;
+  const canManage = isCreator && fundingStatus === 'completed';
 
   const baseUrl = `/api/groups/${groupId}/funding/${fundingId}/expenses`;
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['group', groupId] });
@@ -219,8 +224,8 @@ export default function ExpensesSection({ groupId, fundingId, fundingAmount, exp
     invalidate();
   };
 
-  const totalPaid = expenses.reduce((s, e) => s + (e.state === 'paid' ? e.amount : 0), 0);
-  const remaining = Math.max(0, fundingAmount - totalPaid);
+  const totalReserved = expenses.reduce((s, e) => s + e.amount, 0);
+  const remaining = Math.max(0, fundingAmount - totalReserved);
 
   return (
     <div className="expenses-section">
@@ -239,7 +244,12 @@ export default function ExpensesSection({ groupId, fundingId, fundingAmount, exp
 
       {expanded && (
         <>
-          {isAdmin && (
+          {isCreator && fundingStatus !== 'completed' && (
+            <p className="expenses-section__hint">
+              Erst wenn das Sammelziel erreicht ist, kannst du Ausgaben anlegen und auszahlen.
+            </p>
+          )}
+          {canManage && (
             <div className="expenses-section__actions">
               <button className="btn btn-ghost btn-sm" type="button" onClick={() => setShowAdd(true)}>
                 + Ausgabe anlegen
@@ -270,7 +280,7 @@ export default function ExpensesSection({ groupId, fundingId, fundingAmount, exp
                       </div>
                     </div>
                     <div className="expense-item__amount">{formatMoney(e.amount)}</div>
-                    {isAdmin && (
+                    {canManage && (
                       <div className="expense-item__actions">
                         {e.state !== 'paid' && (
                           <button className="btn btn-ghost btn-sm" type="button" onClick={() => markPaid(e)}>

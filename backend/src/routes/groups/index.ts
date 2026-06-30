@@ -173,6 +173,7 @@ groups.get('/:id', async (c) => {
         status: (f.status as string | null) ?? 'open',
         completed_at: f.completed_at ?? null,
         archived_at: f.archived_at ?? null,
+        creator_user_id: f.creator_user_id ? String(f.creator_user_id) : null,
         contributions: contributions.map((cont) => {
           const ba = cont.bank_accounts as Record<string, unknown> | null;
           const u = ba?.users as Record<string, unknown> | null;
@@ -360,6 +361,21 @@ groups.post('/:id/funding', async (c) => {
 
   const activityId = payload.group_activity_id ? Number(payload.group_activity_id) : null;
 
+  const { data: creatorRow } = await auth.db.from('users')
+    .select('default_bank_account_id').eq('id', auth.user.id).single();
+  let creatorBankAccountId: number | null = creatorRow && (creatorRow as Record<string, unknown>).default_bank_account_id
+    ? Number((creatorRow as Record<string, unknown>).default_bank_account_id)
+    : null;
+  if (!creatorBankAccountId) {
+    const { data: ba } = await auth.db.from('bank_accounts')
+      .select('id').eq('user_id', auth.user.id).order('created_at', { ascending: true }).limit(1);
+    const first = Array.isArray(ba) ? ba[0] : null;
+    creatorBankAccountId = first ? Number((first as Record<string, unknown>).id) : null;
+  }
+  if (!creatorBankAccountId) {
+    return badRequest('Du brauchst mindestens ein Bankkonto, um eine Sammelaktion zu erstellen.');
+  }
+
   const { data, error } = await auth.db.from('group_funding')
     .insert({
       group_id: groupId,
@@ -368,8 +384,10 @@ groups.post('/:id/funding', async (c) => {
       info,
       target_amount: targetAmount,
       status: 'open',
+      creator_user_id: auth.user.id,
+      creator_bank_account_id: creatorBankAccountId,
     })
-    .select('id, group_activity_id, amount, info, target_amount, status, created_at').single();
+    .select('id, group_activity_id, amount, info, target_amount, status, created_at, creator_user_id, creator_bank_account_id').single();
 
   if (error || !data) {
     console.error('[funding.create] insert failed', error);
@@ -385,6 +403,7 @@ groups.post('/:id/funding', async (c) => {
       info,
       target_amount: targetAmount,
       status: 'open',
+      creator_user_id: String(auth.user.id),
       created_at: data.created_at ?? null,
     },
   }, 201);
@@ -408,7 +427,7 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
   if (!membership) return jsonResponse({ ok: false, message: 'You are not a member of this group' }, 403);
 
   const { data: funding } = await auth.db.from('group_funding')
-    .select('id, amount, info, status')
+    .select('id, amount, info, status, creator_user_id, creator_bank_account_id')
     .eq('id', fundingId).eq('group_id', groupId).single();
   if (!funding) return notFound('Funding not found for this group');
   if ((funding as Record<string, unknown>).status !== 'open') return badRequest('Sammelaktion abgeschlossen');
@@ -515,6 +534,70 @@ groups.post('/:id/funding/:fundingId/donate', async (c) => {
   const auditResult = await auth.db.from('transactions').insert({ private_expense_id: expense.id });
   if ((auditResult as { error: { message: string } | null }).error) {
     console.error('[funding.donate] transactions audit insert failed (non-fatal)', (auditResult as { error: { message: string } }).error);
+  }
+
+  // Creator credit: the donation flows onto the creator's bank account as income.
+  // If the creator account is missing or any step fails, roll back everything so
+  // the donor isn't charged for a half-completed transfer.
+  const creatorBankId = (funding as Record<string, unknown>).creator_bank_account_id
+    ? Number((funding as Record<string, unknown>).creator_bank_account_id)
+    : null;
+  if (creatorBankId) {
+    const incomeLabel = funding.info ? `Spende: ${funding.info}` : 'Spende';
+    const creditRpc = await auth.db.rpc('increment_bank_balance', {
+      p_account_id: creatorBankId,
+      p_delta: actualAmount,
+    }) as { error: { message: string } | null };
+    if (creditRpc.error) {
+      console.error('[funding.donate] creator credit failed, rolling back everything', creditRpc.error);
+      await auth.db.rpc('increment_bank_balance', { p_account_id: bankAccount.id, p_delta: actualAmount });
+      await auth.db.from('private_expenses').delete().eq('id', expense.id);
+      if (existingParticipant) {
+        await auth.db.from('funding_participants')
+          .update({ amount: Number(existingParticipant.amount ?? 0) })
+          .eq('id', existingParticipant.id);
+      } else {
+        await auth.db.from('funding_participants').delete().eq('id', fundingParticipantId);
+      }
+      await rollbackPool();
+      return serverError(`Spende konnte nicht verbucht werden: ${creditRpc.error.message}`);
+    }
+
+    const { data: incomeRow, error: incomeErr } = await auth.db.from('income').insert({
+      bank_account_id: creatorBankId,
+      source: incomeLabel,
+      category: 'transfer',
+      amount: actualAmount,
+      received_at: now,
+      pay_date: now,
+      info: incomeLabel,
+      note: incomeLabel,
+      state: 'open',
+      recurrence: null,
+      cycle: 'once',
+      is_active: true,
+      group_funding_id: fundingId,
+    }).select('id').single();
+
+    if (incomeErr || !incomeRow) {
+      console.error('[funding.donate] creator income row failed, rolling back', incomeErr);
+      await auth.db.rpc('increment_bank_balance', { p_account_id: creatorBankId, p_delta: -actualAmount });
+      await auth.db.rpc('increment_bank_balance', { p_account_id: bankAccount.id, p_delta: actualAmount });
+      await auth.db.from('private_expenses').delete().eq('id', expense.id);
+      if (existingParticipant) {
+        await auth.db.from('funding_participants')
+          .update({ amount: Number(existingParticipant.amount ?? 0) })
+          .eq('id', existingParticipant.id);
+      } else {
+        await auth.db.from('funding_participants').delete().eq('id', fundingParticipantId);
+      }
+      await rollbackPool();
+      return serverError(`Spende konnte nicht verbucht werden: ${incomeErr?.message ?? 'income insert failed'}`);
+    }
+    const auditCredit = await auth.db.from('transactions').insert({ income_id: incomeRow.id });
+    if ((auditCredit as { error: { message: string } | null }).error) {
+      console.error('[funding.donate] creator income audit insert failed (non-fatal)', (auditCredit as { error: { message: string } }).error);
+    }
   }
 
   return jsonResponse({
