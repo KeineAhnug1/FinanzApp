@@ -27,5 +27,7 @@ frontend/.next/
 frontend/.vercel/
 frontend/.wrangler/
 
-# Claude Code agent scratch worktrees (managed by the harness, not project content)
-.claude/worktrees/
+# Claude Code / Anthropic assets (local-only, not project content)
+.claude/
+CLAUDE.md
+.mcp.json
