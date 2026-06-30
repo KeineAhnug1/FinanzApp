@@ -105,7 +105,6 @@ export function TripsSection({ groupId, members, currentUserId, isAdmin }: Trips
 
       {!isLoading && sortedTrips.length === 0 && (
         <div className="trips-empty">
-          <div className="trips-empty-icon" aria-hidden="true">🧳</div>
           <p>Noch keine Ausflüge — erstelle deinen ersten Ausflug.</p>
           <button className="btn btn-primary btn-sm" type="button" onClick={() => setShowCreate(true)}>
             + Neuer Ausflug
@@ -134,7 +133,6 @@ export function TripsSection({ groupId, members, currentUserId, isAdmin }: Trips
             >
               <div className="trip-card-head">
                 <div className="trip-card-title">
-                  <span className="trip-card-icon" aria-hidden="true">🧳</span>
                   <strong>{trip.name}</strong>
                 </div>
                 <span className={statusClass}>{STATUS_LABELS[trip.status] ?? trip.status}</span>
