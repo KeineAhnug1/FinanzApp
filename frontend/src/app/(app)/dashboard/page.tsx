@@ -13,7 +13,7 @@ import {
 } from '@/components/dashboard/types';
 import { DrilldownCashflowChart } from '@/components/dashboard/DrilldownCashflowChart';
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart';
-import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
+import { BudgetOverview } from '@/components/dashboard/BudgetOverview';
 import { EntriesList } from '@/components/dashboard/EntriesList';
 import { IncomeForm } from '@/components/dashboard/IncomeForm';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
@@ -93,7 +93,7 @@ export default function DashboardPage() {
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
     queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-    queryClient.invalidateQueries({ queryKey: ['budget-alerts'] });
+    queryClient.invalidateQueries({ queryKey: ['budget-status'] });
   }, [queryClient]);
 
   const deleteIncome = async (id: string) => {
@@ -138,8 +138,6 @@ export default function DashboardPage() {
             <p className="hero-value">{formatMoney(totalBalance)}</p>
             <p className="hero-sub">{income.length + expenses.length} Buchungen · {filteredAccounts.length} {filteredAccounts.length === 1 ? 'Konto' : 'Konten'}</p>
           </div>
-
-          <BudgetAlerts />
 
           <div className="kpi-grid">
             <div className="kpi-card">
@@ -203,6 +201,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          <BudgetOverview />
         </div>
 
         <div className="view-panel" id="panel-income" role="tabpanel" aria-labelledby="tab-income" tabIndex={0} hidden={view !== 'income'}>

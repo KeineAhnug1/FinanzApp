@@ -43,6 +43,7 @@ export interface ExpenseEntry {
 }
 
 export interface BudgetAlert {
+  budget_id?: string;
   category: string;
   spent: number;
   target: number;
