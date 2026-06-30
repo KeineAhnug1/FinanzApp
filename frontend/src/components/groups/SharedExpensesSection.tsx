@@ -45,8 +45,10 @@ const CYCLE_LABELS: Record<SharedExpenseCycle, string> = {
 const SHARE_STATUS_LABELS: Record<SharedExpenseShare['status'], string> = {
   pending: 'Ausstehend',
   accepted: 'Akzeptiert',
+  paid: 'Bezahlt',
   rejected: 'Abgelehnt',
   stopped: 'Beendet',
+  left: 'Verlassen',
 };
 
 function memberLabel(share: SharedExpenseShare, members: MemberView[]): string {
@@ -80,7 +82,7 @@ function parseExpense(raw: Record<string, unknown>): SharedExpense {
       username: s.username ? String(s.username) : undefined,
       first_name: s.first_name ? String(s.first_name) : undefined,
       share_amount: Number(s.share_amount ?? 0),
-      status: (['pending', 'accepted', 'rejected', 'stopped'].includes(String(s.status))
+      status: (['pending', 'accepted', 'paid', 'rejected', 'left', 'stopped'].includes(String(s.status))
         ? String(s.status)
         : 'pending') as SharedExpenseShare['status'],
       decided_at: s.decided_at ? String(s.decided_at) : null,
@@ -219,6 +221,10 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
             ? e.shares.find((s) => s.user_id === sessionUserId)
             : undefined;
           const canDelete = isAdmin && e.status !== 'cancelled';
+          const pendingShares = e.shares.filter((s) => s.status === 'pending');
+          const acceptedShares = e.shares.filter((s) => s.status === 'accepted' || s.status === 'paid');
+          const rejectedShares = e.shares.filter((s) => s.status === 'rejected');
+          const totalShares = e.shares.length;
           return (
             <div key={e.shared_expense_id} className="shared-expense-card">
               <div className="shared-expense-header">
@@ -232,6 +238,30 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
                       {STATUS_LABELS[e.status]}
                     </span>
                   </div>
+                  {totalShares > 0 && e.status !== 'cancelled' && (
+                    <div className="shared-expense-progress" aria-live="polite">
+                      {pendingShares.length > 0 ? (
+                        <span className="shared-expense-progress__pending">
+                          ⏳ {pendingShares.length} von {totalShares} ausstehend
+                          {pendingShares.length <= 3 && pendingShares.length > 0 && (
+                            <span className="shared-expense-progress__names">
+                              {' — '}
+                              {pendingShares.map((s) => memberLabel(s, members)).join(', ')}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="shared-expense-progress__done">
+                          ✓ Alle {acceptedShares.length} Teilnehmer haben akzeptiert
+                        </span>
+                      )}
+                      {rejectedShares.length > 0 && (
+                        <span className="shared-expense-progress__rejected">
+                          {' · '}{rejectedShares.length} abgelehnt
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="shared-expense-amount">{formatMoney(e.total_amount)}</div>
               </div>
@@ -337,9 +367,9 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
 }
 
 function shareStatusToCardStatus(s: SharedExpenseShare['status']): SharedExpenseStatus {
-  if (s === 'accepted') return 'active';
+  if (s === 'accepted' || s === 'paid') return 'active';
   if (s === 'rejected') return 'cancelled';
-  if (s === 'stopped') return 'completed';
+  if (s === 'stopped' || s === 'left') return 'completed';
   return 'pending';
 }
 

@@ -95,7 +95,7 @@ export interface Invitation {
 export type SharedExpensePaymentMode = 'prepaid' | 'postpaid';
 export type SharedExpenseCycle = 'once' | 'weekly' | 'monthly' | 'yearly';
 export type SharedExpenseStatus = 'pending' | 'active' | 'completed' | 'cancelled';
-export type SharedExpenseShareStatus = 'pending' | 'accepted' | 'rejected' | 'stopped';
+export type SharedExpenseShareStatus = 'pending' | 'accepted' | 'paid' | 'rejected' | 'stopped' | 'left';
 
 export interface SharedExpenseShare {
   share_id: number;
