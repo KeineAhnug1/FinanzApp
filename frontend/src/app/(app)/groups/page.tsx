@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { getCsrfToken } from '@/lib/api-client';
+import { useAppStore } from '@/stores/app-store';
 import { apiFetch, formatMoney } from '@/components/groups/api';
 import type { GroupView, GroupMessageView, GroupSummary, Invitation } from '@/components/groups/types';
 import { MembersAdminActions } from '@/components/groups/MembersAdminSection';
@@ -87,16 +88,24 @@ function InvitationsModal({ onClose, onUpdate }: { onClose: () => void; onUpdate
     ),
   });
 
+  const [respondingId, setRespondingId] = useState<number | null>(null);
+
   const respond = async (groupId: number, accept: boolean) => {
-    const result = await apiFetch(`/api/groups/${groupId}/join`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ decision: accept ? 'accept' : 'decline' }),
-    });
-    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
-    toast.success(accept ? 'Einladung angenommen' : 'Einladung abgelehnt');
-    queryClient.invalidateQueries({ queryKey: ['invitations'] });
-    onUpdate();
+    if (respondingId !== null) return;
+    setRespondingId(groupId);
+    try {
+      const result = await apiFetch(`/api/groups/${groupId}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({ decision: accept ? 'accept' : 'decline' }),
+      });
+      if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
+      toast.success(accept ? 'Einladung angenommen' : 'Einladung abgelehnt');
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+      onUpdate();
+    } finally {
+      setRespondingId(null);
+    }
   };
 
   return (
@@ -107,8 +116,17 @@ function InvitationsModal({ onClose, onUpdate }: { onClose: () => void; onUpdate
         <div key={inv.id} className="invitation-item">
           <span><strong>{inv.group_name}</strong> – eingeladen von {inv.invited_by}</span>
           <div className="form-actions">
-            <button className="btn btn-primary btn-sm" onClick={() => respond(inv.group_id, true)}>Annehmen</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => respond(inv.group_id, false)}>Ablehnen</button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => respond(inv.group_id, true)}
+              disabled={respondingId !== null}
+              aria-busy={respondingId === inv.group_id}
+            >Annehmen</button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => respond(inv.group_id, false)}
+              disabled={respondingId !== null}
+            >Ablehnen</button>
           </div>
         </div>
       ))}
@@ -118,6 +136,8 @@ function InvitationsModal({ onClose, onUpdate }: { onClose: () => void; onUpdate
 
 function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void }) {
   const queryClient = useQueryClient();
+  const { user } = useAppStore();
+  const groupTabKey = user?.id ? `finanzapp.groupTab.${user.id}.${groupId}` : null;
   const [inviteUsername, setInviteUsername] = useState('');
   const [msgInput, setMsgInput] = useState('');
   const [fundTitle, setFundTitle] = useState('');
@@ -125,18 +145,24 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const [fundDesc, setFundDesc] = useState('');
   const [fundActivity, setFundActivity] = useState('');
   const [donateAmount, setDonateAmount] = useState<Record<number, string>>({});
+  const [donatingId, setDonatingId] = useState<number | null>(null);
+  const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [invitingBusy, setInvitingBusy] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [tab, setTab] = useState<GroupTab>('overview');
 
   useEffect(() => {
-    const stored = localStorage.getItem('finanzapp.groupTab') as GroupTab | null;
+    // Reset to overview when switching groups; then restore user+group-scoped preference if present.
+    setTab('overview');
+    if (!groupTabKey) return;
+    const stored = localStorage.getItem(groupTabKey) as GroupTab | null;
     if (stored && VALID_TABS.includes(stored)) setTab(stored);
-  }, []);
+  }, [groupTabKey]);
 
   const switchTab = (t: GroupTab) => {
     setTab(t);
-    localStorage.setItem('finanzapp.groupTab', t);
+    if (groupTabKey) localStorage.setItem(groupTabKey, t);
   };
 
   const { data: group, isLoading } = useQuery<GroupView | null>({
@@ -225,15 +251,20 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   const isAdmin = group.is_admin;
 
   const invite = async () => {
-    if (!inviteUsername.trim()) return;
-    const result = await apiFetch(`/api/groups/${groupId}/invite`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ username: inviteUsername.trim() }),
-    });
-    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
-    toast.success('Einladung gesendet');
-    setInviteUsername('');
+    if (!inviteUsername.trim() || invitingBusy) return;
+    setInvitingBusy(true);
+    try {
+      const result = await apiFetch(`/api/groups/${groupId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({ username: inviteUsername.trim() }),
+      });
+      if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
+      toast.success('Einladung gesendet');
+      setInviteUsername('');
+    } finally {
+      setInvitingBusy(false);
+    }
   };
 
   const leaveGroup = async (): Promise<boolean> => {
@@ -280,36 +311,48 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
   };
 
   const donate = async (fundingId: number) => {
+    if (donatingId !== null) return;
     const amount = Number(donateAmount[fundingId] || 0);
     if (!amount || amount <= 0) { toast.error('Ungültiger Betrag'); return; }
-    const bankAccounts = await apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []);
-    if (!bankAccounts[0]) { toast.error('Kein Bankkonto gefunden'); return; }
-    const result = await apiFetch(`/api/groups/${groupId}/funding/${fundingId}/donate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
-      body: JSON.stringify({ amount, bank_account_id: bankAccounts[0].id }),
-    });
-    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
-    const actual = Number(result.actual_amount ?? amount);
-    if (result.capped) {
-      toast.success(`Nur ${formatMoney(actual)} wurden angenommen — Ziel erreicht.`);
-    } else {
-      toast.success('Spende gesendet');
+    setDonatingId(fundingId);
+    try {
+      const bankAccounts = await apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []);
+      if (!bankAccounts[0]) { toast.error('Kein Bankkonto gefunden'); return; }
+      const result = await apiFetch(`/api/groups/${groupId}/funding/${fundingId}/donate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+        body: JSON.stringify({ amount, bank_account_id: bankAccounts[0].id }),
+      });
+      if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
+      const actual = Number(result.actual_amount ?? amount);
+      if (result.capped) {
+        toast.success(`Nur ${formatMoney(actual)} wurden angenommen — Ziel erreicht.`);
+      } else {
+        toast.success('Spende gesendet');
+      }
+      setDonateAmount((prev) => ({ ...prev, [fundingId]: '' }));
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+    } finally {
+      setDonatingId(null);
     }
-    setDonateAmount((prev) => ({ ...prev, [fundingId]: '' }));
-    queryClient.invalidateQueries({ queryKey: ['group', groupId] });
-    queryClient.invalidateQueries({ queryKey: ['transactions'] });
-    queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
   };
 
   const archiveFunding = async (fundingId: number) => {
-    const result = await apiFetch(`/api/groups/${groupId}/funding/${fundingId}/archive`, {
-      method: 'POST',
-      headers: { 'x-csrf-token': getCsrfToken() },
-    });
-    if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
-    toast.success('Sammelaktion archiviert');
-    queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+    if (archivingId !== null) return;
+    setArchivingId(fundingId);
+    try {
+      const result = await apiFetch(`/api/groups/${groupId}/funding/${fundingId}/archive`, {
+        method: 'POST',
+        headers: { 'x-csrf-token': getCsrfToken() },
+      });
+      if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
+      toast.success('Sammelaktion archiviert');
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+    } finally {
+      setArchivingId(null);
+    }
   };
 
   return (
@@ -364,7 +407,12 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           {isAdmin && (
             <div className="invite-form groups-page__invite-form">
               <input className="form-input groups-page__invite-input" placeholder="Username einladen" value={inviteUsername} onChange={(e) => setInviteUsername(e.target.value)} />
-              <button className="btn btn-primary btn-sm" onClick={invite}>Einladen</button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={invite}
+                disabled={invitingBusy || !inviteUsername.trim()}
+                aria-busy={invitingBusy}
+              >{invitingBusy ? 'Sende…' : 'Einladen'}</button>
             </div>
           )}
         </div>
@@ -410,13 +458,25 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
                       />
                       <span className="amount-input-suffix" aria-hidden="true">€</span>
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={() => donate(f.id)}>Spenden</button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => donate(f.id)}
+                      disabled={donatingId !== null || remaining <= 0}
+                      aria-busy={donatingId === f.id}
+                    >
+                      {donatingId === f.id ? 'Spende…' : 'Spenden'}
+                    </button>
                   </div>
                 )}
                 {isCompleted && isAdmin && (
                   <div className="form-actions" style={{ marginTop: 8 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => archiveFunding(f.id)}>
-                      Als fertig markieren (archivieren)
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => archiveFunding(f.id)}
+                      disabled={archivingId !== null}
+                      aria-busy={archivingId === f.id}
+                    >
+                      {archivingId === f.id ? 'Archiviere…' : 'Als fertig markieren (archivieren)'}
                     </button>
                   </div>
                 )}

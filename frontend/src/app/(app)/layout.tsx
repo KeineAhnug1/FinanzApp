@@ -7,7 +7,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { SideNav, MobileNavToggle } from '@/components/layout/SideNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { ToastContainer } from '@/components/ui/Toast';
-import { apiUrl } from '@/lib/api-client';
+import { apiUrl, safeJson } from '@/lib/api-client';
 import { useAppStore } from '@/stores/app-store';
 import { useUiStore } from '@/stores/ui-store';
 import type { User } from '@/types';
@@ -61,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return;
     }
     fetch(apiUrl('/api/auth/session'), { credentials: 'include' })
-      .then((r) => r.json())
+      .then((r) => safeJson(r))
       .then((data: { ok?: boolean; session_user?: User }) => {
         if (data?.ok && data.session_user) {
           setUser(data.session_user);

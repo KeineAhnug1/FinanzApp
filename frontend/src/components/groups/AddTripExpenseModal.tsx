@@ -12,7 +12,7 @@ import type { TripParticipantView } from './types';
 const addExpenseSchema = z.object({
   payer_user_id: z.coerce.number().int().positive('Zahler erforderlich'),
   description: z.string().min(1, 'Beschreibung erforderlich').max(200, 'Max. 200 Zeichen'),
-  amount: z.coerce.number().gt(0, 'Muss > 0 sein'),
+  amount: z.coerce.number().finite('Ungültiger Betrag').gt(0, 'Muss > 0 sein').lt(1_000_000, 'Max. 1.000.000 €'),
   participant_user_ids: z.array(z.number().int().positive()).min(1, 'Mindestens ein Teilnehmer'),
   spent_at: z.string().min(1, 'Datum erforderlich'),
 });

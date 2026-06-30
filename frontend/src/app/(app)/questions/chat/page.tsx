@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -51,7 +51,7 @@ export default function FinzbroChatPage() {
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
         body: JSON.stringify({ message: text, history: messages.slice(-10) }),
       });
-      const data = await res.json() as { ok: boolean; reply?: string; message?: string };
+      const data = await safeJson(res) as { ok: boolean; reply?: string; message?: string };
       setMessages([...newMessages, {
         role: 'assistant',
         content: (data.ok && data.reply) ? data.reply : (data.message ?? 'FinzbRo ist gerade nicht verfügbar.'),

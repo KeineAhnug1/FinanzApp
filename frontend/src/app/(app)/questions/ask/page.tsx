@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 
 const schema = z.object({
   thema: z.string().min(1, 'Thema erforderlich').max(120),
@@ -27,7 +27,7 @@ export default function AskPage() {
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
       body: JSON.stringify(data),
     });
-    const result = await res.json() as { ok: boolean; message?: string };
+    const result = await safeJson(res) as { ok: boolean; message?: string };
     if (!result.ok) { toast.error(result.message ?? 'Fehler'); return; }
     toast.success('Frage gestellt');
     router.push('/questions');

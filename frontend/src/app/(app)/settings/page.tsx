@@ -8,12 +8,12 @@ import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import type { UserClient } from '@/types';
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
-  return res.json();
+  return safeJson(res);
 }
 
 function initialsFromUser(user: Partial<UserClient>): string {

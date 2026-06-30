@@ -11,7 +11,6 @@ import { getGroupCtx, requireAdmin } from './_shared';
 import {
   createPeerTransfer,
   getDefaultAccountId,
-  requireDefaultAccount,
 } from '@/lib/helpers/group-shared';
 
 const sharedExpenses = new Hono<{ Bindings: Env }>();
@@ -484,56 +483,15 @@ sharedExpenses.post('/:id/shared-expenses/:expenseId/decide', async (c) => {
       const rpcResult = await auth.db.rpc('release_period_reservations', { p_period_id: period.id });
       const rpcError = (rpcResult as { error: unknown } | null)?.error;
       if (rpcError) {
-        const { data: reservedTransfers } = await auth.db
-          .from('group_shared_expense_period_transfers')
-          .select('*')
-          .eq('period_id', period.id)
-          .eq('status', 'reserved');
-
-        try {
-          for (const pt of (reservedTransfers ?? []) as Record<string, unknown>[]) {
-            const shareId = Number(pt.share_id);
-            const matchingShare = allShares.find((s) => s.id === shareId);
-            if (!matchingShare) continue;
-            if (matchingShare.user_id === full.expense.creator_user_id) {
-              await auth.db
-                .from('group_shared_expense_period_transfers')
-                .update({ status: 'released' })
-                .eq('id', Number(pt.id));
-              await auth.db
-                .from('group_shared_expense_shares')
-                .update({ status: 'paid' })
-                .eq('id', shareId);
-              continue;
-            }
-            const memberAcc = await requireDefaultAccount(auth.db, matchingShare.user_id);
-            const transferId = await createPeerTransfer(auth.db, {
-              fromUserId: matchingShare.user_id,
-              toUserId: full.expense.creator_user_id,
-              fromBankAccountId: memberAcc,
-              toBankAccountId: adminAccountId,
-              amount: toFixedAmount(pt.amount),
-              reason: `Anteil: ${full.expense.title}`,
-              groupId,
-              groupExpenseShareId: shareId,
-            });
-            await auth.db
-              .from('group_shared_expense_period_transfers')
-              .update({ status: 'released', transfer_id: transferId })
-              .eq('id', Number(pt.id));
-            await auth.db
-              .from('group_shared_expense_shares')
-              .update({ status: 'paid' })
-              .eq('id', shareId);
-          }
-          await auth.db
-            .from('group_shared_expense_periods')
-            .update({ status: 'settled', settled_at: now })
-            .eq('id', period.id);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Settlement fehlgeschlagen';
-          return jsonResponse({ ok: false, message: msg }, 500);
-        }
+        // The RPC is transactional — partial-success cannot occur, Postgres rolls
+        // back the whole call on error. We MUST NOT run a JS fallback here: that
+        // would create paired ledger rows for transfers the RPC may have already
+        // (atomically) committed, resulting in double-bookings and invented money.
+        // If the RPC is missing or broken, surface a server error so the user
+        // retries / admin re-runs the migration.
+        const msg = (rpcError as { message?: string }).message ?? 'RPC-Fehler';
+        console.error('[shared-expense.decide] release_period_reservations failed', rpcError);
+        return serverError(`Settlement fehlgeschlagen: ${msg}`);
       }
       settled = true;
     }

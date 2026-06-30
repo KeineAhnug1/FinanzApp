@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson, safeJsonOrThrow } from '@/lib/api-client';
 import {
   formatMoney,
   type BankAccount,
@@ -40,19 +40,26 @@ export default function DashboardPage() {
   const { user } = useAppStore();
   const queryClient = useQueryClient();
 
+  const dashboardViewKey = user?.id ? `finanzapp.dashboardView.${user.id}` : null;
+
   useEffect(() => {
-    const stored = localStorage.getItem('finanzapp.dashboardView') as DashboardView | null;
+    if (!dashboardViewKey) return;
+    const stored = localStorage.getItem(dashboardViewKey) as DashboardView | null;
     if (stored && (VALID_TABS as string[]).includes(stored)) setView(stored);
-  }, []);
+  }, [dashboardViewKey]);
 
   const switchView = (v: DashboardView) => {
     setView(v);
-    localStorage.setItem('finanzapp.dashboardView', v);
+    if (dashboardViewKey) localStorage.setItem(dashboardViewKey, v);
   };
 
   const { data: accounts = [] } = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
-    queryFn: () => apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []),
+    queryFn: async () => {
+      const res = await fetch(apiUrl('/api/finance/bank-accounts'), { credentials: 'include' });
+      const d = await safeJsonOrThrow(res);
+      return (d.accounts ?? []) as BankAccount[];
+    },
   });
 
   const accountParam = accountFilter ? `?bank_account_id=${encodeURIComponent(accountFilter)}` : '';

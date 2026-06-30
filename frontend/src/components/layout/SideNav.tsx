@@ -49,7 +49,7 @@ export function SideNav() {
     return () => document.removeEventListener('click', handler);
   }, [setSideNavMobileOpen]);
 
-  const activeKey = NAV_ITEMS.find((item) => pathname.startsWith(item.href))?.key ?? '';
+  const activeKey = NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.key ?? '';
 
   return (
     <aside

@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 
 export type DrawerRange = '1T' | '1W' | '1M' | '1J' | 'Max';
 const RANGE_PERIODS: Record<DrawerRange, string> = { '1T': '1d', '1W': '5d', '1M': '1mo', '1J': '1y', 'Max': 'max' };
@@ -93,7 +93,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     queryFn: async () => {
       if (!symbol) return null;
       const r = await fetch(apiUrl(`/api/stocks/quotes?symbols=${encodeURIComponent(symbol)}`), { credentials: 'include' });
-      const d = await r.json() as { ok: boolean; quotes?: Quote[] };
+      const d = await safeJson(r) as { ok: boolean; quotes?: Quote[] };
       return d.quotes?.[0] ?? null;
     },
   });
@@ -105,7 +105,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     queryFn: async () => {
       if (!symbol) return [];
       const r = await fetch(apiUrl(`/api/stocks/history/${symbol}?period=${RANGE_PERIODS[range]}`), { credentials: 'include' });
-      const d = await r.json() as { ok: boolean; history?: HistoryPoint[] };
+      const d = await safeJson(r) as { ok: boolean; history?: HistoryPoint[] };
       return d.history ?? [];
     },
   });
@@ -116,7 +116,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     staleTime: 60_000,
     queryFn: async () => {
       const r = await fetch(apiUrl('/api/finance/bank-accounts'), { credentials: 'include' });
-      const d = await r.json() as { ok: boolean; accounts?: BankAccount[] };
+      const d = await safeJson(r) as { ok: boolean; accounts?: BankAccount[] };
       return d.accounts ?? [];
     },
   });
@@ -131,7 +131,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     staleTime: 60_000,
     queryFn: async () => {
       const r = await fetch(apiUrl('/api/finance/share-accounts'), { credentials: 'include' });
-      const d = await r.json() as { ok: boolean; share_accounts?: ShareAccount[] };
+      const d = await safeJson(r) as { ok: boolean; share_accounts?: ShareAccount[] };
       return d.share_accounts ?? [];
     },
   });
@@ -154,7 +154,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
         apiUrl(`/api/stocks/positions?share_account_id=${encodeURIComponent(shareAccountId)}`),
         { credentials: 'include' },
       );
-      const d = await r.json() as { ok: boolean; positions?: PositionRow[] };
+      const d = await safeJson(r) as { ok: boolean; positions?: PositionRow[] };
       return d.positions ?? [];
     },
   });
@@ -202,7 +202,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
           share_account_id: Number(shareAccountId),
         }),
       });
-      const data = await res.json() as { ok: boolean; message?: string };
+      const data = await safeJson(res) as { ok: boolean; message?: string };
       if (data.ok) {
         toast.success(tab === 'buy' ? `${sharesNum} ${symbol} gekauft` : `${sharesNum} ${symbol} verkauft`);
         setShares('');

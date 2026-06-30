@@ -13,8 +13,8 @@ const NAV_ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const activeKey = NAV_ITEMS.find((item) => pathname.startsWith(item.href))?.key ?? '';
-  const isSettings = pathname.startsWith('/settings');
+  const activeKey = NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.key ?? '';
+  const isSettings = pathname === '/settings' || pathname.startsWith('/settings/');
 
   return (
     <nav className="app-bottom-nav" aria-label="App-Navigation">

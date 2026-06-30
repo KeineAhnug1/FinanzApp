@@ -253,11 +253,19 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
   });
 
   const q = detail ?? question;
+  const [likingQuestion, setLikingQuestion] = useState(false);
+  const [likingAnswerId, setLikingAnswerId] = useState<string | null>(null);
 
   const likeQuestion = async () => {
-    await apiFetch(`/api/questions/${q.id}/like`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
-    queryClient.invalidateQueries({ queryKey: ['question', q.id] });
-    onUpdate();
+    if (likingQuestion) return;
+    setLikingQuestion(true);
+    try {
+      await apiFetch(`/api/questions/${q.id}/like`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
+      queryClient.invalidateQueries({ queryKey: ['question', q.id] });
+      onUpdate();
+    } finally {
+      setLikingQuestion(false);
+    }
   };
 
   const deleteAnswer = async (answerId: string) => {
@@ -267,8 +275,14 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
   };
 
   const likeAnswer = async (answerId: string) => {
-    await apiFetch(`/api/questions/answers/${answerId}/like`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
-    queryClient.invalidateQueries({ queryKey: ['question', q.id] });
+    if (likingAnswerId) return;
+    setLikingAnswerId(answerId);
+    try {
+      await apiFetch(`/api/questions/answers/${answerId}/like`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
+      queryClient.invalidateQueries({ queryKey: ['question', q.id] });
+    } finally {
+      setLikingAnswerId(null);
+    }
   };
 
   return (
@@ -284,7 +298,12 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
       <h2 className="questions-panel-title">{q.thema}</h2>
       <p className="questions-panel-message">{q.message}</p>
       <div className="question-actions">
-        <button className={`like-btn${q.liked_by_me ? ' is-liked' : ''}`} onClick={likeQuestion}>
+        <button
+          className={`like-btn${q.liked_by_me ? ' is-liked' : ''}`}
+          onClick={likeQuestion}
+          disabled={likingQuestion}
+          aria-busy={likingQuestion}
+        >
           ♥ {q.likes}
         </button>
       </div>
@@ -300,7 +319,12 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
             </div>
             <p className="answer-message">{a.message}</p>
             <div className="answer-actions">
-              <button className={`like-btn${a.liked_by_me ? ' is-liked' : ''}`} onClick={() => likeAnswer(a.id)}>
+              <button
+                className={`like-btn${a.liked_by_me ? ' is-liked' : ''}`}
+                onClick={() => likeAnswer(a.id)}
+                disabled={likingAnswerId !== null}
+                aria-busy={likingAnswerId === a.id}
+              >
                 ♥ {a.likes}
               </button>
               {a.is_mine && (
@@ -327,12 +351,19 @@ function QuestionCard({ question, active, unread, onClick, onDelete, onRefresh }
   onRefresh: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [liking, setLiking] = useState(false);
   const answerCount = (question.answers ?? []).length;
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await apiFetch(`/api/questions/${question.id}/like`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
-    onRefresh();
+    if (liking) return;
+    setLiking(true);
+    try {
+      await apiFetch(`/api/questions/${question.id}/like`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() } });
+      onRefresh();
+    } finally {
+      setLiking(false);
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -360,7 +391,12 @@ function QuestionCard({ question, active, unread, onClick, onDelete, onRefresh }
         <span className="question-card-answers-count">
           {answerCount === 0 ? 'Keine Antworten' : `${answerCount} Antwort${answerCount === 1 ? '' : 'en'}`}
         </span>
-        <button className={`like-btn${question.liked_by_me ? ' is-liked' : ''}`} onClick={handleLike}>♥ {question.likes}</button>
+        <button
+          className={`like-btn${question.liked_by_me ? ' is-liked' : ''}`}
+          onClick={handleLike}
+          disabled={liking}
+          aria-busy={liking}
+        >♥ {question.likes}</button>
         {question.is_mine && (
           <>
             <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}>Löschen</button>
@@ -383,6 +419,7 @@ function QuestionCard({ question, active, unread, onClick, onDelete, onRefresh }
 
 export default function QuestionsPage() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'mine'>('all');
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [showAskPanel, setShowAskPanel] = useState(false);
@@ -393,11 +430,16 @@ export default function QuestionsPage() {
     setLastSeen(readLastSeen());
   }, []);
 
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
   const panelOpen = !!selectedQuestion || showAskPanel;
 
   const { data: questions = [], isLoading } = useQuery<Question[]>({
-    queryKey: ['questions', search],
-    queryFn: () => apiFetch(`/api/questions${search ? `?search=${encodeURIComponent(search)}` : ''}`).then((d) => d.questions ?? []),
+    queryKey: ['questions', debouncedSearch],
+    queryFn: () => apiFetch(`/api/questions${debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ''}`).then((d) => d.questions ?? []),
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['questions'] });

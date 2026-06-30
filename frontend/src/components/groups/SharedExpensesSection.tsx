@@ -122,6 +122,7 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey });
+    queryClient.invalidateQueries({ queryKey: ['group', groupId] });
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
     queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
     queryClient.invalidateQueries({ queryKey: ['peer-transfers'] });

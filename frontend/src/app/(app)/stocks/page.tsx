@@ -6,7 +6,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { apiUrl } from '@/lib/api-client';
+import { apiUrl, safeJson } from '@/lib/api-client';
+import { useAppStore } from '@/stores/app-store';
 import { useFinnhubWs } from '@/hooks/useFinnhubWs';
 import { StockDetailDrawer, fmtPrice, fmtEur, fmtPct } from '@/components/stocks/StockDetailDrawer';
 import ShareAccountSwitcher from '@/components/stocks/ShareAccountSwitcher';
@@ -25,7 +26,7 @@ interface SearchResult { symbol: string; name: string; exchange?: string; }
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
-  return res.json();
+  return safeJson(res);
 }
 
 type Range = '1T' | '1W' | '1M' | '1J' | 'Max';
@@ -333,6 +334,8 @@ function StockSearch({ onPick, inputRef }: {
 }
 
 export default function StocksPage() {
+  const { user } = useAppStore();
+  const shareAccountKey = user?.id ? `fbm.selectedShareAccount.${user.id}` : null;
   const [range, setRange] = useState<Range>('1M');
   const [drawerSymbol, setDrawerSymbol] = useState<string | null>(null);
   const [drawerTab, setDrawerTab] = useState<'buy' | 'sell'>('buy');
@@ -340,18 +343,18 @@ export default function StocksPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedShareAccountId, setSelectedShareAccountIdState] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const stored = window.localStorage.getItem('fbm.selectedShareAccount');
+    if (typeof window === 'undefined' || !shareAccountKey) return null;
+    const stored = window.localStorage.getItem(shareAccountKey);
     if (!stored) return null;
     const n = Number(stored);
     return Number.isFinite(n) ? n : null;
   });
   const setSelectedShareAccountId = useCallback((v: number | null) => {
     setSelectedShareAccountIdState(v);
-    if (typeof window === 'undefined') return;
-    if (v === null) window.localStorage.removeItem('fbm.selectedShareAccount');
-    else window.localStorage.setItem('fbm.selectedShareAccount', String(v));
-  }, []);
+    if (typeof window === 'undefined' || !shareAccountKey) return;
+    if (v === null) window.localStorage.removeItem(shareAccountKey);
+    else window.localStorage.setItem(shareAccountKey, String(v));
+  }, [shareAccountKey]);
 
   const { data: shareAccounts = [] } = useQuery<{ id: number; label: string }[]>({
     queryKey: ['share-accounts'],
