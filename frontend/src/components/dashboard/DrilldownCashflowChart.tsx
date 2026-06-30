@@ -75,6 +75,7 @@ function buildTimelineData(
   windowStart: number,
   currentBalance: number,
   cashflow: SignedCashflow[],
+  earliestAccountTs: number | null,
 ) {
   const byYear: Record<number, { income: number; expense: number }> = {};
   for (const e of income) {
@@ -95,12 +96,13 @@ function buildTimelineData(
   return years.map((y) => {
     const d = byYear[y] ?? { income: 0, expense: 0 };
     const yearEnd = new Date(y, 11, 31, 23, 59, 59);
+    const hasWealth = earliestAccountTs == null || yearEnd.getTime() >= earliestAccountTs;
     return {
       name: String(y),
       _key: String(y),
       Einnahmen: Math.round(d.income * 100) / 100,
       Ausgaben: Math.round(d.expense * 100) / 100,
-      Vermögen: Math.round(balanceAt(yearEnd, today, currentBalance, cashflow) * 100) / 100,
+      Vermögen: hasWealth ? Math.round(balanceAt(yearEnd, today, currentBalance, cashflow) * 100) / 100 : null,
     };
   });
 }
@@ -111,6 +113,7 @@ function buildMonthlyData(
   year: string,
   currentBalance: number,
   cashflow: SignedCashflow[],
+  earliestAccountTs: number | null,
 ) {
   const months: string[] = [];
   for (let m = 1; m <= 12; m++) months.push(`${year}-${String(m).padStart(2, '0')}`);
@@ -136,12 +139,13 @@ function buildMonthlyData(
     const label = new Intl.DateTimeFormat('de-DE', { month: 'short' }).format(new Date(yNum, mNum - 1));
     const v = byMonth[k];
     const monthEnd = new Date(yNum, mNum, 0, 23, 59, 59);
+    const hasWealth = earliestAccountTs == null || monthEnd.getTime() >= earliestAccountTs;
     return {
       name: label,
       _key: k,
       Einnahmen: Math.round(v.income * 100) / 100,
       Ausgaben: Math.round(v.expense * 100) / 100,
-      Vermögen: Math.round(balanceAt(monthEnd, today, currentBalance, cashflow) * 100) / 100,
+      Vermögen: hasWealth ? Math.round(balanceAt(monthEnd, today, currentBalance, cashflow) * 100) / 100 : null,
     };
   });
 }
@@ -152,6 +156,7 @@ function buildDailyData(
   monthKey: string,
   currentBalance: number,
   cashflow: SignedCashflow[],
+  earliestAccountTs: number | null,
 ) {
   const [year, month] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -177,12 +182,13 @@ function buildDailyData(
     const day = dStr;
     const v = byDay[k];
     const dayEnd = new Date(Number(yStr), Number(mStr) - 1, Number(dStr), 23, 59, 59);
+    const hasWealth = earliestAccountTs == null || dayEnd.getTime() >= earliestAccountTs;
     return {
       name: day + '.',
       _key: k,
       Einnahmen: Math.round(v.income * 100) / 100,
       Ausgaben: Math.round(v.expense * 100) / 100,
-      Vermögen: Math.round(balanceAt(dayEnd, today, currentBalance, cashflow) * 100) / 100,
+      Vermögen: hasWealth ? Math.round(balanceAt(dayEnd, today, currentBalance, cashflow) * 100) / 100 : null,
     };
   });
 }
@@ -192,11 +198,13 @@ export function DrilldownCashflowChart({
   expenses,
   foundingYear,
   currentBalance,
+  earliestAccountOpenedAt = null,
 }: {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   foundingYear: number;
   currentBalance: number;
+  earliestAccountOpenedAt?: number | null;
 }) {
   const currentYear = new Date().getFullYear();
   const defaultWindowStart = currentYear - 4;
@@ -227,10 +235,10 @@ export function DrilldownCashflowChart({
   );
 
   const data = useMemo(() => {
-    if (level === 'timeline') return buildTimelineData(projectedIncome, projectedExpenses, windowStart, currentBalance, cashflow);
-    if (level === 'year') return buildMonthlyData(projectedIncome, projectedExpenses, selectedYear, currentBalance, cashflow);
-    return buildDailyData(projectedIncome, projectedExpenses, selectedMonthKey, currentBalance, cashflow);
-  }, [level, windowStart, selectedYear, selectedMonthKey, projectedIncome, projectedExpenses, currentBalance, cashflow]);
+    if (level === 'timeline') return buildTimelineData(projectedIncome, projectedExpenses, windowStart, currentBalance, cashflow, earliestAccountOpenedAt);
+    if (level === 'year') return buildMonthlyData(projectedIncome, projectedExpenses, selectedYear, currentBalance, cashflow, earliestAccountOpenedAt);
+    return buildDailyData(projectedIncome, projectedExpenses, selectedMonthKey, currentBalance, cashflow, earliestAccountOpenedAt);
+  }, [level, windowStart, selectedYear, selectedMonthKey, projectedIncome, projectedExpenses, currentBalance, cashflow, earliestAccountOpenedAt]);
 
   type ChartClickPayload = { activePayload?: { payload?: { _key?: string } }[] };
   const handleClick = (payload: ChartClickPayload) => {
@@ -305,7 +313,7 @@ export function DrilldownCashflowChart({
           <Tooltip formatter={(v: number) => formatMoney(v)} />
           <Line type="monotone" dataKey="Einnahmen" stroke="var(--accent-blue, #3b82f6)" strokeWidth={2.6} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
           <Line type="monotone" dataKey="Ausgaben" stroke="var(--accent-orange, #ef5b2a)" strokeWidth={2.6} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-          <Line type="monotone" dataKey="Vermögen" stroke="var(--accent-violet, #8b5cf6)" strokeWidth={2.6} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
+          <Line type="monotone" dataKey="Vermögen" stroke="var(--accent-violet, #8b5cf6)" strokeWidth={2.6} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls={false} />
         </LineChart>
       </ResponsiveContainer>
       <div className="cashflow-legend">

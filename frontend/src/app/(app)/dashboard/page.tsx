@@ -90,6 +90,12 @@ export default function DashboardPage() {
     ? accounts.filter((a) => String(a.id) === String(accountFilter))
     : accounts;
   const totalBalance = filteredAccounts.reduce((s, a) => s + Number(a.balance ?? 0), 0);
+  const earliestAccountOpenedAt = filteredAccounts.reduce<number | null>((min, a) => {
+    if (!a.created_at) return min;
+    const ts = new Date(a.created_at).getTime();
+    if (!Number.isFinite(ts)) return min;
+    return min == null || ts < min ? ts : min;
+  }, null);
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -170,6 +176,7 @@ export default function DashboardPage() {
                 expenses={expenses}
                 foundingYear={user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}
                 currentBalance={totalBalance}
+                earliestAccountOpenedAt={earliestAccountOpenedAt}
               />
             </div>
             <div className="panel">
