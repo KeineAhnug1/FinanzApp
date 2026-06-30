@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
-import { apiUrl, getCsrfToken, safeJson, safeJsonOrThrow } from '@/lib/api-client';
+import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import {
   formatMoney,
   type BankAccount,
@@ -55,11 +55,10 @@ export default function DashboardPage() {
 
   const { data: accounts = [] } = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
-    queryFn: async () => {
-      const res = await fetch(apiUrl('/api/finance/bank-accounts'), { credentials: 'include' });
-      const d = await safeJsonOrThrow(res);
+    queryFn: () => apiFetch('/api/finance/bank-accounts').then((d) => {
+      if (!d.ok) console.warn('[dashboard] bank-accounts request failed:', d.message);
       return (d.accounts ?? []) as BankAccount[];
-    },
+    }),
   });
 
   const accountParam = accountFilter ? `?bank_account_id=${encodeURIComponent(accountFilter)}` : '';

@@ -198,6 +198,16 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
   if (paymentMode === 'prepaid') {
     const adminAccount = await getDefaultAccountId(auth.db, auth.user.id);
     if (adminAccount == null) {
+      // Distinguish "no account at all" from "no default set" for a clearer message
+      const { data: anyAccount } = await auth.db
+        .from('bank_accounts')
+        .select('id')
+        .eq('user_id', auth.user.id)
+        .limit(1)
+        .maybeSingle();
+      if (!anyAccount) {
+        return badRequest('Du hast noch kein Bankkonto. Lege zuerst ein Konto unter "Konten" an.');
+      }
       return badRequest(
         'Du benötigst ein Standardkonto. Lege eines unter "Konten" → "Als Standard" fest, bevor du Vorkasse-Ausgaben erstellen kannst.',
       );
@@ -222,7 +232,7 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     .single();
   if (expenseError || !expense) {
     console.error('shared-expense insert failed:', expenseError);
-    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+    return serverError(`Datenbankfehler beim Anlegen: ${expenseError?.message ?? 'unbekannt'}`);
   }
 
   const expenseId = Number((expense as Record<string, unknown>).id);
@@ -244,7 +254,7 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     .insert(shareRows);
   if (sharesError) {
     console.error('shared-expense shares insert failed:', sharesError);
-    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+    return serverError(`Datenbankfehler beim Anlegen der Anteile: ${sharesError.message}`);
   }
 
   const { data: insertedShares, error: sharesSelectError } = await auth.db
@@ -254,7 +264,7 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     .order('id', { ascending: true });
   if (sharesSelectError) {
     console.error('shared-expense shares select failed:', sharesSelectError);
-    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+    return serverError(`Datenbankfehler beim Lesen der Anteile: ${sharesSelectError.message}`);
   }
 
   const { data: period, error: periodError } = await auth.db
@@ -264,7 +274,7 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
     .single();
   if (periodError || !period) {
     console.error('shared-expense period insert failed:', periodError);
-    return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+    return serverError(`Datenbankfehler beim Anlegen der Periode: ${periodError?.message ?? 'unbekannt'}`);
   }
 
   if (paymentMode === 'postpaid') {
@@ -280,7 +290,7 @@ sharedExpenses.post('/:id/shared-expenses', async (c) => {
       });
       if (ptError) {
         console.error('shared-expense creator reservation insert failed:', ptError);
-        return serverError('Datenbankfehler beim Anlegen — bitte erneut versuchen oder Support kontaktieren');
+        return serverError(`Datenbankfehler bei der Reservierung: ${ptError.message}`);
       }
     }
   }

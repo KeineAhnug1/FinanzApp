@@ -45,6 +45,7 @@ finance.get('/bank-accounts', async (c) => {
   if (auth instanceof Response) return auth;
 
   const accounts = await getUserBankAccounts(auth.db, auth.user.id);
+  console.log(`[bank-accounts] user=${auth.user.id} returned ${accounts.length} accounts`);
   return jsonResponse({ ok: true, accounts }, 200);
 });
 

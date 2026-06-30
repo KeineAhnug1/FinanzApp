@@ -286,7 +286,7 @@ trips.post('/:id/trips', async (c) => {
     .single();
   if (tripInsertError || !tripInserted) {
     console.error('[trips.create] insert failed', tripInsertError);
-    return serverError('Datenbankfehler beim Anlegen des Ausflugs');
+    return serverError(`Datenbankfehler beim Anlegen des Ausflugs: ${tripInsertError?.message ?? 'unbekannt'}`);
   }
 
   const tripId = Number((tripInserted as Row).id);
@@ -296,7 +296,7 @@ trips.post('/:id/trips', async (c) => {
   if (partsInsertError) {
     console.error('[trips.create] participants insert failed', partsInsertError);
     await auth.db.from('group_trips').delete().eq('id', tripId);
-    return serverError('Teilnehmer konnten nicht gespeichert werden');
+    return serverError(`Teilnehmer konnten nicht gespeichert werden: ${partsInsertError.message}`);
   }
 
   const full = await loadTripFull(auth.db, tripId, auth.user.id);
@@ -446,7 +446,7 @@ trips.post('/:id/trips/:tripId/expenses', async (c) => {
     .single();
   if (expenseInsertError || !inserted) {
     console.error('[trips.expense.create] insert failed', expenseInsertError);
-    return serverError('Datenbankfehler beim Anlegen der Ausgabe');
+    return serverError(`Datenbankfehler beim Anlegen der Ausgabe: ${expenseInsertError?.message ?? 'unbekannt'}`);
   }
   const expenseId = Number((inserted as Row).id);
 
@@ -456,7 +456,7 @@ trips.post('/:id/trips/:tripId/expenses', async (c) => {
   if (epInsertError) {
     console.error('[trips.expense.create] participants insert failed', epInsertError);
     await auth.db.from('group_trip_expenses').delete().eq('id', expenseId);
-    return serverError('Beteiligte konnten nicht gespeichert werden');
+    return serverError(`Beteiligte konnten nicht gespeichert werden: ${epInsertError.message}`);
   }
 
   await recomputeTripSettlements(auth.db, tripId);
