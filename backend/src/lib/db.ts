@@ -400,12 +400,18 @@ export function createDb(
   hyperdrive?: { connectionString: string } | undefined,
 ): DbClient {
   // Use Hyperdrive in production (its connectionString is the real DB endpoint).
-  // In local dev, wrangler emulates Hyperdrive with a local proxy that may not work —
-  // detect the local proxy by checking for .hyperdrive.local and skip it.
+  // In local dev wrangler emulates Hyperdrive with a local proxy. Wrangler 3
+  // returned a *.hyperdrive.local host; wrangler 4 hands out 127.0.0.1/localhost
+  // on a random port that proxies to the dummy localConnectionString in
+  // wrangler.toml — connecting hangs forever. Skip the proxy whenever the
+  // string looks local; the DATABASE_URL / Supabase fallbacks below take over.
   const hConn = hyperdrive?.connectionString;
-  const isHyperdriveProxy = hConn?.includes('.hyperdrive.local');
+  const isLocalProxy =
+    !!hConn &&
+    (hConn.includes('.hyperdrive.local') ||
+      /\/\/[^/@]*@?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/.test(hConn));
 
-  if (hConn && !isHyperdriveProxy) {
+  if (hConn && !isLocalProxy) {
     // Production: use Hyperdrive directly
     return new PgClient(hConn);
   }

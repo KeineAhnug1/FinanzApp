@@ -10,9 +10,12 @@ Persönliche Finanz-App mit Dashboard, Aktien-Depot, Gruppen-Finanzen, Forum und
 
 ### Voraussetzungen
 
-- Node.js 18+
-- Ein laufendes [Supabase](https://supabase.com)-Projekt
+- Node.js 20+ (LTS)
+- Ein laufendes [Supabase](https://supabase.com)-Projekt mit Base-Schema (Tabellen `users`, `bank_accounts`, `private_expenses`, `income`, `groups` etc.)
 - Wrangler CLI (`npm i -g wrangler`) + eingeloggter Cloudflare-Account
+- Resend-Account (für Verifikations-Mails) und OpenRouter-Account (für KI-Chat)
+
+> Für ein vollständiges Production-Setup (Cloudflare Pages + Workers + Hyperdrive + KV) siehe [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). Die folgenden Schritte zeigen den **lokalen Dev-Aufbau**.
 
 ### 1. Dependencies installieren
 
@@ -25,12 +28,15 @@ npm run install:all
 **Backend** — Datei `backend/.dev.vars` erstellen (Vorlage: `backend/.dev.vars.example`):
 
 ```env
+# Datenbank — bevorzugt: Hyperdrive (Session-Pooler). Fallback: DATABASE_URL + Supabase-REST.
+DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 SESSION_COOKIE_NAME=finanzapp_session
 SESSION_TTL_MINUTES=180
 EMAIL_CODE_TTL_MINUTES=15
+CODE_HMAC_SECRET=generate-a-32-byte-random-string
 
 RESEND_API_KEY=re_your_key_here
 EMAIL_FROM=FinanzApp <noreply@yourdomain.com>
@@ -38,13 +44,15 @@ EMAIL_FROM=FinanzApp <noreply@yourdomain.com>
 STOCK_API_URL=http://3.225.21.161
 STOCK_API_KEY=your-stock-api-key
 TWELVE_DATA_API_KEY=your-twelve-data-key
+FINNHUB_API_KEY=your-finnhub-key
 
 OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=arcee-ai/trinity-large-preview:free
+OPENROUTER_MODEL=openai/gpt-oss-20b:free
 OPENROUTER_SITE_URL=http://localhost:4000
 OPENROUTER_APP_NAME=FinanzApp
 
 LOGO_DEV_API_KEY=your-logo-dev-key
+FINZBRO_BOT_EMAIL=finzbro@finanzapp.local
 
 FRONTEND_ORIGIN=http://localhost:4000
 DEV_EXPOSE_VERIFICATION_CODE=true
@@ -56,7 +64,9 @@ DEV_EXPOSE_VERIFICATION_CODE=true
 NEXT_PUBLIC_API_URL=http://localhost:8787
 ```
 
-### 3. KV-Namespace für Sessions anlegen (einmalig)
+### 3. Cloudflare-Bindings konfigurieren (einmalig)
+
+**KV-Namespace für Sessions:**
 
 ```bash
 cd backend
@@ -64,17 +74,36 @@ npx wrangler kv namespace create SESSIONS
 npx wrangler kv namespace create SESSIONS --preview
 ```
 
-Die ausgegebenen IDs in `backend/wrangler.toml` unter `kv_namespaces` eintragen.
+Die zwei ausgegebenen IDs in `backend/wrangler.toml` unter `kv_namespaces` für `<SESSIONS_KV_NAMESPACE_ID>` / `<SESSIONS_KV_PREVIEW_ID>` eintragen.
 
-### 4. Datenbank einrichten (einmalig)
+**Hyperdrive (Production-DB-Pooling):**
 
-Im Supabase SQL-Editor folgende Funktion ausführen:
+```bash
+npx wrangler hyperdrive create finanzapp-db --connection-string="postgresql://postgres.<ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
+```
+
+Die ausgegebene Hyperdrive-ID in `backend/wrangler.toml` unter `[[hyperdrive]]` für `<HYPERDRIVE_ID>` eintragen. Im **lokalen Dev** reicht stattdessen `DATABASE_URL` in `.dev.vars` — Wrangler nutzt dann den `localConnectionString`-Override.
+
+### 4. Datenbank-Migrationen einspielen (einmalig)
+
+Voraussetzung: Das Base-Schema (Tabellen `users`, `bank_accounts`, `private_expenses`, `income`, `groups`, …) existiert bereits im Supabase-Projekt.
+
+Im Supabase **SQL Editor** in dieser Reihenfolge ausführen:
+
+1. `seeds/migrations/2026-06-29_groups_expansion.sql` — Peer-Transfers, Group-Expenses, Trips, Funding-Status
+2. `seeds/migrations/2026-06-30_audit_fixes.sql` — atomare RPCs (`increment_bank_balance`, `transfer_between_accounts`, `contribute_to_funding`, `refund_from_funding`, `release_period_reservations`)
+3. `seeds/migrations/2026-06-30_grant_permissions.sql` — Rechte auf neue Tabellen
+
+Verifikation:
 
 ```sql
-CREATE OR REPLACE FUNCTION increment_bank_balance(p_account_id UUID, p_delta NUMERIC)
-RETURNS VOID AS $$
-  UPDATE bank_accounts SET balance = balance + p_delta WHERE id = p_account_id;
-$$ LANGUAGE sql;
+SELECT routine_name FROM information_schema.routines
+WHERE routine_schema = 'public'
+  AND routine_name IN (
+    'increment_bank_balance', 'transfer_between_accounts',
+    'contribute_to_funding', 'refund_from_funding', 'release_period_reservations'
+  );
+-- soll 5 Zeilen liefern
 ```
 
 ### 5. Starten

@@ -2,7 +2,12 @@
 # .dev.vars is used by wrangler for local development.
 # NEVER commit .dev.vars — it contains secrets.
 
-# ─── Supabase ─────────────────────────────────────────────────────────────────
+# ─── Datenbank ────────────────────────────────────────────────────────────────
+# Bevorzugt: Hyperdrive-Binding (production). Im lokalen Dev wird DATABASE_URL
+# als Fallback verwendet. Format: Supabase Session-Pooler-URL (Port 5432).
+DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+
+# ─── Supabase (REST-Fallback wenn DB nicht erreichbar) ────────────────────────
 # Get from: Supabase Dashboard → your project → Settings → API
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -11,6 +16,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SESSION_COOKIE_NAME=finanzapp_session
 SESSION_TTL_MINUTES=180
 EMAIL_CODE_TTL_MINUTES=15
+# 32+ Byte Zufallsstring (z. B. `openssl rand -hex 32`). Wird für HMAC der E-Mail-Codes genutzt.
+CODE_HMAC_SECRET=replace-with-32-byte-random-string
 
 # ─── E-Mail (Resend) ──────────────────────────────────────────────────────────
 RESEND_API_KEY=re_your_key_here
@@ -20,15 +27,21 @@ EMAIL_FROM=FinanzApp <noreply@yourdomain.com>
 STOCK_API_URL=http://3.225.21.161
 STOCK_API_KEY=your-stock-api-key
 TWELVE_DATA_API_KEY=your-twelve-data-key
+FINNHUB_API_KEY=your-finnhub-key
 
 # ─── KI-Assistent (OpenRouter) ────────────────────────────────────────────────
 OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=arcee-ai/trinity-large-preview:free
+# Optionaler Zweit-Key für Round-Robin / Fallback bei Rate-Limits.
+OPENROUTER_API_KEY_2=
+OPENROUTER_MODEL=openai/gpt-oss-20b:free
 OPENROUTER_SITE_URL=http://localhost:4000
 OPENROUTER_APP_NAME=FinanzApp
 
 # ─── Logo-Service (optional) ──────────────────────────────────────────────────
 LOGO_DEV_API_KEY=your-logo-dev-key
+
+# ─── Bot-Account für KI-Antworten im Forum ────────────────────────────────────
+FINZBRO_BOT_EMAIL=finzbro@finanzapp.local
 
 # ─── App ──────────────────────────────────────────────────────────────────────
 FRONTEND_ORIGIN=http://localhost:4000

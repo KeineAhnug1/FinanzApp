@@ -6,34 +6,40 @@ import { apiUrl } from '@/lib/api-client';
 
 const SLIDES = [
   {
-    img: '/homepage/images/DashboardIncome.png',
-    alt: 'Minimalistische Übersicht der Einnahmen im Dashboard',
-    title: 'Klare Einnahmenflächen',
+    img: '/homepage/images/updated_dashboard_view.png',
+    alt: 'Aufgeräumtes Dashboard mit Einnahmen, Ausgaben und Vermögensübersicht',
+    title: 'Dashboard mit klarem Fokus',
     body: 'Wichtige Kennzahlen sind sofort lesbar, weil nur die Informationen im Vordergrund stehen, die im Moment relevant sind.',
   },
   {
-    img: '/homepage/images/DashboardExpenses.png',
-    alt: 'Reduzierte Ausgabenansicht mit klarem Fokus auf Struktur',
-    title: 'Ruhige Ausgabenstruktur',
-    body: 'Die Ausgabenansicht bleibt aufgeräumt und leitet den Blick mit klarer Hierarchie durch Kategorien und Summen.',
+    img: '/homepage/images/updated_stock_view.png',
+    alt: 'Minimalistische Aktien- und Portfolioansicht mit Fokus auf Kernwerten',
+    title: 'Fokus im Aktienbereich',
+    body: 'Charts und Werte sind so angeordnet, dass Trends direkt erfassbar sind und die Orientierung auch bei schnellen Checks bleibt.',
   },
   {
-    img: '/homepage/images/Groupchat.png',
+    img: '/homepage/images/updated_group_view.png',
+    alt: 'Reduzierte Gruppenübersicht mit klaren Karten und Salden',
+    title: 'Gruppen ohne Reibung',
+    body: 'Gemeinsame Finanzen werden so dargestellt, dass Beiträge, Ziele und Salden auf den ersten Blick sichtbar sind.',
+  },
+  {
+    img: '/homepage/images/updated_groupchat_view.png',
     alt: 'Schlanker Gruppenchat mit reduziertem Interface',
     title: 'Kommunikation ohne Ballast',
     body: 'Der Gruppenchat wirkt bewusst schlicht, damit Absprachen schnell erfassbar bleiben und nicht im UI untergehen.',
   },
   {
-    img: '/homepage/images/stock1.png',
-    alt: 'Minimalistisches Aktien-Panel mit Fokus auf Kernwerten',
-    title: 'Fokus im Aktienbereich',
-    body: 'Charts und Werte sind so angeordnet, dass Trends direkt erfassbar sind und die Orientierung auch bei schnellen Checks bleibt.',
+    img: '/homepage/images/updated_forum_view.png',
+    alt: 'Übersichtliches Finanz-Forum mit Fragen und Antworten',
+    title: 'Forum mit klarer Hierarchie',
+    body: 'Fragen, Antworten und Diskussionen bleiben dank klarer Hierarchie und Typografie auch bei vielen Beiträgen lesbar.',
   },
   {
-    img: '/homepage/images/stock2.png',
-    alt: 'Reduzierte Marktansicht mit klaren Kontrasten und Datenpunkten',
-    title: 'Weniger Reibung, mehr Tempo',
-    body: 'Kontraste, Abstände und Typografie unterstützen schnelle Entscheidungen und halten den gesamten Flow konsistent.',
+    img: '/homepage/images/updated_setting_view.png',
+    alt: 'Aufgeräumte Einstellungsansicht mit klaren Bereichen',
+    title: 'Einstellungen ohne Suche',
+    body: 'Konten, Profile und Präferenzen sind logisch gruppiert, damit Anpassungen schnell und ohne Umwege gelingen.',
   },
 ];
 
@@ -301,7 +307,7 @@ export default function HomePage() {
               preload="metadata"
               aria-label="Demo der schnellen Registrierung in FBM Finance"
             >
-              <source src="/homepage/videos/register.mp4" type="video/mp4" />
+              <source src="/homepage/videos/new_register.mp4" type="video/mp4" />
             </video>
             <div className="hp-video-story__overlay">
               <p className="hp-label hp-label--light">Onboarding Experience</p>
@@ -314,32 +320,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="showcase" className="hp-section hp-showcase-row reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <div className="hp-showcase-row__text">
-            <p className="hp-label">Tracking Workflow</p>
-            <h2 className="hp-section__title">Einnahmen und Ausgaben in einem Flow</h2>
-            <p className="hp-section__sub">Das Video zeigt, wie Buchungen schnell erfasst und sofort im Finanzbild sichtbar werden. So bleibt der Alltag übersichtlich, ohne lange Eingaben.</p>
-            <Link className="hp-btn hp-btn--primary" href={isLoggedIn ? '/dashboard' : '/login'} style={{ marginTop: '24px' }}>
-              {isLoggedIn ? 'Dashboard öffnen →' : 'App starten →'}
-            </Link>
-          </div>
-          <div className="hp-showcase-row__media">
-            <div className="hp-showcase-row__frame">
-              <video
-                className="hp-showcase-row__video js-autoplay-on-visible"
-                muted
-                playsInline
-                loop
-                preload="metadata"
-                aria-label="Demo zum Erfassen von Einnahmen und Ausgaben in FBM Finance"
-              >
-                <source src="/homepage/videos/IncomeAndExpenses.mp4" type="video/mp4" />
-              </video>
-            </div>
-          </div>
-        </section>
-
-        <section id="minimal-design" className="hp-section hp-carousel-section reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
+        <section id="showcase" className="hp-section hp-carousel-section reveal-up" style={{ '--delay': '0ms' } as React.CSSProperties}>
           <div className="hp-section__head">
             <p className="hp-label">Minimalist Design</p>
             <h2 className="hp-section__title">Warum das minimalistische Design so gut funktioniert</h2>

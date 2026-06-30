@@ -743,6 +743,13 @@ function BrandPanel() {
     <aside className="auth-brand-panel" aria-hidden="true">
       <div className="auth-brand-content">
         <Link className="brand-link auth-brand-link-side" href="/home">
+          <img
+            src="/shared/images/finanzapp-logo.svg"
+            alt=""
+            className="auth-brand-logo-img"
+            width={48}
+            height={48}
+          />
           <span className="brand-mark">FBM Finance</span>
         </Link>
         <div className="auth-brand-tagline">
@@ -760,7 +767,7 @@ function BrandPanel() {
         <div className="auth-brand-image-wrap" aria-hidden="true">
           <Image
             className="auth-brand-image"
-            src="/homepage/images/DashboardIncome.png"
+            src="/homepage/images/updated_dashboard_view.png"
             alt=""
             width={600}
             height={400}
@@ -778,12 +785,30 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
       <BrandPanel />
       <main className="auth-form-panel">
         <header className="auth-topbar">
-          <Link className="brand-link auth-brand-link" href="/home">
+          <Link className="brand-link auth-brand-link" href="/home" aria-label="FBM Finance Startseite">
+            <img
+              src="/shared/images/finanzapp-logo.svg"
+              alt=""
+              className="auth-topbar-logo-img"
+              width={36}
+              height={36}
+            />
             <span className="brand-mark">FBM Finance</span>
           </Link>
         </header>
         <div className="auth-form-center">
-          {children}
+          <div className="auth-form-stack">
+            <div className="auth-form-logo" aria-hidden="true">
+              <img
+                src="/shared/images/finanzapp-logo.svg"
+                alt=""
+                className="auth-form-logo-img"
+                width={72}
+                height={72}
+              />
+            </div>
+            {children}
+          </div>
         </div>
       </main>
     </div>
