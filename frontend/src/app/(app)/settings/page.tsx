@@ -393,9 +393,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const [activeSection, setActiveSection] = useState('profil');
 
-  const { data: user, isLoading } = useQuery<UserClient>({
+  const { data: user, isLoading } = useQuery<UserClient | null>({
     queryKey: ['me'],
-    queryFn: () => apiFetch('/api/users/me').then((d) => d.user),
+    queryFn: () => apiFetch('/api/users/me').then((d) => (d?.user ?? null) as UserClient | null),
     initialData: (storeUser as UserClient | null) ?? undefined,
     staleTime: 30_000,
   });

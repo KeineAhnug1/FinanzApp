@@ -245,7 +245,7 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ['question', question.id],
-    queryFn: () => apiFetch(`/api/questions/${question.id}`).then((d) => d.question as Question),
+    queryFn: () => apiFetch(`/api/questions/${question.id}`).then((d) => (d?.question ?? null) as Question | null),
     refetchInterval: (query) => {
       const q = query.state.data as Question | undefined;
       if (q?.answered) return false;
