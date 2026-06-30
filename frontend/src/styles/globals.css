@@ -5053,12 +5053,21 @@ input.touched:invalid ~ .field-hint,
   overflow: hidden;
   background: var(--ui-surface-soft);
   border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 2.5vw, 32px);
+  min-height: min(56vw, 420px);
 }
 .hp-carousel__img-wrap img {
-  width: 100%;
-  height: min(56vw, 420px);
-  object-fit: cover;
+  max-width: 100%;
+  max-height: min(50vw, 380px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .hp-carousel__caption {
