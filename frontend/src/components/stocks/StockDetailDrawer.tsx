@@ -171,6 +171,20 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
   const sharesNum = Number(shares);
   const totalValue = Number.isFinite(sharesNum) && sharesNum > 0 ? sharesNum * price : 0;
 
+  const { data: fxRate = 1 } = useQuery<number>({
+    queryKey: ['fx-to-eur', currency],
+    enabled: open && currency !== 'EUR',
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      if (currency === 'EUR') return 1;
+      const r = await fetch(apiUrl(`/api/stocks/fx?from=${encodeURIComponent(currency)}`), { credentials: 'include' });
+      const d = await safeJson(r) as { ok: boolean; rate?: number };
+      return d.ok && typeof d.rate === 'number' ? d.rate : 1;
+    },
+  });
+
+  const totalValueEur = totalValue * fxRate;
+
   const pnlPerShare = avgBuyPrice != null && price > 0 ? price - avgBuyPrice : null;
   const tradePnl = pnlPerShare != null && sharesNum > 0 ? pnlPerShare * sharesNum : null;
 
@@ -184,7 +198,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
   const chartColor = chartPositive ? '#22c55e' : '#ef4444';
 
   const selectedBank = bankAccounts.find((b) => b.id === bankAccountId);
-  const insufficientFunds = tab === 'buy' && selectedBank ? selectedBank.balance < totalValue : false;
+  const insufficientFunds = tab === 'buy' && selectedBank ? selectedBank.balance < totalValueEur : false;
   const insufficientShares = tab === 'sell' && sharesNum > depotOwnedShares;
 
   const handleTrade = async () => {
@@ -334,7 +348,12 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
                 </>
               )}
               <span>{tab === 'buy' ? 'Kosten' : 'Erlös'}</span>
-              <strong className={tab === 'buy' ? 'clr-danger' : 'clr-success'}>{fmtPrice(totalValue, currency)}</strong>
+              <strong className={tab === 'buy' ? 'clr-danger' : 'clr-success'}>
+                {fmtPrice(totalValue, currency)}
+                {currency !== 'EUR' && totalValue > 0 && (
+                  <span className="stocks-drawer-fx-hint"> ≈ {fmtEur(totalValueEur)}</span>
+                )}
+              </strong>
               {tab === 'sell' && tradePnl != null && sharesNum > 0 && (
                 <>
                   <span>Gewinn/Verlust</span>

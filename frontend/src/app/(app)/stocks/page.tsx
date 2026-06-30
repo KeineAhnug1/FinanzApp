@@ -381,10 +381,15 @@ export default function StocksPage() {
 
   const symbolKey = useMemo(() => positions.map(p => p.symbol).join(','), [positions]);
 
+  // Finnhub's WebSocket only pushes for US listings — for non-US symbols (".DE", ".PA", …)
+  // we poll /quotes every 30 s so prices stay fresh. US-only portfolios skip the timer.
+  const hasNonUsSymbol = useMemo(() => positions.some(p => p.symbol.includes('.')), [positions]);
+
   const { data: quotes = {} } = useQuery<Record<string, StockQuote>>({
     queryKey: ['stock-quotes', symbolKey],
     enabled: positions.length > 0,
     staleTime: 2 * 60 * 1000,
+    refetchInterval: hasNonUsSymbol ? 30_000 : false,
     retry: 2,
     queryFn: async () => {
       const symbols = [...new Set(positions.map(p => p.symbol))].join(',');
