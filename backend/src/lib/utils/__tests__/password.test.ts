@@ -69,6 +69,12 @@ describe('verifyPassword', () => {
     const hash = await hashPassword('trim-me');
     expect(await verifyPassword('trim-me', `  ${hash}  `)).toBe(true);
   });
+
+  it('validates the seed-migration Test1234! hash literal', async () => {
+    const seedHash = 'scrypt:1f9a7b5e3c8d0a2f4e6b1c9d8a7f5e3b2c4d6f8a0b1c2d3e4f5a6b7c8d9e0f1a:5cca9bae9b99531ddc8854c79ec4ed042bf4caa912818f489febf157130f9307bd90d75347e545d4dc783a3e91e019dc6912347bdf16ed308914bb156ec55ef3';
+    expect(await verifyPassword('Test1234!', seedHash)).toBe(true);
+    expect(await verifyPassword('wrong', seedHash)).toBe(false);
+  });
 });
 
 describe('hashCode / verifyCode', () => {
