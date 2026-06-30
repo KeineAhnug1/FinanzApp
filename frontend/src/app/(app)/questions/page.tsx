@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
+import { AuthorBadge } from '@/components/ui/AuthorBadge';
 
 interface Answer {
   id: string;
@@ -17,7 +18,7 @@ interface Answer {
   liked_by_me: boolean;
   is_mine: boolean;
   is_bot?: boolean;
-  author?: { username: string; first_name: string } | null;
+  author?: { id?: string; username: string; first_name: string; profile_image?: string | null } | null;
 }
 
 interface Question {
@@ -29,7 +30,7 @@ interface Question {
   liked_by_me: boolean;
   is_mine: boolean;
   created_at: string;
-  author?: { username: string; first_name: string } | null;
+  author?: { id?: string; username: string; first_name: string; profile_image?: string | null } | null;
   answers?: Answer[];
 }
 
@@ -290,7 +291,7 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
       <div className="questions-panel-thread-header">
         <button className="btn btn-ghost btn-sm" onClick={onClose}>← Zurück</button>
         <div className="question-meta">
-          <span className="question-author">{q.author?.first_name || q.author?.username || 'Unbekannt'}</span>
+          <span className="question-author"><AuthorBadge name={q.author?.first_name || q.author?.username || 'Unbekannt'} profileImage={q.author?.profile_image} /></span>
           <span className="question-date">{formatDate(q.created_at)}</span>
           {q.answered && <span className="badge badge-success">Beantwortet</span>}
         </div>
@@ -314,7 +315,7 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
         {(q.answers ?? []).map((a) => (
           <div key={a.id} className={`answer-item${a.is_bot ? ' is-bot' : ''}`}>
             <div className="answer-meta">
-              <span className="answer-author">{a.is_bot ? 'FinzbRo' : a.author?.first_name || a.author?.username || 'Unbekannt'}</span>
+              <span className="answer-author"><AuthorBadge name={a.is_bot ? 'FinzbRo' : (a.author?.first_name || a.author?.username || 'Unbekannt')} profileImage={a.is_bot ? null : a.author?.profile_image} isBot={a.is_bot} /></span>
               <span className="answer-date">{formatDate(a.created_at)}</span>
             </div>
             <p className="answer-message">{a.message}</p>
@@ -380,7 +381,7 @@ function QuestionCard({ question, active, unread, onClick, onDelete, onRefresh }
       onKeyDown={handleKey}
     >
       <div className="question-card-meta">
-        <span className="question-author">{question.author?.first_name || question.author?.username || 'Unbekannt'}</span>
+        <span className="question-author"><AuthorBadge name={question.author?.first_name || question.author?.username || 'Unbekannt'} profileImage={question.author?.profile_image} /></span>
         <span className="question-date">{formatDate(question.created_at)}</span>
         {question.answered && <span className="badge badge-success questions__small-badge">Beantwortet</span>}
         {unread && <span className="badge badge-info questions__small-badge">neu</span>}

@@ -144,6 +144,54 @@ function ProfileSection({ user, onSaved }: { user: UserClient; onSaved: () => vo
   );
 }
 
+function PrivacySection({ user, onSaved }: { user: UserClient; onSaved: () => void }) {
+  const [enabled, setEnabled] = useState<boolean>(user.show_profile_image_to_others !== false);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (next: boolean) => {
+    setBusy(true);
+    setEnabled(next);
+    const result = await apiFetch('/api/users/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
+      body: JSON.stringify({ show_profile_image_to_others: next }),
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setEnabled(!next);
+      toast.error(result.message ?? 'Fehler beim Speichern');
+      return;
+    }
+    toast.success(next ? 'Profilbild ist für andere sichtbar' : 'Profilbild ist für andere ausgeblendet');
+    onSaved();
+  };
+
+  return (
+    <section id="datenschutz" className="einst-section">
+      <h2 className="einst-section-title">Datenschutz</h2>
+      <div className="einst-card">
+        <div className="privacy-row">
+          <div className="privacy-row__text">
+            <p className="privacy-row__title">Profilbild für andere anzeigen</p>
+            <p className="privacy-row__desc">
+              Wenn aus, sehen andere Nutzer im Forum nur deine Initialen statt deines Profilbilds. Du selbst siehst dein Bild weiterhin überall.
+            </p>
+          </div>
+          <label className="switch" aria-label="Profilbild für andere anzeigen">
+            <input
+              type="checkbox"
+              checked={enabled}
+              disabled={busy}
+              onChange={(e) => toggle(e.target.checked)}
+            />
+            <span className="switch__track" aria-hidden="true"><span className="switch__thumb" /></span>
+          </label>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const passwordSchema = z.object({
   current_password: z.string().min(1, 'Aktuelles Passwort erforderlich'),
   new_password: z.string().min(8, 'Neues Passwort muss mind. 8 Zeichen haben'),
@@ -367,6 +415,7 @@ export default function SettingsPage() {
 
   const navItems = [
     { id: 'profil', label: 'Profil' },
+    { id: 'datenschutz', label: 'Datenschutz' },
     { id: 'erscheinungsbild', label: 'Erscheinungsbild' },
     { id: 'passwort', label: 'Passwort' },
     { id: 'konto', label: 'Konto' },
@@ -395,6 +444,7 @@ export default function SettingsPage() {
       <div className="einst-content">
         <h1 className="page-title">Einstellungen</h1>
         <ProfileSection user={user} onSaved={refresh} />
+        <PrivacySection user={user} onSaved={refresh} />
         <ThemeSection />
         <PasswordSection />
         <DangerSection />

@@ -99,6 +99,7 @@ export interface UpdateProfileRequest {
   age?: number;
   income?: number;
   profileImage?: string;
+  show_profile_image_to_others?: boolean;
 }
 
 // ---------------------------------------------------------------------------

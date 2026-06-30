@@ -25,6 +25,8 @@ export interface User {
   income: number;
   /** Stored as "profileImage" (quoted identifier in DB). */
   profileImage: string | null;
+  /** When false, other users see initials instead of this user's profile image. */
+  show_profile_image_to_others: boolean;
   /** FK to bank_accounts — receiving account for incoming peer transfers. */
   default_bank_account_id: number | null;
   created_at: string;

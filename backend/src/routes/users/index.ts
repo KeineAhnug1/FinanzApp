@@ -27,7 +27,7 @@ users.get('/me', async (c) => {
 
   const { data: user } = await auth.db
     .from('users')
-    .select('id, username, email, first_name, last_name, created_at, "profileImage", income, age')
+    .select('id, username, email, first_name, last_name, created_at, "profileImage", income, age, show_profile_image_to_others')
     .eq('id', auth.user.id)
     .single();
 
@@ -45,6 +45,7 @@ users.get('/me', async (c) => {
       profileImage: (user as Record<string, unknown>).profileImage ?? null,
       income: (user as Record<string, unknown>).income ?? null,
       age: (user as Record<string, unknown>).age ?? null,
+      show_profile_image_to_others: (user as Record<string, unknown>).show_profile_image_to_others !== false,
     },
   }, 200);
 });
@@ -68,6 +69,9 @@ users.patch('/me', async (c) => {
   if (payload.age !== undefined) {
     const age = Number(payload.age);
     if (Number.isFinite(age) && age > 0 && age < 150) updates.age = Math.floor(age);
+  }
+  if (payload.show_profile_image_to_others !== undefined) {
+    updates.show_profile_image_to_others = payload.show_profile_image_to_others === true;
   }
 
   if (Object.keys(updates).length === 0) return badRequest('Keine Änderung angegeben');

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken } from '@/lib/api-client';
+import { initials } from '@/lib/initials';
 
 export interface ChatMessage {
   id: number;
@@ -20,14 +21,6 @@ interface ChatMessageItemProps {
   message: ChatMessage;
   canDelete: boolean;
   isOwn: boolean;
-}
-
-function initials(name?: string): string {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function ChatMessageItem({ groupId, message, canDelete, isOwn }: ChatMessageItemProps) {
