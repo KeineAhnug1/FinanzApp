@@ -9381,6 +9381,9 @@ html.dashboard-view-preload .dash-main .view-panel {
 .settings__section-spacer-md {
   margin-top: 16px;
 }
+.einst-card .einst-subsection-title.settings__section-spacer-md {
+  margin-top: 28px;
+}
 
 .settings__muted-text {
   color: var(--ui-text-muted);
@@ -12807,7 +12810,7 @@ button.group-card-button:focus-visible {
 /* ---------- Privacy section + switch ---------- */
 .privacy-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--ui-space-3);
 }
@@ -12827,12 +12830,21 @@ button.group-card-button:focus-visible {
   line-height: 1.4;
 }
 
+label.switch,
 .switch {
   position: relative;
-  display: inline-block;
+  display: inline-block !important;
   flex-shrink: 0;
-  width: 44px;
-  height: 24px;
+  flex-grow: 0;
+  flex-basis: auto;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 24px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-direction: row !important;
+  gap: 0 !important;
 }
 .switch input {
   position: absolute;
@@ -12859,7 +12871,7 @@ button.group-card-button:focus-visible {
   height: 20px;
   background: #fff;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   transition: transform 0.2s ease;
 }
 .switch input:checked + .switch__track {
