@@ -14,6 +14,7 @@ export interface ChatMessage {
   sender_name?: string;
   sender_profile_image?: string | null;
   user_id: string;
+  deleted?: boolean;
 }
 
 interface ChatMessageItemProps {
@@ -51,9 +52,11 @@ export function ChatMessageItem({ groupId, message, canDelete, isOwn }: ChatMess
 
   const senderLabel = isOwn ? 'Ich' : (message.sender_name ?? 'Unbekannt');
   const avatar = message.sender_profile_image;
+  const isDeleted = message.deleted === true;
+  const canActuallyDelete = canDelete && !isDeleted;
 
   return (
-    <div className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'}`}>
+    <div className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'}${isDeleted ? ' chat-message--deleted' : ''}`}>
       {!isOwn && (
         <div className="chat-message__avatar" aria-hidden="true">
           {avatar ? (
@@ -67,8 +70,12 @@ export function ChatMessageItem({ groupId, message, canDelete, isOwn }: ChatMess
       <div className="chat-message__body">
         <span className="chat-sender">{senderLabel}</span>
         <div className="chat-bubble">
-          <span className="chat-text">{message.message}</span>
-          {canDelete && (
+          {isDeleted ? (
+            <span className="chat-text chat-text--deleted">Diese Nachricht wurde gelöscht</span>
+          ) : (
+            <span className="chat-text">{message.message}</span>
+          )}
+          {canActuallyDelete && (
             <button
               type="button"
               className="chat-message__delete"

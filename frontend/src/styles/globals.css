@@ -3685,6 +3685,15 @@ input.touched:invalid ~ .field-hint,
 
 .chat-sender { font-size: 0.78rem; font-weight: 600; color: var(--ui-primary); }
 .chat-text { font-size: 0.88rem; line-height: 1.4; }
+.chat-text--deleted {
+  font-style: italic;
+  color: var(--ui-text-muted);
+  opacity: 0.75;
+}
+.chat-message--deleted .chat-bubble {
+  background: color-mix(in srgb, var(--ui-text-muted) 8%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
+}
 
 .chat-input-form {
   display: flex;

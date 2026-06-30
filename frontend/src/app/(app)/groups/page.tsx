@@ -242,6 +242,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           sender_name: u?.first_name ? String(u.first_name) : (u?.username ? String(u.username) : undefined),
           sender_profile_image: u?.profile_image ? String(u.profile_image) : null,
           user_id: String(u?.user_id ?? ''),
+          deleted: m.deleted === true,
         };
       })
     ),
@@ -577,7 +578,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
                   groupId={groupId}
                   message={m}
                   isOwn={isOwn}
-                  canDelete={isOwn || !!group.is_admin}
+                  canDelete={isOwn}
                 />
               );
             })}

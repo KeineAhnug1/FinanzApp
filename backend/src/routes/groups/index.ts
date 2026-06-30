@@ -14,6 +14,10 @@ import sharedExpensesRoutes from './shared-expenses';
 
 const groups = new Hono<{ Bindings: Env }>();
 
+// Sentinel stored in the `message` column when a user soft-deletes their own
+// chat message. Kept here so backend + frontend agree on the marker.
+const DELETED_MESSAGE_SENTINEL = '__finanzapp_deleted_message__';
+
 // GET /api/groups
 groups.get('/', async (c) => {
   const auth = await requireAuth(c);
@@ -725,8 +729,13 @@ groups.get('/:id/messages', async (c) => {
     ok: true,
     messages: (messages ?? []).reverse().map((m: Record<string, unknown>) => {
       const u = m.users as Record<string, unknown> | null;
+      const rawMessage = m.message as string | null;
+      const deleted = rawMessage === DELETED_MESSAGE_SENTINEL;
       return {
-        message_id: String(m.id), message: m.message, created_at: m.created_at,
+        message_id: String(m.id),
+        message: deleted ? '' : rawMessage,
+        deleted,
+        created_at: m.created_at,
         user: { user_id: String(u?.id ?? ''), username: u?.username ?? null, first_name: u?.first_name ?? null, last_name: u?.last_name ?? null, profile_image: u?.profileImage ?? null },
       };
     }),
@@ -768,6 +777,8 @@ groups.post('/:id/messages', async (c) => {
 });
 
 // DELETE /api/groups/:id/messages/:msgId
+// Soft-delete: own messages only. Replaces the message body with a sentinel
+// so it stays in the timeline as a "Diese Nachricht wurde gelöscht" placeholder.
 groups.delete('/:id/messages/:msgId', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
@@ -780,18 +791,21 @@ groups.delete('/:id/messages/:msgId', async (c) => {
   const messageId = Number(c.req.param('msgId'));
   if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return badRequest('Invalid id');
 
-  const { data: msg } = await auth.db.from('group_message').select('id, from_user_id, group_id')
+  const { data: msg } = await auth.db.from('group_message').select('id, from_user_id, group_id, message')
     .eq('id', messageId).eq('group_id', groupId).single();
   if (!msg) return notFound('Nachricht nicht gefunden');
 
   if (Number(msg.from_user_id) !== auth.user.id) {
-    const { data: ms } = await auth.db.from('group_members').select('role')
-      .eq('group_id', groupId).eq('user_id', auth.user.id).single();
-    if ((ms as Record<string, unknown> | null)?.role !== 'admin')
-      return forbidden('Nur der Autor oder ein Admin kann diese Nachricht löschen');
+    return forbidden('Du kannst nur deine eigenen Nachrichten löschen.');
   }
 
-  await auth.db.from('group_message').delete().eq('id', messageId);
+  if ((msg.message as string | null) === DELETED_MESSAGE_SENTINEL) {
+    return jsonResponse({ ok: true, message: 'Nachricht ist bereits gelöscht' }, 200);
+  }
+
+  await auth.db.from('group_message')
+    .update({ message: DELETED_MESSAGE_SENTINEL })
+    .eq('id', messageId);
   return jsonResponse({ ok: true, message: 'Nachricht gelöscht' }, 200);
 });
 

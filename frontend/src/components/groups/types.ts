@@ -79,6 +79,7 @@ export interface GroupMessageView {
   sender_profile_image?: string | null;
   created_at: string;
   user_id: string;
+  deleted?: boolean;
 }
 
 export interface GroupSummary {
