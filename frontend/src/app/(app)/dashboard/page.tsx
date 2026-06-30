@@ -20,10 +20,11 @@ import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
 import { PeerTransferModal } from '@/components/dashboard/PeerTransferModal';
 import { RecurringList } from '@/components/dashboard/RecurringList';
 import { TransfersList } from '@/components/dashboard/TransfersList';
+import { BudgetManager } from '@/components/budgets/BudgetManager';
 
-type DashboardView = 'overview' | 'income' | 'expense' | 'recurring' | 'transfers';
+type DashboardView = 'overview' | 'income' | 'expense' | 'recurring' | 'transfers' | 'budgets';
 
-const VALID_TABS: DashboardView[] = ['overview', 'income', 'expense', 'recurring', 'transfers'];
+const VALID_TABS: DashboardView[] = ['overview', 'income', 'expense', 'recurring', 'transfers', 'budgets'];
 
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(apiUrl(url), { credentials: 'include', ...options });
@@ -119,6 +120,7 @@ export default function DashboardPage() {
             <button id="tab-expense" className={`entry-tab-btn${view === 'expense' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'expense'} aria-controls="panel-expense" onClick={() => switchView('expense')}>Ausgaben</button>
             <button id="tab-recurring" className={`entry-tab-btn${view === 'recurring' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'recurring'} aria-controls="panel-recurring" onClick={() => switchView('recurring')}>Daueraufträge</button>
             <button id="tab-transfers" className={`entry-tab-btn${view === 'transfers' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'transfers'} aria-controls="panel-transfers" onClick={() => switchView('transfers')}>Überweisungen</button>
+            <button id="tab-budgets" className={`entry-tab-btn${view === 'budgets' ? ' is-active' : ''}`} role="tab" aria-selected={view === 'budgets'} aria-controls="panel-budgets" onClick={() => switchView('budgets')}>Budgets</button>
           </div>
           {accounts.length > 1 && (
             <div className="nav-account-filter">
@@ -285,6 +287,10 @@ export default function DashboardPage() {
               onNewTransfer={() => setPeerTransferOpen(true)}
             />
           )}
+        </div>
+
+        <div className="view-panel" id="panel-budgets" role="tabpanel" aria-labelledby="tab-budgets" tabIndex={0} hidden={view !== 'budgets'}>
+          {view === 'budgets' && <BudgetManager variant="embedded" />}
         </div>
       </div>
       <PeerTransferModal

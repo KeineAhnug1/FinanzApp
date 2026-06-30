@@ -12963,6 +12963,15 @@ button.toggle-switch.is-on .toggle-switch__thumb {
 /* Budgets — Verwaltungs-Seite */
 .budgets-page { display: flex; flex-direction: column; gap: var(--ui-space-4); }
 
+.budgets-manager { display: flex; flex-direction: column; gap: var(--ui-space-4); }
+.budgets-manager__intro-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+}
+.budgets-manager__intro-row .budgets-page__intro { flex: 1; }
+
 .budgets-page__intro {
   margin: 0;
   font-size: 0.9rem;
