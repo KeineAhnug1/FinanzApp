@@ -29,9 +29,9 @@ async function apiFetch(url: string, options?: RequestInit) {
   return safeJson(res);
 }
 
-type Range = '1T' | '1W' | '1M' | '1J' | 'Max';
-const RANGE_PERIODS: Record<Range, string> = { '1T': '1d', '1W': '5d', '1M': '1mo', '1J': '1y', 'Max': 'max' };
-const RANGES: Range[] = ['1T', '1W', '1M', '1J', 'Max'];
+type Range = '1T' | '1W' | '1M' | '1J';
+const RANGE_PERIODS: Record<Range, string> = { '1T': '1d', '1W': '5d', '1M': '1mo', '1J': '1y' };
+const RANGES: Range[] = ['1T', '1W', '1M', '1J'];
 
 function fmtDateLabel(raw: string, range: Range) {
   if (range === '1T') {
@@ -49,10 +49,6 @@ function fmtDateLabel(raw: string, range: Range) {
     // raw: "YYYY-MM-DD HH" (hourly bucket) — show date only to avoid clutter
     const d = new Date(raw.slice(0, 10));
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-  }
-  if (range === 'Max') {
-    const d = new Date(raw.slice(0, 10));
-    return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
   }
   // 1J
   const d = new Date(raw.slice(0, 10));
