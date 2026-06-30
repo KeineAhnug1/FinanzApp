@@ -148,6 +148,10 @@ function PrivacySection({ user, onSaved }: { user: UserClient; onSaved: () => vo
   const [enabled, setEnabled] = useState<boolean>(user.show_profile_image_to_others !== false);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    setEnabled(user.show_profile_image_to_others !== false);
+  }, [user.show_profile_image_to_others]);
+
   const toggle = async (next: boolean) => {
     setBusy(true);
     setEnabled(next);
@@ -404,16 +408,20 @@ export default function SettingsPage() {
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['me'] });
-    const data = await apiFetch('/api/users/me');
-    if (data?.user) setUser(data.user);
   };
+
+  useEffect(() => {
+    if (user) setUser(user as unknown as Parameters<typeof setUser>[0]);
+  }, [user, setUser]);
 
   useEffect(() => {
     if (!user && !storeUser && !isLoading) router.replace('/login');
   }, [user, storeUser, isLoading, router]);
 
-  if (isLoading && !storeUser) return <div className="einst-layout"><p className="settings__muted-text">Lade Profil…</p></div>;
-  if (!user) return null;
+  const effectiveUser = user ?? storeUser ?? null;
+
+  if (isLoading && !effectiveUser) return <div className="einst-layout"><p className="settings__muted-text">Lade Profil…</p></div>;
+  if (!effectiveUser) return null;
 
   const navItems = [
     { id: 'profil', label: 'Profil' },
@@ -445,8 +453,8 @@ export default function SettingsPage() {
       </aside>
       <div className="einst-content">
         <h1 className="page-title">Einstellungen</h1>
-        <ProfileSection user={user} onSaved={refresh} />
-        <PrivacySection user={user} onSaved={refresh} />
+        <ProfileSection user={effectiveUser} onSaved={refresh} />
+        <PrivacySection user={effectiveUser} onSaved={refresh} />
         <ThemeSection />
         <PasswordSection />
         <DangerSection />
