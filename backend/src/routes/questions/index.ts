@@ -45,6 +45,27 @@ function serializeAuthor(author: UserRow | undefined, viewerId: string | number)
   };
 }
 
+// Loads user rows for author serialization. Falls back to a query without the
+// new `show_profile_image_to_others` column if the migration has not yet run,
+// so the questions module keeps working until the SQL is applied.
+async function loadAuthorUsers(db: DbClient, ids: number[]): Promise<UserRow[]> {
+  if (!ids.length) return [];
+  const full = await db.from('users')
+    .select('id, username, first_name, "profileImage", show_profile_image_to_others')
+    .in('id', ids);
+  if (!full.error) return (full.data ?? []) as UserRow[];
+  if (!/show_profile_image_to_others/.test(full.error.message ?? '')) return [];
+  const fallback = await db.from('users')
+    .select('id, username, first_name, "profileImage"')
+    .in('id', ids);
+  return (fallback.data ?? []) as UserRow[];
+}
+
+async function loadAuthorUser(db: DbClient, id: number): Promise<UserRow | null> {
+  const rows = await loadAuthorUsers(db, [id]);
+  return rows[0] ?? null;
+}
+
 interface QuestionRow {
   id: number | string;
   from_user_id: number | string;
@@ -113,7 +134,7 @@ async function listQuestionsWithRelations(
   for (const q of filtered) userIds.add(Number(q.from_user_id));
   for (const a of typedAnswers) userIds.add(Number(a.from_user_id));
 
-  const { data: users } = await db.from('users').select('id, username, first_name, "profileImage", show_profile_image_to_others').in('id', Array.from(userIds));
+  const { data: users } = { data: await loadAuthorUsers(db, Array.from(userIds)) };
   const usersById = new Map<string, UserRow>(((users ?? []) as UserRow[]).map((u) => [String(u.id), u]));
 
   const qLikesCount = new Map<string, number>();
@@ -327,10 +348,8 @@ questions.post('/', async (c) => {
 
   if (!inserted) return jsonResponse({ ok: false, message: 'Frage konnte nicht erstellt werden.' }, 500);
 
-  const { data: ownerRow } = await auth.db.from('users')
-    .select('id, username, first_name, "profileImage", show_profile_image_to_others')
-    .eq('id', auth.user.id).maybeSingle();
-  const ownerAuthor = serializeAuthor(ownerRow as UserRow | undefined, auth.user.id);
+  const ownerRow = await loadAuthorUser(auth.db, auth.user.id);
+  const ownerAuthor = serializeAuthor(ownerRow ?? undefined, auth.user.id);
 
   // waitUntil keeps the OpenRouter call alive past the response so the client
   // does not block on the LLM round-trip; errors are swallowed because the
@@ -375,10 +394,10 @@ questions.get('/:id', async (c) => {
 
   const typedAnswers = (answers ?? []) as AnswerRow[];
   const answerIds = typedAnswers.map((a) => a.id);
-  const [{ data: aLikes }, { data: myALikes }, { data: author }, { data: botUser }] = await Promise.all([
+  const [{ data: aLikes }, { data: myALikes }, author, { data: botUser }] = await Promise.all([
     answerIds.length ? auth.db.from('answer_likes').select('answer_id').in('answer_id', answerIds) : Promise.resolve({ data: [] }),
     answerIds.length ? auth.db.from('answer_likes').select('answer_id').in('answer_id', answerIds).eq('user_id', auth.user.id) : Promise.resolve({ data: [] }),
-    auth.db.from('users').select('id, username, first_name, "profileImage", show_profile_image_to_others').eq('id', q.from_user_id).maybeSingle(),
+    loadAuthorUser(auth.db, Number(q.from_user_id)),
     auth.db.from('users').select('id').eq('email', FINZBRO_EMAIL).maybeSingle(),
   ]);
 
@@ -389,8 +408,8 @@ questions.get('/:id', async (c) => {
   const myAIds = new Set(((myALikes ?? []) as LikeRefRow[]).map((l) => String(l.answer_id)));
 
   const userIds = new Set(typedAnswers.map((a) => Number(a.from_user_id)));
-  const { data: answerUsers } = userIds.size ? await auth.db.from('users').select('id, username, first_name, "profileImage", show_profile_image_to_others').in('id', Array.from(userIds)) : { data: [] };
-  const usersById = new Map<string, UserRow>(((answerUsers ?? []) as UserRow[]).map((u) => [String(u.id), u]));
+  const answerUsers = await loadAuthorUsers(auth.db, Array.from(userIds));
+  const usersById = new Map<string, UserRow>((answerUsers as UserRow[]).map((u) => [String(u.id), u]));
 
   return jsonResponse({
     ok: true,
@@ -399,7 +418,7 @@ questions.get('/:id', async (c) => {
       answered: q.answered, edited: q.edited, created_at: q.created_at, updated_at: q.updated_at,
       likes: (qLikeRows ?? []).length, liked_by_me: (myQLike ?? []).length > 0,
       is_mine: Number(q.from_user_id) === auth.user.id,
-      author: serializeAuthor(author as UserRow | undefined, auth.user.id),
+      author: serializeAuthor(author ?? undefined, auth.user.id),
       answers: typedAnswers.map((a) => {
         const aAuthor = usersById.get(String(a.from_user_id));
         const isBot = botId !== null && String(a.from_user_id) === botId;

@@ -409,8 +409,8 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    if (!user && !isLoading) router.replace('/login');
-  }, [user, isLoading, router]);
+    if (!user && !storeUser && !isLoading) router.replace('/login');
+  }, [user, storeUser, isLoading, router]);
 
   if (isLoading && !storeUser) return <div className="einst-layout"><p className="settings__muted-text">Lade Profil…</p></div>;
   if (!user) return null;

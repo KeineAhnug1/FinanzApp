@@ -25,27 +25,39 @@ users.get('/me', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
 
-  const { data: user } = await auth.db
+  const { data: user, error: userErr } = await auth.db
     .from('users')
     .select('id, username, email, first_name, last_name, created_at, "profileImage", income, age, show_profile_image_to_others')
     .eq('id', auth.user.id)
     .single();
 
-  if (!user) return notFound('Benutzer nicht gefunden');
+  // Fallback: migration not yet applied — re-query without the new column so
+  // the app keeps working instead of logging the user out.
+  let userRow = user as Record<string, unknown> | null;
+  if (userErr && /show_profile_image_to_others/.test(userErr.message ?? '')) {
+    const retry = await auth.db
+      .from('users')
+      .select('id, username, email, first_name, last_name, created_at, "profileImage", income, age')
+      .eq('id', auth.user.id)
+      .single();
+    userRow = (retry.data as Record<string, unknown> | null) ?? null;
+  }
+
+  if (!userRow) return notFound('Benutzer nicht gefunden');
 
   return jsonResponse({
     ok: true,
     user: {
-      id: String(user.id),
-      username: user.username,
-      email: user.email,
-      first_name: user.first_name ?? null,
-      last_name: user.last_name ?? null,
-      created_at: user.created_at ?? null,
-      profileImage: (user as Record<string, unknown>).profileImage ?? null,
-      income: (user as Record<string, unknown>).income ?? null,
-      age: (user as Record<string, unknown>).age ?? null,
-      show_profile_image_to_others: (user as Record<string, unknown>).show_profile_image_to_others !== false,
+      id: String(userRow.id),
+      username: userRow.username,
+      email: userRow.email,
+      first_name: userRow.first_name ?? null,
+      last_name: userRow.last_name ?? null,
+      created_at: userRow.created_at ?? null,
+      profileImage: userRow.profileImage ?? null,
+      income: userRow.income ?? null,
+      age: userRow.age ?? null,
+      show_profile_image_to_others: userRow.show_profile_image_to_others !== false,
     },
   }, 200);
 });
@@ -76,7 +88,14 @@ users.patch('/me', async (c) => {
 
   if (Object.keys(updates).length === 0) return badRequest('Keine Änderung angegeben');
 
-  await auth.db.from('users').update(updates).eq('id', auth.user.id);
+  const { error: updErr } = await auth.db.from('users').update(updates).eq('id', auth.user.id);
+  if (updErr && /show_profile_image_to_others/.test(updErr.message ?? '')) {
+    return jsonResponse({
+      ok: false,
+      message: 'Migration fehlt: Spalte show_profile_image_to_others. Bitte SQL ausführen.',
+    }, 503);
+  }
+  if (updErr) return jsonResponse({ ok: false, message: updErr.message }, 500);
   return jsonResponse({ ok: true, message: 'Profil aktualisiert' }, 200);
 });
 
