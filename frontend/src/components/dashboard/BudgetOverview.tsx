@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiUrl } from '@/lib/api-client';
-import { formatMoney, getCategoryLabel, type BudgetAlert } from './types';
+import { formatMoney, getCategoryLabel, projectBudgetVariant, type BudgetAlert } from './types';
 
 async function fetchStatus(): Promise<BudgetAlert[]> {
   const res = await fetch(apiUrl('/api/budgets/status'), { credentials: 'include' });
@@ -44,7 +44,7 @@ export function BudgetOverview() {
 
 function BudgetRow({ alert }: { alert: BudgetAlert }) {
   const pct = Math.max(0, alert.percentage);
-  const variant = alert.exceeded || pct >= 100 ? 'over' : pct >= 80 ? 'warn' : 'ok';
+  const variant = projectBudgetVariant(alert.spent, alert.target);
   const displayWidth = Math.min(100, pct);
   const overshoot = alert.exceeded ? Math.max(0, alert.spent - alert.target) : 0;
   return (

@@ -12,6 +12,7 @@ import {
   EXPENSE_CATEGORIES,
   formatMoney,
   getCategoryLabel,
+  projectBudgetVariant,
   type BudgetAlert,
 } from '@/components/dashboard/types';
 
@@ -216,7 +217,7 @@ function BudgetCard({
   onDelete: () => void;
 }) {
   const pct = Math.max(0, budget.percentage);
-  const variant = budget.exceeded || pct >= 100 ? 'over' : pct >= 80 ? 'warn' : 'ok';
+  const variant = projectBudgetVariant(budget.spent, budget.target_amount);
   const displayWidth = Math.min(100, pct);
   const overshoot = budget.exceeded ? Math.max(0, budget.spent - budget.target_amount) : 0;
 

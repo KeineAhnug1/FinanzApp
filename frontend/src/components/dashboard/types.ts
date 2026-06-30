@@ -107,3 +107,22 @@ export function toDatetimeLocal(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+export type BudgetVariant = 'ok' | 'warn' | 'over';
+
+// Farbe nach projiziertem Monats-Endstand:
+//   - over: bereits über 100 % (real überzogen)
+//   - warn: bei aktuellem Tempo bis Monatsende > 100 %
+//   - ok:   bei aktuellem Tempo bleibt das Budget eingehalten
+// Edge cases: ungültiges target, kein Spent, oder zu früh im Monat (< 10 % vergangen)
+// → konservativ als 'ok' werten, sonst springt jeder am 1. eines Monats sofort auf 'warn'.
+export function projectBudgetVariant(spent: number, target: number, now: Date = new Date()): BudgetVariant {
+  if (!Number.isFinite(target) || target <= 0) return 'ok';
+  if (!Number.isFinite(spent) || spent <= 0) return 'ok';
+  if (spent > target) return 'over';
+  const day = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const elapsedRatio = Math.max(0.1, day / daysInMonth);
+  const projected = spent / elapsedRatio;
+  return projected > target ? 'warn' : 'ok';
+}
