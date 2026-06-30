@@ -7221,6 +7221,11 @@ html.dashboard-view-preload .dash-main .view-panel {
   font-weight: 600;
   color: var(--ui-primary);
   text-decoration: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .budget-overview__manage:hover,

@@ -11,7 +11,11 @@ async function fetchStatus(): Promise<BudgetAlert[]> {
   return Array.isArray(data?.alerts) ? (data.alerts as BudgetAlert[]) : [];
 }
 
-export function BudgetOverview() {
+interface BudgetOverviewProps {
+  onManageClick?: () => void;
+}
+
+export function BudgetOverview({ onManageClick }: BudgetOverviewProps = {}) {
   const { data: alerts = [], isLoading } = useQuery<BudgetAlert[]>({
     queryKey: ['budget-status'],
     queryFn: fetchStatus,
@@ -20,18 +24,33 @@ export function BudgetOverview() {
 
   const sorted = [...alerts].sort((a, b) => b.percentage - a.percentage);
 
+  const manageButton = onManageClick ? (
+    <button type="button" className="budget-overview__manage" onClick={onManageClick}>
+      Verwalten →
+    </button>
+  ) : (
+    <Link href="/budgets" className="budget-overview__manage">Verwalten →</Link>
+  );
+
+  const inlineCta = onManageClick ? (
+    <button type="button" className="budget-overview__manage-inline" onClick={onManageClick}>
+      Jetzt anlegen →
+    </button>
+  ) : (
+    <Link href="/budgets" className="budget-overview__manage-inline">Jetzt anlegen →</Link>
+  );
+
   return (
     <div className="panel panel-span-2 budget-overview">
       <div className="budget-overview__header">
         <h3 className="panel-title">Budgets</h3>
-        <Link href="/budgets" className="budget-overview__manage">Verwalten →</Link>
+        {manageButton}
       </div>
       {isLoading ? (
         <p className="dashboard__loading">Lade Budgets…</p>
       ) : sorted.length === 0 ? (
         <p className="budget-overview__empty">
-          Noch keine Budgets gesetzt.{' '}
-          <Link href="/budgets" className="budget-overview__manage-inline">Jetzt anlegen →</Link>
+          Noch keine Budgets gesetzt. {inlineCta}
         </p>
       ) : (
         <ul className="budget-overview__rows">

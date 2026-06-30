@@ -204,7 +204,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <BudgetOverview />
+          <BudgetOverview onManageClick={() => switchView('budgets')} />
         </div>
 
         <div className="view-panel" id="panel-income" role="tabpanel" aria-labelledby="tab-income" tabIndex={0} hidden={view !== 'income'}>

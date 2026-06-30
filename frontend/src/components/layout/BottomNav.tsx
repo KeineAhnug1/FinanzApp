@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
   { href: '/dashboard', key: 'dashboard', label: 'Dashboard', icon: '/shared/images/nav-dashboard.svg' },
-  { href: '/budgets', key: 'budgets', label: 'Budgets', icon: '/shared/images/nav-budgets.svg' },
   { href: '/accounts', key: 'accounts', label: 'Konten', icon: '/shared/images/nav-accounts.svg' },
   { href: '/groups', key: 'groups', label: 'Gruppen', icon: '/shared/images/nav-groups.svg' },
   { href: '/stocks', key: 'stocks', label: 'Aktien', icon: '/shared/images/nav-stocks.svg' },
