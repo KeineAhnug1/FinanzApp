@@ -315,7 +315,7 @@ function ThreadPanel({ question, onClose, onUpdate }: { question: Question; onCl
         {(q.answers ?? []).map((a) => (
           <div key={a.id} className={`answer-item${a.is_bot ? ' is-bot' : ''}`}>
             <div className="answer-meta">
-              <span className="answer-author"><AuthorBadge name={a.is_bot ? 'FinzbRo' : (a.author?.first_name || a.author?.username || 'Unbekannt')} profileImage={a.is_bot ? null : a.author?.profile_image} isBot={a.is_bot} /></span>
+              <span className="answer-author"><AuthorBadge name={a.is_bot ? 'FinzbRo' : (a.author?.first_name || a.author?.username || 'Unbekannt')} profileImage={a.author?.profile_image} isBot={a.is_bot} /></span>
               <span className="answer-date">{formatDate(a.created_at)}</span>
             </div>
             <p className="answer-message">{a.message}</p>

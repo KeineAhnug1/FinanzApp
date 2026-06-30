@@ -23,6 +23,7 @@ interface UserRow {
   username?: string | null;
   first_name?: string | null;
   profileImage?: string | null;
+  profileimage?: string | null;
   show_profile_image_to_others?: boolean | null;
 }
 
@@ -35,11 +36,12 @@ function serializeAuthor(author: UserRow | undefined, viewerId: string | number)
   if (!author) return null;
   const isSelf = String(author.id) === String(viewerId);
   const visible = isSelf || author.show_profile_image_to_others !== false;
+  const img = author.profileImage ?? author.profileimage ?? null;
   return {
     id: String(author.id),
     username: author.username,
     first_name: author.first_name,
-    profile_image: visible ? (author.profileImage ?? null) : null,
+    profile_image: visible ? img : null,
   };
 }
 
