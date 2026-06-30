@@ -83,7 +83,7 @@ export default function DashboardPage() {
 
   const totalIncome = income.reduce((s, e) => s + Number(e.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
-  const savingsRate = totalIncome > 0 ? Math.max(0, ((totalIncome - totalExpenses) / totalIncome) * 100) : 0;
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
   const filteredAccounts = accountFilter
     ? accounts.filter((a) => String(a.id) === String(accountFilter))
@@ -154,8 +154,10 @@ export default function DashboardPage() {
             </div>
             <div className="kpi-card">
               <p className="kpi-label">Sparquote</p>
-              <p className="kpi-value">{savingsRate.toFixed(1)}%</p>
-              <p className="kpi-trend neutral">des Nettoeinkommens</p>
+              <p className={`kpi-value${savingsRate < 0 ? ' is-negative' : ''}`}>{savingsRate.toFixed(1)}%</p>
+              <p className={`kpi-trend ${savingsRate < 0 ? 'negative' : 'neutral'}`}>
+                {savingsRate < 0 ? 'Ausgaben übersteigen Einnahmen' : 'des Nettoeinkommens'}
+              </p>
             </div>
           </div>
 

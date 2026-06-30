@@ -12212,3 +12212,8 @@ button.group-card-button:focus-visible {
 .legal-page section {
   margin-bottom: var(--ui-space-4);
 }
+
+/* Negative savings rate: same red accent as other negative numbers */
+.kpi-value.is-negative {
+  color: var(--clr-danger, var(--danger, #ef4444));
+}
