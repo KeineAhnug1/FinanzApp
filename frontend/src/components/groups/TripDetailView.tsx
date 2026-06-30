@@ -182,7 +182,7 @@ export function TripDetailView({ groupId, tripId, currentUserId, isAdmin, onClos
   };
 
   return (
-    <Modal open onClose={onClose} title={trip?.name ?? 'Ausflug'} size="lg">
+    <Modal open onClose={onClose} title={trip?.name ?? 'Ausflug'} size="lg" className="modal-trip-detail">
       {isLoading && <div className="loading-state"><span className="spinner" /><span>Lade…</span></div>}
       {!isLoading && !trip && <p>Ausflug nicht gefunden.</p>}
       {trip && (
