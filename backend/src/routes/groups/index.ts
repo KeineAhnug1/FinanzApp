@@ -162,11 +162,14 @@ groups.get('/:id', async (c) => {
     })),
     fundings: (fundings ?? []).map((f: Record<string, unknown>) => {
       const contributions = participantsByFunding.get(String(f.id)) ?? [];
+      const poolAmount = toNum(f.amount) ?? 0;
+      const summedContribs = Number(contributions.reduce((s, cont) => s + (toNum(cont.amount) ?? 0), 0).toFixed(2));
       return {
         funding_id: String(f.id),
         group_activity_id: f.group_activity_id ? String(f.group_activity_id) : null,
-        amount: toNum(f.amount), info: f.info ?? null, created_at: f.created_at ?? null,
+        amount: poolAmount, info: f.info ?? null, created_at: f.created_at ?? null,
         target_amount: toNum(f.target_amount),
+        current_amount: poolAmount,
         status: (f.status as string | null) ?? 'open',
         completed_at: f.completed_at ?? null,
         archived_at: f.archived_at ?? null,
@@ -178,7 +181,7 @@ groups.get('/:id', async (c) => {
             first_name: u?.first_name ?? null, amount: toNum(cont.amount), created_at: cont.created_at ?? null,
           };
         }),
-        total_donated: Number(contributions.reduce((s, cont) => s + (toNum(cont.amount) ?? 0), 0).toFixed(2)),
+        total_donated: summedContribs,
       };
     }),
     archived_fundings: (archivedFundings ?? []).map((f: Record<string, unknown>) => ({

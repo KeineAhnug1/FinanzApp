@@ -2350,6 +2350,231 @@ input.touched:invalid ~ .field-hint,
 .history-item__amount--expense { color: var(--ui-danger, #b91c1c); }
 .history-empty { padding: var(--ui-space-6) var(--ui-space-3); text-align: center; color: var(--ui-text-muted); }
 
+/* ---------- New rich history modal ---------- */
+.modal-history .modal-body { padding-top: var(--ui-space-3); }
+
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ui-space-2);
+  margin-bottom: var(--ui-space-3);
+}
+.history-summary__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-soft);
+}
+.history-summary__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ui-text-muted);
+  font-weight: 600;
+}
+.history-summary__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-text);
+}
+.history-summary__stat--income .history-summary__value { color: var(--ui-success, #15803d); }
+.history-summary__stat--expense .history-summary__value { color: var(--ui-danger, #b91c1c); }
+.history-summary__stat--net.is-negative .history-summary__value { color: var(--ui-danger, #b91c1c); }
+
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  margin-bottom: var(--ui-space-3);
+  align-items: center;
+}
+.history-toolbar__filters {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.history-toolbar__search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover { color: var(--ui-text); border-color: color-mix(in srgb, var(--ui-text) 30%, var(--ui-border)); }
+.chip--active {
+  background: var(--ui-text);
+  color: var(--ui-bg);
+  border-color: var(--ui-text);
+}
+.chip--income.chip--active { background: var(--ui-success, #15803d); border-color: var(--ui-success, #15803d); color: #fff; }
+.chip--expense.chip--active { background: var(--ui-danger, #b91c1c); border-color: var(--ui-danger, #b91c1c); color: #fff; }
+
+.history-day-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+.history-day {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  overflow: hidden;
+}
+.history-day__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--ui-surface-soft);
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 0.82rem;
+}
+.history-day__date {
+  font-weight: 700;
+  color: var(--ui-text);
+}
+.history-day__total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-text-muted);
+}
+.history-day__total.is-positive { color: var(--ui-success, #15803d); }
+.history-day__total.is-negative { color: var(--ui-danger, #b91c1c); }
+
+.history-day__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.history-entry {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: var(--ui-space-2);
+  align-items: start;
+  padding: 12px 14px;
+  border-top: 1px solid var(--ui-border);
+}
+.history-entry:first-child { border-top: 0; }
+.history-entry__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.history-entry__icon--income {
+  background: color-mix(in srgb, var(--ui-success, #15803d) 12%, transparent);
+  color: var(--ui-success, #15803d);
+}
+.history-entry__icon--expense {
+  background: color-mix(in srgb, var(--ui-danger, #b91c1c) 12%, transparent);
+  color: var(--ui-danger, #b91c1c);
+}
+.history-entry__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.history-entry__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-entry__title {
+  font-weight: 600;
+  color: var(--ui-text);
+  word-break: break-word;
+}
+.history-entry__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--ui-surface-soft);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--ui-border);
+}
+.history-entry__badge--transfer {
+  background: color-mix(in srgb, var(--ui-primary) 12%, transparent);
+  color: var(--ui-primary);
+  border-color: color-mix(in srgb, var(--ui-primary) 35%, transparent);
+}
+.history-entry__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: var(--ui-text-muted);
+  flex-wrap: wrap;
+}
+.history-entry__chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ui-surface-soft);
+  border: 1px solid var(--ui-border);
+}
+.history-entry__time {
+  font-variant-numeric: tabular-nums;
+}
+.history-entry__note {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--ui-text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.history-entry__amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+  white-space: nowrap;
+}
+.history-entry__amount--income { color: var(--ui-success, #15803d); }
+.history-entry__amount--expense { color: var(--ui-danger, #b91c1c); }
+
+@media (max-width: 600px) {
+  .history-summary { grid-template-columns: 1fr; }
+  .history-entry { grid-template-columns: 28px 1fr auto; padding: 10px 12px; }
+  .history-entry__icon { width: 26px; height: 26px; }
+}
+
+[data-theme="dark"] .history-summary__stat,
+[data-theme="dark"] .history-day,
+[data-theme="dark"] .chip {
+  background: color-mix(in srgb, var(--ui-surface) 86%, transparent);
+}
+[data-theme="dark"] .history-day__header {
+  background: color-mix(in srgb, var(--ui-surface-soft) 70%, transparent);
+}
+
 /* Share accounts (Aktienkonten) */
 .share-accounts-section { margin-top: var(--ui-space-6); }
 
@@ -3283,17 +3508,42 @@ input.touched:invalid ~ .field-hint,
 .funding-desc { font-size: 0.85rem; color: var(--ui-text-muted); margin: 4px 0 6px; }
 
 .funding-bar-wrap {
-  height: 6px;
+  height: 8px;
   background: var(--ui-border);
-  border-radius: 3px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .funding-bar {
   height: 100%;
-  background: var(--ui-primary);
-  border-radius: 3px;
-  transition: width 0.3s;
+  background: linear-gradient(90deg, var(--ui-primary), color-mix(in srgb, var(--ui-primary) 70%, #22c55e));
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.funding-bar--done {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.funding-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--ui-text-muted);
+}
+.funding-meta__pct {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-text);
+}
+.funding-meta__remaining {
+  font-variant-numeric: tabular-nums;
+}
+
+.funding-item--done {
+  background: color-mix(in srgb, #22c55e 6%, var(--ui-bg));
+  border-color: color-mix(in srgb, #22c55e 35%, var(--ui-border));
 }
 
 .funding-balance-detail {

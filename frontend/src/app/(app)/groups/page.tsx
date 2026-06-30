@@ -190,7 +190,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           id: Number(f.funding_id),
           title: String(f.info ?? f.title ?? ''),
           target_amount: Number(f.target_amount ?? f.amount ?? 0),
-          current_amount: Number(f.total_donated ?? f.amount ?? 0),
+          current_amount: Number(f.current_amount ?? f.total_donated ?? f.amount ?? 0),
           description: f.description ? String(f.description) : undefined,
           status: (f.status as 'open' | 'completed' | 'archived' | undefined) ?? 'open',
           completed_at: f.completed_at ? String(f.completed_at) : null,
@@ -203,7 +203,7 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
           id: Number(f.funding_id),
           title: String(f.info ?? f.title ?? ''),
           target_amount: Number(f.target_amount ?? 0),
-          current_amount: Number(f.total_donated ?? f.amount ?? 0),
+          current_amount: Number(f.current_amount ?? f.total_donated ?? f.amount ?? 0),
           archived_at: f.archived_at ? String(f.archived_at) : null,
           created_at: f.created_at ? String(f.created_at) : null,
         })),
@@ -438,8 +438,9 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
             const remaining = Math.max(0, Number((f.target_amount - f.current_amount).toFixed(2)));
             const isCompleted = f.status === 'completed';
             const progressPct = f.target_amount > 0 ? Math.min(100, (f.current_amount / f.target_amount) * 100) : 0;
+            const pctLabel = `${Math.round(progressPct)}%`;
             return (
-              <div key={f.id} className="funding-item">
+              <div key={f.id} className={`funding-item${isCompleted ? ' funding-item--done' : ''}`}>
                 <div className="funding-header">
                   <span className="funding-title">
                     {f.title}
@@ -448,8 +449,14 @@ function GroupDetail({ groupId, onBack }: { groupId: number; onBack: () => void 
                   <span className="funding-progress">{formatMoney(f.current_amount)} / {formatMoney(f.target_amount)}</span>
                 </div>
                 {f.description && <p className="funding-desc">{f.description}</p>}
-                <div className="funding-bar-wrap">
-                  <div className="funding-bar" style={{ width: `${progressPct}%` }} />
+                <div className="funding-bar-wrap" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressPct)}>
+                  <div className={`funding-bar${isCompleted ? ' funding-bar--done' : ''}`} style={{ width: `${progressPct}%` }} />
+                </div>
+                <div className="funding-meta">
+                  <span className="funding-meta__pct">{pctLabel}</span>
+                  <span className="funding-meta__remaining">
+                    {isCompleted ? 'Ziel erreicht' : `Noch ${formatMoney(remaining)}`}
+                  </span>
                 </div>
                 <FundingBalance funding={f} />
                 {!isCompleted && (
