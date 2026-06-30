@@ -457,6 +457,11 @@ export default function StocksPage() {
   const chartColor = chartPositive ? '#22c55e' : '#ef4444';
   const chartGradId = chartPositive ? 'stockGradPos' : 'stockGradNeg';
 
+  const rangeChange = lastVal - firstVal;
+  const rangeChangePct = firstVal > 0 ? (rangeChange / firstVal) * 100 : 0;
+  const RANGE_LABELS: Record<Range, string> = { '1T': 'Heute', '1W': 'Woche', '1M': 'Monat', '1J': 'Jahr' };
+  const rangeLabel = RANGE_LABELS[range];
+
   const chartLoading = allHistLoading && chartData.length === 0;
 
   const openDrawer = (symbol: string, tab: 'buy' | 'sell' = 'buy') => {
@@ -511,13 +516,20 @@ export default function StocksPage() {
                   <span className="spc-gain-pct">({fmtPct(totalPnlPct)})</span>
                   <span className="spc-gain-label">Gesamt</span>
                 </div>
-                {Object.keys(quotes).length > 0 && (
-                  <div className={`spc-daily-row ${dailyChange >= 0 ? 'positive' : 'negative'}`}>
-                    <span className="spc-daily-label">Heute</span>
-                    <span>{dailyChange >= 0 ? '+' : ''}{fmtEur(dailyChange)}</span>
-                    <span className="spc-daily-pct">({fmtPct(dailyChangePct)})</span>
-                  </div>
-                )}
+                {(() => {
+                  const useLive = range === '1T' && Object.keys(quotes).length > 0;
+                  const change = useLive ? dailyChange : rangeChange;
+                  const changePct = useLive ? dailyChangePct : rangeChangePct;
+                  const hasData = useLive || chartData.length > 1;
+                  if (!hasData) return null;
+                  return (
+                    <div className={`spc-daily-row ${change >= 0 ? 'positive' : 'negative'}`}>
+                      <span className="spc-daily-label">{rangeLabel}</span>
+                      <span>{change >= 0 ? '+' : ''}{fmtEur(change)}</span>
+                      <span className="spc-daily-pct">({fmtPct(changePct)})</span>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="spc-mini-kpis">
                 <div className="spc-mini-kpi">
