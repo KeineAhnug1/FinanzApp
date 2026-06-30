@@ -12959,3 +12959,88 @@ button.toggle-switch.is-on .toggle-switch__thumb {
   outline-offset: 2px;
 }
 
+
+/* Budgets — Verwaltungs-Seite */
+.budgets-page { display: flex; flex-direction: column; gap: var(--ui-space-4); }
+
+.budgets-page__intro {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ui-text-muted);
+}
+
+.budgets-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--ui-space-3);
+}
+
+.budgets-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--ui-space-3);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.budgets-card--over { border-color: rgba(220, 38, 38, 0.35); }
+.budgets-card--warn { border-color: rgba(217, 119, 6, 0.35); }
+
+.budgets-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+}
+
+.budgets-card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.budgets-card__values {
+  font-size: 0.85rem;
+  color: var(--ui-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.budgets-card__bar {
+  width: 100%;
+  height: 10px;
+  background: var(--ui-surface-soft);
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.budgets-card__fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 400ms ease, background-color 200ms ease;
+}
+.budgets-card__fill--ok   { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.budgets-card__fill--warn { background: linear-gradient(90deg, #d97706, #f59e0b); }
+.budgets-card__fill--over { background: linear-gradient(90deg, #dc2626, #ef4444); }
+
+.budgets-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+.budgets-card__pct { color: var(--ui-text-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.budgets-card__over { color: var(--ui-danger); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.budgets-card__actions {
+  display: flex;
+  gap: var(--ui-space-2);
+  justify-content: flex-end;
+}
+
+[data-theme="dark"] .budgets-card__bar {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
