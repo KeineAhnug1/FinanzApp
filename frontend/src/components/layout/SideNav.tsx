@@ -7,10 +7,10 @@ import { useUiStore } from '@/stores/ui-store';
 
 const NAV_ITEMS = [
   { href: '/dashboard', key: 'dashboard', label: 'Dashboard', icon: '/shared/images/nav-dashboard.svg' },
+  { href: '/budgets', key: 'budgets', label: 'Budgets', icon: '/shared/images/nav-budgets.svg' },
   { href: '/accounts', key: 'accounts', label: 'Konten', icon: '/shared/images/nav-accounts.svg' },
   { href: '/groups', key: 'groups', label: 'Gruppen', icon: '/shared/images/nav-groups.svg' },
   { href: '/stocks', key: 'stocks', label: 'Aktien', icon: '/shared/images/nav-stocks.svg' },
-  { href: '/budgets', key: 'budgets', label: 'Budgets', icon: '/shared/images/nav-budgets.svg' },
   { href: '/questions', key: 'questions', label: 'Fragen', icon: '/shared/images/nav-questions.svg' },
 ];
 
