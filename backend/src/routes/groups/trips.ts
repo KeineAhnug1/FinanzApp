@@ -45,6 +45,7 @@ function normalizeDate(value: unknown): string | null {
 
 function serializeTripBase(row: Row) {
   return {
+    id: String(row.id),
     trip_id: String(row.id),
     group_id: String(row.group_id),
     creator_user_id: String(row.creator_user_id),
@@ -58,6 +59,7 @@ function serializeTripBase(row: Row) {
 
 function serializeExpense(row: Row) {
   return {
+    id: String(row.id),
     expense_id: String(row.id),
     trip_id: String(row.trip_id),
     payer_user_id: String(row.payer_user_id),
@@ -70,6 +72,7 @@ function serializeExpense(row: Row) {
 
 function serializeSettlement(row: Row) {
   return {
+    id: String(row.id),
     settlement_id: String(row.id),
     trip_id: String(row.trip_id),
     from_user_id: String(row.from_user_id),

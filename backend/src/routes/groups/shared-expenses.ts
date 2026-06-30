@@ -57,6 +57,7 @@ interface PeriodRow {
 
 function serializeShare(s: Record<string, unknown>) {
   return {
+    id: String(s.id),
     share_id: String(s.id),
     user_id: String(s.user_id),
     share_amount: toFixedAmount(s.share_amount),
@@ -68,6 +69,7 @@ function serializeShare(s: Record<string, unknown>) {
 function serializePeriod(p: Record<string, unknown> | null | undefined) {
   if (!p) return null;
   return {
+    id: String(p.id),
     period_id: String(p.id),
     period_start: p.period_start ?? null,
     status: p.status ?? null,
@@ -81,6 +83,7 @@ function serializeExpense(
   period: Record<string, unknown> | null,
 ) {
   return {
+    id: String(e.id),
     shared_expense_id: String(e.id),
     group_id: String(e.group_id),
     creator_user_id: String(e.creator_user_id),

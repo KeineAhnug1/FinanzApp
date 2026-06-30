@@ -114,7 +114,14 @@ export function SharedExpensesSection({ groupId, isAdmin, sessionUserId, members
       const res = await fetch(apiUrl(`/api/groups/${groupId}/shared-expenses`), { credentials: 'include' });
       const json = await safeJson(res);
       if (!res.ok || !json.ok) throw new Error(json.message ?? 'Fehler beim Laden');
-      const list = Array.isArray(json.shared_expenses) ? json.shared_expenses : (Array.isArray(json.expenses) ? json.expenses : []);
+      // Backend returns { ok: true, items: [...] }; older shapes (shared_expenses, expenses) supported as fallback.
+      const list = Array.isArray(json.items)
+        ? json.items
+        : Array.isArray(json.shared_expenses)
+          ? json.shared_expenses
+          : Array.isArray(json.expenses)
+            ? json.expenses
+            : [];
       return (list as Record<string, unknown>[]).map(parseExpense);
     },
     enabled: !!groupId,
