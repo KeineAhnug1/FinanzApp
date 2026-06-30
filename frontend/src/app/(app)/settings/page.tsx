@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -177,15 +177,17 @@ function PrivacySection({ user, onSaved }: { user: UserClient; onSaved: () => vo
               Wenn aus, sehen andere Nutzer im Forum nur deine Initialen statt deines Profilbilds. Du selbst siehst dein Bild weiterhin überall.
             </p>
           </div>
-          <label className="switch" aria-label="Profilbild für andere anzeigen">
-            <input
-              type="checkbox"
-              checked={enabled}
-              disabled={busy}
-              onChange={(e) => toggle(e.target.checked)}
-            />
-            <span className="switch__track" aria-hidden="true"><span className="switch__thumb" /></span>
-          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label="Profilbild für andere anzeigen"
+            disabled={busy}
+            onClick={() => toggle(!enabled)}
+            className={`toggle-switch${enabled ? ' is-on' : ''}`}
+          >
+            <span className="toggle-switch__thumb" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </section>
@@ -406,11 +408,11 @@ export default function SettingsPage() {
     if (data?.user) setUser(data.user);
   };
 
+  useEffect(() => {
+    if (!user && !isLoading) router.replace('/login');
+  }, [user, isLoading, router]);
+
   if (isLoading && !storeUser) return <div className="einst-layout"><p className="settings__muted-text">Lade Profil…</p></div>;
-  if (!user && !isLoading) {
-    router.replace('/login');
-    return null;
-  }
   if (!user) return null;
 
   const navItems = [
