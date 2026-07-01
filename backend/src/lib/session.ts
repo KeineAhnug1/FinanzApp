@@ -41,8 +41,21 @@ export async function getSessionRecord(env: Env, token: string | undefined): Pro
     }
   }
 
-  const ttl = Number(env.SESSION_TTL_MINUTES ?? 180) * 60;
-  await env.SESSIONS.put(`session:${token}`, JSON.stringify({ userId, issuedAt: issuedAt || Date.now() }), { expirationTtl: ttl });
+  // Sliding-session refresh: extend the KV TTL by re-writing the record. Cloudflare's
+  // KV free tier caps `put()` at 1000/day, so writing on every authenticated request
+  // would burn through the quota in a couple hundred page loads (a single dashboard
+  // hit fires ~5 API calls). Debounce: only refresh once the session is at least
+  // halfway through its lifetime — that's at most one write per user per (TTL/2).
+  const ttlSec = Number(env.SESSION_TTL_MINUTES ?? 180) * 60;
+  const ageMs = issuedAt > 0 ? Date.now() - issuedAt : Infinity;
+  const halfLifeMs = (ttlSec * 1000) / 2;
+  if (ageMs >= halfLifeMs) {
+    await env.SESSIONS.put(
+      `session:${token}`,
+      JSON.stringify({ userId, issuedAt: Date.now() }),
+      { expirationTtl: ttlSec },
+    );
+  }
   return { userId };
 }
 
