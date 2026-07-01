@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
 import { toast } from '@/components/ui/Toast';
@@ -13,6 +13,8 @@ import {
 } from '@/components/dashboard/types';
 import { DrilldownCashflowChart } from '@/components/dashboard/DrilldownCashflowChart';
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart';
+import { currentEffectiveBalance } from '@/components/dashboard/wealth';
+import { expandAllRecurring } from '@/components/dashboard/recurring';
 import { BudgetOverview } from '@/components/dashboard/BudgetOverview';
 import { EntriesList } from '@/components/dashboard/EntriesList';
 import { IncomeForm } from '@/components/dashboard/IncomeForm';
@@ -66,7 +68,7 @@ export default function DashboardPage() {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions', accountFilter],
-    queryFn: () => apiFetch(`/api/finance/transactions${accountParam}`).then((d) => {
+    queryFn: () => apiFetch(`/api/finance/transactions${accountParam}${accountParam ? '&' : '?'}limit=200`).then((d) => {
       type RawEntry = { type: string; is_active?: boolean; state?: string };
       // Soft-deleted entries (state: 'completed' AND is_active: false) are hidden from
       // every user-facing list. They stay in the DB to keep the audit-log constraint
@@ -82,14 +84,47 @@ export default function DashboardPage() {
   const income = transactions?.income ?? [];
   const expenses = transactions?.expense ?? [];
 
-  const totalIncome = income.reduce((s, e) => s + Number(e.amount), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  // Aggregate over all occurrences (real rows + past recurrence expansions) up to today,
+  // so "Einnahmen / Ausgaben / Sparquote" reflect what the user actually earned and spent.
+  // The `opening` income row is excluded — starting capital is neither an income nor an
+  // expense and would distort the savings rate.
+  const aggregates = useMemo(() => {
+    const now = new Date();
+    const realIncomeNonOpening = income.filter((e) => e.category !== 'opening');
+    const expandedIncome = expandAllRecurring(realIncomeNonOpening, now);
+    const expandedExpenses = expandAllRecurring(expenses, now);
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    let incomeCount = 0;
+    let expenseCount = 0;
+    for (const e of expandedIncome) {
+      const ts = new Date(e.received_at).getTime();
+      if (!Number.isFinite(ts) || ts > now.getTime()) continue;
+      totalIncome += Number(e.amount) || 0;
+      incomeCount++;
+    }
+    for (const e of expandedExpenses) {
+      const ts = new Date(e.spent_at).getTime();
+      if (!Number.isFinite(ts) || ts > now.getTime()) continue;
+      totalExpenses += Number(e.amount) || 0;
+      expenseCount++;
+    }
+    return { totalIncome, totalExpenses, incomeCount, expenseCount };
+  }, [income, expenses]);
+
+  const { totalIncome, totalExpenses, incomeCount, expenseCount } = aggregates;
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
   const filteredAccounts = accountFilter
     ? accounts.filter((a) => String(a.id) === String(accountFilter))
     : accounts;
-  const totalBalance = filteredAccounts.reduce((s, a) => s + Number(a.balance ?? 0), 0);
+  // Effective balance: opening capital + every income/expense (real + past recurring
+  // occurrences) up to now. This replaces the raw `bank_accounts.balance`, which only
+  // counts each recurring definition once and drifts from reality after month one.
+  const totalBalance = useMemo(
+    () => currentEffectiveBalance(income, expenses),
+    [income, expenses],
+  );
   const earliestAccountOpenedAt = filteredAccounts.reduce<number | null>((min, a) => {
     if (!a.created_at) return min;
     const ts = new Date(a.created_at).getTime();
@@ -144,19 +179,19 @@ export default function DashboardPage() {
           <div className="hero-card">
             <p className="hero-label">Gesamtsaldo</p>
             <p className="hero-value">{formatMoney(totalBalance)}</p>
-            <p className="hero-sub">{income.length + expenses.length} Buchungen · {filteredAccounts.length} {filteredAccounts.length === 1 ? 'Konto' : 'Konten'}</p>
+            <p className="hero-sub">{incomeCount + expenseCount} Buchungen · {filteredAccounts.length} {filteredAccounts.length === 1 ? 'Konto' : 'Konten'}</p>
           </div>
 
           <div className="kpi-grid">
             <div className="kpi-card">
               <p className="kpi-label">Einnahmen</p>
               <p className="kpi-value">{formatMoney(totalIncome)}</p>
-              <p className="kpi-trend positive">↑ {income.length} Einträge</p>
+              <p className="kpi-trend positive">↑ {incomeCount} Einträge</p>
             </div>
             <div className="kpi-card">
               <p className="kpi-label">Ausgaben</p>
               <p className="kpi-value">{formatMoney(totalExpenses)}</p>
-              <p className="kpi-trend neutral">{expenses.length} Einträge</p>
+              <p className="kpi-trend neutral">{expenseCount} Einträge</p>
             </div>
             <div className="kpi-card">
               <p className="kpi-label">Sparquote</p>

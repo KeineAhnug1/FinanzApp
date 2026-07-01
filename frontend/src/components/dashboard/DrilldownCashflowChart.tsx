@@ -5,76 +5,16 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { formatMoney, type IncomeEntry, type ExpenseEntry } from './types';
+import { buildWealthTimeline, wealthAt, type WealthTimeline } from './wealth';
 import { expandAllRecurring } from './recurring';
 
 type ChartLevel = 'timeline' | 'year' | 'month';
-
-interface SignedCashflow {
-  ts: number;
-  amount: number; // signed: income positive, expense negative
-  isProjected: boolean;
-}
-
-function buildCashflowIndex(income: IncomeEntry[], expenses: ExpenseEntry[]): SignedCashflow[] {
-  const out: SignedCashflow[] = [];
-  for (const e of income) {
-    const ts = new Date(e.received_at).getTime();
-    if (!Number.isFinite(ts)) continue;
-    out.push({ ts, amount: Number(e.amount), isProjected: e.isProjected === true });
-  }
-  for (const e of expenses) {
-    const ts = new Date(e.spent_at).getTime();
-    if (!Number.isFinite(ts)) continue;
-    out.push({ ts, amount: -Number(e.amount), isProjected: e.isProjected === true });
-  }
-  out.sort((a, b) => a.ts - b.ts);
-  return out;
-}
-
-// Predicted balance at the END of the given boundary date.
-//
-// `currentBalance` is the live `bank_accounts.balance`, which already reflects every entry
-// the backend has booked — including entries dated in the future. So when projecting the
-// balance curve forward, only `isProjected` cashflows (virtual recurrence projections that
-// are NOT yet stored) should move the balance; real entries already counted in
-// `currentBalance` would otherwise be double-counted.
-//
-// When reaching backward into the past, we have the opposite situation: we need to undo
-// the real bookings that have happened between the past boundary and today. Projected
-// cashflows are by definition not stored, so they do not need to be undone.
-function balanceAt(boundary: Date, today: number, currentBalance: number, cashflow: SignedCashflow[]): number {
-  const t = boundary.getTime();
-  if (t === today) return currentBalance;
-
-  if (t > today) {
-    let delta = 0;
-    for (const cf of cashflow) {
-      if (!cf.isProjected) continue;
-      if (cf.ts <= today) continue;
-      if (cf.ts > t) break;
-      delta += cf.amount;
-    }
-    return currentBalance + delta;
-  }
-
-  // boundary is in the past: subtract every REAL booking that occurred after boundary up to today
-  let delta = 0;
-  for (let i = cashflow.length - 1; i >= 0; i--) {
-    const cf = cashflow[i]!;
-    if (cf.isProjected) continue;
-    if (cf.ts > today) continue;
-    if (cf.ts <= t) break;
-    delta += cf.amount;
-  }
-  return currentBalance - delta;
-}
 
 function buildTimelineData(
   income: IncomeEntry[],
   expenses: ExpenseEntry[],
   windowStart: number,
-  currentBalance: number,
-  cashflow: SignedCashflow[],
+  timeline: WealthTimeline,
   earliestAccountTs: number | null,
 ) {
   const byYear: Record<number, { income: number; expense: number }> = {};
@@ -91,7 +31,6 @@ function buildTimelineData(
 
   const years: number[] = [];
   for (let y = windowStart; y < windowStart + 8; y++) years.push(y);
-  const today = Date.now();
 
   return years.map((y) => {
     const d = byYear[y] ?? { income: 0, expense: 0 };
@@ -102,7 +41,7 @@ function buildTimelineData(
       _key: String(y),
       Einnahmen: Math.round(d.income * 100) / 100,
       Ausgaben: Math.round(d.expense * 100) / 100,
-      Vermögen: hasWealth ? Math.round(balanceAt(yearEnd, today, currentBalance, cashflow) * 100) / 100 : null,
+      Vermögen: hasWealth ? Math.round(wealthAt(timeline, yearEnd) * 100) / 100 : null,
     };
   });
 }
@@ -111,8 +50,7 @@ function buildMonthlyData(
   income: IncomeEntry[],
   expenses: ExpenseEntry[],
   year: string,
-  currentBalance: number,
-  cashflow: SignedCashflow[],
+  timeline: WealthTimeline,
   earliestAccountTs: number | null,
 ) {
   const months: string[] = [];
@@ -131,7 +69,6 @@ function buildMonthlyData(
     const k = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     byMonth[k].expense += Number(e.amount);
   }
-  const today = Date.now();
   return months.map((k) => {
     const [y, m] = k.split('-');
     const yNum = Number(y);
@@ -145,7 +82,7 @@ function buildMonthlyData(
       _key: k,
       Einnahmen: Math.round(v.income * 100) / 100,
       Ausgaben: Math.round(v.expense * 100) / 100,
-      Vermögen: hasWealth ? Math.round(balanceAt(monthEnd, today, currentBalance, cashflow) * 100) / 100 : null,
+      Vermögen: hasWealth ? Math.round(wealthAt(timeline, monthEnd) * 100) / 100 : null,
     };
   });
 }
@@ -154,8 +91,7 @@ function buildDailyData(
   income: IncomeEntry[],
   expenses: ExpenseEntry[],
   monthKey: string,
-  currentBalance: number,
-  cashflow: SignedCashflow[],
+  timeline: WealthTimeline,
   earliestAccountTs: number | null,
 ) {
   const [year, month] = monthKey.split('-').map(Number);
@@ -176,7 +112,6 @@ function buildDailyData(
     const k = `${year}-${String(month).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     if (byDay[k]) byDay[k].expense += Number(e.amount);
   }
-  const today = Date.now();
   return days.map((k) => {
     const [yStr, mStr, dStr] = k.split('-');
     const day = dStr;
@@ -188,7 +123,7 @@ function buildDailyData(
       _key: k,
       Einnahmen: Math.round(v.income * 100) / 100,
       Ausgaben: Math.round(v.expense * 100) / 100,
-      Vermögen: hasWealth ? Math.round(balanceAt(dayEnd, today, currentBalance, cashflow) * 100) / 100 : null,
+      Vermögen: hasWealth ? Math.round(wealthAt(timeline, dayEnd) * 100) / 100 : null,
     };
   });
 }
@@ -197,13 +132,13 @@ export function DrilldownCashflowChart({
   income,
   expenses,
   foundingYear,
-  currentBalance,
   earliestAccountOpenedAt = null,
 }: {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   foundingYear: number;
-  currentBalance: number;
+  /** Kept for backwards compat with call sites; no longer used for wealth math. */
+  currentBalance?: number;
   earliestAccountOpenedAt?: number | null;
 }) {
   const currentYear = new Date().getFullYear();
@@ -229,16 +164,16 @@ export function DrilldownCashflowChart({
     [expenses, horizonEnd],
   );
 
-  const cashflow = useMemo(
-    () => buildCashflowIndex(projectedIncome, projectedExpenses),
-    [projectedIncome, projectedExpenses],
+  const timeline = useMemo(
+    () => buildWealthTimeline(income, expenses, horizonEnd),
+    [income, expenses, horizonEnd],
   );
 
   const data = useMemo(() => {
-    if (level === 'timeline') return buildTimelineData(projectedIncome, projectedExpenses, windowStart, currentBalance, cashflow, earliestAccountOpenedAt);
-    if (level === 'year') return buildMonthlyData(projectedIncome, projectedExpenses, selectedYear, currentBalance, cashflow, earliestAccountOpenedAt);
-    return buildDailyData(projectedIncome, projectedExpenses, selectedMonthKey, currentBalance, cashflow, earliestAccountOpenedAt);
-  }, [level, windowStart, selectedYear, selectedMonthKey, projectedIncome, projectedExpenses, currentBalance, cashflow, earliestAccountOpenedAt]);
+    if (level === 'timeline') return buildTimelineData(projectedIncome, projectedExpenses, windowStart, timeline, earliestAccountOpenedAt);
+    if (level === 'year') return buildMonthlyData(projectedIncome, projectedExpenses, selectedYear, timeline, earliestAccountOpenedAt);
+    return buildDailyData(projectedIncome, projectedExpenses, selectedMonthKey, timeline, earliestAccountOpenedAt);
+  }, [level, windowStart, selectedYear, selectedMonthKey, projectedIncome, projectedExpenses, timeline, earliestAccountOpenedAt]);
 
   type ChartClickPayload = { activePayload?: { payload?: { _key?: string } }[] };
   const handleClick = (payload: ChartClickPayload) => {
