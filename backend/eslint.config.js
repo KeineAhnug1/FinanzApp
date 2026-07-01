@@ -1,0 +1,19 @@
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  {
+    ignores: ['dist/', 'node_modules/', '.wrangler/'],
+  },
+  ...tseslint.configs.recommended,
+  {
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/ban-ts-comment': 'warn',
+      '@typescript-eslint/no-unsafe-function-type': 'warn',
+    },
+  },
+);

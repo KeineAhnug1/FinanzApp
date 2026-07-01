@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" fill="none">
+  <defs>
+    <!-- Background: bright electric blue top-left to deep blue bottom-right -->
+    <linearGradient id="bg" x1="0" y1="0" x2="800" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#2B6EF8"/>
+      <stop offset="60%"  stop-color="#1C50E0"/>
+      <stop offset="100%" stop-color="#1030C8"/>
+    </linearGradient>
+
+    <!-- Wing: white left → barely off-white right -->
+    <linearGradient id="wingFill" x1="130" y1="155" x2="700" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EAF0FF"/>
+    </linearGradient>
+
+    <!-- Spine: white top → blue-lavender bottom -->
+    <linearGradient id="spineFill" x1="0" y1="155" x2="0" y2="765" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="38%"  stop-color="#D0DAFF"/>
+      <stop offset="78%"  stop-color="#90AAFF"/>
+      <stop offset="100%" stop-color="#7898FF"/>
+    </linearGradient>
+
+    <!-- Middle arm: cool blue-white -->
+    <linearGradient id="midFill" x1="196" y1="490" x2="608" y2="490" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#C5D2FF"/>
+      <stop offset="100%" stop-color="#8EAAFF"/>
+    </linearGradient>
+
+    <!-- Bars: indigo top → periwinkle bottom -->
+    <linearGradient id="barFill" x1="393" y1="400" x2="645" y2="765" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#4E6CF5"/>
+      <stop offset="100%" stop-color="#AABCFF"/>
+    </linearGradient>
+
+    <!-- Wing drop-shadow for depth -->
+    <filter id="wingShadow" x="-18%" y="-22%" width="148%" height="158%">
+      <feDropShadow dx="3" dy="16" stdDeviation="20" flood-color="#081880" flood-opacity="0.52"/>
+    </filter>
+  </defs>
+
+  <!-- ── Background ── -->
+  <rect width="800" height="800" rx="175" fill="url(#bg)"/>
+
+  <!-- ── Bar chart (drawn first = behind F) ── -->
+  <!-- short -->
+  <rect x="393" y="598" width="65" height="167" rx="22" fill="url(#barFill)"/>
+  <!-- medium -->
+  <rect x="483" y="498" width="65" height="267" rx="22" fill="url(#barFill)"/>
+  <!-- tall -->
+  <rect x="573" y="400" width="65" height="365" rx="22" fill="url(#barFill)"/>
+
+  <!-- ── F vertical spine ── -->
+  <rect x="130" y="155" width="66" height="610" rx="33" fill="url(#spineFill)"/>
+
+  <!-- ── F top wing  ──
+       Top edge: almost flat, very gently arching up.
+       Bottom edge: a wide concave scoop sweeping back left.
+  -->
+  <path d="
+    M 196 160
+    C 430 148, 625 184, 698 226
+    C 732 244, 730 286, 696 300
+    C 572 338, 385 330, 196 320
+    Z
+  " fill="url(#wingFill)" filter="url(#wingShadow)"/>
+
+  <!-- ── F middle arm ──
+       Angles slightly downward left→right, curves gently.
+  -->
+  <path d="
+    M 196 455
+    C 368 460, 534 474, 603 496
+    C 636 508, 634 540, 601 544
+    C 512 552, 348 542, 196 526
+    Z
+  " fill="url(#midFill)"/>
+
+</svg>

@@ -1,0 +1,38 @@
+# env files
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# Local-only secret-bulk file used to upload secrets to Cloudflare via
+# `wrangler secret bulk` — never commit.
+.secrets.json
+backend/.secrets.json
+frontend/.secrets.json
+
+# OS
+.DS_Store
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Next.js build output at root (legacy)
+.next/
+next-env.d.ts
+
+# Root dev tooling
+node_modules/
+package-lock.json
+
+# Sub-project build artifacts
+backend/node_modules/
+backend/dist/
+backend/.wrangler/
+frontend/node_modules/
+frontend/.next/
+frontend/.vercel/
+frontend/.wrangler/
+
+# Extended documentation & design assets
+docs/
+design/

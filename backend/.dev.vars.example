@@ -1,0 +1,140 @@
+# =============================================================================
+#  FinanzApp Backend — Local Development Environment
+# =============================================================================
+#
+#  HOW TO USE
+#  ----------
+#  1. Copy this file:           cp .dev.vars.example .dev.vars
+#  2. Fill in real values below.
+#  3. NEVER commit .dev.vars — it is gitignored and contains secrets.
+#
+#  Wrangler picks up .dev.vars automatically when you run `npm run dev`.
+#  For production, set the same variables as Worker secrets via
+#  `wrangler secret put <NAME>` instead.
+# =============================================================================
+
+
+# ─── Datenbank ────────────────────────────────────────────────────────────────
+#
+# In production wir nutzen Cloudflare Hyperdrive (binding HYPERDRIVE in
+# wrangler.toml). Im lokalen Dev fällt der Code auf DATABASE_URL zurück.
+#
+# Format: Supabase Session-Pooler-URL (Port 5432). NICHT die Transaction-
+# Pooler-URL (Port 6543) — der unterstützt keine prepared statements und
+# bricht Hyperdrive.
+#
+# Holen unter: Supabase Dashboard → Project Settings → Database →
+#              Connection string → "Session" (Mode: Session, Port 5432)
+#
+DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+
+
+# ─── Supabase REST-Fallback ───────────────────────────────────────────────────
+#
+# Optional: wenn DATABASE_URL nicht erreichbar ist, nutzt das Backend die
+# Supabase REST API (PostgREST) statt Postgres direkt. Schneller einzurichten
+# als ein Pooler-Setup, aber langsamer und mit weniger SQL-Features.
+#
+# Holen unter: Supabase Dashboard → Project Settings → API
+#   SUPABASE_URL              = "Project URL"
+#   SUPABASE_SERVICE_ROLE_KEY = "service_role" key (NICHT der anon key —
+#                                der service_role umgeht RLS)
+#
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+
+# ─── Session ──────────────────────────────────────────────────────────────────
+#
+# Steuert das Verhalten der Session-Cookies und der Verifizierungscodes.
+# Alle drei haben sinnvolle Defaults im Code — du musst sie hier nur
+# überschreiben, wenn du z.B. längere Sessions willst.
+#
+SESSION_COOKIE_NAME=finanzapp_session     # Name des Auth-Cookies
+SESSION_TTL_MINUTES=180                   # Session-Lebensdauer (3 h)
+EMAIL_CODE_TTL_MINUTES=15                 # Verifizierungscode-Lebensdauer
+
+
+# ─── E-Mail (Resend) ──────────────────────────────────────────────────────────
+#
+# Resend wird für Registrierungs- und Passwort-Reset-Codes verwendet.
+# Ohne gültigen Key kann sich niemand neu registrieren.
+#
+# Holen unter: https://resend.com → API Keys → Create API Key
+#
+# EMAIL_FROM muss eine in Resend verifizierte Domain sein. Wenn du keine
+# eigene Domain hast, geht "onboarding@resend.dev" — der schickt aber nur
+# an deine eigene Resend-Account-E-Mail.
+#
+RESEND_API_KEY=re_your_key_here
+EMAIL_FROM=FBM Finance <noreply@yourdomain.com>
+
+
+# ─── Aktien-Daten (Finnhub) ───────────────────────────────────────────────────
+#
+# Finnhub liefert Live-Kurse, historische Charts und die Symbol-Suche.
+# Ohne Key bleibt die Aktien-Seite leer.
+#
+# Holen unter: https://finnhub.io → Dashboard → API Key
+#              (Free-Tier: 60 Calls/min, reicht für Dev locker)
+#
+FINNHUB_API_KEY=your-finnhub-key
+
+
+# ─── KI-Assistent (OpenRouter) ────────────────────────────────────────────────
+#
+# OpenRouter routet Anfragen an verschiedene LLM-Anbieter. Wir nutzen es
+# für den "Finzbro"-Bot, der automatisch auf Forum-Fragen antwortet.
+#
+# Holen unter: https://openrouter.ai → Settings → Keys → Create Key
+#
+# OPENROUTER_API_KEY_2 ist optional — fällt der Primärkey aus (Rate-Limit
+# oder Quota), wechselt das Backend automatisch auf den Zweitkey.
+#
+# OPENROUTER_MODEL kann jedes Model sein, das dein Account erreichen darf.
+# Default ist ein kostenloses Modell.
+#
+# OPENROUTER_SITE_URL + OPENROUTER_APP_NAME landen als HTTP-Referer und
+# X-Title bei OpenRouter — wichtig für deren Ranking/Stats. Bei Production
+# auf deine Produktiv-Domain setzen.
+#
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_API_KEY_2=
+OPENROUTER_MODEL=openai/gpt-oss-20b:free
+OPENROUTER_SITE_URL=http://localhost:4000
+OPENROUTER_APP_NAME=FinanzApp
+
+
+# ─── Logo-Service (logo.dev) ──────────────────────────────────────────────────
+#
+# logo.dev liefert Firmen-Logos zu Aktien-Tickern (das Apple-Symbol neben
+# AAPL etc.). Wenn der Key fehlt, fallen die Logos einfach weg — die App
+# läuft weiter.
+#
+# Holen unter: https://www.logo.dev → Sign up → Public Key
+#
+LOGO_DEV_API_KEY=your-logo-dev-key
+
+
+# ─── Forum-Bot ────────────────────────────────────────────────────────────────
+#
+# Die E-Mail-Adresse, unter der Finzbro-Antworten als User-Account angezeigt
+# werden. Muss als User in der Datenbank existieren (siehe Seed). Im Dev
+# reicht der Default.
+#
+FINZBRO_BOT_EMAIL=finzbro@finanzapp.local
+
+
+# ─── App ──────────────────────────────────────────────────────────────────────
+#
+# FRONTEND_ORIGIN ist die Liste erlaubter CORS-Origins (komma-separiert).
+# Localhost ist immer erlaubt; in Production trag die Pages/Vercel-Domain
+# ein, sonst blockiert der Browser die Cookie-Auth.
+#
+# DEV_EXPOSE_VERIFICATION_CODE=true blendet den 6-stelligen E-Mail-Code
+# direkt im Verify-Form ein (Banner mit „Einfügen"-Button). Damit kann
+# man sich registrieren OHNE eine echte Mail abzuwarten. NIEMALS in
+# Production aktivieren.
+#
+FRONTEND_ORIGIN=http://localhost:4000
+DEV_EXPOSE_VERIFICATION_CODE=true

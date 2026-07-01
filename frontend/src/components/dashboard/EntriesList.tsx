@@ -1,0 +1,309 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { formatDate, formatMoney, getCategoryLabel, type AnyEntry } from './types';
+import { isRecurring, expandPastRecurring, getEntryDate } from './recurring';
+import { EmptyState, IconTrendingUp, IconTrendingDown } from '@/components/ui/EmptyState';
+
+function groupByDate(entries: AnyEntry[], dateField: 'received_at' | 'spent_at') {
+  const byYear: Record<string, Record<string, Record<string, AnyEntry[]>>> = {};
+  for (const e of entries) {
+    const raw = (e as unknown as Record<string, string>)[dateField];
+    const d = new Date(raw);
+    const year = String(d.getFullYear());
+    const month = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(d);
+    const day = formatDate(raw);
+    byYear[year] = byYear[year] ?? {};
+    byYear[year][month] = byYear[year][month] ?? {};
+    byYear[year][month][day] = byYear[year][month][day] ?? [];
+    byYear[year][month][day].push(e);
+  }
+  return byYear;
+}
+
+function endOfCurrentMonth(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+export function EntriesList({
+  entries,
+  type,
+  onEdit,
+  onDelete,
+  onAddClick,
+}: {
+  entries: AnyEntry[];
+  type: 'income' | 'expense';
+  onEdit: (e: AnyEntry) => void;
+  onDelete: (id: string) => void;
+  onAddClick?: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showFuture, setShowFuture] = useState(false);
+  const dateField = type === 'income' ? 'received_at' : 'spent_at';
+
+  // What appears in the Einnahmen/Ausgaben list:
+  //   1. Plain one-time entries (their original date)
+  //   2. Recurring entries: the original IF its date is in the past, plus every
+  //      already-elapsed occurrence as a virtual past-recurring row. NO future
+  //      occurrences — those only live in the Daueraufträge tab.
+  const visibleEntries = useMemo(() => {
+    const now = new Date();
+    const out: AnyEntry[] = [];
+    for (const e of entries) {
+      if (e.isProjected) continue;
+      if (isRecurring(e)) {
+        const startStr = getEntryDate(e);
+        const start = startStr ? new Date(startStr) : null;
+        if (start && !Number.isNaN(start.getTime()) && start <= now) out.push(e);
+        out.push(...expandPastRecurring(e, now));
+      } else {
+        out.push(e);
+      }
+    }
+    return out;
+  }, [entries]);
+
+  const searchMatch = (e: AnyEntry) =>
+    e.source.toLowerCase().includes(search.toLowerCase()) ||
+    e.category.toLowerCase().includes(search.toLowerCase());
+
+  const monthEnd = endOfCurrentMonth().getTime();
+
+  // Split into past/current-month (descending main list) and future (collapsed "Vorgemerkt").
+  const { mainEntries, futureEntries } = useMemo(() => {
+    const past: AnyEntry[] = [];
+    const future: AnyEntry[] = [];
+    for (const e of visibleEntries) {
+      if (!searchMatch(e)) continue;
+      const raw = (e as unknown as Record<string, string>)[dateField];
+      const ts = new Date(raw).getTime();
+      if (!Number.isFinite(ts) || ts <= monthEnd) past.push(e);
+      else future.push(e);
+    }
+    return { mainEntries: past, futureEntries: future };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleEntries, search, dateField, monthEnd]);
+
+  const grouped = groupByDate(mainEntries, dateField);
+  const futureSorted = useMemo(
+    () => [...futureEntries].sort((a, b) => {
+      const ta = new Date((a as unknown as Record<string, string>)[dateField]).getTime();
+      const tb = new Date((b as unknown as Record<string, string>)[dateField]).getTime();
+      return ta - tb;
+    }),
+    [futureEntries, dateField],
+  );
+
+  const hasAnyEntries = visibleEntries.length > 0;
+  const isIncome = type === 'income';
+
+  return (
+    <>
+      <div className="list-tools">
+        <input
+          className="field-input list-search"
+          placeholder="Suchen…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      {mainEntries.length === 0 && futureEntries.length === 0 ? (
+        !hasAnyEntries ? (
+          isIncome ? (
+            <EmptyState
+              icon={<IconTrendingUp />}
+              title="Noch keine Einnahmen"
+              description="Erfasse deine erste Einnahme, um deinen Cashflow zu verfolgen."
+              cta={onAddClick ? { label: 'Erste Einnahme angeben', onClick: onAddClick } : undefined}
+            />
+          ) : (
+            <EmptyState
+              icon={<IconTrendingDown />}
+              title="Noch keine Ausgaben"
+              description="Erfasse deine erste Ausgabe, um deine Kategorien zu sehen."
+              cta={onAddClick ? { label: 'Erste Ausgabe angeben', onClick: onAddClick } : undefined}
+            />
+          )
+        ) : (
+          <EmptyState
+            size="sm"
+            title="Keine Treffer"
+            description="Versuche einen anderen Suchbegriff oder lösche den Filter."
+          />
+        )
+      ) : (
+        <>
+          {futureEntries.length > 0 && (
+            <details
+              className="entries-future"
+              open={showFuture}
+              onToggle={(e) => setShowFuture((e.target as HTMLDetailsElement).open)}
+            >
+              <summary className="entries-future__summary">
+                <span className="entries-future__title">
+                  Vorgemerkt
+                  <span className="entries-future__count">{futureEntries.length}</span>
+                </span>
+                <span className="entries-future__hint">
+                  {showFuture ? 'Ausblenden' : 'Anzeigen'}
+                </span>
+              </summary>
+              <ul className="entries-future__list">
+                {futureSorted.map((entry) => {
+                  const isTransfer = entry.transfer_id != null;
+                  const raw = (entry as unknown as Record<string, string>)[dateField];
+                  return (
+                    <li key={entry.id} className="income-item">
+                      <div className="income-topline">
+                        <span className="income-source">
+                          {entry.source}
+                          {isTransfer && <span className="transfer-badge">Überweisung</span>}
+                        </span>
+                        <span className={`income-amount${type === 'expense' ? ' is-expense' : ''}`}>{formatMoney(Number(entry.amount))}</span>
+                      </div>
+                      <div className="income-tags">
+                        <span className="income-tag">{getCategoryLabel(entry.category)}</span>
+                        <span className="income-tag income-tag--muted">{formatDate(raw)}</span>
+                      </div>
+                      {entry.note && <p className="income-note">{entry.note}</p>}
+                      <div className="income-actions-inline">
+                        <button
+                          className="inline-action"
+                          type="button"
+                          onClick={() => onEdit(entry)}
+                          disabled={isTransfer}
+                          title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                        >Bearbeiten</button>
+                        {deleteId === entry.id ? (
+                          <>
+                            <button className="inline-action delete" type="button" onClick={() => { setDeleteId(null); onDelete(entry.id); }}>Wirklich löschen?</button>
+                            <button className="inline-action" type="button" onClick={() => setDeleteId(null)}>Abbrechen</button>
+                          </>
+                        ) : (
+                          <button
+                            className="inline-action delete"
+                            type="button"
+                            onClick={() => setDeleteId(entry.id)}
+                            disabled={isTransfer}
+                            title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                          >Löschen</button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          )}
+
+          {mainEntries.length === 0 ? (
+            <EmptyState size="sm" title="Keine Treffer" description="Versuche einen anderen Suchbegriff oder lösche den Filter." />
+          ) : (
+        <ul className="income-list">
+          {Object.entries(grouped).sort(([a], [b]) => Number(b) - Number(a)).map(([year, months]) => {
+            const allEntries = Object.values(months).flatMap(Object.values).flat();
+            const yearTotal = allEntries.reduce((s, e) => s + Number(e.amount), 0);
+            return (
+              <li key={year} className="month-group-item">
+                <details className="year-group" open>
+                  <summary className="month-summary">
+                    <span className="month-title">{year}</span>
+                    <span className="month-meta">{allEntries.length} Einträge · {formatMoney(yearTotal)}</span>
+                  </summary>
+                  <div className="year-content">
+                    {Object.entries(months)
+                      .map(([month, days]) => {
+                        const sample = Object.values(days)[0]?.[0];
+                        const ts = sample
+                          ? new Date((sample as unknown as Record<string, string>)[dateField]).getTime()
+                          : 0;
+                        return { month, days, ts };
+                      })
+                      .sort((a, b) => b.ts - a.ts)
+                      .map(({ month, days }) => {
+                      const monthTotal = Object.values(days).flat().reduce((s, e) => s + Number(e.amount), 0);
+                      return (
+                        <details key={month} className="month-group" open>
+                          <summary className="month-summary">
+                            <span className="month-title">{month}</span>
+                            <span className="month-meta">{formatMoney(monthTotal)}</span>
+                          </summary>
+                          <ul className="month-entry-list">
+                            {Object.entries(days).sort(([a], [b]) => b.localeCompare(a)).map(([day, dayEntries]) => (
+                              <li key={day}>
+                                <details className="day-group">
+                                  <summary className="day-summary">
+                                    <span className="day-title">{day}</span>
+                                  </summary>
+                                  <ul style={{ margin: 0, padding: '0 8px 8px', listStyle: 'none', display: 'grid', gap: 8 }}>
+                                    {dayEntries.map((entry) => {
+                                      const isTransfer = entry.transfer_id != null;
+                                      const isRecurOriginal = isRecurring(entry) && !entry.isPastRecurring;
+                                      const isRecurOccurrence = entry.isPastRecurring === true;
+                                      const isReadOnly = isTransfer || isRecurOccurrence;
+                                      return (
+                                      <li key={entry.id} className={`income-item${entry.isProjected ? ' income-item--projected' : ''}${isRecurOccurrence ? ' income-item--past-recurring' : ''}`}>
+                                        <div className="income-topline">
+                                          <span className="income-source">
+                                            {entry.source}
+                                            {isTransfer && <span className="transfer-badge">Überweisung</span>}
+                                            {(isRecurOriginal || isRecurOccurrence) && <span className="recurring-badge">Dauerauftrag</span>}
+                                            {entry.isProjected && <span className="entry-projected-badge">geplant</span>}
+                                          </span>
+                                          <span className={`income-amount${type === 'expense' ? ' is-expense' : ''}`}>{formatMoney(Number(entry.amount))}</span>
+                                        </div>
+                                        <div className="income-tags">
+                                          <span className="income-tag">{getCategoryLabel(entry.category)}</span>
+                                        </div>
+                                        {entry.note && <p className="income-note">{entry.note}</p>}
+                                        {!entry.isProjected && !isRecurOccurrence && (
+                                          <div className="income-actions-inline">
+                                            <button
+                                              className="inline-action"
+                                              type="button"
+                                              onClick={() => onEdit(entry)}
+                                              disabled={isReadOnly}
+                                              title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                                            >Bearbeiten</button>
+                                            {deleteId === entry.id ? (
+                                              <>
+                                                <button className="inline-action delete" type="button" onClick={() => { setDeleteId(null); onDelete(entry.id); }}>Wirklich löschen?</button>
+                                                <button className="inline-action" type="button" onClick={() => setDeleteId(null)}>Abbrechen</button>
+                                              </>
+                                            ) : (
+                                              <button
+                                                className="inline-action delete"
+                                                type="button"
+                                                onClick={() => setDeleteId(entry.id)}
+                                                disabled={isReadOnly}
+                                                title={isTransfer ? 'Überweisungen sind unveränderlich' : undefined}
+                                              >Löschen</button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </details>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+          )}
+        </>
+      )}
+    </>
+  );
+}
