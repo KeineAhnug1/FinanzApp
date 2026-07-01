@@ -8,6 +8,8 @@ import {
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
+import { currentEffectiveBalancesByAccount } from '@/components/dashboard/wealth';
+import type { BankAccount as BankAccountForBalance, IncomeEntry as IncomeEntryForBalance, ExpenseEntry as ExpenseEntryForBalance } from '@/components/dashboard/types';
 
 export type DrawerRange = '1T' | '1W' | '1M' | '1J' | 'Max';
 const RANGE_PERIODS: Record<DrawerRange, string> = { '1T': '1d', '1W': '5d', '1M': '1mo', '1J': '1y', 'Max': 'max' };
@@ -110,7 +112,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
     },
   });
 
-  const { data: bankAccounts = [] } = useQuery<BankAccount[]>({
+  const { data: bankAccountsRaw = [] } = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
     enabled: open,
     staleTime: 60_000,
@@ -120,6 +122,28 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
       return d.accounts ?? [];
     },
   });
+  // The raw `bank_accounts.balance` field on the backend counts a recurring entry
+  // once instead of once per past occurrence and misses legacy opening capital, so
+  // we recompute per-account balances the same way the rest of the app does.
+  const { data: bankTransactions } = useQuery({
+    queryKey: ['transactions', 'all'],
+    enabled: open,
+    queryFn: async () => {
+      const r = await fetch(apiUrl('/api/finance/transactions?limit=2000'), { credentials: 'include' });
+      const d = await safeJson(r) as { ok: boolean; entries?: unknown[] };
+      type RawEntry = { type: string; is_active?: boolean; state?: string };
+      const visible = ((d.entries ?? []) as RawEntry[]).filter((e) => !(e.is_active === false && e.state === 'completed'));
+      return {
+        income: visible.filter((e) => e.type === 'income') as unknown as IncomeEntryForBalance[],
+        expense: visible.filter((e) => e.type === 'expense') as unknown as ExpenseEntryForBalance[],
+      };
+    },
+  });
+  const bankAccounts = useMemo<BankAccount[]>(() => {
+    if (!bankTransactions) return bankAccountsRaw;
+    const balances = currentEffectiveBalancesByAccount(bankTransactions.income, bankTransactions.expense, bankAccountsRaw as unknown as BankAccountForBalance[]);
+    return bankAccountsRaw.map((a) => ({ ...a, balance: balances.get(String(a.id)) ?? 0 }));
+  }, [bankAccountsRaw, bankTransactions]);
 
   useEffect(() => {
     if (!bankAccountId && bankAccounts.length > 0) setBankAccountId(bankAccounts[0]!.id);

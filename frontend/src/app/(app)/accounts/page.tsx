@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +13,8 @@ import { DefaultAccountSelector } from '@/components/accounts/DefaultAccountSele
 import { BankAccountHistoryModal } from '@/components/accounts/BankAccountHistoryModal';
 import { apiUrl, getCsrfToken, safeJson } from '@/lib/api-client';
 import { useFinanceInvalidator } from '@/lib/finance-mutations';
+import { currentEffectiveBalancesByAccount } from '@/components/dashboard/wealth';
+import type { IncomeEntry, ExpenseEntry } from '@/components/dashboard/types';
 
 // Diverges from db BankAccount: backend serializes id as string and adds optional name/type fields not present in the DB row.
 interface BankAccount {
@@ -23,6 +25,11 @@ interface BankAccount {
   type: string;
   created_at?: string;
 }
+
+// Same shape as BankAccount but with the frontend-computed `balance` swapped in for the
+// raw backend value. Kept as its own type so places that pass accounts around get the
+// correct (effective) number without having to remember to override anywhere.
+type AccountWithEffectiveBalance = BankAccount;
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
@@ -237,18 +244,14 @@ function AddAccountModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   );
 }
 
-function AccountCard({ account, isDefault, onUpdate }: { account: BankAccount; isDefault: boolean; onUpdate: () => void }) {
+function AccountCard({ account, allAccounts, isDefault, onUpdate }: { account: AccountWithEffectiveBalance; allAccounts: AccountWithEffectiveBalance[]; isDefault: boolean; onUpdate: () => void }) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(account.label || account.name || '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [transferTarget, setTransferTarget] = useState('');
   const [showHistory, setShowHistory] = useState(false);
-  const accounts = useQuery<BankAccount[]>({
-    queryKey: ['bank-accounts'],
-    queryFn: () => apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []),
-  });
 
-  const otherAccounts = (accounts.data ?? []).filter((a) => a.id !== account.id);
+  const otherAccounts = allAccounts.filter((a) => a.id !== account.id);
 
   const handleRename = async () => {
     if (!newName.trim()) return;
@@ -412,10 +415,36 @@ export default function AccountsPage() {
   const invalidate = useFinanceInvalidator();
   const queryClient = useQueryClient();
 
-  const { data: accounts = [], isLoading } = useQuery<BankAccount[]>({
+  const { data: rawAccounts = [], isLoading } = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
     queryFn: () => apiFetch('/api/finance/bank-accounts').then((d) => d.accounts ?? []),
   });
+
+  // The backend's `bank_accounts.balance` counts a recurring entry once (as inserted)
+  // instead of once per past occurrence, so it drifts from reality. We recompute per
+  // account from the raw entries with the same logic the dashboard uses. The header
+  // "Gesamtguthaben", each card, and the transfer/delete modals all consume the
+  // corrected numbers so nothing shows the stale backend value.
+  const { data: transactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => apiFetch('/api/finance/transactions?limit=2000').then((d) => {
+      type RawEntry = { type: string; is_active?: boolean; state?: string };
+      const visible = (d.entries ?? []).filter((e: RawEntry) => !(e.is_active === false && e.state === 'completed'));
+      return {
+        income: visible.filter((e: RawEntry) => e.type === 'income') as IncomeEntry[],
+        expense: visible.filter((e: RawEntry) => e.type === 'expense') as ExpenseEntry[],
+      };
+    }),
+  });
+
+  const accounts = useMemo<AccountWithEffectiveBalance[]>(() => {
+    if (!transactions) return rawAccounts;
+    const balances = currentEffectiveBalancesByAccount(transactions.income, transactions.expense, rawAccounts);
+    return rawAccounts.map((a) => ({
+      ...a,
+      balance: balances.get(String(a.id)) ?? 0,
+    }));
+  }, [rawAccounts, transactions]);
 
   const { data: defaultAccount } = useQuery<{ default_bank_account_id: number | null }>({
     queryKey: ['user', 'default-account'],
@@ -426,6 +455,7 @@ export default function AccountsPage() {
   const refresh = () => {
     invalidate();
     queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
     queryClient.invalidateQueries({ queryKey: ['share-accounts'] });
   };
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
@@ -467,7 +497,7 @@ export default function AccountsPage() {
           </div>
           <div className="accounts-grid">
             {accounts.map((a) => (
-              <AccountCard key={a.id} account={a} isDefault={Number(a.id) === defaultId} onUpdate={refresh} />
+              <AccountCard key={a.id} account={a} allAccounts={accounts} isDefault={Number(a.id) === defaultId} onUpdate={refresh} />
             ))}
           </div>
         </>

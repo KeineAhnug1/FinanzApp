@@ -933,7 +933,7 @@ finance.get('/transactions', async (c) => {
 
   const { cursor, limit } = parsePaginationCursor(sp.get('cursor'), sp.get('limit'), {
     defaultLimit: 50,
-    maxLimit: 200,
+    maxLimit: 2000,
     format: 'composite',
   });
   const categoryRaw = (sp.get('category') ?? '').trim();

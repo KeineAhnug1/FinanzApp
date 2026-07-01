@@ -13,7 +13,7 @@ import {
 } from '@/components/dashboard/types';
 import { DrilldownCashflowChart } from '@/components/dashboard/DrilldownCashflowChart';
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart';
-import { currentEffectiveBalance } from '@/components/dashboard/wealth';
+import { currentEffectiveBalancesByAccount } from '@/components/dashboard/wealth';
 import { expandAllRecurring } from '@/components/dashboard/recurring';
 import { BudgetOverview } from '@/components/dashboard/BudgetOverview';
 import { EntriesList } from '@/components/dashboard/EntriesList';
@@ -68,11 +68,27 @@ export default function DashboardPage() {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions', accountFilter],
-    queryFn: () => apiFetch(`/api/finance/transactions${accountParam}${accountParam ? '&' : '?'}limit=200`).then((d) => {
+    queryFn: () => apiFetch(`/api/finance/transactions${accountParam}${accountParam ? '&' : '?'}limit=2000`).then((d) => {
       type RawEntry = { type: string; is_active?: boolean; state?: string };
       // Soft-deleted entries (state: 'completed' AND is_active: false) are hidden from
       // every user-facing list. They stay in the DB to keep the audit-log constraint
       // satisfied.
+      const visible = (d.entries ?? []).filter((e: RawEntry) => !(e.is_active === false && e.state === 'completed'));
+      return {
+        income: visible.filter((e: RawEntry) => e.type === 'income') as IncomeEntry[],
+        expense: visible.filter((e: RawEntry) => e.type === 'expense') as ExpenseEntry[],
+      };
+    }),
+  });
+
+  // Separate query with NO account filter, used solely to compute per-account
+  // effective balances for the account picker dropdown. The main `transactions` query
+  // may be scoped to a single account (when a filter is active), which would leave
+  // the other accounts' entries invisible and their balances stuck at 0.
+  const { data: allTransactions } = useQuery({
+    queryKey: ['transactions', 'all'],
+    queryFn: () => apiFetch('/api/finance/transactions?limit=2000').then((d) => {
+      type RawEntry = { type: string; is_active?: boolean; state?: string };
       const visible = (d.entries ?? []).filter((e: RawEntry) => !(e.is_active === false && e.state === 'completed'));
       return {
         income: visible.filter((e: RawEntry) => e.type === 'income') as IncomeEntry[],
@@ -115,15 +131,32 @@ export default function DashboardPage() {
   const { totalIncome, totalExpenses, incomeCount, expenseCount } = aggregates;
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
+  // Per-account balances for the account-picker dropdown. Same math as the Konten page,
+  // powered by the unfiltered `allTransactions` query so every account gets a value.
+  const accountsWithEffectiveBalances = useMemo(() => {
+    if (!allTransactions) return accounts;
+    const balances = currentEffectiveBalancesByAccount(allTransactions.income, allTransactions.expense, accounts);
+    return accounts.map((a) => ({ ...a, balance: balances.get(String(a.id)) ?? 0 }));
+  }, [accounts, allTransactions]);
+
   const filteredAccounts = accountFilter
+    ? accountsWithEffectiveBalances.filter((a) => String(a.id) === String(accountFilter))
+    : accountsWithEffectiveBalances;
+  // Same slice, but with the untouched `bank_accounts.balance` field. The chart's
+  // opening-seed math needs the raw backend value (from which it derives what the
+  // account started with) — passing the already-recomputed value here would feed the
+  // seed function back its own output and produce garbage seeds.
+  const filteredRawAccounts = accountFilter
     ? accounts.filter((a) => String(a.id) === String(accountFilter))
     : accounts;
   // Effective balance: opening capital + every income/expense (real + past recurring
   // occurrences) up to now. This replaces the raw `bank_accounts.balance`, which only
   // counts each recurring definition once and drifts from reality after month one.
+  // Sum the per-account effective balances so the header matches what the dropdown
+  // shows and legacy accounts (without an opening income row) still contribute.
   const totalBalance = useMemo(
-    () => currentEffectiveBalance(income, expenses),
-    [income, expenses],
+    () => filteredAccounts.reduce((s, a) => s + Number(a.balance), 0),
+    [filteredAccounts],
   );
   const earliestAccountOpenedAt = filteredAccounts.reduce<number | null>((min, a) => {
     if (!a.created_at) return min;
@@ -167,7 +200,7 @@ export default function DashboardPage() {
             <div className="nav-account-filter">
               <select className="field-input" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
                 <option value="">Alle Konten</option>
-                {accounts.map((a) => <option key={a.id} value={a.id}>{a.label} ({formatMoney(a.balance)})</option>)}
+                {accountsWithEffectiveBalances.map((a) => <option key={a.id} value={a.id}>{a.label} ({formatMoney(a.balance)})</option>)}
               </select>
             </div>
           )}
@@ -212,6 +245,7 @@ export default function DashboardPage() {
                 foundingYear={user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}
                 currentBalance={totalBalance}
                 earliestAccountOpenedAt={earliestAccountOpenedAt}
+                accounts={filteredRawAccounts}
               />
             </div>
             <div className="panel">
@@ -256,7 +290,7 @@ export default function DashboardPage() {
               {accounts.length > 0 ? (
                 <IncomeForm
                   key={editIncome?.id ?? 'new'}
-                  bankAccounts={accounts}
+                  bankAccounts={accountsWithEffectiveBalances}
                   editEntry={editIncome}
                   onSaved={() => { setEditIncome(null); invalidate(); }}
                   onCancel={() => setEditIncome(null)}
@@ -287,7 +321,7 @@ export default function DashboardPage() {
               {accounts.length > 0 ? (
                 <ExpenseForm
                   key={editExpense?.id ?? 'new'}
-                  bankAccounts={accounts}
+                  bankAccounts={accountsWithEffectiveBalances}
                   editEntry={editExpense}
                   onSaved={() => { setEditExpense(null); invalidate(); }}
                   onCancel={() => setEditExpense(null)}
@@ -338,7 +372,7 @@ export default function DashboardPage() {
       <PeerTransferModal
         open={peerTransferOpen}
         onClose={() => setPeerTransferOpen(false)}
-        bankAccounts={accounts}
+        bankAccounts={accountsWithEffectiveBalances}
       />
     </div>
   );

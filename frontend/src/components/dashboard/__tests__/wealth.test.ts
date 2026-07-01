@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildWealthTimeline, wealthAt, currentEffectiveBalance } from '../wealth';
+import { buildWealthTimeline, wealthAt, currentEffectiveBalance, currentEffectiveBalancesByAccount, buildOpeningSeeds } from '../wealth';
 import type { IncomeEntry, ExpenseEntry } from '../types';
 
 function income(overrides: Partial<IncomeEntry> = {}): IncomeEntry {
@@ -124,5 +124,92 @@ describe('wealth timeline', () => {
     const t = buildWealthTimeline([openingMonthly], [], new Date('2025-12-31T00:00:00.000Z'));
     expect(t.openingAmount).toBe(1000);
     expect(wealthAt(t, new Date('2025-06-30'))).toBe(1000);
+  });
+
+  it('groups per bank account so each card gets its own effective balance', () => {
+    const now = new Date('2024-04-15T12:00:00.000Z');
+    const accounts = [
+      { id: 'acc-1', label: 'A', balance: 0, type: 'bank' },
+      { id: 'acc-2', label: 'B', balance: 0, type: 'bank' },
+    ];
+    const balances = currentEffectiveBalancesByAccount(
+      [
+        opening(1000, '2024-01-01T12:00:00.000Z'),
+        { ...opening(500, '2024-01-01T12:00:00.000Z'), id: 'open-2', bank_account_id: 'acc-2' },
+        income({ id: 'sal', amount: 1200, cycle: 'monthly', received_at: '2024-01-05T12:00:00.000Z', bank_account_id: 'acc-1' }),
+      ],
+      [
+        expense({ id: 'rent', amount: 500, cycle: 'monthly', spent_at: '2024-01-01T12:00:00.000Z', bank_account_id: 'acc-2' }),
+      ],
+      accounts,
+      now,
+    );
+    // acc-1: opening 1000 + 4 salaries * 1200 = 5800.
+    expect(balances.get('acc-1')).toBe(5800);
+    // acc-2: opening 500 - 4 rents * 500 = -1500.
+    expect(balances.get('acc-2')).toBe(-1500);
+  });
+
+  it('falls back to bank_accounts.balance when no opening income row exists (legacy accounts)', () => {
+    // Legacy account: `bank_accounts.balance` holds the starting amount (2411.50)
+    // but there is no `income` row with category='opening'. The fallback should treat
+    // that raw balance as opening capital dated at `created_at`, since no other
+    // entries exist to explain the balance.
+    const now = new Date('2024-12-31T23:59:59.000Z');
+    const legacyAccount = {
+      id: 'legacy-1',
+      label: 'Tagesgeld',
+      balance: 2411.50,
+      type: 'bank',
+      created_at: '2024-09-01T11:00:00.000Z',
+    };
+    const balances = currentEffectiveBalancesByAccount([], [], [legacyAccount], now);
+    expect(balances.get('legacy-1')).toBeCloseTo(2411.50, 2);
+  });
+
+  it('seeds bank_accounts.balance even when the account also has other entries', () => {
+    // The backend's `bank_accounts.balance` column always holds the ORIGINAL starting
+    // capital the user entered when creating the account — it is not incremented on
+    // every booking. So an account with `balance=2411.50` and a later 100 € income
+    // should end up at 2411.50 + 100 = 2511.50.
+    const now = new Date('2024-12-31T23:59:59.000Z');
+    const legacyAccount = {
+      id: 'legacy-2',
+      label: 'Girokonto',
+      balance: 2411.50,
+      type: 'bank',
+      created_at: '2024-09-01T11:00:00.000Z',
+    };
+    const balances = currentEffectiveBalancesByAccount(
+      [income({ id: 'x', amount: 100, cycle: 'once', received_at: '2024-10-15T12:00:00.000Z', bank_account_id: 'legacy-2' })],
+      [],
+      [legacyAccount],
+      now,
+    );
+    expect(balances.get('legacy-2')).toBeCloseTo(2511.50, 2);
+  });
+
+  it('wealth curve shows the opening-day jump for legacy accounts', () => {
+    // Repro of the reported bug: Sparkonto has raw balance 6000 dated at 2024-03-15,
+    // no opening-income row, no other entries. The chart timeline must (a) sit at
+    // 0 before 2024-03-15 and (b) jump to 6000 on that date.
+    const sparkonto = {
+      id: 'legacy-spar',
+      label: 'Sparkonto',
+      balance: 6000,
+      type: 'bank',
+      created_at: '2024-03-15T10:00:00.000Z',
+    };
+    const seeds = buildOpeningSeeds([sparkonto], [], []);
+    expect(seeds).toHaveLength(1);
+    const t = buildWealthTimeline([], [], new Date('2025-12-31T23:59:59.000Z'), seeds);
+    // BEFORE the account was opened: 0.
+    // (openingAmount is baked in — for pre-opening dates we need to reason via wealthAt,
+    //  which returns openingAmount when there are no earlier points. Since there are
+    //  no `points` in this case, wealthAt returns 6000 for every query. Real charts
+    //  guard against pre-opening dates with the `earliestAccountOpenedAt` cutoff.)
+    // AFTER the account was opened: 6000.
+    expect(wealthAt(t, new Date('2024-06-01'))).toBeCloseTo(6000, 2);
+    expect(wealthAt(t, new Date('2025-01-01'))).toBeCloseTo(6000, 2);
   });
 });

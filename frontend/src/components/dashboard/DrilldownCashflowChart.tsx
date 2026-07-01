@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { formatMoney, type IncomeEntry, type ExpenseEntry } from './types';
-import { buildWealthTimeline, wealthAt, type WealthTimeline } from './wealth';
+import { formatMoney, type IncomeEntry, type ExpenseEntry, type BankAccount } from './types';
+import { buildWealthTimeline, wealthAt, buildOpeningSeeds, type WealthTimeline } from './wealth';
 import { expandAllRecurring } from './recurring';
 
 type ChartLevel = 'timeline' | 'year' | 'month';
@@ -133,6 +133,7 @@ export function DrilldownCashflowChart({
   expenses,
   foundingYear,
   earliestAccountOpenedAt = null,
+  accounts = [],
 }: {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
@@ -140,6 +141,14 @@ export function DrilldownCashflowChart({
   /** Kept for backwards compat with call sites; no longer used for wealth math. */
   currentBalance?: number;
   earliestAccountOpenedAt?: number | null;
+  /**
+   * Raw bank accounts (with the untouched `balance` field from the backend). Needed so
+   * the wealth curve can seed legacy opening amounts — accounts whose starting capital
+   * lives on `bank_accounts.balance` without a matching `income` row of category
+   * 'opening'. Without seeds the curve silently drops those amounts and diverges from
+   * the header saldo.
+   */
+  accounts?: BankAccount[];
 }) {
   const currentYear = new Date().getFullYear();
   const defaultWindowStart = currentYear - 4;
@@ -165,8 +174,14 @@ export function DrilldownCashflowChart({
   );
 
   const timeline = useMemo(
-    () => buildWealthTimeline(income, expenses, horizonEnd),
-    [income, expenses, horizonEnd],
+    () => {
+      // Fold legacy opening seeds into the timeline so the wealth curve starts at the
+      // right level and shows the opening-day jump for accounts whose starting capital
+      // was never persisted as an `income` row.
+      const seeds = buildOpeningSeeds(accounts, income, expenses);
+      return buildWealthTimeline(income, expenses, horizonEnd, seeds);
+    },
+    [income, expenses, horizonEnd, accounts],
   );
 
   const data = useMemo(() => {
