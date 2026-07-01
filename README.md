@@ -28,7 +28,7 @@ npm run install:all
 cp backend/.dev.vars.example backend/.dev.vars
 ```
 
-Dann `backend/.dev.vars` öffnen und die API-Keys eintragen (`BREVO_API_KEY`, `FINNHUB_API_KEY`, `OPENROUTER_API_KEY`, `LOGO_DEV_API_KEY`). Jede Variable ist in der Datei selbst erklärt — inkl. wo man den Wert bekommt und was passiert, wenn sie fehlt.
+Dann `backend/.dev.vars` öffnen und die API-Keys eintragen (`BREVO_API_KEY`, `FINNHUB_API_KEY`, `OPENROUTER_API_KEY`, `LOGO_DEV_API_KEY`).
 
 ### Schritt 3 — Frontend-Konfiguration
 
