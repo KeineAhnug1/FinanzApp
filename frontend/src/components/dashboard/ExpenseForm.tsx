@@ -61,7 +61,6 @@ export function ExpenseForm({
   });
 
   const cycleValue = useWatch({ control, name: 'cycle' });
-  const selectedAccountId = useWatch({ control, name: 'bank_account_id' });
   const isRecurring = cycleValue && cycleValue !== 'once';
 
   const onSubmit = async (data: ExpenseFormData) => {
