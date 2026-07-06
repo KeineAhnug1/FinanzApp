@@ -64,16 +64,7 @@ export function ExpenseForm({
   const selectedAccountId = useWatch({ control, name: 'bank_account_id' });
   const isRecurring = cycleValue && cycleValue !== 'once';
 
-  const selectedAccount = bankAccounts.find((a) => a.id === selectedAccountId);
-  const minDate = selectedAccount?.created_at
-    ? toDatetimeLocal(new Date(selectedAccount.created_at))
-    : undefined;
-
   const onSubmit = async (data: ExpenseFormData) => {
-    if (minDate && data.spent_at < minDate) {
-      toast.error('Datum liegt vor der Kontoeröffnung');
-      return;
-    }
     const url = editEntry ? `/api/finance/expenses/${editEntry.id}` : '/api/finance/expenses';
     const method = editEntry ? 'PATCH' : 'POST';
     const recurrence = data.cycle === 'once' ? null : parseRecurrence(data.recurrence);
@@ -161,7 +152,7 @@ export function ExpenseForm({
       <div className="form-two-cols">
         <div>
           <label className="field-label">Datum</label>
-          <input className="field-input" type="datetime-local" min={minDate} {...register('spent_at')} />
+          <input className="field-input" type="datetime-local" {...register('spent_at')} />
         </div>
         <div>
           <label className="field-label" htmlFor="expense-bank-account">Konto</label>

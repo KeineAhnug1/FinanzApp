@@ -23,7 +23,6 @@ import {
   uniqueCategoryList,
   categoryKey,
   toFixedAmount,
-  assertDateAfterAccountOpening,
   PRESET_INCOME_CATEGORY_KEYS,
   PRESET_EXPENSE_CATEGORY_KEYS,
 } from '@/lib/helpers/finance';
@@ -424,9 +423,6 @@ finance.post('/expenses', async (c) => {
   const bankAccountId = selectedId && accountIds.includes(selectedId) ? selectedId : (accountIds[0] ?? 0);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
-  const dateErr = await assertDateAfterAccountOpening(auth.db, bankAccountId, spentAt);
-  if (dateErr) return badRequest(dateErr);
-
   const { data: inserted } = await auth.db.from('private_expenses').insert({
     bank_account_id: bankAccountId,
     source, category, amount,
@@ -492,9 +488,6 @@ finance.patch('/expenses/:id', async (c) => {
     ? requestedBankAccountId
     : Number(existing.bank_account_id);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
-
-  const dateErr = await assertDateAfterAccountOpening(auth.db, nextAccountId, spentAt);
-  if (dateErr) return badRequest(dateErr);
 
   const { data: updated } = await auth.db.from('private_expenses').update({
     bank_account_id: nextAccountId,
@@ -646,9 +639,6 @@ finance.post('/income', async (c) => {
   const bankAccountId = selectedId && accountIds.includes(selectedId) ? selectedId : (accountIds[0] ?? 0);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
 
-  const dateErr = await assertDateAfterAccountOpening(auth.db, bankAccountId, receivedAt);
-  if (dateErr) return badRequest(dateErr);
-
   const { data: inserted } = await auth.db.from('income').insert({
     bank_account_id: bankAccountId,
     source, category, amount,
@@ -715,9 +705,6 @@ finance.patch('/income/:id', async (c) => {
     ? requestedBankAccountId
     : Number(existing.bank_account_id);
   const { effectiveRecurrence, effectiveIsActive, effectiveState } = resolveEntryState(cycle, recurrence, isActive);
-
-  const dateErr = await assertDateAfterAccountOpening(auth.db, nextAccountId, receivedAt);
-  if (dateErr) return badRequest(dateErr);
 
   const { data: updated } = await auth.db.from('income').update({
     bank_account_id: nextAccountId,
@@ -834,11 +821,6 @@ finance.post('/transfers', async (c) => {
   if (fromId === toId) return badRequest('Quell- und Zielkonto müssen unterschiedlich sein');
   if (!Number.isFinite(amount) || amount <= 0) return badRequest('Betrag muss größer 0 sein');
   if (Number.isNaN(dateRaw.getTime())) return badRequest('Datum ist ungültig');
-
-  const fromDateErr = await assertDateAfterAccountOpening(auth.db, fromId, dateRaw);
-  if (fromDateErr) return badRequest(fromDateErr);
-  const toDateErr = await assertDateAfterAccountOpening(auth.db, toId, dateRaw);
-  if (toDateErr) return badRequest(toDateErr);
 
   const fromAccount = accountById.get(fromId)!;
   const toAccount = accountById.get(toId)!;

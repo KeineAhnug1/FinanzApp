@@ -248,6 +248,7 @@ export function StockDetailDrawer({ symbol, onClose, ownedShares, avgBuyPrice, l
         queryClient.invalidateQueries({ queryKey: ['stock-quotes'] });
         queryClient.invalidateQueries({ queryKey: ['all-histories'] });
         queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
       } else {
         toast.error(data.message ?? 'Fehler');
       }

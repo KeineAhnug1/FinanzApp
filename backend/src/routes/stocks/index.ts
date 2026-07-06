@@ -6,7 +6,7 @@ import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { parseBody } from '@/lib/utils/http';
 import { badRequest, notFound, jsonResponse } from '@/lib/utils/responses';
 import { getConfig } from '@/lib/config';
-import { incrementBankAccountBalance, toFixedAmount } from '@/lib/helpers/finance';
+import { toFixedAmount } from '@/lib/helpers/finance';
 import type { DbClient } from '@/lib/db';
 
 const stocks = new Hono<{ Bindings: Env }>();
@@ -311,7 +311,7 @@ stocks.post('/positions/buy', async (c) => {
 
   const { data: bank } = await auth.db
     .from('bank_accounts')
-    .select('id, balance')
+    .select('id')
     .eq('id', bankAccountId)
     .eq('user_id', auth.user.id)
     .maybeSingle();
@@ -324,8 +324,6 @@ stocks.post('/positions/buy', async (c) => {
   if (fxToEur == null) return jsonResponse({ ok: false, message: 'Wechselkurs nicht verfügbar' }, 503);
 
   const cost = toFixedAmount(quote.price * shares * fxToEur);
-  const balance = toFixedAmount((bank as { balance: unknown }).balance);
-  if (balance < cost) return badRequest('Nicht genügend Guthaben auf dem Bankkonto');
 
   let accountId: number | null;
   if (shareAccountId !== null) {
@@ -342,15 +340,30 @@ stocks.post('/positions/buy', async (c) => {
   }
   if (!accountId) return jsonResponse({ ok: false, message: 'Aktienkonto konnte nicht erstellt werden' }, 500);
 
+  const nowIso = new Date().toISOString();
   await auth.db.from('shares').insert({
     share_account_id: accountId,
     symbol,
     units: shares,
     bought_for: toFixedAmount(quote.price),
-    bought_at: new Date().toISOString(),
+    bought_at: nowIso,
   });
 
-  await incrementBankAccountBalance(auth.db, bankAccountId, -cost);
+  await auth.db.from('private_expenses').insert({
+    bank_account_id: bankAccountId,
+    source: `Aktienkauf ${symbol}`,
+    category: 'investment',
+    amount: cost,
+    spent_at: nowIso,
+    due_date: nowIso,
+    pay_date: nowIso,
+    info: `Kauf von ${shares} Anteilen ${symbol} à ${toFixedAmount(quote.price)} ${quote.currency}`,
+    note: '',
+    state: 'open',
+    cycle: 'once',
+    is_active: true,
+    recurrence: null,
+  });
 
   return jsonResponse({
     ok: true,
@@ -465,7 +478,21 @@ stocks.post('/positions/sell', async (c) => {
   }
 
   const proceeds = toFixedAmount(quote.price * shares * fxToEur);
-  await incrementBankAccountBalance(auth.db, bankAccountId, proceeds);
+  const nowIso = new Date().toISOString();
+  await auth.db.from('income').insert({
+    bank_account_id: bankAccountId,
+    source: `Aktienverkauf ${symbol}`,
+    category: 'investment',
+    amount: proceeds,
+    received_at: nowIso,
+    pay_date: nowIso,
+    info: `Verkauf von ${shares} Anteilen ${symbol} à ${toFixedAmount(quote.price)} ${quote.currency}`,
+    note: '',
+    state: 'open',
+    cycle: 'once',
+    is_active: true,
+    recurrence: null,
+  });
 
   return jsonResponse({
     ok: true,

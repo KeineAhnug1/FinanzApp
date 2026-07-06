@@ -64,16 +64,7 @@ export function IncomeForm({
   const selectedAccountId = useWatch({ control, name: 'bank_account_id' });
   const isRecurring = cycleValue && cycleValue !== 'once';
 
-  const selectedAccount = bankAccounts.find((a) => a.id === selectedAccountId);
-  const minDate = selectedAccount?.created_at
-    ? toDatetimeLocal(new Date(selectedAccount.created_at))
-    : undefined;
-
   const onSubmit = async (data: IncomeFormData) => {
-    if (minDate && data.received_at < minDate) {
-      toast.error('Datum liegt vor der Kontoeröffnung');
-      return;
-    }
     const url = editEntry ? `/api/finance/income/${editEntry.id}` : '/api/finance/income';
     const method = editEntry ? 'PATCH' : 'POST';
     const recurrence = data.cycle === 'once' ? null : parseRecurrence(data.recurrence);
@@ -161,7 +152,7 @@ export function IncomeForm({
       <div className="form-two-cols">
         <div>
           <label className="field-label">Datum</label>
-          <input className="field-input" type="datetime-local" min={minDate} {...register('received_at')} />
+          <input className="field-input" type="datetime-local" {...register('received_at')} />
         </div>
         <div>
           <label className="field-label" htmlFor="income-bank-account">Konto</label>

@@ -70,6 +70,7 @@ export const EXPENSE_CATEGORIES = [
   { value: 'transport', label: 'Mobilität' },
   { value: 'health', label: 'Gesundheit' },
   { value: 'entertainment', label: 'Freizeit' },
+  { value: 'investment', label: 'Investition' },
   { value: 'transfer', label: 'Transfer' },
   { value: 'other', label: 'Sonstiges' },
 ];
